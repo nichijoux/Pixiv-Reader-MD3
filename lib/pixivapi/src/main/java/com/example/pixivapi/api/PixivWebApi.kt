@@ -17,6 +17,10 @@ interface PixivWebApi {
     @GET("ajax/illust/{illust_id}")
     suspend fun getWebIllust(@Path("illust_id") illustId: Long): WebResponse<WebIllust>
 
+    /** 网页小说详情（正文 + 嵌入图片映射 textEmbeddedImages） */
+    @GET("ajax/novel/{novel_id}")
+    suspend fun getNovelWeb(@Path("novel_id") novelId: Long): WebResponse<WebNovel>
+
     /** 每 P 真实原图宽高（app-api 不提供，用于多 P 详情预置展示高度） */
     @GET("ajax/illust/{illust_id}/pages")
     suspend fun getIllustPages(@Path("illust_id") illustId: Long): WebResponse<List<WebIllustPage>>

@@ -110,10 +110,10 @@ fun IllustCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    PixivImage(
-                        url = user.profile_image_urls?.px_50x50 ?: user.profile_image_urls?.px_16x16,
-                        contentDescription = user.name,
-                        modifier = Modifier.size(20.dp).clip(RoundedCornerShape(10.dp)),
+                    UserAvatar(
+                        name = user.name,
+                        avatarUrl = user.profile_image_urls?.best(),
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = user.name.orEmpty(),

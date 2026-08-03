@@ -93,6 +93,10 @@ fun PixivNavGraph(
             NovelDetailRoute(
                 novelId = novelId,
                 onBack = { navController.popBackStack() },
+                onOpenNovel = { id ->
+                    // 系列分册：点击打开该分册的小说详情
+                    navController.navigate("novel/$id")
+                },
                 onOpenReader = { id ->
                     navController.navigate("reader/$id")
                 },
@@ -108,7 +112,8 @@ fun PixivNavGraph(
                 novelId = novelId,
                 onBack = { navController.popBackStack() },
                 onOpenNovel = { id ->
-                    navController.navigate("novel/$id")
+                    // 系列目录：点击其他分册直接打开该本阅读器
+                    navController.navigate("reader/$id")
                 },
             )
         }

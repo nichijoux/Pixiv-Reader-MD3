@@ -175,4 +175,52 @@ class NovelParserTest {
         assertTrue(doc.fullText.contains("这是第二段正文内容"))
         assertTrue(doc.fullText.contains("这是第三段正文内容"))
     }
+
+    @Test
+    fun `正文中的插图标记被切分为图片块`() {
+        val html = "<html><body><div id='root'></div>" +
+            "<script>window.pixiv={\"novel\":{\"text\":\"开头一段。\\n[uploadedimage:01.png]\\n中间一段。\\n[pixivimage:123456]\\n结尾一段。\"}}</script>" +
+            "</body></html>"
+        val imageUrls = mapOf("uploadedimage:01.png" to "https://i.pximg.net/novel-upload-original/img/2025/01/01/00/00/00/01.png")
+        val doc = NovelParser.parse(html, imageUrls)
+
+        val types = doc.blocks.map { it::class.simpleName }
+        assertEquals(
+            listOf("Paragraph", "Image", "Paragraph", "Image", "Paragraph"),
+            types,
+        )
+
+        val images = doc.blocks.filterIsInstance<NovelBlock.Image>()
+        // uploadedimage 用传入映射解析为真实 URL
+        assertEquals("https://i.pximg.net/novel-upload-original/img/2025/01/01/00/00/00/01.png", images[0].url)
+        // pixivimage 无映射时保留标记协议串，由上层异步解析
+        assertEquals("pixivimage:123456", images[1].url)
+
+        // 文本块不含标记，且图片不占用全文区间
+        assertFalse(doc.fullText.contains("[uploadedimage"))
+        assertFalse(doc.fullText.contains("[pixivimage"))
+        assertTrue(doc.fullText.contains("开头一段"))
+        assertTrue(doc.fullText.contains("结尾一段"))
+        assertEquals(0, images[0].startChar)
+        assertEquals(0, images[0].endChar)
+    }
+
+    @Test
+    fun `段落中间嵌入图片时文本前后均保留`() {
+        val html = "<html><body><div id='root'></div>" +
+            "<script>window.pixiv={\"novel\":{\"text\":\"前半部分文字[uploadedimage:02.png]后半部分文字\"}}</script>" +
+            "</body></html>"
+        val imageUrls = mapOf("uploadedimage:02.png" to "https://i.pximg.net/x/02.png")
+        val doc = NovelParser.parse(html, imageUrls)
+
+        val types = doc.blocks.map { it::class.simpleName }
+        assertEquals(listOf("Paragraph", "Image", "Paragraph"), types)
+        val first = doc.blocks[0] as NovelBlock.Paragraph
+        assertTrue(first.text.contains("前半部分文字"))
+        val last = doc.blocks[2] as NovelBlock.Paragraph
+        assertTrue(last.text.contains("后半部分文字"))
+        // 进度全文按顺序拼接且不含标记
+        assertTrue(doc.fullText.contains("前半部分文字"))
+        assertTrue(doc.fullText.contains("后半部分文字"))
+    }
 }

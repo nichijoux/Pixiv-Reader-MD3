@@ -34,23 +34,23 @@ object NovelParser {
         "article",
     )
 
-    fun parse(html: String): NovelDocument {
+    fun parse(html: String, imageUrls: Map<String, String> = emptyMap()): NovelDocument {
         if (html.isBlank()) return NovelDocument.EMPTY
         val doc = Jsoup.parse(html)
 
         // 1) 逐个候选容器尝试，第一个能提取到内容者胜出
         for (selector in ROOT_SELECTORS) {
             val root = doc.selectFirst(selector) ?: continue
-            val blocks = tryExtract(root)
+            val blocks = tryExtract(root, imageUrls)
             if (blocks.isNotEmpty()) return buildDocument(blocks)
         }
 
         // 2) 整页正文兜底（任意 DOM 结构，跳过 script/style）
-        val bodyBlocks = tryExtract(doc.body())
+        val bodyBlocks = tryExtract(doc.body(), imageUrls)
         if (bodyBlocks.isNotEmpty()) return buildDocument(bodyBlocks)
 
         // 3) React 页面内嵌 JSON 兜底（正文在 <script> 里）
-        val scriptBlocks = extractFromScripts(doc)
+        val scriptBlocks = extractFromScripts(doc, imageUrls)
         if (scriptBlocks.isNotEmpty()) return buildDocument(scriptBlocks)
 
         return NovelDocument.EMPTY
@@ -85,10 +85,10 @@ object NovelParser {
     }
 
     /** 在单个容器内尝试结构化提取，失败时用全文提取兜底。 */
-    private fun tryExtract(root: Element): List<NovelBlock> {
+    private fun tryExtract(root: Element, imageUrls: Map<String, String>): List<NovelBlock> {
         val raw = extractBlocks(root)
         if (raw.isNotEmpty()) return raw
-        return textFallback(root)
+        return textFallback(root, imageUrls)
     }
 
     // ── 结构化提取 ────────────────────────────────────────────────────────────
@@ -166,31 +166,43 @@ object NovelParser {
         return NovelBlock.Image(url, caption.takeIf { it.isNotBlank() })
     }
 
-    /** 全文文本兜底：保留换行的结构提取，按空行切段。 */
-    private fun textFallback(root: Element): List<NovelBlock> {
+    /** 全文文本兜底：保留换行的结构提取，按空行切段，再切分嵌入图片标记。 */
+    private fun textFallback(root: Element, imageUrls: Map<String, String>): List<NovelBlock> {
         val paragraphs = extractAllText(root)
             .map { cleanText(it) }
             .filter { it.isNotBlank() }
         if (paragraphs.isEmpty()) return emptyList()
-        return paragraphs.map { NovelBlock.Paragraph(indent(it)) }
+        return paragraphs.flatMap { splitEmbeddedImages(it, imageUrls) }
     }
 
     /**
      * React 渲染页面兜底：正文以 JSON 字符串内嵌在 `<script>` 中。
-     * 提取形如 `"content":"..."` / `"text":"..."` 的长文本值（含换行与 CJK），
-     * 去转义后按换行切段。
+     * 如 `window.pixiv.novel.text`（pixiv isV2 页面，正文 `\uXXXX` 转义、含 `\n` 换行）。
+     * 用「indexOf 定位键 + 逐字符解析 JSON 字符串」而非正则匹配：
+     * 正文字符串可长达几十万字符，正则回溯会触发 StackOverflowError。
+     *
+     * 正文中的插图以标记内嵌（`[pixivimage:ID]` 引用画作 / `[uploadedimage:file]` 上传图），
+     * 由 [splitEmbeddedImages] 切分为图片块；[imageUrls] 提供标记内容 → 图片 URL 的映射
+     * （来自 `ajax/novel/{id}` 的 textEmbeddedImages），缺失时保留标记协议串供上层异步解析。
      */
-    private fun extractFromScripts(doc: Document): List<NovelBlock> {
+    private fun extractFromScripts(doc: Document, imageUrls: Map<String, String>): List<NovelBlock> {
         val scriptTexts = doc.select("script").map { it.html() }.filter { it.isNotBlank() }
         val candidates = mutableListOf<String>()
-        val fieldRegex = Regex("\"(?:content|text|description)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+        val fields = listOf("content", "text", "description", "body")
         for (raw in scriptTexts) {
-            for (m in fieldRegex.findAll(raw)) {
-                val value = decodeJsonString(m.groupValues[1])
-                // 只收包含较多中/日/韩字符的长文本，过滤掉脚本噪音
-                val cjkCount = value.count { isCjk(it) }
-                if (value.length >= 20 && cjkCount >= value.length / 3) {
-                    candidates.add(value)
+            for (field in fields) {
+                var searchFrom = 0
+                while (true) {
+                    val key = raw.indexOf("\"$field\"", searchFrom)
+                    if (key < 0) break
+                    searchFrom = key + 1
+                    val value = readJsonStringValue(raw, key + field.length + 2) ?: continue
+                    // 只收包含较多中/日/韩字符的长文本，过滤掉脚本噪音
+                    // （正文含大量插图标记时 CJK 占比会下降，故放宽为「至少 10 个 CJK 或占比 1/3」）
+                    val cjkCount = value.count { isCjk(it) }
+                    if (value.length >= 20 && (cjkCount >= 10 || cjkCount >= value.length / 3)) {
+                        candidates.add(value)
+                    }
                 }
             }
         }
@@ -201,36 +213,96 @@ object NovelParser {
             .split(Regex("\\n+"))
             .map { cleanText(it) }
             .filter { it.isNotBlank() }
-        if (paragraphs.isEmpty()) return emptyList()
-        return paragraphs.map { NovelBlock.Paragraph(indent(it)) }
+        val blocks = paragraphs.flatMap { splitEmbeddedImages(it, imageUrls) }
+        if (blocks.isEmpty()) return emptyList()
+        return blocks
     }
 
-    private fun decodeJsonString(escaped: String): String {
+    /** 正文插图标记：`[pixivimage:ID]`（画作引用）/ `[uploadedimage:file]`（上传图）。 */
+    private val EMBEDDED_IMAGE_RE = Regex("\\[pixivimage:\\d+\\]|\\[uploadedimage:[^\\]]+\\]")
+
+    /**
+     * 把一段正文按嵌入图片标记切分为「段落 / 图片」块序列。
+     * [imageUrls] 键为标记内容（`uploadedimage:file`），值为图片 URL；
+     * 映射缺失时图片 URL 保留标记协议串（如 `pixivimage:123456`），由上层异步解析真实 URL。
+     */
+    private fun splitEmbeddedImages(paragraph: String, imageUrls: Map<String, String>): List<NovelBlock> {
+        val result = mutableListOf<NovelBlock>()
+        var cursor = 0
+        for (m in EMBEDDED_IMAGE_RE.findAll(paragraph)) {
+            val before = paragraph.substring(cursor, m.range.first)
+            if (before.isNotBlank()) result.add(NovelBlock.Paragraph(indent(before)))
+            val content = m.value.removePrefix("[").removeSuffix("]")
+            result.add(NovelBlock.Image(resolveEmbeddedUrl(content, imageUrls), null))
+            cursor = m.range.last + 1
+        }
+        if (cursor < paragraph.length) {
+            val rest = paragraph.substring(cursor)
+            if (rest.isNotBlank()) result.add(NovelBlock.Paragraph(indent(rest)))
+        }
+        return result
+    }
+
+    /** 标记内容 → 图片 URL：优先完整标记内容，其次去掉前缀的纯文件名。 */
+    private fun resolveEmbeddedUrl(content: String, imageUrls: Map<String, String>): String {
+        imageUrls[content]?.let { return it }
+        imageUrls[content.substringAfter(':', content)]?.let { return it }
+        return content
+    }
+
+    /**
+     * 从脚本文本指定位置开始，读取一个 JSON 字符串字面量的值（自动解码 `\uXXXX`/`\n` 等转义）。
+     * 不依赖正则回溯，长文本（几十万字符）下安全。
+     *
+     * @param keyEnd 键名结束位置（键名最后一个字符的下标 + 1），函数会跳过空白与冒号定位值。
+     */
+    private fun readJsonStringValue(raw: String, keyEnd: Int): String? {
+        var i = keyEnd
+        // 跳过空白与冒号，定位值起始引号
+        while (i < raw.length) {
+            val c = raw[i]
+            if (c == ':' || c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+                i++
+                continue
+            }
+            break
+        }
+        if (i >= raw.length || raw[i] != '"') return null
         val sb = StringBuilder()
-        var i = 0
-        while (i < escaped.length) {
-            val c = escaped[i]
-            if (c == '\\' && i + 1 < escaped.length) {
-                when (val next = escaped[i + 1]) {
-                    'n' -> { sb.append('\n'); i += 2; continue }
-                    'r' -> { sb.append('\r'); i += 2; continue }
-                    't' -> { sb.append('\t'); i += 2; continue }
-                    '"' -> { sb.append('"'); i += 2; continue }
-                    '\\' -> { sb.append('\\'); i += 2; continue }
+        i++
+        while (i < raw.length) {
+            val c = raw[i]
+            if (c == '\\') {
+                if (i + 1 >= raw.length) return null
+                val next = raw[i + 1]
+                when (next) {
+                    'n' -> { sb.append('\n'); i += 2 }
+                    'r' -> { sb.append('\r'); i += 2 }
+                    't' -> { sb.append('\t'); i += 2 }
+                    'b' -> { sb.append('\b'); i += 2 }
+                    'f' -> { sb.append('\u000C'); i += 2 }
+                    '"' -> { sb.append('"'); i += 2 }
+                    '\\' -> { sb.append('\\'); i += 2 }
+                    '/' -> { sb.append('/'); i += 2 }
                     'u' -> {
-                        if (i + 5 < escaped.length) {
-                            val hex = escaped.substring(i + 2, i + 6)
+                        if (i + 5 < raw.length) {
+                            val hex = raw.substring(i + 2, i + 6)
                             sb.append(hex.toIntOrNull(16)?.toChar() ?: next)
                             i += 6
-                            continue
+                        } else {
+                            return null
                         }
                     }
+                    else -> { sb.append(next); i += 2 }
                 }
+            } else if (c == '"') {
+                return sb.toString()
+            } else {
+                sb.append(c)
+                i++
             }
-            sb.append(c)
-            i++
         }
-        return sb.toString()
+        return null
     }
 
     private fun isCjk(c: Char): Boolean {

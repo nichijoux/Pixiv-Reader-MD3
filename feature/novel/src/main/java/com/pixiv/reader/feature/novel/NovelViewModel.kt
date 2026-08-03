@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.novel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.pixivapi.model.Comment
 import com.example.pixivapi.model.Novel
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
@@ -34,6 +35,13 @@ class NovelViewModel @Inject constructor(
     /** 系列详情（含章节列表） */
     private val _seriesNovels = MutableStateFlow<List<Novel>>(emptyList())
     val seriesNovels: StateFlow<List<Novel>> = _seriesNovels.asStateFlow()
+
+    /** 评论（第一页） */
+    private val _comments = MutableStateFlow<List<Comment>>(emptyList())
+    val comments: StateFlow<List<Comment>> = _comments.asStateFlow()
+
+    private val _commentsLoading = MutableStateFlow(false)
+    val commentsLoading: StateFlow<Boolean> = _commentsLoading.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -74,6 +82,7 @@ class NovelViewModel @Inject constructor(
                     _isBookmarked.value = detail.is_bookmarked == true
                     loadProgress()
                     loadSeries(detail)
+                    loadComments()
                 }
                 .onFailure {
                     _error.value = it.message ?: "加载失败"
@@ -94,6 +103,18 @@ class NovelViewModel @Inject constructor(
                     _seriesNovels.value = resp.novels.orEmpty()
                     _isWatchlisted.value = resp.novel_series_detail?.watchlist_added == true
                 }
+        }
+    }
+
+    /** 加载评论区（第一页主评论）。 */
+    fun loadComments() {
+        if (_commentsLoading.value) return
+        viewModelScope.launch {
+            _commentsLoading.value = true
+            runCatching { pixivRepository.api.getNovelComments(novelId) }
+                .onSuccess { resp -> _comments.value = resp.comments }
+                .onFailure { _comments.value = emptyList() }
+            _commentsLoading.value = false
         }
     }
 

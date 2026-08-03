@@ -318,4 +318,33 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **仿真翻页重写（第六轮，直接移植 legado-with-MD3）**：`SimulationPageContent.kt` 忠实移植 `SimulationPageDelegate`——贝塞尔曲线卷页路径 mPath0（两条 quadraticTo 构造真实纸页卷曲）、当前页 = 整页 − 卷页区域（ClipOp.Difference）、下一页在卷页区域内绘制 + 柔光阴影、**纸背先铺背景色再沿折痕镜像当前页内容并灰化**（彻底解决文字黑影重叠）；拖拽点位置驱动卷页，松手回弹/翻过动画；翻下一页卷右下角、上一页卷左下角；点击三区翻页/设置
 - **仿真翻页修正（第七轮）**：① 角落改为**按触摸点象限动态选择**（点页面哪个区就掀哪个角，对齐 legado `calcCornerXY`；右上/右下=下一页，左上/左下=上一页）；② 纸背**不再绘制镜像文字**——只填充纸色 + 边缘渐变阴影，彻底消除文字黑影重叠
 - **仿真翻页修正（第八轮）**：下一页**只在"下一页露出三角"（mPath0 ∩ nextTri）内绘制**，卷页区域其余部分保持背景色被遮挡（不再把下一页整页铺底层导致提前透出文字，对齐 legado `drawNextPageAreaAndShadow` 只在 mPath1 内画 bitmap）
-- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 新增 4（div 段落/纯 div 兜底/script 排除/React JSON 兜底），总计 35 用例
+- **阅读器增强（目录/搜索/自定义字体/跟随系统）**：
+  - **目录**：从 `NovelBlock.Heading` 提取（无标题时用长段落分节），底栏"目录"按钮 → ModalBottomSheet 列表 → 点击按 `jumpToChar` 跳转（滑动/翻页/仿真三模式均支持）
+  - **文本搜索**：全文忽略大小写搜索，`searchResults` + 上一条/下一条跳转 + 匹配上下文列表；底栏"搜索"按钮 → 底部面板
+  - **自定义字体**：`UserPreferences.readerCustomFontPath` + 系统文件选择器导入（复制到 filesDir/fonts/），字体选项新增"自定义"（`FontFamily(Font(File(path)))`，损坏回退衬线）
+  - **主题跟随系统**：`readerFollowSystem` 偏好 + `isSystemInDarkTheme()`，开启后按系统深色自动切「夜间/纸张」，设置面板加 Switch（开启时主题分段禁用）
+- **阅读器 UI 沉浸化（第九轮）**：默认只显示正文（无顶栏/底栏）；点击正文中间 1/3 切换工具栏显隐；顶栏 = 返回 + 标题 + 竖排三点（更多菜单：收藏/阅读书签/追更）；底栏 `ReaderToolBar` = 目录 + 百分比 + 搜索 + 设置；翻页/仿真模式左右边缘点击仍可翻页（仿真内部只处理左右边缘，中间交外层）
+- **工具栏点击修复（第十轮）**：中间点击原由父层 `detectTapGestures` 处理，但子层手势（仿真 tap / pager / 滚动）消费指针事件导致父层收不到 up → 改为**内容上方叠加中间 1/3 透明覆盖层**（`pointerInput` 专属处理工具栏切换，不消费拖动、滑动穿透）；父层仅处理翻页模式左右边缘翻页，仿真模式父层不注册手势；左右边缘翻页/拖动均不受影响
+- **工具栏浮层化（第十一轮）**：去掉 Scaffold 的 topBar/bottomBar（会挤压正文）→ 改为 **Box 浮层**：正文始终全屏（`statusBarsPadding`/`navigationBarsPadding` 避开系统栏），顶栏（返回/标题/三点更多）与底栏 `ReaderToolBar`（目录/搜索/设置）`align(TopCenter/BottomCenter)` 叠加在正文之上，弹出时**不挤压正文**；**阅读百分比移出工具栏**（进度仍按字符落库恢复）
+- **工具栏沉浸 + 点击交互（第十二轮）**：顶/底栏背景 `themeColors.topBar.copy(alpha = 0.92f)` 半透明融入正文；**工具栏显示时点击正文左右边缘不再翻页，而是关闭工具栏**（翻页模式由正文 Box `pointerInput(pageMode, barsVisible)` 处理、仿真模式由 `SimulationPageContent` 新增 `barsVisible`/`onCloseBars` 处理，`pointerInput` key 含 `barsVisible` 保证状态变化后重启捕获最新值）
+- **工具栏实色沉浸（第十三轮）**：用户要求**不透明** + **背景覆盖系统栏** → 顶/底栏浮层 Box 背景改为**实色 `themeColors.topBar`**（去掉 0.92 半透明），Box 不再 `statusBarsPadding`/`navigationBarsPadding`（背景延伸覆盖时间栏/小白条），内部内容改用 `Modifier.statusBarsPadding()` / 内层 `navigationBarsPadding()` 包裹避让；`TopAppBar` containerColor 设 `Color.Transparent`（背景由 Box 统一承担），`ReaderToolBar` Row 恢复实色背景
+- **修复部分小说无法显示（第十四轮）**：pixiv isV2 页面（`isV2:true`）正文**不在 DOM**，而在 `<script>` 内 `window.pixiv.novel.text`（`\uXXXX` 转义、几十万字符）；原 `extractFromScripts` 用正则 `"text"\s*:\s*"...((?:[^"\\]|\\.)*)"` 匹配 → 超长文本**正则回溯触发 StackOverflowError**（Pattern.java:4106），Android 上表现不同导致静默返回空 → blocks=0。修复：**弃用正则匹配字段值**，改 `indexOf` 定位键 + `readJsonStringValue` 逐字符解析 JSON 字符串字面量（O(n)，处理 `\uXXXX`/`\n`/`\"`/`\/` 等转义），字段名扩展 `content/text/description/body`。真实样本加入回归测试（`DebugRealHtmlTest` + `test/resources/debug/26256802.html`）：blocks=2532, textLength=91654
+- **小说插图支持（第十五轮）**：pixiv 正文插图以标记内嵌（`[pixivimage:ID]` 引用画作 / `[uploadedimage:ID]` 上传图）。`NovelParser` 新增 `parse(html, imageUrls)`，`splitEmbeddedImages` 把标记切分为 `NovelBlock.Image`；`PixivWebApi` 新增 `getNovelWeb`（`ajax/novel/{id}`）+ `WebNovel`/`WebEmbeddedImage`；`ReaderViewModel.resolvePixivImages` 用 `ajax/illust/{id}` 解析 pixivimage 首图。三种模式均已有图片渲染（Coil 默认 loader 带 Referer）
+- **插图白屏修复（第十六轮）**：`textEmbeddedImages` 实际结构为 `{novelImageId: {novelImageId, sl, urls:{240mw,480mw,1200x1200,128x128,original}}}`——key 是 novelImageId、value 是 **urls 映射而非 url**；原 `WebEmbeddedImage(url)` 取不到值 → URL 保留协议串 → Coil 加载失败显示白屏。修复：`WebEmbeddedImage` 增加 `urls` 映射，URL 按 `1200x1200 > 480mw > 240mw > original > url` 择优；`resolvePixivImages` 与 `NovelParser.parse` 挪入 `Dispatchers.IO`（修复主线程卡顿 33 帧）
+- **滑动模式误触工具栏 + 图片独占页修复（第十七轮）**：
+  - **滑动模式**：中间 1/3 透明覆盖层**不再叠加**（滚动时误触频繁弹工具栏），工具栏改由**顶部 28dp 窄条**点按触发；翻页/仿真模式仍为中间点击切换
+  - **图片参与分页**：`ReaderPage` 从 `Text/Image` 密封类改为**混合页**（`ReaderPage(startChar,endChar,elements)`），`PageElement` = 文本行/图片，图片**按顺序插入文本流**不再独占整页；图片高度自适应 `min(内容宽×0.75, 页高×55%)`（`IMAGE_MAX_HEIGHT_RATIO=0.55f`），图片后剩余不足一行即换页；`RenderPage`/`SimulationPageContent.renderPage` 改为 Column 逐元素渲染（空行按行高占位）；滑动模式图片仍保持宽×0.75
+- **仿真翻页松手动画修复（第十八轮）**：翻过动画被绘制计算中 `coerceIn(0,w/h)` 截断——动画中 touch 出页但被夹回页边 → touch 回到 corner → 卷页几何消失 → 视觉"掀起到一半放回去再闪切"。修复：**移除 touch 坐标夹取**（允许出页，卷页几何随 touch 扩展覆盖整页 → 完整翻页动画），`settle` **去掉 `cancel` 强制回弹**（onDragCancel 手指滑出屏幕也按距离判定），阈值 `0.28f→0.22f`
+- **翻过路径修正（第十九轮）**：日志定位 `settle` 翻过目标 `corner+(corner-touch)*3` 的直线会**精确经过 corner**（参数 t=0.25），touch 经过 corner 时卷页缩到 0、页面放平 → 视觉"弹回"。改为 `touch+(touch-corner)*scale`（**远离 corner 方向**，距离单调递增），scale 保证目标距离 ≥1.2 对角线（覆盖整页）
+- **点击翻页末尾停顿修复（第二十轮）**：`turnTo` 原目标 `cx±w` 只让 touch 到页面边缘 → 卷页停在底部三角**未覆盖整页** → 动画结束闪切、停顿感。改为 touch 沿翻过方向**出页**（`(±w,-h)` 方向，目标距离 ≥1.3 对角线），卷页持续扩大覆盖整页后自然切页；动画时长/插值保持不动
+- **目录按系列重构（第二十一轮）**：目录不再按当前小说标题/长段落"第 N 节"分章。`ReaderTocItem` 扩展 `(title, novelId=-1, charOffset)`（novelId=-1=当前小说页内跳转，否则=系列内目标小说）；`buildToc` 改 suspend：**非系列**（`series?.id==null`）→ 单条本小说；**系列** → `getNovelSeries` 循环分页拉全（`next_url` 解析 `last_order`，上限 20 页）列出**系列内各本**；新增 `tocLoading` 状态；目录面板加载中/空态区分，当前在读条目高亮加粗；点击其他分册 → `onOpenNovel(id)` 直接打开该本阅读器（`reader/$id`）
+- **小说详情页 UI 优化（第二十二轮）**：
+  - **系列分册点击 → 跳对应小说详情**：`NovelDetailRoute` 新增 `onOpenNovel` 回调（`navigate("novel/$id")`），`ChapterRow` 从 `onOpenReader` 改为 `onOpenNovel`；标题改"系列分册（N）"
+  - **沉浸式封面 banner + 视差**：去掉 Scaffold/TopAppBar，改 Box + LazyColumn；首 item 为封面 banner（`image_urls.medium`，高 280dp 延伸到状态栏），底部 `verticalGradient`（透明→surface）过渡；封面图比容器高 160dp、`graphicsLayer.translationY = scrollOffset × 0.45`（上滑视差，移动慢于列表）；返回按钮浮在 banner 左上（半透明圆底白图标）
+  - **评论区**：`NovelViewModel` 新增 `comments`/`commentsLoading`，`loadComments()` 调 `getNovelComments`（第一页）；详情页底部"评论（N）"区块：圆形头像 + 用户名 + 日期（`date.take(10)`）+ 内容；加载中/空态（点击重试）
+- **头像显示修复 + 平板适配（第二十三轮）**：
+  - **头像不显示根因**：pixiv 各接口返回的 `profile_image_urls` 尺寸字段组合不固定，`px_50x50` 常缺失；有 fallback 的地方（IllustCard/Discover）能显示，无 fallback 的（NovelRoute/IllustDetailRoute 作者+评论头像）URL null → 灰块
+  - **修复**：core:ui 新增 `UserAvatar`（URL 用 `profile_image_urls?.best()` 自动 fallback 尺寸；URL 仍缺失时显示**用户名首字母圆形**兜底）；NovelRoute 作者/评论、IllustDetailRoute 作者/评论、IllustCard、DiscoverResults 全部改用 `UserAvatar`
+  - **平板适配**：阅读器原本已由 `AdaptiveContentBox`（`MAX_CONTENT_WIDTH_DP=760dp`）限宽居中；小说推荐流补上 `AdaptiveContentBox` 限宽；小说详情页 banner 保持全宽沉浸、正文（header/操作/系列/评论）新增 `NovelCenteredBox`（`widthIn(max=760)` 居中）
+  - **评论重叠 bug 修复（补充）**：`CommentsSection` 原无统一根容器（直接 emit 标题 + 各评论行多个并列 composable），被包在 `NovelCenteredBox` 的 **Box** 里 → Box 子项默认堆叠 → 评论内容/用户名/多个用户全部重叠。修复：`CommentsSection` 根改为 `Column` 统一包裹
+- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1，core:novel 共 20 用例

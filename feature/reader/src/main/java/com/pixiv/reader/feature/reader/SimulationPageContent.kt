@@ -1,11 +1,13 @@
 package com.pixiv.reader.feature.reader
 
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,6 +49,9 @@ import kotlin.math.hypot
 private val PAGE_H_PADDING = 24.dp
 private val PAGE_V_PADDING = 16.dp
 
+/** 仿真翻页调试日志 TAG。 */
+private const val TAG = "SimulationPage"
+
 /**
  * 仿真翻页：位置驱动的贝塞尔卷页效果（移植 legado-with-MD3 SimulationPageDelegate）。
  *
@@ -63,9 +68,11 @@ fun SimulationPageContent(
     imageHeight: Dp,
     backgroundColor: Color,
     restoreCharOffset: Int,
+    jumpToChar: Int?,
     onPageChange: (Int) -> Unit,
     onPageInfo: (Int, Int) -> Unit,
-    onOpenSettings: () -> Unit,
+    barsVisible: Boolean = false,
+    onCloseBars: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -104,6 +111,15 @@ fun SimulationPageContent(
         }
     }
 
+    // 目录/搜索跳转
+    LaunchedEffect(jumpToChar) {
+        val j = jumpToChar ?: return@LaunchedEffect
+        if (pages.isEmpty()) return@LaunchedEffect
+        currentIndex.intValue = pages.pageIndexForChar(j)
+        touch = null
+        animating = false
+    }
+
     if (pages.isEmpty()) {
         EmptyBox("没有正文内容", modifier = modifier)
         return
@@ -115,29 +131,47 @@ fun SimulationPageContent(
         } else {
             if (currentIndex.intValue > 0) currentIndex.intValue -= 1
         }
+        Log.d(TAG, "finishTurn forward=$turningForward index=${currentIndex.intValue}/${pages.size}")
         touch = null
         animating = false
     }
 
     /** 松手：判定翻过或回弹，并播放动画。 */
-    suspend fun settle(cancel: Boolean = false) {
-        val t = touch ?: return
+    suspend fun settle() {
+        val t = touch ?: run {
+            Log.w(TAG, "settle: touch is null, skip")
+            return
+        }
         val cx = corner.x
         val cy = corner.y
         val w = pageW
-        // 向页面中部拖得足够远则翻过，否则回弹
-        val passed = hypot(t.x - cx, t.y - cy) > hypot(w, pageH) * 0.28f
+        // 向页面中部拖得足够远则翻过，否则回弹（手指滑出屏幕被系统取消时也按距离判定）
+        val dist = hypot(t.x - cx, t.y - cy)
+        val threshold = hypot(w, pageH) * 0.22f
+        val passed = dist > threshold
+        Log.d(TAG, "settle: touch=(${t.x},${t.y}) corner=($cx,$cy) w=$w h=$pageH " +
+            "dist=${"%.1f".format(dist)} threshold=${"%.1f".format(threshold)} passed=$passed")
         animating = true
         animX.snapTo(t.x)
         animY.snapTo(t.y)
-        if (cancel || !passed) {
+        if (!passed) {
+            Log.d(TAG, "settle: => 回弹 corner")
             animX.animateTo(cx, tween(250)) { touch = Offset(animX.value, animY.value) }
             animY.animateTo(cy, tween(250)) { touch = Offset(animX.value, animY.value) }
             touch = null
             animating = false
         } else {
-            val tx = cx + (cx - t.x) * 6f
-            val ty = cy + (cy - t.y) * 6f
+            // 翻过：touch 从当前位置沿「远离 corner」的方向飞出。
+            // 旧实现 corner + (corner-touch)*3 的直线会经过 corner（卷页缩到 0，视觉像弹回）；
+            // 改为 touch + (touch-corner)*scale，距离单调递增，卷页持续扩大并覆盖整页。
+            val dx = t.x - cx
+            val dy = t.y - cy
+            val curDist = hypot(dx, dy).coerceAtLeast(1f)
+            // 目标距离 ≥ 1.2 倍对角线，确保卷页覆盖整页；scale≥2 保证有足够动画行程
+            val scale = (hypot(w, pageH) * 1.2f / curDist).coerceAtLeast(2f)
+            val tx = t.x + dx * scale
+            val ty = t.y + dy * scale
+            Log.d(TAG, "settle: => 翻过 目标=($tx,$ty) scale=$scale")
             animX.animateTo(tx, tween(250)) { touch = Offset(animX.value, animY.value) }
             animY.animateTo(ty, tween(250)) { touch = Offset(animX.value, animY.value) }
             finishTurn()
@@ -148,29 +182,43 @@ fun SimulationPageContent(
     suspend fun turnTo(forward: Boolean) {
         turningForward = forward
         val w = pageW
+        val h = pageH
         val cx = if (forward) w else 0f
-        val cy = pageH
+        val cy = h
         corner = Offset(cx, cy)
         hasCorner = true
-        val tx = cx + if (forward) -w else w
+        // touch 沿翻过方向出页足够远，使卷页几何覆盖整页后再切页。
+        // 旧实现只到页面边缘（x=0/w），卷页停在底部三角未覆盖整页 → 动画结束后闪切、有停顿感。
+        val dx = if (forward) -w else w
+        val dy = -h
+        val len = hypot(dx, dy)
+        val scale = hypot(w, h) * 1.3f / len
+        val tx = cx + dx * scale
+        val ty = cy + dy * scale
+        Log.d(TAG, "turnTo forward=$forward 目标=($tx,$ty) scale=$scale")
         animating = true
         animX.snapTo(cx)
         animY.snapTo(cy)
         touch = Offset(cx, cy)
         animX.animateTo(tx, tween(300)) { touch = Offset(animX.value, animY.value) }
-        animY.animateTo(cy, tween(300)) { touch = Offset(animX.value, animY.value) }
+        animY.animateTo(ty, tween(300)) { touch = Offset(animX.value, animY.value) }
         finishTurn()
     }
 
     BoxWithConstraints(
         modifier = modifier
-            .pointerInput(pages.size) {
+            .pointerInput(pages.size, barsVisible) {
                 detectTapGestures(onTap = { offset ->
                     val third = size.width / 3f
                     when {
-                        offset.x < third -> scope.launch { turnTo(false) }
-                        offset.x > size.width - third -> scope.launch { turnTo(true) }
-                        else -> onOpenSettings()
+                        offset.x < third -> {
+                            // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）
+                            if (barsVisible) onCloseBars() else scope.launch { turnTo(false) }
+                        }
+                        offset.x > size.width - third -> {
+                            if (barsVisible) onCloseBars() else scope.launch { turnTo(true) }
+                        }
+                        else -> Unit // 中间点击切换工具栏由外层处理
                     }
                 })
             }
@@ -189,13 +237,21 @@ fun SimulationPageContent(
                         turningForward = pos.x >= w / 2f
                         touch = pos
                         animating = false
+                        Log.d(TAG, "onDragStart pos=(${pos.x},${pos.y}) w=$w h=$h " +
+                            "corner=(${corner.x},${corner.y}) forward=$turningForward")
                     },
                     onDrag = { change, _ ->
                         change.consume()
                         touch = change.position
                     },
-                    onDragEnd = { scope.launch { settle() } },
-                    onDragCancel = { scope.launch { settle(true) } },
+                    onDragEnd = {
+                        Log.d(TAG, "onDragEnd lastTouch=$touch")
+                        scope.launch { settle() }
+                    },
+                    onDragCancel = {
+                        Log.d(TAG, "onDragCancel lastTouch=$touch")
+                        scope.launch { settle() }
+                    },
                 )
             },
     ) {
@@ -215,15 +271,35 @@ fun SimulationPageContent(
         val h = pageH
         val cx = corner.x
         val cy = corner.y
-        val tx = (touch?.x ?: cx).coerceIn(0f, w)
-        val ty = (touch?.y ?: cy).coerceIn(0f, h)
-        val curl = if (running && hasCorner && w > 0f && hypot(tx - cx, ty - cy) >= 2f) {
+        // 不夹取坐标：翻过动画中 touch 会出页（页外），卷页几何随之扩展覆盖整页，形成完整翻页动画。
+        // 出页可能产生的 NaN/Infinity 由下方的 isFinite 防御兜底。
+        val tx = touch?.x ?: cx
+        val ty = touch?.y ?: cy
+        val curlRaw = if (running && hasCorner && w > 0f && hypot(tx - cx, ty - cy) >= 2f) {
             calcCurlPoints(tx, ty, cx, cy, w, h)
         } else {
             null
         }
+        // 防御：几何出现 NaN/Infinity（除零或直线交点退化）时不绘制卷页，避免 Brush 崩溃
+        val curl = curlRaw?.takeIf {
+            it.touchToCornerDis.isFinite() &&
+                it.touch.isFinite() && it.corner.isFinite() &&
+                it.control1.isFinite() && it.control2.isFinite() &&
+                it.start1.isFinite() && it.start2.isFinite() &&
+                it.end1.isFinite() && it.end2.isFinite() &&
+                it.vertex1.isFinite() && it.vertex2.isFinite()
+        }
         val path0 = curl?.let { curlPath0(it) }
         val nextTri = curl?.let { curlNextTri(it) }
+
+        // 诊断：卷页几何状态翻转时打一次（翻过动画中 touch 出页时 curl 不应消失）
+        var lastCurlNull by remember { mutableStateOf(true) }
+        val curlNull = curl == null
+        if (curlNull != lastCurlNull) {
+            lastCurlNull = curlNull
+            Log.d(TAG, "draw: curl ${if (curlNull) "LOST(null)" else "ok"} " +
+                "tx=$tx ty=$ty animating=$animating touch=${touch != null}")
+        }
         val backPath = curl?.let { curlBackPath(it) }
 
         // 下一页：只在"下一页露出三角"（mPath0 ∩ nextTri）内绘制，其余区域保持背景色被遮挡
@@ -235,19 +311,22 @@ fun SimulationPageContent(
                         clipPath(path0) {
                             clipPath(nextTri) {
                                 this@drawWithContent.drawContent()
-                                // 卷角柔光阴影（下一页边缘）
-                                drawRect(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(Color.Black.copy(alpha = 0.15f), Color.Transparent),
-                                        center = curl.touch,
-                                        radius = curl.touchToCornerDis.coerceAtLeast(10f),
+                                // 卷角柔光阴影（下一页边缘）：防御 radius 非有限
+                                val r = curl.touchToCornerDis.coerceAtLeast(10f)
+                                if (r.isFinite() && curl.touch.isFinite()) {
+                                    drawRect(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(Color.Black.copy(alpha = 0.15f), Color.Transparent),
+                                            center = curl.touch,
+                                            radius = r,
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     },
             ) {
-                renderPage(reveal, baseStyle, imageHeight)
+                renderPage(reveal, baseStyle)
             }
         }
 
@@ -268,7 +347,7 @@ fun SimulationPageContent(
                     }
                 },
         ) {
-            renderPage(current, baseStyle, imageHeight)
+                renderPage(current, baseStyle)
         }
 
         // 纸背：在纸背三角（mPath0 ∩ backPath）内铺纸底色 + 沿折痕镜像当前页内容（半透明灰化），
@@ -298,25 +377,34 @@ fun SimulationPageContent(
                                 }
                                 // 灰化纸背文字，降低重叠感
                                 drawRect(Color.Gray.copy(alpha = 0.45f))
-                                // 靠近卷曲边缘渐暗，形成纸张立体感
-                                drawRect(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(Color.Black.copy(alpha = 0.22f), Color.Transparent),
-                                        start = curl.control1,
-                                        end = curl.touch,
+                                // 靠近卷曲边缘渐暗，形成纸张立体感（防御 start/end 重合或非有限）
+                                if (curl.control1.isFinite() && curl.touch.isFinite() &&
+                                    hypot(curl.control1.x - curl.touch.x, curl.control1.y - curl.touch.y) > 1f
+                                ) {
+                                    drawRect(
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(Color.Black.copy(alpha = 0.22f), Color.Transparent),
+                                            start = curl.control1,
+                                            end = curl.touch,
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     },
             ) {
-                renderPage(current, baseStyle, imageHeight)
+            renderPage(current, baseStyle)
             }
         }
     }
 }
 
 // ── 卷页几何（翻译自 legado calcPoints） ──────────────────────────────────────
+
+/** 坐标是否有限（防御 NaN/Infinity 导致 Shader 崩溃）。 */
+private fun Float.isFinite(): Boolean = !isNaN() && !isInfinite()
+
+private fun Offset.isFinite(): Boolean = x.isFinite() && y.isFinite()
 
 internal data class CurlPoints(
     val start1: Offset,
@@ -344,7 +432,12 @@ internal fun calcCurlPoints(
     var ty = touchY
     var mx = (tx + cornerX) / 2f
     var my = (ty + cornerY) / 2f
-    var c1x = mx - (cornerY - my) * (cornerY - my) / (cornerX - mx)
+    // 除零保护：corner 与中点重合时退化为中点的垂线计算，避免 NaN
+    var c1x = if (abs(cornerX - mx) > 1e-4f) {
+        mx - (cornerY - my) * (cornerY - my) / (cornerX - mx)
+    } else {
+        mx
+    }
     var c1y = cornerY
     var c2x = cornerX
     var c2y = calcC2Y(mx, my, cornerX, cornerY)
@@ -362,7 +455,11 @@ internal fun calcCurlPoints(
             ty = abs(cornerY - f3)
             mx = (tx + cornerX) / 2f
             my = (ty + cornerY) / 2f
-            c1x = mx - (cornerY - my) * (cornerY - my) / (cornerX - mx)
+            c1x = if (abs(cornerX - mx) > 1e-4f) {
+                mx - (cornerY - my) * (cornerY - my) / (cornerX - mx)
+            } else {
+                mx
+            }
             c1y = cornerY
             c2x = cornerX
             c2y = calcC2Y(mx, my, cornerX, cornerY)
@@ -394,7 +491,7 @@ internal fun calcCurlPoints(
 
 private fun calcC2Y(mx: Float, my: Float, cornerX: Float, cornerY: Float): Float {
     val f4 = cornerY - my
-    return if (f4 == 0f) {
+    return if (abs(f4) <= 1e-4f) {
         my - (cornerX - mx) * (cornerX - mx) / 0.1f
     } else {
         my - (cornerX - mx) * (cornerX - mx) / (cornerY - my)
@@ -445,36 +542,43 @@ private fun curlNextTri(p: CurlPoints): Path = Path().apply {
     close()
 }
 
-/** 渲染单页内容（文本或图片）。 */
+/** 渲染单页内容（文本行 + 图片混合排版，图片高度来自分页器自适应值）。 */
 @Composable
 private fun renderPage(
     page: ReaderPage,
     baseStyle: TextStyle,
-    imageHeight: Dp,
 ) {
-    when (page) {
-        is ReaderPage.Text -> Text(
-            text = page.annotated,
-            style = baseStyle,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(PAGE_H_PADDING, PAGE_V_PADDING),
-        )
+    val density = LocalDensity.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+    ) {
+        page.elements.forEach { el ->
+            when (el) {
+                is PageElement.TextLine -> if (el.text.isEmpty()) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(with(density) { el.heightPx.toDp() }),
+                    )
+                } else {
+                    Text(
+                        text = el.text,
+                        style = el.style,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
 
-        is ReaderPage.Image -> Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(PAGE_H_PADDING, PAGE_V_PADDING),
-            contentAlignment = Alignment.Center,
-        ) {
-            PixivImage(
-                url = page.url,
-                contentDescription = page.caption,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(imageHeight),
-                contentScale = ContentScale.Fit,
-            )
+                is PageElement.Image -> PixivImage(
+                    url = el.url,
+                    contentDescription = el.caption,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(with(density) { el.heightPx.toDp() }),
+                    contentScale = ContentScale.Fit,
+                )
+            }
         }
     }
 }

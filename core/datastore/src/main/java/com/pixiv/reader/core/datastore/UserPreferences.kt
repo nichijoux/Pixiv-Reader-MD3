@@ -33,6 +33,10 @@ class UserPreferences @Inject constructor(
     val readerTheme: Flow<Int> = context.dataStore.data.map { it[KEY_READER_THEME] ?: 1 } // 0日间 1纸张 2夜间 3深黑
     val readerPageMode: Flow<Int> = context.dataStore.data.map { it[KEY_PAGE_MODE] ?: 0 } // 0滑动 1翻页 2仿真
     val readerBrightness: Flow<Float> = context.dataStore.data.map { it[KEY_BRIGHTNESS] ?: 1f }
+    /** 阅读器主题是否跟随系统深色模式 */
+    val readerFollowSystem: Flow<Boolean> = context.dataStore.data.map { it[KEY_FOLLOW_SYSTEM] ?: false }
+    /** 自定义阅读字体文件绝对路径（空表示未设置） */
+    val readerCustomFontPath: Flow<String> = context.dataStore.data.map { it[KEY_CUSTOM_FONT_PATH] ?: "" }
 
     // ── 图片 / 外观 ──
     val imageQuality: Flow<String> = context.dataStore.data.map { it[KEY_IMAGE_QUALITY] ?: "medium" }
@@ -49,6 +53,8 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderTheme(value: Int) = context.dataStore.edit { it[KEY_READER_THEME] = value }
     suspend fun setReaderPageMode(value: Int) = context.dataStore.edit { it[KEY_PAGE_MODE] = value }
     suspend fun setReaderBrightness(value: Float) = context.dataStore.edit { it[KEY_BRIGHTNESS] = value }
+    suspend fun setReaderFollowSystem(value: Boolean) = context.dataStore.edit { it[KEY_FOLLOW_SYSTEM] = value }
+    suspend fun setReaderCustomFontPath(value: String) = context.dataStore.edit { it[KEY_CUSTOM_FONT_PATH] = value }
     suspend fun setImageQuality(value: String) = context.dataStore.edit { it[KEY_IMAGE_QUALITY] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
     suspend fun setMutedTags(value: List<String>) =
@@ -61,6 +67,8 @@ class UserPreferences @Inject constructor(
         val KEY_READER_THEME = intPreferencesKey("reader_theme")
         val KEY_PAGE_MODE = intPreferencesKey("reader_page_mode")
         val KEY_BRIGHTNESS = floatPreferencesKey("reader_brightness")
+        val KEY_FOLLOW_SYSTEM = booleanPreferencesKey("reader_follow_system")
+        val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")
         val KEY_IMAGE_QUALITY = stringPreferencesKey("image_quality")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")

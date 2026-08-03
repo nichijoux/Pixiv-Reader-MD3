@@ -4,13 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.TextUnit
@@ -21,38 +18,43 @@ import com.pixiv.reader.core.novel.NovelDocument
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
-/**
- * 分页结果：一页要么是排版好的文本页，要么是插图页。
- */
-sealed class ReaderPage {
+/** 页内元素：一行文本 或 一张图片。 */
+sealed class PageElement {
+    /** 该元素对应的全文字符区间（图片恒为 0,0）。 */
     abstract val startChar: Int
     abstract val endChar: Int
 
-    /** 文本页：[annotated] 已按行应用样式（字号/行距/字体/对齐/缩进）。 */
-    data class Text(
+    data class TextLine(
+        val text: String,
+        val style: TextStyle,
         override val startChar: Int,
         override val endChar: Int,
-        val annotated: AnnotatedString,
-    ) : ReaderPage()
+        /** 渲染行高（px），空行（段落间距）也按行高占位 */
+        val heightPx: Int,
+    ) : PageElement()
 
-    /** 插图页（独立成页）。 */
     data class Image(
         val url: String,
         val caption: String?,
-    ) : ReaderPage() {
+        /** 渲染高度（px），已按页高自适应，保证同页可容纳文字 */
+        val heightPx: Int,
+    ) : PageElement() {
         override val startChar: Int = 0
         override val endChar: Int = 0
     }
 }
 
-/** 一页里的一行（保留全局字符区间用于进度映射）。 */
-internal data class PageLine(
-    val text: String,
-    val style: TextStyle,
+/**
+ * 分页结果：一页由有序的文本行与图片组成。
+ * 图片不再独占整页，而是按顺序插入文本流（高度自适应），一页可同时显示图片与文字。
+ */
+data class ReaderPage(
     val startChar: Int,
     val endChar: Int,
+    val elements: List<PageElement>,
 )
 
+/** 一页里的一行（保留全局字符区间用于进度映射）。 */
 internal data class MeasuredLine(
     val text: String,
     val startOffset: Int,
@@ -89,38 +91,49 @@ class ReaderPaginator(
 
     fun paginate(document: NovelDocument): List<ReaderPage> {
         val pages = mutableListOf<ReaderPage>()
-        val pageLines = mutableListOf<PageLine>()
+        val elements = mutableListOf<PageElement>()
         var usedHeight = 0
 
         fun closePage() {
-            if (pageLines.isEmpty()) return
-            val startChar = pageLines.first().startChar
-            val endChar = pageLines.last().endChar
-            val annotated = buildAnnotatedString {
-                pageLines.forEach { line ->
-                    withStyle(line.style.toSpanStyle()) { append(line.text) }
-                    append("\n")
-                }
-            }
-            pages.add(ReaderPage.Text(startChar = startChar, endChar = endChar, annotated = annotated))
-            pageLines.clear()
+            if (elements.isEmpty()) return
+            val firstText = elements.firstOrNull { it is PageElement.TextLine } as? PageElement.TextLine
+            val lastText = elements.lastOrNull { it is PageElement.TextLine } as? PageElement.TextLine
+            pages.add(
+                ReaderPage(
+                    startChar = firstText?.startChar ?: 0,
+                    endChar = lastText?.endChar ?: 0,
+                    elements = elements.toList(),
+                ),
+            )
+            elements.clear()
             usedHeight = 0
         }
 
         fun addLine(text: String, style: TextStyle, startChar: Int, endChar: Int, heightPx: Int) {
-            if (usedHeight + heightPx > pageHeightPx && pageLines.isNotEmpty()) closePage()
-            pageLines.add(PageLine(text = text, style = style, startChar = startChar, endChar = endChar))
+            if (usedHeight + heightPx > pageHeightPx && elements.isNotEmpty()) closePage()
+            elements.add(PageElement.TextLine(text, style, startChar, endChar, heightPx))
             usedHeight += heightPx
         }
 
         /** 段落/标题间的空行间距（页面顶部不空行）。 */
         fun addSpacer() {
-            if (pageLines.isEmpty()) return
+            if (elements.isEmpty()) return
             if (usedHeight + lineHeightPx > pageHeightPx) closePage()
-            if (pageLines.isEmpty()) return // closePage 后重新检查，避免 last() 空列表崩溃
-            val anchor = pageLines.last().endChar
-            pageLines.add(PageLine(text = "", style = baseStyle, startChar = anchor, endChar = anchor))
+            if (elements.isEmpty()) return // closePage 后重新检查，避免 last() 空列表崩溃
+            val anchor = elements.last().endChar
+            elements.add(PageElement.TextLine("", baseStyle, anchor, anchor, lineHeightPx))
             usedHeight += lineHeightPx
+        }
+
+        /**
+         * 图片参与文本流分页（不独占整页）：高度已自适应（≤ 页高 * IMAGE_MAX_HEIGHT_RATIO），
+         * 图片后剩余空间不足一行时立即换页，避免页尾悬挂零散文字。
+         */
+        fun addImage(url: String, caption: String?) {
+            if (usedHeight + imageHeightPx > pageHeightPx && elements.isNotEmpty()) closePage()
+            elements.add(PageElement.Image(url, caption, imageHeightPx))
+            usedHeight += imageHeightPx
+            if (usedHeight + lineHeightPx > pageHeightPx) closePage()
         }
 
         fun addTextBlock(text: String, startChar: Int, style: TextStyle) {
@@ -163,10 +176,7 @@ class ReaderPaginator(
                     )
                     addSpacer()
                 }
-                is NovelBlock.Image -> {
-                    if (pageLines.isNotEmpty()) closePage()
-                    pages.add(ReaderPage.Image(block.url, block.caption))
-                }
+                is NovelBlock.Image -> addImage(block.url, block.caption)
             }
         }
         closePage()
@@ -199,11 +209,15 @@ class ReaderPaginator(
     }
 }
 
-/** 阅读器字体族名称 → FontFamily。 */
+/** 阅读器字体族名称 → FontFamily（"custom" 使用 [customFont]，未设置则回退衬线）。 */
 @Composable
-fun rememberReaderFontFamily(name: String): androidx.compose.ui.text.font.FontFamily =
-    remember(name) {
+fun rememberReaderFontFamily(
+    name: String,
+    customFont: androidx.compose.ui.text.font.FontFamily? = null,
+): androidx.compose.ui.text.font.FontFamily =
+    remember(name, customFont) {
         when (name) {
+            "custom" -> customFont ?: androidx.compose.ui.text.font.FontFamily.Serif
             "sans" -> androidx.compose.ui.text.font.FontFamily.SansSerif
             "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
             "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
@@ -230,34 +244,42 @@ fun rememberReaderTextStyle(
 
 /**
  * 计算分页（Compose 可组合版本）。
- * 页高 = [pageHeightDp]（阅读区可用高度），图片页高 = 内容宽 * 0.75。
+ * 页高 = [pageHeightDp]（阅读区可用高度）。
+ * 图片高度自适应：理想为内容宽 * 0.75，但不超过页高 * [IMAGE_MAX_HEIGHT_RATIO]，
+ * 保证图片与文字可同页排版（不独占整页）。
  */
+const val IMAGE_MAX_HEIGHT_RATIO = 0.55f
+
 @Composable
 fun rememberReaderPages(
     document: NovelDocument?,
     fontSizeSp: Float,
     lineHeightMultiplier: Float,
     fontFamilyName: String,
+    customFont: androidx.compose.ui.text.font.FontFamily? = null,
     contentWidthDp: Dp,
     pageHeightDp: Dp,
 ): List<ReaderPage> {
     if (document == null) return emptyList()
     val textMeasurer = rememberTextMeasurer()
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val fontFamily = rememberReaderFontFamily(fontFamilyName)
+    val fontFamily = rememberReaderFontFamily(fontFamilyName, customFont)
     val baseStyle = rememberReaderTextStyle(fontSizeSp, lineHeightMultiplier, fontFamily)
 
     val contentWidthPx = with(density) { contentWidthDp.roundToPx() }.coerceAtLeast(1)
     val pageHeightPx = with(density) { pageHeightDp.roundToPx() }.coerceAtLeast(1)
     val lineHeightPx = with(density) { (fontSizeSp * lineHeightMultiplier).sp.toPx() }.roundToInt()
         .coerceAtLeast(1)
-    val imageHeightPx = (contentWidthPx * 0.75f).roundToInt().coerceAtLeast(1)
+    val imageHeightPx = (contentWidthPx * 0.75f).roundToInt()
+        .coerceAtMost((pageHeightPx * IMAGE_MAX_HEIGHT_RATIO).roundToInt())
+        .coerceAtLeast(1)
 
     return remember(
         document,
         fontSizeSp,
         lineHeightMultiplier,
         fontFamilyName,
+        customFont,
         contentWidthPx,
         pageHeightPx,
     ) {

@@ -1,6 +1,7 @@
 package com.pixiv.reader.feature.reader
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -10,6 +11,7 @@ import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.NovelParser
 import com.pixiv.reader.core.novel.percentageAt
@@ -29,6 +31,17 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
+
+/**
+ * 目录项。
+ * [novelId] = -1 表示当前小说（页内按 [charOffset] 跳转）；
+ * 否则为系列内目标小说（点击打开该本阅读器，[charOffset] 恒为 0）。
+ */
+data class ReaderTocItem(
+    val title: String,
+    val novelId: Long = -1,
+    val charOffset: Int = 0,
+)
 
 /**
  * 阅读器 ViewModel。
@@ -80,6 +93,28 @@ class ReaderViewModel @Inject constructor(
 
     private val _brightness = MutableStateFlow(1f)
     val brightness: StateFlow<Float> = _brightness.asStateFlow()
+
+    /** 阅读器主题是否跟随系统深色模式 */
+    private val _followSystem = MutableStateFlow(false)
+    val followSystem: StateFlow<Boolean> = _followSystem.asStateFlow()
+
+    /** 自定义阅读字体文件路径（空=未设置） */
+    private val _customFontPath = MutableStateFlow("")
+    val customFontPath: StateFlow<String> = _customFontPath.asStateFlow()
+
+    // ── 目录 / 搜索 ──
+    private val _toc = MutableStateFlow<List<ReaderTocItem>>(emptyList())
+    val toc: StateFlow<List<ReaderTocItem>> = _toc.asStateFlow()
+
+    /** 系列目录是否加载中（系列小说需拉取系列内各本）。 */
+    private val _tocLoading = MutableStateFlow(false)
+    val tocLoading: StateFlow<Boolean> = _tocLoading.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<Int>>(emptyList())
+    val searchResults: StateFlow<List<Int>> = _searchResults.asStateFlow()
+
+    private val _searchIndex = MutableStateFlow(-1)
+    val searchIndex: StateFlow<Int> = _searchIndex.asStateFlow()
 
     // ── 阅读进度 ──
     private val _charOffset = MutableStateFlow(0)
@@ -136,6 +171,12 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { userPreferences.readerBrightness.collect { _brightness.value = it } }
         }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerFollowSystem.collect { _followSystem.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerCustomFontPath.collect { _customFontPath.value = it } }
+        }
     }
 
     fun load() {
@@ -150,12 +191,34 @@ class ReaderViewModel @Inject constructor(
                         logNovelHtml(raw)
                         raw
                     }
-                    val document = NovelParser.parse(html)
+                    // 网页小说详情：拿 textEmbeddedImages（正文嵌入图片映射，key 为 novelImageId）
+                    val webNovel = runCatching {
+                        pixivRepository.webApi.getNovelWeb(novelId).body
+                    }.getOrNull()
+                    val imageUrls = webNovel?.textEmbeddedImages
+                        ?.mapNotNull { (file, info) ->
+                            val urls = info?.urls
+                            val url = urls?.get("1200x1200")
+                                ?: urls?.get("480mw")
+                                ?: urls?.get("240mw")
+                                ?: urls?.get("original")
+                                ?: info?.url
+                            if (url.isNullOrBlank()) return@mapNotNull null
+                            "uploadedimage:$file" to url
+                        }
+                        ?.toMap()
+                        ?: emptyMap()
+                    val document = withContext(Dispatchers.IO) {
+                        // 解析 + [pixivimage:ID] 引用画作 → ajax/illust/{id} 解析首图 URL
+                        resolvePixivImages(NovelParser.parse(html, imageUrls))
+                    }
                     logParseResult(document)
                     detail to document
                 }.onSuccess { (detail, document) ->
                     _novel.value = detail
                     _document.value = document
+                    // 目录构建含系列小说列表的网络请求，放到 IO 之外异步执行
+                    viewModelScope.launch { buildToc() }
                     // 进度恢复异常不应当影响正文展示
                     runCatching { restoreProgress() }
                         .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
@@ -202,6 +265,34 @@ class ReaderViewModel @Inject constructor(
                 Log.d(TAG, "fullText head: ${document.fullText.take(300)}")
             }
         }.onFailure { Log.w(TAG, "logParseResult failed", it) }
+    }
+
+    /**
+     * 把正文中的 `[pixivimage:ID]` 标记解析为画作首图 URL。
+     * 通过网页接口 `ajax/illust/{id}` 的 `urls.regular/original` 获取（带 Cookie，正常可访问）；
+     * 解析失败的标记保留原文（渲染层按图片块显示但加载失败占位）。
+     */
+    private suspend fun resolvePixivImages(document: NovelDocument): NovelDocument {
+        val pending = document.blocks
+            .filterIsInstance<NovelBlock.Image>()
+            .filter { it.url.startsWith("pixivimage:") }
+        if (pending.isEmpty()) return document
+        val resolved = mutableMapOf<String, String>()
+        for (img in pending) {
+            val id = img.url.removePrefix("pixivimage:").toLongOrNull() ?: continue
+            val body = runCatching { pixivRepository.webApi.getWebIllust(id).body }.getOrNull() ?: continue
+            val url = body.urls?.get("regular") ?: body.urls?.get("original")
+            if (!url.isNullOrBlank()) resolved[img.url] = url
+        }
+        if (resolved.isEmpty()) return document
+        val newBlocks = document.blocks.map { block ->
+            if (block is NovelBlock.Image) {
+                resolved[block.url]?.let { block.copy(url = it) } ?: block
+            } else {
+                block
+            }
+        }
+        return NovelDocument(blocks = newBlocks, fullText = document.fullText, textLength = document.textLength)
     }
 
     /** 恢复进度：优先本地 Room，其次官方 marker，最后回到开头。 */
@@ -348,6 +439,120 @@ class ReaderViewModel @Inject constructor(
     fun onBrightnessChange(value: Float) {
         _brightness.value = value
         viewModelScope.launch { runCatching { userPreferences.setReaderBrightness(value) } }
+    }
+
+    // ── 目录 / 搜索 ──
+
+    /**
+     * 构建目录：系列小说展示**系列内各本小说**；非系列小说只显示本小说一条。
+     * 不再按当前小说的标题/长段落做"第 N 节"分章。
+     */
+    private suspend fun buildToc() {
+        val detail = _novel.value
+        val series = detail?.series
+        if (series == null) {
+            // 非系列：目录只显示本小说
+            _toc.value = listOf(ReaderTocItem(detail?.title ?: "本小说", detail?.id ?: 0L, 0))
+            return
+        }
+        _tocLoading.value = true
+        try {
+            val novels = fetchSeriesNovels(series.id)
+            _toc.value = novels.map { ReaderTocItem(it.title ?: "无标题", it.id, 0) }
+        } catch (e: Exception) {
+            Log.w(TAG, "buildToc series failed", e)
+            _toc.value = emptyList()
+        } finally {
+            _tocLoading.value = false
+        }
+    }
+
+    /** 拉取系列内全部小说（循环分页，防御最多 20 页）。 */
+    private suspend fun fetchSeriesNovels(seriesId: Long): List<Novel> {
+        val result = mutableListOf<Novel>()
+        var lastOrder: Int? = null
+        repeat(20) {
+            val resp = pixivRepository.api.getNovelSeries(seriesId, lastOrder)
+            resp.novels?.let { result.addAll(it) }
+            val next = resp.next_url
+            if (next.isNullOrBlank()) return result
+            lastOrder = parseLastOrder(next)
+            if (lastOrder == null) return result
+        }
+        return result
+    }
+
+    /** 从 next_url 解析 last_order 查询参数。 */
+    private fun parseLastOrder(nextUrl: String?): Int? {
+        if (nextUrl.isNullOrBlank()) return null
+        return nextUrl.substringAfter('?', "").split('&')
+            .firstOrNull { it.startsWith("last_order=") }
+            ?.substringAfter('=')?.toIntOrNull()
+    }
+
+    /** 在全文（忽略大小写）中搜索关键词，记录所有匹配的字符偏移。 */
+    fun searchText(query: String) {
+        val text = _document.value?.fullText ?: return
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _searchIndex.value = -1
+            return
+        }
+        val results = mutableListOf<Int>()
+        var from = 0
+        while (true) {
+            val idx = text.indexOf(query, from, ignoreCase = true)
+            if (idx < 0) break
+            results.add(idx)
+            from = idx + query.length
+            if (results.size >= 500) break
+        }
+        _searchResults.value = results
+        _searchIndex.value = if (results.isNotEmpty()) 0 else -1
+    }
+
+    fun setSearchIndex(index: Int) {
+        if (index in _searchResults.value.indices) _searchIndex.value = index
+    }
+
+    fun clearSearch() {
+        _searchResults.value = emptyList()
+        _searchIndex.value = -1
+    }
+
+    // ── 自定义字体 / 跟随系统 ──
+
+    /** 从系统文件选择器导入字体文件到私有目录，并设为自定义阅读字体。 */
+    fun importCustomFont(uri: Uri) {
+        viewModelScope.launch {
+            val path = runCatching {
+                val dir = File(context.filesDir, "fonts").apply { mkdirs() }
+                val dest = File(dir, "custom_font.ttf")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    dest.outputStream().use { input.copyTo(it) }
+                } ?: throw IllegalStateException("无法读取字体文件")
+                dest.absolutePath
+            }
+            path.onSuccess { p ->
+                _customFontPath.value = p
+                runCatching { userPreferences.setReaderCustomFontPath(p) }
+                _message.send("自定义字体已设置")
+            }.onFailure {
+                Log.w(TAG, "importCustomFont failed", it)
+                _message.send("字体导入失败：${it.message}")
+            }
+        }
+    }
+
+    fun clearCustomFont() {
+        _customFontPath.value = ""
+        viewModelScope.launch { runCatching { userPreferences.setReaderCustomFontPath("") } }
+        _message.trySend("已清除自定义字体")
+    }
+
+    fun onFollowSystemChange(value: Boolean) {
+        _followSystem.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderFollowSystem(value) } }
     }
 
     // ── 阅读书签 / 收藏 / 追更 ──

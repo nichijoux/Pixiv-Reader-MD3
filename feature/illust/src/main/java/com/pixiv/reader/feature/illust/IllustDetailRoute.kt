@@ -80,6 +80,7 @@ import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.currentWindowSizeClass
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -444,10 +445,10 @@ private fun InfoSection(illust: Illust?) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            PixivImage(
-                url = illust.user?.profile_image_urls?.px_50x50,
-                contentDescription = illust.user?.name,
-                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)),
+            UserAvatar(
+                name = illust.user?.name,
+                avatarUrl = illust.user?.profile_image_urls?.best(),
+                modifier = Modifier.size(36.dp),
             )
             Column {
                 Text(illust.user?.name.orEmpty(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
@@ -615,10 +616,10 @@ private fun CommentRow(comment: Comment) {
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        PixivImage(
-            url = comment.user?.profile_image_urls?.px_50x50,
-            contentDescription = comment.user?.name,
-            modifier = Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)),
+        UserAvatar(
+            name = comment.user?.name,
+            avatarUrl = comment.user?.profile_image_urls?.best(),
+            modifier = Modifier.size(28.dp),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -6,9 +6,9 @@ import org.junit.Test
 class ReaderPageMappingTest {
 
     private val pages = listOf(
-        ReaderPage.Text(startChar = 0, endChar = 100, annotated = androidx.compose.ui.text.AnnotatedString("a")),
-        ReaderPage.Text(startChar = 100, endChar = 250, annotated = androidx.compose.ui.text.AnnotatedString("b")),
-        ReaderPage.Text(startChar = 250, endChar = 400, annotated = androidx.compose.ui.text.AnnotatedString("c")),
+        ReaderPage(startChar = 0, endChar = 100, elements = emptyList()),
+        ReaderPage(startChar = 100, endChar = 250, elements = emptyList()),
+        ReaderPage(startChar = 250, endChar = 400, elements = emptyList()),
     )
 
     @Test

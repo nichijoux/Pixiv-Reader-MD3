@@ -47,5 +47,5 @@ fun readerThemeColors(theme: Int): ReaderThemeColors = when (theme) {
 
 val READER_THEME_NAMES = listOf("日间", "纸张", "夜间", "深黑")
 val READER_PAGE_MODE_NAMES = listOf("滑动", "翻页", "仿真")
-val READER_FONT_FAMILY_NAMES = listOf("衬线", "无衬线", "等宽")
-val READER_FONT_FAMILY_KEYS = listOf("serif", "sans", "mono")
+val READER_FONT_FAMILY_NAMES = listOf("衬线", "无衬线", "等宽", "自定义")
+val READER_FONT_FAMILY_KEYS = listOf("serif", "sans", "mono", "custom")

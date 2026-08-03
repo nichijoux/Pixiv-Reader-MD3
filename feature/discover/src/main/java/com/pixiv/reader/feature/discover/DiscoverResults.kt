@@ -38,6 +38,7 @@ import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.ui.component.UserAvatar
 
 @Composable
 internal fun IllustSearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
@@ -159,10 +160,10 @@ private fun UserRow(preview: UserPreview) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        PixivImage(
-            url = user?.profile_image_urls?.px_170x170 ?: user?.profile_image_urls?.px_50x50,
-            contentDescription = user?.name,
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)),
+        UserAvatar(
+            name = user?.name,
+            avatarUrl = user?.profile_image_urls?.best(),
+            modifier = Modifier.size(48.dp),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(

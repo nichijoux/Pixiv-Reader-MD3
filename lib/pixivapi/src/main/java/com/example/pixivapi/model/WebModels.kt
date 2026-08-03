@@ -321,3 +321,33 @@ data class UserTagIllust(
     val createDate: String? = null,
     val profileImageUrl: String? = null,
 ) : Serializable
+
+// ── 网页小说详情（/ajax/novel/{id}） ──────────────────────────────────────────
+
+/** 网页小说详情（正文 + 嵌入图片映射）。 */
+data class WebNovel(
+    val id: Long = 0L,
+    val title: String? = null,
+    val userId: Long = 0L,
+    val userName: String? = null,
+    val content: String? = null,
+    val coverUrl: String? = null,
+    val xRestrict: Int = 0,
+    /** 正文嵌入图片：key 为正文标记内容（如 `01.png`），value 为图片信息 */
+    val textEmbeddedImages: Map<String, WebEmbeddedImage?>? = null,
+    val characterCount: Int = 0,
+    val wordCount: Int = 0,
+    val readingTime: Int = 0,
+) : Serializable
+
+/** 正文嵌入图片信息（key 为 novelImageId，如 `21921763`）。 */
+data class WebEmbeddedImage(
+    val novelImageId: String? = null,
+    val sl: String? = null,
+    /** 各尺寸 URL：240mw / 480mw / 1200x1200 / 128x128 / original */
+    val urls: Map<String, String?>? = null,
+    /** 部分响应直接给 url 字段（兼容） */
+    val url: String? = null,
+    val width: Int = 0,
+    val height: Int = 0,
+) : Serializable
