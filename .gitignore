@@ -1,0 +1,35 @@
+# ── Gradle / Android 构建产物 ────────────────────────────────
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+*.apk
+*.aab
+*.aar
+*.hprof
+
+# ── Kotlin / IDE ─────────────────────────────────────────────
+.kotlin/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# ── 日志 ─────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── 签名 / 密钥 ──────────────────────────────────────────────
+*.jks
+*.keystore
+keystore.properties
+
+# ── 其它 ─────────────────────────────────────────────────────
+# 操作系统文件
+Thumbs.db
+Desktop.ini
+
+# 本地覆盖配置（含本机 SDK/JDK 路径，不应提交）
+*.local.properties

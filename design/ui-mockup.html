@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixiv Reader · UI 设计原稿（Material 3）</title>
+<style>
+  :root{
+    --primary:#00639B; --on-primary:#FFFFFF;
+    --primary-container:#CDE5FF; --on-primary-container:#001D33;
+    --secondary:#52606F; --secondary-container:#D6E3F2; --on-secondary-container:#0E1D29;
+    --surface:#FDFCFF; --surface-dim:#D9E2EA;
+    --surface-container:#F0F4F8; --surface-container-h:#E4EAF0; --surface-container-l:#F7F9FB;
+    --on-surface:#1A1C1E; --on-surface-variant:#42474D;
+    --outline:#73777E; --outline-variant:#C3C7CF;
+    --error:#BA1A1A;
+    --shadow:0 1px 3px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.10);
+    --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",STSong,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#0B1220}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:#E7ECF2;padding:40px 20px 80px}
+  .ic{width:24px;height:24px;fill:currentColor;display:block;flex:none}
+  .ic.s{width:18px;height:18px}.ic.xs{width:15px;height:15px}
+  .ic.l{width:26px;height:26px}.ic.xl{width:34px;height:34px}
+  h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+  h1 small{display:block;font-size:13px;font-weight:500;color:#8FA0B5;margin-top:6px;letter-spacing:.5px}
+  .stage{max-width:1680px;margin:30px auto 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:48px 30px;justify-items:center}
+  .screentitle{grid-column:1/-1;display:flex;align-items:baseline;gap:12px;font-size:19px;font-weight:600;margin-top:16px}
+  .screentitle::before{content:"";width:6px;height:20px;border-radius:3px;background:#0096FA;align-self:center}
+  .screentitle span{font-size:12.5px;color:#8FA0B5;font-weight:400}
+
+  /* ── 手机壳 ── */
+  .phone{width:368px;height:760px;background:var(--surface);border-radius:46px;overflow:hidden;
+    box-shadow:0 0 0 2px #2a3548,0 24px 60px rgba(0,0,0,.55);position:relative;color:var(--on-surface);
+    display:flex;flex-direction:column}
+  .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:112px;height:22px;background:#111;border-radius:12px;z-index:60}
+  .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;background:var(--surface)}
+
+  /* ── M3 通用组件 ── */
+  .topbar{display:flex;align-items:center;gap:8px;padding:46px 14px 12px;background:var(--surface)}
+  .topbar h2{font-size:20px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .iconbtn{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;
+    background:var(--surface-container);cursor:pointer;flex:none;color:var(--on-surface-variant)}
+  .iconbtn.fab{background:var(--primary-container);color:var(--on-primary-container)}
+  .iconbtn.tone{background:var(--secondary-container);color:var(--on-secondary-container)}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#9bd0ff,#4f9ef0);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex:none}
+  .navbar{display:flex;justify-content:space-around;align-items:flex-start;padding:4px 6px 16px;background:var(--surface);
+    border-top:1px solid var(--outline-variant);position:absolute;bottom:0;left:0;right:0;z-index:30}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--on-surface-variant);width:64px}
+  .navitem .nic{width:56px;height:30px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+  .navitem.on{color:var(--primary);font-weight:600}
+  .navitem.on .nic{background:var(--secondary-container)}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:8px;
+    background:var(--surface-container-h);font-size:13px;color:var(--on-surface-variant);white-space:nowrap;flex:none}
+  .chip.on{background:var(--primary);color:var(--on-primary)}
+  .chiprow{display:flex;gap:8px;padding:6px 14px 2px;overflow-x:auto;scrollbar-width:none}
+  .chiprow::-webkit-scrollbar{display:none}
+  .pill{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:12px;font-size:11px;color:var(--on-surface-variant);background:var(--surface-container-h)}
+  .badge{position:absolute;top:-4px;right:-6px;background:var(--error);color:#fff;font-size:10px;min-width:16px;height:16px;
+    border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+
+  /* ── 瀑布流卡片 ── */
+  .waterfall{flex:1;overflow-y:auto;padding:10px 12px 84px;column-count:2;column-gap:8px;scrollbar-width:none}
+  .waterfall::-webkit-scrollbar{display:none}
+  .card{break-inside:avoid;margin-bottom:10px;border-radius:14px;overflow:hidden;background:var(--surface-container);
+    box-shadow:var(--shadow);position:relative}
+  .thumb{width:100%;position:relative;display:block}
+  .thumb svg{width:100%;height:auto;display:block}
+  .thumb .rk{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;
+    padding:2px 7px;border-radius:6px;display:flex;align-items:center;gap:3px}
+  .thumb .rk.gold{background:#E8A33D}
+  .thumb .fav{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;
+    padding:2px 7px;border-radius:6px;display:flex;align-items:center;gap:3px}
+  .thumb .ai{position:absolute;top:6px;right:6px;background:rgba(124,77,255,.85);color:#fff;font-size:10px;
+    padding:2px 6px;border-radius:6px}
+  .card .meta{padding:8px 10px 10px}
+  .card .t{font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card .a{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--on-surface-variant)}
+  .card .a .avatar{width:20px;height:20px;font-size:9px}
+
+  /* ── 列表行 ── */
+  .list{flex:1;overflow-y:auto;padding:4px 14px 86px;scrollbar-width:none}
+  .list::-webkit-scrollbar{display:none}
+  .li{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid var(--outline-variant);align-items:center}
+  .li .cv{width:64px;height:64px;border-radius:12px;overflow:hidden;flex:none;position:relative}
+  .li .cv svg{width:100%;height:100%;display:block}
+  .li .cv .cvb{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:2px 5px;border-radius:5px;display:flex;align-items:center;gap:3px}
+  .li .tt{flex:1;min-width:0}
+  .li .tt .t2{font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .tt .s{font-size:12px;color:var(--on-surface-variant);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .tt .n{display:inline-block;margin-top:6px;font-size:10px;color:var(--primary);background:var(--secondary-container);padding:2px 8px;border-radius:10px}
+
+  /* ── 插画详情 ── */
+  .pager{height:300px;position:relative;background:#000;flex:none}
+  .pager svg{width:100%;height:100%;display:block}
+  .pagedots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;align-items:center;
+    background:rgba(0,0,0,.5);padding:5px 9px;border-radius:11px}
+  .pagedots i{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.4)}
+  .pagedots i.on{background:#fff;width:14px}
+  .pagedots span{color:#fff;font-size:10px;margin-left:5px}
+  .pad{padding:14px 16px}
+  .title{font-size:18px;font-weight:700;line-height:1.4}
+  .author{display:flex;align-items:center;gap:10px;margin:12px 0}
+  .stats{display:flex;gap:18px;font-size:12px;color:var(--on-surface-variant);margin:10px 0}
+  .stat{display:flex;align-items:center;gap:4px}
+  .tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .cap{font-size:13px;line-height:1.75;color:var(--on-surface-variant)}
+  .sectionl{font-size:14px;font-weight:700;margin:18px 0 10px;display:flex;align-items:center;gap:6px}
+  .rail{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+  .rail::-webkit-scrollbar{display:none}
+  .railc{width:112px;flex:none;border-radius:10px;overflow:hidden;background:var(--surface-container-h)}
+  .railc svg{width:100%;display:block}
+  .railc p{font-size:11px;padding:6px 8px;line-height:1.3}
+  .actionbar{display:flex;align-items:center;gap:8px;padding:10px 14px 16px;border-top:1px solid var(--outline-variant);background:var(--surface)}
+  .actionbar .iconbtn{width:44px;height:44px;border-radius:22px}
+  .btn{flex:1;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;
+    font-size:14px;font-weight:600;background:var(--primary);color:var(--on-primary);cursor:pointer;border:none}
+  .btn.out{background:var(--secondary-container);color:var(--on-secondary-container)}
+
+  /* ── 全屏查看器 ── */
+  .viewer{background:#0A0A0A;color:#fff;display:flex;flex-direction:column}
+  .viewer .vtop{display:flex;align-items:center;gap:8px;padding:52px 12px 8px;color:#fff}
+  .viewer .vtop .iconbtn{background:rgba(255,255,255,.14);color:#fff}
+  .vimg{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .vimg svg{width:88%;height:78%;object-fit:cover;border-radius:8px}
+  .vzoom{position:absolute;right:12px;bottom:12px;background:rgba(255,255,255,.16);color:#fff;width:38px;height:38px;
+    border-radius:19px;display:flex;align-items:center;justify-content:center}
+  .vbottom{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.75));
+    padding:58px 14px 24px;display:flex;gap:10px;align-items:flex-start}
+  .vbicon{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;color:#fff;width:58px}
+  .vbicon .vic{width:46px;height:46px;border-radius:23px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+  .vbicon .vic.fill{background:var(--primary)}
+
+  /* ── 小说阅读器 ── */
+  .reader{background:#F6F1E7;display:flex;flex-direction:column;color:#3B3328}
+  .reader .rtop{display:flex;align-items:center;gap:8px;padding:46px 12px 8px;background:#F6F1E7}
+  .reader .rtop .iconbtn{background:rgba(0,0,0,.06);color:#5a5244}
+  .rtitlebar{text-align:center;font-size:12px;color:#8A7F6C;flex:1}
+  .rbody{flex:1;overflow-y:auto;padding:6px 26px 130px;font-family:var(--serif);scrollbar-width:none}
+  .rbody::-webkit-scrollbar{display:none}
+  .rt{font-size:22px;font-weight:700;line-height:1.5;margin-bottom:4px;letter-spacing:.5px}
+  .ra{font-size:12px;color:#8A7F6C;margin-bottom:18px}
+  .rline{font-size:17px;line-height:2.05;color:#3B3328;letter-spacing:.4px;text-align:justify;margin-bottom:16px;text-indent:2em}
+  .rline.first{text-indent:0}
+  .rline .em{color:#B45309;font-style:normal}
+  .rdiv{display:flex;align-items:center;justify-content:center;gap:10px;margin:26px 0;color:#B0A48F;font-size:12px}
+  .rdiv::before,.rdiv::after{content:"";width:34px;height:1px;background:#D8CDB8}
+  .rprog{position:absolute;left:0;right:0;bottom:66px;height:3px;background:#D8CDB8}
+  .rprog i{display:block;height:3px;width:64%;background:var(--primary);border-radius:2px}
+  .rnave{display:flex;justify-content:space-around;align-items:center;padding:8px 10px 16px;background:transparent;position:absolute;bottom:0;left:0;right:0;z-index:30}
+  .rnave .navitem{color:#8A7F6C}
+  .rnave .navitem.on{color:var(--primary)}
+
+  /* 阅读设置面板 */
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:#FFFFFF;border-radius:24px 24px 0 0;padding:12px 18px 18px;
+    box-shadow:0 -8px 30px rgba(0,0,0,.18);z-index:40}
+  .sheet .grip{width:36px;height:4px;border-radius:2px;background:#DDD;margin:0 auto 12px}
+  .sheet .lrow{display:flex;align-items:center;justify-content:space-between;padding:9px 0}
+  .sheet .lrow b{font-size:13px;font-weight:600;color:var(--on-surface)}
+  .stepper{display:flex;align-items:center;gap:10px}
+  .step{width:30px;height:30px;border-radius:15px;background:var(--surface-container);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--on-surface-variant)}
+  .swatch{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#777;border:1px solid rgba(0,0,0,.06)}
+  .swatch.on{outline:2px solid #B45309;outline-offset:1px}
+  .seg{display:flex;background:var(--surface-container);border-radius:10px;padding:3px;gap:2px;width:176px}
+  .seg span{flex:1;text-align:center;padding:7px 0;font-size:12px;border-radius:8px;color:var(--on-surface-variant)}
+  .seg span.on{background:var(--surface);color:var(--primary);font-weight:600;box-shadow:var(--shadow)}
+  .lrow input[type=range]{width:140px;accent-color:var(--primary)}
+
+  /* ── 搜索 ── */
+  .searchfield{flex:1;height:44px;background:var(--surface-container);border-radius:22px;display:flex;align-items:center;padding:0 16px;gap:8px;color:var(--on-surface-variant)}
+  .searchfield input{border:none;background:none;outline:none;flex:1;font-size:14px;color:var(--on-surface)}
+  .hot{display:flex;flex-direction:column;gap:10px;font-size:14px;color:var(--on-surface-variant);line-height:1.4}
+  .hot .rank{display:inline-flex;align-items:center;gap:8px;min-width:26px;font-weight:700;color:#00639B}
+  .hot .rank.r1{color:#D2691E}.hot .rank.r2{color:#B45309}.hot .rank.r3{color:#8B5A2B}
+
+  /* ── 个人主页 ── */
+  .profilehead{background:linear-gradient(135deg,#CFE6FF,#F0E9FF);padding:46px 16px 14px;position:relative}
+  .bigav{width:74px;height:74px;border-radius:50%;background:linear-gradient(135deg,#7DB8FF,#4F8EF0);border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;font-weight:700;flex:none}
+  .pstats{display:flex;gap:18px;margin-top:12px}
+  .pstats div b{font-size:16px;font-weight:700;display:block}
+  .pstats div span{font-size:11px;color:var(--on-surface-variant)}
+  .tabs{display:flex;gap:4px;padding:10px 16px 0;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs span{font-size:13px;color:var(--on-surface-variant);padding:8px 12px;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer}
+  .tabs span.on{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px 90px;overflow-y:auto}
+  .two .card{margin:0}
+
+  /* ── 我的 ── */
+  .mgroup{padding:6px 16px}
+  .mgroup .mi{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--outline-variant);font-size:14px;cursor:pointer}
+  .mgroup .mi:last-child{border-bottom:none}
+  .mgroup .mi .icw{width:38px;height:38px;border-radius:12px;background:var(--secondary-container);color:var(--on-secondary-container);display:flex;align-items:center;justify-content:center;flex:none}
+  .mgroup .mi .sub{font-size:11px;color:var(--on-surface-variant)}
+
+  .hint{grid-column:1/-1;text-align:center;color:#5A6B80;font-size:12px;margin-top:-26px}
+</style>
+</head>
+<body>
+
+<!-- ═════════ SVG 符号库（图标 + 插画占位） ═════════ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <defs>
+    <!-- 通用 UI 图标（Material 填充风格） -->
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></symbol>
+    <symbol id="i-explore" viewBox="0 0 24 24"><path d="M12 10.9c-.61 0-1.1.49-1.1 1.1s.49 1.1 1.1 1.1c.61 0 1.1-.49 1.1-1.1s-.49-1.1-1.1-1.1zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19z"/></symbol>
+    <symbol id="i-leader" viewBox="0 0 24 24"><path d="M7.5 21H2V9h5.5v12zm7.25 0h-5.5V3h5.5v18zM22 21h-5.5V9H22v12z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></symbol>
+    <symbol id="i-heart-o" viewBox="0 0 24 24"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></symbol>
+    <symbol id="i-bookmark-o" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm2.5-4h-2v2h-1v-2h-2v-1h2V8h1v2h2v1z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+    <symbol id="i-photo" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></symbol>
+    <symbol id="i-font" viewBox="0 0 24 24"><path d="M9.93 13.5h4.14L12 7.98 9.93 13.5zM20.05 17.11l-1.24-3.17h-5.61l-1.24 3.17h-2.28l5.07-13.08c.18-.47.64-.78 1.14-.78s.96.31 1.14.78l5.07 13.08h-2.25zm-11.06-6.6l-1.79 4.62h3.53l-1.74-4.62z"/></symbol>
+    <symbol id="i-watch" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.3l4.5 2.7-.8 1.2z"/></symbol>
+
+    <!-- 插画占位（封面） -->
+    <symbol id="art-soda" viewBox="0 0 200 260">
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD9A0"/><stop offset="1" stop-color="#FF8E7D"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g1)"/>
+      <circle cx="150" cy="46" r="26" fill="#FFF3C4"/>
+      <ellipse cx="50" cy="60" rx="34" ry="12" fill="#fff" opacity=".5"/>
+      <path d="M0 190 Q60 140 110 180 T200 170 L200 260 L0 260 Z" fill="#C96A5B" opacity=".35"/>
+      <path d="M0 215 Q70 175 130 210 T200 205 L200 260 L0 260 Z" fill="#A14F45" opacity=".5"/>
+      <g fill="#fff" opacity=".9">
+        <circle cx="96" cy="196" r="7"/><circle cx="120" cy="182" r="5"/><circle cx="82" cy="176" r="4"/>
+        <circle cx="108" cy="214" r="4"/><circle cx="140" cy="200" r="6"/>
+      </g>
+    </symbol>
+    <symbol id="art-star" viewBox="0 0 200 260">
+      <defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9BD0FF"/><stop offset="1" stop-color="#5A8FE8"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g2)"/>
+      <path d="M150 20 a18 18 0 1 0 12 31 a22 22 0 1 1 -12-31" fill="#FFF6D9"/>
+      <g fill="#fff"><circle cx="40" cy="60" r="3"/><circle cx="70" cy="30" r="2"/><circle cx="100" cy="80" r="2.5"/><circle cx="30" cy="120" r="2"/><circle cx="170" cy="90" r="2"/></g>
+      <path d="M0 210 Q60 170 110 200 T200 190 L200 260 L0 260 Z" fill="#1E3A6E" opacity=".5"/>
+      <circle cx="60" cy="170" r="16" fill="#fff" opacity=".9"/><circle cx="70" cy="176" r="16" fill="url(#g2)"/>
+      <path d="M140 240 Q130 210 150 200 Q170 210 165 240 Z" fill="#FDE68A" opacity=".8"/>
+    </symbol>
+    <symbol id="art-rain" viewBox="0 0 200 260">
+      <defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A4A6B"/><stop offset="1" stop-color="#10182B"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g3)"/>
+      <circle cx="62" cy="140" r="34" fill="#FFD98A" opacity=".55"/>
+      <circle cx="62" cy="140" r="14" fill="#FFF1BF"/>
+      <rect x="58" y="150" width="8" height="60" fill="#2A3548"/>
+      <path d="M0 190 Q70 160 130 190 T200 185 L200 260 L0 260 Z" fill="#0B1220" opacity=".55"/>
+      <g stroke="#fff" stroke-width="2" opacity=".35" stroke-linecap="round">
+        <line x1="30" y1="30" x2="22" y2="55"/><line x1="80" y1="20" x2="72" y2="45"/>
+        <line x1="140" y1="40" x2="132" y2="65"/><line x1="180" y1="20" x2="172" y2="45"/>
+        <line x1="110" y1="60" x2="102" y2="85"/><line x1="160" y1="80" x2="152" y2="105"/>
+      </g>
+    </symbol>
+    <symbol id="art-sakura" viewBox="0 0 200 260">
+      <defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB3C6"/><stop offset="1" stop-color="#E86A9D"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g4)"/>
+      <path d="M20 70 Q80 20 180 60" stroke="#9A4A66" stroke-width="5" fill="none"/>
+      <path d="M80 45 Q110 30 140 48" stroke="#9A4A66" stroke-width="3" fill="none"/>
+      <g fill="#FFF5F8" opacity=".95">
+        <g transform="translate(60,50)"><path d="M0 0 c6 -10 18 -10 22 0 c-4 8 -18 8 -22 0z"/><path d="M0 0 c-6 -10 -18 -10 -22 0 c4 8 18 8 22 0z"/><path d="M0 0 c0 -12 12 -16 16 -6 c-2 10 -14 10 -16 6z"/><path d="M0 0 c0 -12 -12 -16 -16 -6 c2 10 14 10 16 6z"/></g>
+        <g transform="translate(120,60) scale(.8)"><path d="M0 0 c6 -10 18 -10 22 0 c-4 8 -18 8 -22 0z"/><path d="M0 0 c-6 -10 -18 -10 -22 0 c4 8 18 8 22 0z"/><path d="M0 0 c0 -12 12 -16 16 -6 c-2 10 -14 10 -16 6z"/><path d="M0 0 c0 -12 -12 -16 -16 -6 c2 10 14 10 16 6z"/></g>
+      </g>
+      <g fill="#fff" opacity=".85"><circle cx="40" cy="110" r="5"/><circle cx="90" cy="130" r="4"/><circle cx="160" cy="100" r="4"/><circle cx="70" cy="90" r="3"/></g>
+      <path d="M0 220 Q100 190 200 215 L200 260 L0 260 Z" fill="#B84A6F" opacity=".3"/>
+    </symbol>
+    <symbol id="art-garden" viewBox="0 0 200 260">
+      <defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B0F0D0"/><stop offset="1" stop-color="#3FBF92"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g5)"/>
+      <path d="M20 210 Q80 140 110 200 T200 190 L200 260 L0 260 Z" fill="#2E8B6E" opacity=".55"/>
+      <g fill="#E9FFF4"><ellipse cx="90" cy="120" rx="34" ry="16" transform="rotate(-20 90 120)"/><ellipse cx="70" cy="140" rx="26" ry="12" transform="rotate(12 70 140)"/><ellipse cx="125" cy="105" rx="22" ry="10" transform="rotate(-8 125 105)"/></g>
+      <path d="M140 260 Q150 180 185 150 L185 170 Q165 195 165 260 Z" fill="#1F6E57" opacity=".7"/>
+      <path d="M160 260 Q168 200 195 175 L195 195 Q180 215 178 260 Z" fill="#164D3C" opacity=".6"/>
+      <circle cx="60" cy="80" r="8" fill="#FFE58F"/>
+      <circle cx="150" cy="60" r="6" fill="#FFD9A0"/>
+    </symbol>
+    <symbol id="art-food" viewBox="0 0 200 260">
+      <defs><linearGradient id="g6" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE58F"/><stop offset="1" stop-color="#F0A53E"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g6)"/>
+      <g stroke="#8B5A2B" stroke-width="4" fill="none" opacity=".7">
+        <path d="M60 60 q8 -16 16 0"/><path d="M90 48 q8 -16 16 0"/><path d="M120 60 q8 -16 16 0"/>
+      </g>
+      <path d="M50 120 a50 46 0 0 0 100 0 Z" fill="#FFF8EF"/>
+      <path d="M50 120 a50 46 0 0 0 100 0 Z" fill="none" stroke="#E8D9C0" stroke-width="2"/>
+      <path d="M70 140 Q100 150 130 140" stroke="#D9B98A" stroke-width="3" fill="none"/>
+      <path d="M0 205 Q100 175 200 200 L200 260 L0 260 Z" fill="#B46A2A" opacity=".4"/>
+      <g fill="#B46A2A" opacity=".6"><circle cx="85" cy="150" r="5"/><circle cx="115" cy="158" r="4"/></g>
+    </symbol>
+    <symbol id="art-cat" viewBox="0 0 200 260">
+      <defs><linearGradient id="g7" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A8EDE0"/><stop offset="1" stop-color="#2FBF9E"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g7)"/>
+      <circle cx="100" cy="110" r="42" fill="#123B33"/>
+      <path d="M60 95 L40 55 L72 78 Z" fill="#123B33"/>
+      <path d="M140 95 L160 55 L128 78 Z" fill="#123B33"/>
+      <path d="M100 105 l-9 9 l9 5 l9 -5 Z" fill="#123B33"/>
+      <circle cx="84" cy="104" r="4" fill="#7CF5D2"/><circle cx="116" cy="104" r="4" fill="#7CF5D2"/>
+      <path d="M30 230 Q60 190 100 210 Q140 190 170 230 L200 260 L0 260 Z" fill="#0F332C" opacity=".7"/>
+      <path d="M150 150 q30 8 34 34" stroke="#123B33" stroke-width="8" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="art-girl" viewBox="0 0 200 260">
+      <defs><linearGradient id="g8" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C9A7FF"/><stop offset="1" stop-color="#7D5FD8"/></linearGradient></defs>
+      <rect width="200" height="260" fill="url(#g8)"/>
+      <path d="M100 40 c-20 0 -34 16 -34 38 c0 10 3 18 8 25 c-18 14 -30 34 -30 58 c0 26 20 44 56 44 s56 -18 56 -44 c0 -24 -12 -44 -30 -58 c5 -7 8 -15 8 -25 c0 -22 -14 -38 -34 -38z" fill="#3A2A5E"/>
+      <path d="M100 60 c-16 0 -28 13 -28 30 l0 6 c8 -10 18 -14 28 -14 s20 4 28 14 l0 -6 c0 -17 -12 -30 -28 -30z" fill="#F2C79A"/>
+      <path d="M60 90 c-8 30 -6 60 8 86 l-14 12 c-18 -32 -22 -66 -12 -100 Z" fill="#3A2A5E"/>
+      <path d="M140 90 c8 30 6 60 -8 86 l14 12 c18 -32 22 -66 12 -100 Z" fill="#3A2A5E"/>
+      <circle cx="88" cy="100" r="3" fill="#2A1B44"/><circle cx="112" cy="100" r="3" fill="#2A1B44"/>
+      <path d="M94 114 q6 6 12 0" stroke="#B45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <g fill="#FFE08A" opacity=".9"><circle cx="40" cy="50" r="5"/><circle cx="70" cy="30" r="3"/><circle cx="160" cy="44" r="4"/></g>
+      <path d="M0 230 Q100 205 200 225 L200 260 L0 260 Z" fill="#4A3480" opacity=".5"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="stage">
+<div class="grid">
+
+<!-- ═══════════ 1 首页 · 推荐瀑布流 ═══════════ -->
+<div class="screentitle">01 · 首页（推荐瀑布流）<span>热门标签 / 收藏角标 / AI 标识 / 双列瀑布</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <div class="avatar">我</div>
+      <h2>推荐</h2>
+      <div class="iconbtn" style="position:relative"><svg class="ic"><use href="#i-bell"/></svg><span class="badge">3</span></div>
+      <div class="iconbtn fab"><svg class="ic"><use href="#i-search"/></svg></div>
+    </div>
+    <div class="chiprow">
+      <span class="chip on">为你推荐</span><span class="chip">关注</span><span class="chip">#初音ミク</span><span class="chip">#风景</span><span class="chip">#FGO</span>
+    </div>
+    <div class="waterfall">
+      <div class="card">
+        <div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-soda"/></svg><span class="fav"><svg class="ic xs"><use href="#i-heart"/></svg>12.4万</span><span class="ai">AI</span></div>
+        <div class="meta"><div class="t">夏日午后的一杯汽水</div><div class="a"><div class="avatar">茶</div><span>茶绘くん</span></div></div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-star"/></svg><span class="fav"><svg class="ic xs"><use href="#i-heart"/></svg>3.2万</span></div>
+        <div class="meta"><div class="t">星海の旅</div><div class="a"><div class="avatar">星</div><span>星空人</span></div></div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-rain"/></svg><span class="fav"><svg class="ic xs"><use href="#i-heart"/></svg>8.7万</span></div>
+        <div class="meta"><div class="t">雨夜的街灯 / 短篇漫画 第 3 话</div><div class="a"><div class="avatar">雨</div><span>雨宿り</span></div></div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-sakura"/></svg><span class="fav"><svg class="ic xs"><use href="#i-heart"/></svg>5.1万</span></div>
+        <div class="meta"><div class="t">春樱与和服少女</div><div class="a"><div class="avatar">樱</div><span>さくら</span></div></div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-garden"/></svg><span class="fav"><svg class="ic xs"><use href="#i-heart"/></svg>1.9万</span></div>
+        <div class="meta"><div class="t">庭院一角</div><div class="a"><div class="avatar">绿</div><span>greenleaf</span></div></div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-food"/></svg><span class="fav"><svg class="ic xs"><use href="#i-heart"/></svg>21.0万</span></div>
+        <div class="meta"><div class="t">异世界食堂的日常</div><div class="a"><div class="avatar">厨</div><span>食堂主</span></div></div>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-home"/></svg></div>首页</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-explore"/></svg></div>发现</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-leader"/></svg></div>排行</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-book"/></svg></div>小说</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-person"/></svg></div>我的</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 2 小说 · 推荐流 ═══════════ -->
+<div class="screentitle">02 · 小说（推荐 / 阅读历史入口）<span>追更角标 / 连载状态 / 阅读进度</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <div class="avatar">读</div>
+      <h2>小说</h2>
+      <div class="iconbtn"><svg class="ic"><use href="#i-watch"/></svg></div>
+      <div class="iconbtn fab"><svg class="ic"><use href="#i-search"/></svg></div>
+    </div>
+    <div class="chiprow">
+      <span class="chip on">推荐</span><span class="chip">排行榜</span><span class="chip">关注</span><span class="chip">系列</span><span class="chip">#オリジナル</span>
+    </div>
+    <div class="list">
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-rain"/></svg><span class="cvb"><svg class="ic xs"><use href="#i-bookmark"/></svg>56%</span></div>
+        <div class="tt"><div class="t2">雨夜的街灯</div><div class="s">雨宿り · 第 3 话「不打烊的伞」 · 全 24 话</div><span class="n">阅读中 · 上次读到 56%</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-play"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-food"/></svg><span class="cvb"><svg class="ic xs"><use href="#i-heart"/></svg>8.2万</span></div>
+        <div class="tt"><div class="t2">异世界食堂的日常</div><div class="s">食堂主 · 长篇小说 · 全 40 话</div><span class="n">有新章</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-chev"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-cat"/></svg><span class="cvb"><svg class="ic xs"><use href="#i-heart"/></svg>1.2万</span></div>
+        <div class="tt"><div class="t2">一只猫的旅行日记</div><div class="s">greenleaf · 全 20 话 · 已完结</div><span class="n">完结</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-chev"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-star"/></svg><span class="cvb"><svg class="ic xs"><use href="#i-heart"/></svg>5.6万</span></div>
+        <div class="tt"><div class="t2">星海漫游指南</div><div class="s">星空人 · 科幻 · 全 9 话</div><span class="n">追更中</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-chev"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-sakura"/></svg><span class="cvb"><svg class="ic xs"><use href="#i-heart"/></svg>9.9万</span></div>
+        <div class="tt"><div class="t2">春之梦，花开时</div><div class="s">さくら · 短篇 · 已完结</div></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-chev"/></svg></div>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-home"/></svg></div>首页</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-explore"/></svg></div>发现</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-leader"/></svg></div>排行</div>
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-book"/></svg></div>小说</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-person"/></svg></div>我的</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 3 发现 · 搜索 + 筛选 ═══════════ -->
+<div class="screentitle">03 · 发现（搜索 + 高级筛选）<span>联想补全 / V3 筛选面板 / 热门搜索榜</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <div class="iconbtn"><svg class="ic"><use href="#i-arrow"/></svg></div>
+      <div class="searchfield"><svg class="ic"><use href="#i-search"/></svg><input placeholder="搜索作品、画师、标签"></div>
+    </div>
+    <div class="chiprow">
+      <span class="chip on">插画</span><span class="chip">漫画</span><span class="chip">小说</span><span class="chip">用户</span>
+      <span class="chip" style="margin-left:auto"><svg class="ic s"><use href="#i-filter"/></svg>筛选</span>
+    </div>
+    <div class="list" style="padding-top:6px">
+      <div class="sectionl" style="margin:4px 0 8px">热门搜索</div>
+      <div class="hot">
+        <div><span class="rank r1">1</span>初音ミク</div>
+        <div><span class="rank r2">2</span>白无垢</div>
+        <div><span class="rank r3">3</span>オリジナル</div>
+        <div><span class="rank">4</span>风景</div>
+        <div><span class="rank">5</span>FGO</div>
+      </div>
+      <div class="sectionl" style="margin-top:20px">搜索联想</div>
+      <div style="font-size:14px;line-height:2.3;color:var(--on-surface-variant)">
+        <div style="display:flex;align-items:center;gap:8px"><svg class="ic s"><use href="#i-search"/></svg>初音ミク 2026</div>
+        <div style="display:flex;align-items:center;gap:8px"><svg class="ic s"><use href="#i-search"/></svg>初音ミク 16岁</div>
+        <div style="display:flex;align-items:center;gap:8px"><svg class="ic s"><use href="#i-search"/></svg>初音ミク 公式</div>
+      </div>
+    </div>
+    <!-- 筛选底部面板 -->
+    <div class="sheet">
+      <div class="grip"></div>
+      <div class="lrow"><b>排序</b><div class="seg"><span class="on">最新</span><span>收藏多</span></div></div>
+      <div class="lrow"><b>匹配方式</b><div class="seg"><span class="on">标签</span><span>标题简介</span></div></div>
+      <div class="lrow"><b>时间范围</b><span style="font-size:12px;color:var(--on-surface-variant)">2026-01-01 至 2026-08-01</span></div>
+      <div class="lrow"><b>收藏数</b><span style="font-size:12px;color:var(--on-surface-variant)">不限</span></div>
+      <div class="lrow"><b>AI 作品</b><div class="seg"><span class="on">全部</span><span>仅人绘</span><span>仅 AI</span></div></div>
+      <div class="actionbar" style="padding:12px 0 0;border-top:none"><div class="iconbtn fab"><svg class="ic"><use href="#i-refresh"/></svg></div><div class="btn">应用筛选</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 4 插画详情 ═══════════ -->
+<div class="screentitle">04 · 插画详情（多图查看）<span>横向 Pager / 真实尺寸 / 相关推荐 / 评论区</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <div class="iconbtn"><svg class="ic"><use href="#i-arrow"/></svg></div>
+      <h2 style="font-size:16px">作品详情</h2>
+      <div class="iconbtn"><svg class="ic"><use href="#i-more"/></svg></div>
+    </div>
+    <div class="pager">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice"><use href="#art-soda"/></svg>
+      <div class="pagedots"><i class="on"></i><i></i><i></i><i></i><span>1 / 4</span></div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding-bottom:84px">
+      <div class="pad">
+        <div class="title">夏日午后的一杯汽水</div>
+        <div class="author">
+          <div class="avatar">茶</div>
+          <div><div style="font-size:14px;font-weight:600">茶绘くん</div><div style="font-size:11px;color:var(--on-surface-variant)">插画师 · 已认证</div></div>
+          <div class="btn out" style="flex:0 0 92px;height:34px;font-size:13px">已关注</div>
+        </div>
+        <div class="stats">
+          <span class="stat"><svg class="ic s"><use href="#i-eye"/></svg>45.2万</span>
+          <span class="stat"><svg class="ic s"><use href="#i-heart"/></svg>12.4万</span>
+          <span class="stat"><svg class="ic s"><use href="#i-chat"/></svg>1,208</span>
+          <span class="stat"><svg class="ic s"><use href="#i-photo"/></svg>4 P</span>
+        </div>
+        <div class="tagrow">
+          <span class="pill">#オリジナル</span><span class="pill">#夏</span><span class="pill">#饮品</span><span class="pill">#女の子</span><span class="pill">#下午茶</span>
+        </div>
+        <div class="cap">夏休みの午後、決して溶けないソーダの泡。希望能把这份清凉的心情传递给屏幕前的你。<br>—— 完成日期：2026-07-28</div>
+      </div>
+      <div class="pad" style="padding-top:0">
+        <div class="sectionl"><svg class="ic s"><use href="#i-link"/></svg>相关作品</div>
+        <div class="rail">
+          <div class="railc"><svg viewBox="0 0 200 260"><use href="#art-star"/></svg><p>星海の旅</p></div>
+          <div class="railc"><svg viewBox="0 0 200 260"><use href="#art-rain"/></svg><p>雨夜的街灯</p></div>
+          <div class="railc"><svg viewBox="0 0 200 260"><use href="#art-sakura"/></svg><p>春樱与和服</p></div>
+          <div class="railc"><svg viewBox="0 0 200 260"><use href="#art-food"/></svg><p>异世界食堂</p></div>
+        </div>
+        <div class="sectionl"><svg class="ic s"><use href="#i-chat"/></svg>评论 (1.2k)</div>
+        <div style="font-size:12.5px;color:var(--on-surface-variant);line-height:1.9">
+          <div><b style="color:var(--on-surface)">@mofu</b> 这个配色太清爽了！</div>
+          <div><b style="color:var(--on-surface)">@akira</b> 气泡的反光画得真棒</div>
+          <div><b style="color:var(--on-surface)">@haru</b> 已设为壁纸</div>
+        </div>
+      </div>
+    </div>
+    <div class="actionbar">
+      <div class="iconbtn"><svg class="ic l"><use href="#i-download"/></svg></div>
+      <div class="iconbtn"><svg class="ic l"><use href="#i-chat"/></svg></div>
+      <div class="iconbtn fab"><svg class="ic l"><use href="#i-heart"/></svg></div>
+      <div class="btn"><svg class="ic s"><use href="#i-bookmark"/></svg>收藏并打标签</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 5 全屏图片查看器 ═══════════ -->
+<div class="screentitle">05 · 全屏插画查看器<span>捏合缩放 / 平移 / 页码指示 / 底部快捷操作</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen viewer">
+    <div class="vtop">
+      <div class="iconbtn"><svg class="ic"><use href="#i-arrow"/></svg></div>
+      <span style="font-size:13px;flex:1;color:#fff">茶绘くん · 夏日午后的一杯汽水</span>
+      <div class="iconbtn"><svg class="ic"><use href="#i-more"/></svg></div>
+    </div>
+    <div class="pagedots" style="top:56px;bottom:auto;background:rgba(255,255,255,.18)"><i class="on"></i><i></i><i></i><i></i><span>1 / 4</span></div>
+    <div class="vimg"><svg viewBox="0 0 200 260" preserveAspectRatio="xMidYMid slice"><use href="#art-soda"/></svg></div>
+    <div class="vzoom"><svg class="ic"><use href="#i-zoom"/></svg></div>
+    <div class="vbottom">
+      <div class="vbicon"><div class="vic fill"><svg class="ic"><use href="#i-heart"/></svg></div>收藏</div>
+      <div class="vbicon"><div class="vic"><svg class="ic"><use href="#i-download"/></svg></div>下载</div>
+      <div class="vbicon"><div class="vic"><svg class="ic"><use href="#i-star"/></svg></div>壁纸</div>
+      <div class="vbicon"><div class="vic"><svg class="ic"><use href="#i-globe"/></svg></div>原图</div>
+      <div class="vbicon"><div class="vic"><svg class="ic"><use href="#i-more"/></svg></div>更多</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 6 小说阅读器（核心） ═══════════ -->
+<div class="screentitle">06 · 小说阅读器（人性化阅读）<span>护眼纸张主题 / 排版设置 / 阅读进度 / 章节导航</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen reader">
+    <div class="rtop">
+      <div class="iconbtn"><svg class="ic"><use href="#i-arrow"/></svg></div>
+      <div class="rtitlebar">第 3 话 · 56%</div>
+      <div class="iconbtn"><svg class="ic"><use href="#i-heart-o"/></svg></div>
+      <div class="iconbtn"><svg class="ic"><use href="#i-bookmark-o"/></svg></div>
+      <div class="iconbtn"><svg class="ic"><use href="#i-font"/></svg></div>
+    </div>
+    <div class="rbody">
+      <div class="rt">雨夜的街灯</div>
+      <div class="ra">雨宿り · 第 3 话「不打烊的伞」</div>
+      <p class="rline first">深夜十一点，便利店门口的自动门开合了三次。第三次它迎接进来的，是一个浑身湿透的少女——怀里抱着那盏<em class="em">一直亮着的街灯</em>。</p>
+      <p class="rline">「麻烦给我一把伞。」她说，「不用新的，要店里那把旧的三号伞。」</p>
+      <p class="rline">收银台后的我愣了一下。三号伞是上周四被一位老先生借走的，他答应第二天还，却再也没来过。伞柄上还系着褪色的晴天娃娃。</p>
+      <div class="rdiv">＊</div>
+      <p class="rline">雨水顺着少女的发梢滴落，在地砖上汇成一小片澄澈的湖。她把灯轻轻放在台面上，灯光忽然温柔起来，照得整个便利店都像浸在蜂蜜里。</p>
+      <p class="rline">「那把伞呀，」她笑了，「是老爷子托我送回来的。他说，等晴天的日子，就请你看一眼这把伞柄上的娃娃——它想回家了。」</p>
+    </div>
+    <div class="rprog"><i></i></div>
+    <div class="rnave">
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-chev"/></svg><svg class="ic s" style="transform:scaleX(-1)"><use href="#i-chev"/></svg></div>上一话</div>
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-bookmark-o"/></svg></div>书签</div>
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-font"/></svg></div>设置</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-chev"/></svg></div>下一话</div>
+    </div>
+    <!-- 排版设置面板 -->
+    <div class="sheet">
+      <div class="grip"></div>
+      <div class="lrow"><b>字号</b><div class="stepper"><span class="step">A-</span><span style="font-size:12px;color:var(--on-surface-variant)">17px</span><span class="step">A+</span></div></div>
+      <div class="lrow"><b>行距</b><div class="stepper"><span class="step">-</span><span style="font-size:12px;color:var(--on-surface-variant)">2.0</span><span class="step">+</span></div></div>
+      <div class="lrow"><b>字体</b><div class="seg"><span class="on">宋体</span><span>黑体</span><span>圆体</span></div></div>
+      <div class="lrow"><b>主题</b><div style="display:flex;gap:8px">
+        <span class="swatch">日间</span>
+        <span class="swatch on" style="background:#F6F1E7;color:#8A7F6C">纸张</span>
+        <span class="swatch" style="background:#2E3B32;color:#CFE3D2">夜间</span>
+        <span class="swatch" style="background:#121212;color:#AAA">深黑</span>
+      </div></div>
+      <div class="lrow"><b>翻页方式</b><div class="seg"><span>上下滑动</span><span class="on">左右翻页</span><span>仿真</span></div></div>
+      <div class="lrow"><b>屏幕亮度</b><input type="range" min="0" max="100" value="78"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 7 追更 / 系列 ═══════════ -->
+<div class="screentitle">07 · 追更（系列管理）<span>更新徽标 / 阅读进度 / 完结状态</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <h2>追更</h2>
+      <div class="chip on" style="height:36px">小说</div><div class="chip" style="height:36px">漫画</div>
+      <div class="iconbtn fab"><svg class="ic"><use href="#i-search"/></svg></div>
+    </div>
+    <div class="list">
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-rain"/></svg><span class="cvb">读到 12</span></div>
+        <div class="tt"><div class="t2">雨夜的街灯</div><div class="s">雨宿り · 全 24 话 · 更新于 昨天</div><span class="n">有新章</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-play"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-food"/></svg><span class="cvb">已读完</span></div>
+        <div class="tt"><div class="t2">异世界食堂的日常</div><div class="s">食堂主 · 全 40 话 · 已完结</div><span class="n">完结</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-download"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-star"/></svg><span class="cvb">读到 3</span></div>
+        <div class="tt"><div class="t2">星海漫游指南</div><div class="s">星空人 · 全 9 话 · 更新于 3 天前</div></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-play"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-cat"/></svg><span class="cvb">读到 5</span></div>
+        <div class="tt"><div class="t2">一只猫的旅行日记</div><div class="s">greenleaf · 全 20 话 · 更新于 今天</div><span class="n">有新章</span></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-play"/></svg></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-garden"/></svg><span class="cvb">读到 8</span></div>
+        <div class="tt"><div class="t2">庭院物语</div><div class="s">greenleaf · 全 15 话 · 更新于 上周</div></div>
+        <div class="iconbtn tone"><svg class="ic"><use href="#i-play"/></svg></div>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-home"/></svg></div>首页</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-explore"/></svg></div>发现</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-leader"/></svg></div>排行</div>
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-book"/></svg></div>小说</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-person"/></svg></div>我的</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 8 排行榜 ═══════════ -->
+<div class="screentitle">08 · 排行榜<span>分段切换 / 排名徽标 / 榜单类型</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <h2>排行榜</h2>
+      <div class="iconbtn"><svg class="ic"><use href="#i-cal"/></svg></div>
+    </div>
+    <div class="chiprow" style="justify-content:center">
+      <span class="chip on">每日</span><span class="chip">每周</span><span class="chip">每月</span><span class="chip">新人</span><span class="chip">原创</span><span class="chip">男性向</span><span class="chip">女性向</span>
+    </div>
+    <div class="list" style="padding-top:4px">
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-soda"/></svg><span class="cvb" style="background:#E8A33D;left:auto;right:4px">1</span></div>
+        <div class="tt"><div class="t2">夏日午后的一杯汽水</div><div class="s">茶绘くん · 收藏 12.4万</div></div>
+        <span class="pill" style="color:#B45309">本周新上榜</span>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-sakura"/></svg><span class="cvb" style="background:#B45309;left:auto;right:4px">2</span></div>
+        <div class="tt"><div class="t2">春樱与和服少女</div><div class="s">さくら · 收藏 5.1万</div></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-rain"/></svg><span class="cvb" style="background:#6B7280;left:auto;right:4px">3</span></div>
+        <div class="tt"><div class="t2">雨夜的街灯</div><div class="s">雨宿り · 收藏 8.7万</div></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-star"/></svg><span class="cvb" style="left:auto;right:4px">4</span></div>
+        <div class="tt"><div class="t2">星海の旅</div><div class="s">星空人 · 收藏 3.2万</div></div>
+      </div>
+      <div class="li">
+        <div class="cv"><svg viewBox="0 0 200 260"><use href="#art-food"/></svg><span class="cvb" style="left:auto;right:4px">5</span></div>
+        <div class="tt"><div class="t2">异世界食堂的日常</div><div class="s">食堂主 · 收藏 21.0万</div></div>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-home"/></svg></div>首页</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-explore"/></svg></div>发现</div>
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-leader"/></svg></div>排行</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-book"/></svg></div>小说</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-person"/></svg></div>我的</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 9 用户主页 ═══════════ -->
+<div class="screentitle">09 · 用户主页<span>统计 / 关注操作 / 分区 Tab / 作品网格</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="profilehead">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="bigav">茶</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:19px;font-weight:700">茶绘くん</div>
+          <div style="font-size:12px;color:var(--on-surface-variant);margin-top:2px">@chabaku · 插画师</div>
+          <div class="pstats">
+            <div><b>1,284</b><span>作品</span></div>
+            <div><b>12.4万</b><span>粉丝</span></div>
+            <div><b>3,205</b><span>收藏</span></div>
+            <div><b>48</b><span>关注</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <div class="btn out" style="flex:2"><svg class="ic s"><use href="#i-heart"/></svg>已关注</div>
+        <div class="iconbtn fab"><svg class="ic"><use href="#i-bookmark"/></svg></div>
+        <div class="iconbtn fab"><svg class="ic"><use href="#i-mail"/></svg></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <span class="on">插画</span><span>漫画</span><span>小说</span><span>系列</span><span>收藏</span><span>约稿</span>
+    </div>
+    <div class="two">
+      <div class="card"><div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-soda"/></svg></div><div class="meta"><div class="t">夏日午后的一杯汽水</div><div class="a"><span>收藏 12.4万</span></div></div></div>
+      <div class="card"><div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-sakura"/></svg></div><div class="meta"><div class="t">春樱与和服少女</div><div class="a"><span>收藏 5.1万</span></div></div></div>
+      <div class="card"><div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-star"/></svg></div><div class="meta"><div class="t">星海の旅</div><div class="a"><span>收藏 3.2万</span></div></div></div>
+      <div class="card"><div class="thumb"><svg viewBox="0 0 200 260"><use href="#art-garden"/></svg></div><div class="meta"><div class="t">庭院一角</div><div class="a"><span>收藏 1.9万</span></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 10 我的 ═══════════ -->
+<div class="screentitle">10 · 我的<span>收藏 / 阅读历史 / 下载 / 屏蔽管理 / 设置</span></div>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="topbar">
+      <h2>我的</h2>
+      <div class="iconbtn"><svg class="ic"><use href="#i-gear"/></svg></div>
+    </div>
+    <div class="pad" style="display:flex;align-items:center;gap:12px;padding-bottom:6px">
+      <div class="avatar" style="width:52px;height:52px;font-size:19px">我</div>
+      <div><div style="font-size:16px;font-weight:700">我的名字</div><div style="font-size:12px;color:var(--on-surface-variant)">@pixiv_user · 高级会员</div></div>
+      <div class="iconbtn tone" style="margin-left:auto"><svg class="ic"><use href="#i-edit"/></svg></div>
+    </div>
+    <div class="pad" style="padding-top:4px">
+      <div class="mgroup">
+        <div class="mi"><div class="icw"><svg class="ic"><use href="#i-bookmark"/></svg></div><div style="flex:1">我的收藏</div><span class="sub">1,203</span><svg class="ic s"><use href="#i-chev"/></svg></div>
+        <div class="mi"><div class="icw"><svg class="ic"><use href="#i-watch"/></svg></div><div style="flex:1">阅读历史 · 进行中</div><span class="sub">雨夜的街灯 56%</span><svg class="ic s"><use href="#i-chev"/></svg></div>
+        <div class="mi"><div class="icw"><svg class="ic"><use href="#i-download"/></svg></div><div style="flex:1">下载管理</div><span class="sub">24 项</span><svg class="ic s"><use href="#i-chev"/></svg></div>
+        <div class="mi"><div class="icw"><svg class="ic"><use href="#i-list"/></svg></div><div style="flex:1">收藏标签</div><span class="sub">32 个</span><svg class="ic s"><use href="#i-chev"/></svg></div>
+        <div class="mi"><div class="icw"><svg class="ic"><use href="#i-trash"/></svg></div><div style="flex:1">屏蔽管理</div><span class="sub">标签 12 · 用户 3</span><svg class="ic s"><use href="#i-chev"/></svg></div>
+        <div class="mi"><div class="icw"><svg class="ic"><use href="#i-gear"/></svg></div><div style="flex:1">设置</div><span class="sub">代理 / 图片质量 / 阅读偏好</span><svg class="ic s"><use href="#i-chev"/></svg></div>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-home"/></svg></div>首页</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-explore"/></svg></div>发现</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-leader"/></svg></div>排行</div>
+      <div class="navitem"><div class="nic"><svg class="ic"><use href="#i-book"/></svg></div>小说</div>
+      <div class="navitem on"><div class="nic"><svg class="ic"><use href="#i-person"/></svg></div>我的</div>
+    </div>
+  </div>
+</div>
+
+<div class="hint">原型为静态示意，可直接用浏览器打开。交互态（缩放 / 翻页 / 面板动效）将在真机实现。</div>
+
+</div>
+</div>
+</body>
+</html>
