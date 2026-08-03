@@ -230,8 +230,7 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - [x] **P2 浏览**（编译通过，单测 12/12 通过）
 - [x] **平板/自适应基础**（窗口尺寸分类 + 自适应导航壳 + 自适应瀑布流列数，单测覆盖）
 - [x] **P3 插画查看**（编译通过，单测 15/15 通过）
-- [ ] P4 小说阅读（核心）
-- [ ] P4 小说阅读（核心）
+- [x] **P4 小说阅读（核心）**（编译通过，单测 27/27 通过）
 - [ ] P5 用户社交
 - [ ] P6 下载 + 设置
 - [ ] P7 打磨
@@ -294,3 +293,29 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - 官方 API 方案（`SharedTransitionLayout` + `Modifier.sharedElement`，Compose 1.7 / Navigation 2.8 可用：`AnimatedContentScope` 不继承 `SharedTransitionScope`，需外层 scope + 内层 `AnimatedVisibilityScope` 作参数）：Hero 目标加在 Pager item 内 AsyncImage 上会导致详情图片不加载（黑底+灰占位）；移到图片区域容器 Box 可修复，但最终仍被回滚。
 - 若未来重做，建议直接升级 Navigation 2.9+ 使用官方 `composable` 内 `sharedElement`，或等 Compose 稳定后再评估。
 - 当前状态：无 Hero，编译通过，单测 15/15，APK `app-debug.apk`（20.8 MB）。
+
+### P4 完成要点（2026-08-03）
+- **core:novel**（新模块）：`NovelBlock`（段落/标题/引用/插图/分隔线，带全文字符区间）+ `NovelParser`（Jsoup 多选择器回退 + 文本兜底，段落自动全角缩进）+ `NovelDocument`（`fullText` 纯文本 + `percentageAt`/`blockContaining`）；单测 8 用例
+- **feature:reader**（新模块）：
+  - `ReaderPaginator` 自研排版引擎：`TextMeasurer` 逐块测行 → 按页高切页 → 行级样式拼 AnnotatedString；段落两端对齐、标题 1.25x、引用降透明度、分隔线居中、插图独立成页（页高 = 宽×0.75）
+  - `ReaderViewModel`：加载详情+HTML → 解析；DataStore 阅读偏好（字号/行距/字体/主题/翻页/亮度）；字符级进度 Room 防抖落库 + `flushProgress` 离场落库 + 官方 marker 比例换算低频同步；进度恢复优先级 本地 Room → 官方 marker → 开头；`progressRestored` 门闩防止 UI 抢先上报
+  - `ReaderRoute`：3 翻页模式（滑动 LazyColumn / 翻页 HorizontalPager / 仿真 3D rotationY 翻页）、4 主题（日间/纸张/夜间/深黑）+ 亮度遮罩、顶栏（收藏/更多菜单：阅读书签+追更/设置）+ 底栏（百分比+页码/字数）；`ReaderSettingsSheet` 分段按钮+滑杆
+  - `ReaderPageMapping` 纯函数（字符偏移↔页/官方页码），单测 4 用例
+- **feature:novel**（替换占位）：`NovelFeedViewModel` 推荐流（游标分页 + 触底自动加载）；`NovelDetailRoute`（标题/作者/统计/标签/简介 + 开始或继续阅读 + 收藏/追更 + 系列章节列表高亮当前章）；`NovelCard`
+- **app**：顶层新增 `novel/{novelId}` 与 `reader/{novelId}` 全屏路由 + 深链 `pixiv://novel/{id}`、`pixiv://reader/{id}`；`MainShell` 小说 Tab 接推荐流
+- 修复：`core:database` / `core:datastore` 补 Hilt Gradle 插件 + `hilt-compiler`（此前库内 `@Module`/`@Inject` 未聚合，P4 首次注入 DAO 才暴露）；Channel 消息流用 `receiveAsFlow`；跨模块 nullable 属性 smart cast 需 `checkNotNull`
+- 测试：`NovelParserTest` 8 + `ReaderPageMappingTest` 4，总计 27 用例全通过
+- 产出：`app-debug.apk`
+
+### P4 修复（2026-08-03）
+- **简介富文本**：新增 `htmlToPlainText`（任意 HTML → 纯文本，`<br>`/块级标签转换行，`<a>` 等行内标签只留文字），小说详情简介不再显示原始 `<br/>`、`<a href>` 等标签；单测 4 用例
+- **解析兜底强化**：`NovelParser` 增加保留换行的全文提取（`extractAllText`：遍历节点、块级/`<br>` 转换行、排除 script/style/iframe）；支持 `<div class="novel-paragraph">` 与纯 div 段落结构；移除兜底选择器中的裸 `div`（避免整段合并/重复）；`textFallback` 改为按换行切段（原 `body.text()` 会把全页压成一段）
+- **解析策略升级（第二次修复）**：`parse` 改为「逐个候选容器尝试（`div.novel-content`/`.novel-view`/`.novel-body`/`#novel-body`/`section.novel-body`/`main`/`article`）→ 整页 `body` 全文提取 → `<script>` 内嵌 JSON 兜底（`content`/`text`/`description` 字段长文本，CJK 比例过滤 + `\n`/`\uXXXX` 去转义）」，解决部分真实页面正文在 React `__INITIAL_STATE__` 里导致"没有正文内容"的问题
+- **阅读器交互修正（第二次修复）**：移除"点击正文切换工具栏"的动画效果；**点击正文任意处直接弹出阅读设置面板**；顶/底栏保持常显
+- **防闪退加固（第三次修复）**：`ReaderViewModel` 所有协程体（偏好收集 ×6 / load / restoreProgress / loadServerState / saveProgress / 偏好写入 ×6）全面包 try-catch 或 runCatching，杜绝 `viewModelScope` 未捕获异常直接崩 App；`load()` 的 `isLoading=false` 移入 finally；进度恢复异常不再影响正文展示；`ReaderPaginator` 分页包 runCatching（失败返回空页而非崩溃）；`NovelParser` 超长段落（>3000 字符）自动切分，避免单个 Text 过大；异常均打 `Log.w`（tag: ReaderViewModel / ReaderPaginator / 新增 `loadServerState` 用 try/catch）
+- **调试日志（第四轮）**：`ReaderViewModel` 注入 `@ApplicationContext Context`，`load()` 中打印并保存原始 HTML 到 `cacheDir/novel_debug/{id}.html`，并打印解析结果（块数 / 全文长度 / 各块类型 / 全文开头），便于排查"没有正文内容"是否来自网络返回异常或解析器未匹配结构
+- **点击交互再修正（第四轮）**：原"点击正文任意处弹设置"区域过大挡住翻页 → 改为**左 1/3 上一页、右 1/3 下一页、中间 1/3 弹设置**（翻页/仿真模式）；`pagerState` 提到外层供点击翻页共用；滑动翻页由 HorizontalPager 自身处理、不受影响
+- **仿真翻页重写（第六轮，直接移植 legado-with-MD3）**：`SimulationPageContent.kt` 忠实移植 `SimulationPageDelegate`——贝塞尔曲线卷页路径 mPath0（两条 quadraticTo 构造真实纸页卷曲）、当前页 = 整页 − 卷页区域（ClipOp.Difference）、下一页在卷页区域内绘制 + 柔光阴影、**纸背先铺背景色再沿折痕镜像当前页内容并灰化**（彻底解决文字黑影重叠）；拖拽点位置驱动卷页，松手回弹/翻过动画；翻下一页卷右下角、上一页卷左下角；点击三区翻页/设置
+- **仿真翻页修正（第七轮）**：① 角落改为**按触摸点象限动态选择**（点页面哪个区就掀哪个角，对齐 legado `calcCornerXY`；右上/右下=下一页，左上/左下=上一页）；② 纸背**不再绘制镜像文字**——只填充纸色 + 边缘渐变阴影，彻底消除文字黑影重叠
+- **仿真翻页修正（第八轮）**：下一页**只在"下一页露出三角"（mPath0 ∩ nextTri）内绘制**，卷页区域其余部分保持背景色被遮挡（不再把下一页整页铺底层导致提前透出文字，对齐 legado `drawNextPageAreaAndShadow` 只在 mPath1 内画 bitmap）
+- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 新增 4（div 段落/纯 div 兜底/script 排除/React JSON 兜底），总计 35 用例

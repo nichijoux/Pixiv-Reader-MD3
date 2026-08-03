@@ -37,6 +37,7 @@ include(":core:network")
 include(":core:database")
 include(":core:datastore")
 include(":core:ui")
+include(":core:novel")
 
 // feature 层
 include(":feature:auth")

@@ -43,6 +43,7 @@ private val TABS = listOf(
 fun MainShell(
     onLogout: () -> Unit,
     onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -76,7 +77,7 @@ fun MainShell(
             }
             composable("discover_tab") { DiscoverRoute(onOpenIllust = onOpenIllust) }
             composable("ranking_tab") { RankingRoute(onOpenIllust = onOpenIllust) }
-            composable("novel_tab") { NovelRoute() }
+            composable("novel_tab") { NovelRoute(onOpenNovel = onOpenNovel) }
             composable("me_tab") { MeRoute(onLogout = onLogout) }
         }
     }
