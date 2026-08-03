@@ -8,6 +8,8 @@ import com.example.pixivapi.model.Illust
 import com.example.pixivapi.model.Novel
 import com.example.pixivapi.model.Profile
 import com.example.pixivapi.model.User
+import com.pixiv.reader.core.database.dao.BrowseHistoryDao
+import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +31,7 @@ enum class UserSection { ILLUST, MANGA, NOVEL }
 class UserViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
+    private val browseHistoryDao: BrowseHistoryDao,
 ) : ViewModel() {
 
     private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
@@ -81,6 +84,7 @@ class UserViewModel @Inject constructor(
                     _user.value = resp.user
                     _profile.value = resp.profile
                     _isFollowed.value = resp.user?.is_followed == true
+                    recordHistory(resp.user)
                     loadSection(_section.value)
                     loadBlockState()
                 }
@@ -88,6 +92,24 @@ class UserViewModel @Inject constructor(
                     _error.value = it.message ?: "加载失败"
                 }
             _isLoading.value = false
+        }
+    }
+
+    /** 打开用户主页时写入浏览历史（先删旧记录避免重复）。 */
+    private fun recordHistory(user: User?) {
+        if (user == null) return
+        viewModelScope.launch {
+            runCatching {
+                browseHistoryDao.deleteByTarget("user", user.id)
+                browseHistoryDao.upsert(
+                    BrowseHistoryEntity(
+                        targetType = "user",
+                        targetId = user.id,
+                        title = user.name,
+                        coverUrl = user.profile_image_urls?.best(),
+                    ),
+                )
+            }
         }
     }
 

@@ -48,6 +48,9 @@ fun MainShell(
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
     onOpenBlocked: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenTags: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -89,6 +92,9 @@ fun MainShell(
                     onOpenBookmarks = onOpenBookmarks,
                     onOpenWatchlist = onOpenWatchlist,
                     onOpenBlocked = onOpenBlocked,
+                    onOpenDownloads = onOpenDownloads,
+                    onOpenTags = onOpenTags,
+                    onOpenSettings = onOpenSettings,
                 )
             }
         }

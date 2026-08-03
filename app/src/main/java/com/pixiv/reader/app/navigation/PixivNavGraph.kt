@@ -1,5 +1,6 @@
 package com.pixiv.reader.app.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -13,8 +14,11 @@ import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
 import com.pixiv.reader.feature.reader.ReaderRoute
+import com.pixiv.reader.feature.settings.SettingsRoute
 import com.pixiv.reader.feature.user.BlockedRoute
+import com.pixiv.reader.feature.user.DownloadsRoute
 import com.pixiv.reader.feature.user.HistoryRoute
+import com.pixiv.reader.feature.user.TagsRoute
 import com.pixiv.reader.feature.user.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
 import com.pixiv.reader.feature.watchlist.WatchlistRoute
@@ -30,6 +34,9 @@ const val ROUTE_HISTORY = "history"
 const val ROUTE_BOOKMARKS = "bookmarks"
 const val ROUTE_WATCHLIST = "watchlist"
 const val ROUTE_BLOCKED = "blocked"
+const val ROUTE_DOWNLOADS = "downloads"
+const val ROUTE_TAGS = "tags"
+const val ROUTE_SETTINGS = "settings"
 
 /**
  * 应用根导航。
@@ -81,6 +88,15 @@ fun PixivNavGraph(
                 },
                 onOpenBlocked = {
                     navController.navigate(ROUTE_BLOCKED)
+                },
+                onOpenDownloads = {
+                    navController.navigate(ROUTE_DOWNLOADS)
+                },
+                onOpenTags = {
+                    navController.navigate(ROUTE_TAGS)
+                },
+                onOpenSettings = {
+                    navController.navigate(ROUTE_SETTINGS)
                 },
             )
         }
@@ -171,9 +187,18 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
             )
         }
-        composable(ROUTE_BOOKMARKS) {
+        composable(
+            route = "bookmarks?type={type}&tag={tag}",
+            arguments = listOf(
+                navArgument("type") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("tag") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) {
             BookmarkRoute(
                 onBack = { navController.popBackStack() },
                 onOpenIllust = { illustId ->
@@ -194,6 +219,26 @@ fun PixivNavGraph(
         }
         composable(ROUTE_BLOCKED) {
             BlockedRoute(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(ROUTE_DOWNLOADS) {
+            DownloadsRoute(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(ROUTE_TAGS) {
+            TagsRoute(
+                onBack = { navController.popBackStack() },
+                onOpenTag = { type, tag ->
+                    navController.navigate(
+                        "bookmarks?type=$type&tag=${Uri.encode(tag)}",
+                    )
+                },
+            )
+        }
+        composable(ROUTE_SETTINGS) {
+            SettingsRoute(
                 onBack = { navController.popBackStack() },
             )
         }

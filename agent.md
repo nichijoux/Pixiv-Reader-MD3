@@ -376,4 +376,15 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - **风险记录**：拉黑依赖网页 Cookie 中的 `csrf_token`，若登录会话无该 Cookie 则提示"无法获取 CSRF Token，拉黑暂不可用"（不崩溃）
   - 测试：全部相关模块回归通过
   - **至此 P5 用户社交完成**（用户主页/关注/拉黑 + 收藏夹标签 + 追更 + 我的页 + 阅读历史 + 屏蔽管理）
+- **我的页 Material 卡片重构 + 下载/标签/历史/设置（第二十八轮）**：
+  - **MeRoute 重构**：Material3 Card 分组——用户卡片（头像/名称/@account）+ "内容"卡片组（我的收藏/浏览历史/下载管理/收藏标签/屏蔽管理）+ "系统"卡片组（设置）+ 登出；`verticalScroll`
+  - **浏览历史筛选**：`BrowseHistoryDao` 新增 `observeByType`；`HistoryViewModel` 加 `HistoryFilter`（全部/插画/小说/用户）`flatMapLatest` 切换查询；`HistoryRoute` 顶部 FilterChip；点击用户记录跳用户主页（新增 `onOpenUser`）；`UserViewModel` 打开主页时写 user 历史（`deleteByTarget` + upsert）
+  - **下载索引体系**：现有下载点全部接入 `DownloadEntryDao`（`targetType`=illust/novel，`status`=done/failed，含 localPath/title/coverUrl/pageCount）——`IllustViewModel.download`、`ViewerViewModel.download`（feature:viewer 补 `:core:database`）、`NovelExporter.exportNovel/exportSeries`（系列导出不再二次拉列表，返回 `(file, chapterCount)`）
+  - **下载管理页**：`DownloadsViewModel`（`observeAll` + 分类 filter 全部/插画/小说 + `delete` 删文件仅限 filesDir 内 + 删索引）+ `DownloadsRoute`（分类 Chip + Card 列表：类型图标/标题/大小/时间/状态标记/删除）
+  - **收藏标签页**：`TagsViewModel`（`getIllustBookmarkTags`/`getNovelBookmarkTags`）+ `TagsRoute`（Tab + 标签卡片含计数）→ 点击跳 `bookmarks?type={t}&tag={tag}`；`bookmarks` 路由加可选 `type`/`tag` 参数，`BookmarkViewModel` 从 `SavedStateHandle` 读取预选中
+  - **设置页（feature:settings 填充）**：补 Hilt/ksp/`:core:datastore` 依赖；`UserPreferences` 新增 `themeMode`（0跟随/1浅色/2深色）、`autoUpdate`；`SettingsViewModel`（读写 + 版本号 PackageManager）+ `SettingsRoute`（外观卡片：主题模式 FilterChip 三选 + 动态取色 Switch；通用卡片：自动更新 Switch；关于卡片：App 名/版本/App 描述）
+  - **主题真实生效**：`MainActivity` 收集 `themeMode` + `dynamicColor` → `PixivReaderTheme(darkTheme = 按模式计算, dynamicColor)`
+  - **导航**：新增 `downloads`/`tags`/`settings` 路由；`MainShell` 加 `onOpenDownloads`/`onOpenTags`/`onOpenSettings`；`history` 接 `onOpenUser`
+  - TODO（P6）：自动更新实际逻辑、WorkManager 下载队列/重试、下载状态实时跟踪
+  - 测试：全部相关模块回归通过
 - 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1，core:novel 共 20 用例；feature:novel `NovelExporterTest` 6 用例

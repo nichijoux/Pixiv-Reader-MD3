@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,12 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,9 +61,11 @@ fun HistoryRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val filter by viewModel.filterFlow.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -90,29 +95,54 @@ fun HistoryRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            if (history.isEmpty()) {
-                EmptyBox("暂无浏览记录")
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 类型筛选
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    items(history, key = { it.id }) { entry ->
-                        HistoryRow(
-                            entry = entry,
-                            onClick = {
-                                when (entry.targetType) {
-                                    "illust" -> onOpenIllust(entry.targetId)
-                                    "novel" -> onOpenNovel(entry.targetId)
-                                }
-                            },
-                            onDelete = { viewModel.delete(entry) },
-                        )
+                    HistoryFilter.entries.forEach { f ->
+                        item(key = f.name) {
+                            FilterChip(
+                                selected = filter == f,
+                                onClick = { viewModel.selectFilter(f) },
+                                label = { Text(f.label()) },
+                            )
+                        }
+                    }
+                }
+                if (history.isEmpty()) {
+                    EmptyBox("暂无浏览记录")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(history, key = { it.id }) { entry ->
+                            HistoryRow(
+                                entry = entry,
+                                onClick = {
+                                    when (entry.targetType) {
+                                        "illust" -> onOpenIllust(entry.targetId)
+                                        "novel" -> onOpenNovel(entry.targetId)
+                                        "user" -> onOpenUser(entry.targetId)
+                                    }
+                                },
+                                onDelete = { viewModel.delete(entry) },
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+private fun HistoryFilter.label(): String = when (this) {
+    HistoryFilter.ALL -> "全部"
+    HistoryFilter.ILLUST -> "插画"
+    HistoryFilter.NOVEL -> "小说"
+    HistoryFilter.USER -> "用户"
 }
 
 @Composable

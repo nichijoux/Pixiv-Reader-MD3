@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.Illust
+import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -22,6 +24,7 @@ class ViewerViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val ugoiraLoader: UgoiraLoader,
     private val imageSaver: ImageSaver,
+    private val downloadEntryDao: DownloadEntryDao,
 ) : ViewModel() {
 
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
@@ -94,8 +97,34 @@ class ViewerViewModel @Inject constructor(
         viewModelScope.launch {
             val url = page.originalUrl ?: page.displayUrl ?: return@launch
             imageSaver.save(url, "pixiv_${illustId}.jpg")
-                .onSuccess { _message.send("已保存到下载目录") }
-                .onFailure { _message.send("下载失败：${it.message}") }
+                .onSuccess { file ->
+                    recordDownload(file.path, "done")
+                    _message.send("已保存到下载目录")
+                }
+                .onFailure {
+                    recordDownload(null, "failed")
+                    _message.send("下载失败：${it.message}")
+                }
+        }
+    }
+
+    /** 写入下载索引（targetType=illust）。 */
+    private fun recordDownload(localPath: String?, status: String) {
+        viewModelScope.launch {
+            runCatching {
+                downloadEntryDao.upsert(
+                    DownloadEntryEntity(
+                        targetId = illustId,
+                        targetType = "illust",
+                        title = _illust.value?.title,
+                        coverUrl = _illust.value?.image_urls?.medium
+                            ?: _illust.value?.image_urls?.square_medium,
+                        localPath = localPath,
+                        status = status,
+                        pageCount = _pages.value.size,
+                    ),
+                )
+            }
         }
     }
 

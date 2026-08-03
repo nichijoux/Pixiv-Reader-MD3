@@ -41,8 +41,12 @@ class UserPreferences @Inject constructor(
     // ── 图片 / 外观 ──
     val imageQuality: Flow<String> = context.dataStore.data.map { it[KEY_IMAGE_QUALITY] ?: "medium" }
     val dynamicColor: Flow<Boolean> = context.dataStore.data.map { it[KEY_DYNAMIC_COLOR] ?: true }
+    /** 应用主题模式：0 跟随系统 / 1 浅色 / 2 深色 */
+    val themeMode: Flow<Int> = context.dataStore.data.map { it[KEY_THEME_MODE] ?: 0 }
 
     // ── 通用 ──
+    /** 是否自动更新（设置开关，实际更新逻辑后续接入） */
+    val autoUpdate: Flow<Boolean> = context.dataStore.data.map { it[KEY_AUTO_UPDATE] ?: true }
     val mutedTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
         prefs[KEY_MUTED_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
@@ -57,6 +61,8 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderCustomFontPath(value: String) = context.dataStore.edit { it[KEY_CUSTOM_FONT_PATH] = value }
     suspend fun setImageQuality(value: String) = context.dataStore.edit { it[KEY_IMAGE_QUALITY] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
+    suspend fun setThemeMode(value: Int) = context.dataStore.edit { it[KEY_THEME_MODE] = value }
+    suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
 
@@ -71,6 +77,8 @@ class UserPreferences @Inject constructor(
         val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")
         val KEY_IMAGE_QUALITY = stringPreferencesKey("image_quality")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val KEY_THEME_MODE = intPreferencesKey("theme_mode")
+        val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
     }
 }

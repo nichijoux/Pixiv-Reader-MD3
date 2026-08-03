@@ -2,6 +2,8 @@ package com.pixiv.reader.feature.novel
 
 import android.content.Context
 import com.example.pixivapi.model.Novel
+import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.htmlToPlainText
@@ -39,11 +41,12 @@ class NovelExporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
     private val contentLoader: NovelContentLoader,
+    private val downloadEntryDao: DownloadEntryDao,
 ) {
     private val exportDir: File
         get() = File(context.filesDir, "Downloads/novels").apply { mkdirs() }
 
-    /** 导出当前单本小说，返回导出的文件。 */
+    /** 导出当前单本小说，返回导出的文件（成功时写入下载索引）。 */
     suspend fun exportNovel(
         novel: Novel,
         format: NovelExportFormat,
@@ -54,6 +57,8 @@ class NovelExporter @Inject constructor(
                 NovelExportFormat.TXT -> buildTxtFile(listOf(loaded), seriesTitle = null)
                 NovelExportFormat.EPUB -> buildEpubFile(listOf(loaded), seriesTitle = null, coverNovel = novel)
             }
+        }.onSuccess { file ->
+            recordDownload(novel, file, format, chapterCount = 1)
         }
     }
 
@@ -72,10 +77,35 @@ class NovelExporter @Inject constructor(
                 onProgress(index + 1, novels.size)
                 chapters.add(contentLoader.load(chapter.id).getOrThrow())
             }
-            when (format) {
+            val file = when (format) {
                 NovelExportFormat.TXT -> buildTxtFile(chapters, seriesTitle = novel.series?.title)
                 NovelExportFormat.EPUB -> buildEpubFile(chapters, seriesTitle = novel.series?.title, coverNovel = novel)
             }
+            file to novels.size
+        }.onSuccess { (file, chapterCount) ->
+            recordDownload(novel, file, format, chapterCount)
+        }.map { it.first }
+    }
+
+    /** 写入下载索引（targetType=novel，localPath=导出文件）。 */
+    private suspend fun recordDownload(
+        novel: Novel,
+        file: File,
+        format: NovelExportFormat,
+        chapterCount: Int,
+    ) {
+        runCatching {
+            downloadEntryDao.upsert(
+                DownloadEntryEntity(
+                    targetId = novel.id,
+                    targetType = "novel",
+                    title = "${novel.title.orEmpty()}（${format.name}）",
+                    coverUrl = novel.image_urls?.medium ?: novel.image_urls?.square_medium,
+                    localPath = file.path,
+                    status = "done",
+                    pageCount = chapterCount,
+                ),
+            )
         }
     }
 

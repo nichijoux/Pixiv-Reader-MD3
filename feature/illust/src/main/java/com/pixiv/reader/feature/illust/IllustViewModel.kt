@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.Comment
 import com.example.pixivapi.model.Illust
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
+import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.paging.PagedState
@@ -31,6 +33,7 @@ class IllustViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
     private val browseHistoryDao: BrowseHistoryDao,
+    private val downloadEntryDao: DownloadEntryDao,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -186,7 +189,7 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /** 下载当前作品原图到 filesDir/Downloads（P6 迁移到 DownloadManager） */
+    /** 下载当前作品原图到 filesDir/Downloads，并写入下载索引（P6 迁移到 DownloadManager）。 */
     fun download() {
         viewModelScope.launch {
             val page = _pages.value.firstOrNull() ?: return@launch
@@ -208,8 +211,34 @@ class IllustViewModel @Inject constructor(
                 }
             }
             result
-                .onSuccess { _message.send("已保存到下载目录") }
-                .onFailure { _message.send("下载失败：${it.message}") }
+                .onSuccess { file ->
+                    recordDownload(file, status = "done")
+                    _message.send("已保存到下载目录")
+                }
+                .onFailure {
+                    recordDownload(file = null, status = "failed")
+                    _message.send("下载失败：${it.message}")
+                }
+        }
+    }
+
+    /** 写入下载索引（targetType=illust）。 */
+    private fun recordDownload(file: File?, status: String) {
+        viewModelScope.launch {
+            runCatching {
+                downloadEntryDao.upsert(
+                    DownloadEntryEntity(
+                        targetId = illustId,
+                        targetType = "illust",
+                        title = _illust.value?.title,
+                        coverUrl = _illust.value?.image_urls?.medium
+                            ?: _illust.value?.image_urls?.square_medium,
+                        localPath = file?.path,
+                        status = status,
+                        pageCount = _pages.value.size,
+                    ),
+                )
+            }
         }
     }
 

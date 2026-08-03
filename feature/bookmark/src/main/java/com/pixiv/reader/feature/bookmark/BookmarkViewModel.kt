@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.bookmark
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.BookmarkTag
@@ -22,9 +23,11 @@ enum class BookmarkType { ILLUST, NOVEL }
 /**
  * 我的收藏 ViewModel：插画/小说收藏列表 + 标签筛选 + 分页。
  * 数据源为当前登录用户（restrict=public）。
+ * 路由参数支持 `?type=illust|novel&tag=xxx` 从收藏标签页跳入并预选中。
  */
 @HiltViewModel
 class BookmarkViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
 ) : ViewModel() {
 
@@ -46,8 +49,14 @@ class BookmarkViewModel @Inject constructor(
     val novelPaged = PagedState<Novel>()
 
     init {
+        val initType = when (savedStateHandle.get<String>("type")) {
+            "novel" -> BookmarkType.NOVEL
+            else -> BookmarkType.ILLUST
+        }
+        _type.value = initType
+        _selectedTag.value = savedStateHandle.get<String>("tag")
         loadTags()
-        loadList(BookmarkType.ILLUST)
+        loadList(initType)
     }
 
     fun selectType(type: BookmarkType) {

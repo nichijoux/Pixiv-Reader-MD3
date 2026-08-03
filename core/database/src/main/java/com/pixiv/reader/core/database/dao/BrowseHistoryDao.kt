@@ -14,6 +14,9 @@ interface BrowseHistoryDao {
     @Query("SELECT * FROM browse_history ORDER BY viewedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int = 100): Flow<List<BrowseHistoryEntity>>
 
+    @Query("SELECT * FROM browse_history WHERE targetType = :type ORDER BY viewedAt DESC LIMIT :limit")
+    fun observeByType(type: String, limit: Int = 100): Flow<List<BrowseHistoryEntity>>
+
     @Query("SELECT * FROM browse_history WHERE targetType = :type AND targetId = :targetId LIMIT 1")
     suspend fun get(type: String, targetId: Long): BrowseHistoryEntity?
 
