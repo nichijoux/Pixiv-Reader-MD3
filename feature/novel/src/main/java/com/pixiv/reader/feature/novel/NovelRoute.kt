@@ -68,6 +68,7 @@ import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.novel.htmlToPlainText
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.CommentInput
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
@@ -169,6 +170,7 @@ fun NovelDetailRoute(
     val seriesNovels by viewModel.seriesNovels.collectAsStateWithLifecycle()
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     val commentsLoading by viewModel.commentsLoading.collectAsStateWithLifecycle()
+    val commentDraft by viewModel.commentDraft.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
@@ -216,6 +218,9 @@ fun NovelDetailRoute(
                     onWatchlist = viewModel::toggleWatchlist,
                     onDownload = { showDownloadDialog = true },
                     onRetryComments = viewModel::loadComments,
+                    commentDraft = commentDraft,
+                    onCommentDraftChange = viewModel::onCommentDraftChange,
+                    onPostComment = viewModel::postComment,
                 )
             }
         }
@@ -237,6 +242,14 @@ fun NovelDetailRoute(
                 },
                 onEpubSeries = {
                     viewModel.exportSeries(NovelExportFormat.EPUB)
+                    showDownloadDialog = false
+                },
+                onOfflineCurrent = {
+                    viewModel.downloadOfflineCurrent()
+                    showDownloadDialog = false
+                },
+                onOfflineSeries = {
+                    viewModel.downloadOfflineSeries()
                     showDownloadDialog = false
                 },
                 onDismiss = { showDownloadDialog = false },
@@ -277,6 +290,9 @@ private fun NovelDetailContent(
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
     onRetryComments: () -> Unit,
+    commentDraft: String,
+    onCommentDraftChange: (String) -> Unit,
+    onPostComment: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     // 视差：banner 被滚过的像素，驱动封面图相对位移
@@ -370,6 +386,9 @@ private fun NovelDetailContent(
                     CommentsSection(
                         comments = comments,
                         loading = commentsLoading,
+                        draft = commentDraft,
+                        onDraftChange = onCommentDraftChange,
+                        onPost = onPostComment,
                         onRetry = onRetryComments,
                     )
                 }
@@ -418,11 +437,14 @@ private fun NovelCenteredBox(content: @Composable () -> Unit) {
     }
 }
 
-/** 评论区（第一页主评论）。 */
+/** 评论区（第一页主评论）+ 评论输入框。 */
 @Composable
 private fun CommentsSection(
     comments: List<Comment>,
     loading: Boolean,
+    draft: String,
+    onDraftChange: (String) -> Unit,
+    onPost: () -> Unit,
     onRetry: () -> Unit,
 ) {
     // 注意：必须有统一根容器（Column）。
@@ -466,6 +488,12 @@ private fun CommentsSection(
                 Spacer(Modifier.height(8.dp))
             }
         }
+        CommentInput(
+            draft = draft,
+            onDraftChange = onDraftChange,
+            onPost = onPost,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 
@@ -776,7 +804,7 @@ private fun ChapterRow(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 下载选择对话框：TXT（跳过插图）/ EPUB（内嵌插图），可只下本文或整个系列。 */
+/** 下载选择对话框：导出文件（TXT/EPUB）+ 离线阅读（缓存到应用）。 */
 @Composable
 private fun DownloadDialog(
     hasSeries: Boolean,
@@ -784,6 +812,8 @@ private fun DownloadDialog(
     onEpubCurrent: () -> Unit,
     onTxtSeries: () -> Unit,
     onEpubSeries: () -> Unit,
+    onOfflineCurrent: () -> Unit,
+    onOfflineSeries: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -791,16 +821,32 @@ private fun DownloadDialog(
         title = { Text("下载小说") },
         text = {
             Column {
+                DialogGroupTitle("导出文件")
                 DownloadOption("本文（TXT）", "纯文本，不包含插图", onTxtCurrent)
                 DownloadOption("本文（EPUB）", "标准电子书，内嵌插图", onEpubCurrent)
                 if (hasSeries) {
                     DownloadOption("整个系列（TXT）", "合并所有分册为纯文本", onTxtSeries)
                     DownloadOption("整个系列（EPUB）", "合并所有分册为电子书", onEpubSeries)
                 }
+                DialogGroupTitle("离线阅读")
+                DownloadOption("下载到应用（离线阅读）", "断网可读本文", onOfflineCurrent)
+                if (hasSeries) {
+                    DownloadOption("下载整个系列（离线阅读）", "断网可读全部分册", onOfflineSeries)
+                }
             }
         },
         confirmButton = {},
         dismissButton = {},
+    )
+}
+
+@Composable
+private fun DialogGroupTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
     )
 }
 

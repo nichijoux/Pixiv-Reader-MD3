@@ -77,6 +77,7 @@ import com.pixiv.reader.core.common.WindowSizeClass
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.CommentInput
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.PixivImage
@@ -586,31 +587,6 @@ private fun CommentList(comments: List<Comment>) {
     }
     Column {
         comments.take(50).forEach { comment -> CommentRow(comment) }
-    }
-}
-
-@Composable
-private fun CommentInput(
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    onPost: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedTextField(
-            value = draft,
-            onValueChange = onDraftChange,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("说点什么…") },
-            singleLine = true,
-        )
-        IconButton(onClick = onPost) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "发布", tint = MaterialTheme.colorScheme.primary)
-        }
     }
 }
 

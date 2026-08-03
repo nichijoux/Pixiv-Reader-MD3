@@ -20,6 +20,10 @@ interface DownloadEntryDao {
     @Query("SELECT * FROM download_entry WHERE targetId = :targetId AND targetType = :type LIMIT 1")
     suspend fun get(type: String, targetId: Long): DownloadEntryEntity?
 
+    /** 按类型批量删除（如清除离线缓存时删除所有 novel_offline 索引）。 */
+    @Query("DELETE FROM download_entry WHERE targetType = :type")
+    suspend fun deleteByType(type: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: DownloadEntryEntity)
 

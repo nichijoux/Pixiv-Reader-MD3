@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,12 +20,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -47,6 +53,12 @@ fun SettingsRoute(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
+    val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+    }
 
     Scaffold(
         topBar = {
@@ -62,6 +74,7 @@ fun SettingsRoute(
                 ),
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
@@ -106,6 +119,26 @@ fun SettingsRoute(
                     )
                 }
 
+                // ── 存储 ──
+                SettingsCard(title = "存储") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("清除缓存", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "当前占用 $cacheSize（离线小说/图片/调试文件）",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(onClick = viewModel::clearCache) {
+                            Text("清除", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+
                 // ── 关于 ──
                 SettingsCard(title = "关于") {
                     Text(
@@ -126,6 +159,20 @@ fun SettingsRoute(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 10.dp),
                     )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = viewModel::checkUpdate)
+                            .padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "检查更新",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }

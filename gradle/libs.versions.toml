@@ -45,6 +45,7 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.2.0" }
+androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version = "1.2.0" }
 
 # Browser (OAuth PKCE 登录 Custom Tab；1.8+ 构件已更名为 androidx.browser:browser)
 androidx-browser = { group = "androidx.browser", name = "browser", version = "1.8.0" }

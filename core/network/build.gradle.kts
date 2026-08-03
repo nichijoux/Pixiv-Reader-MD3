@@ -20,6 +20,7 @@ dependencies {
     api(project(":lib:pixivapi"))
     api(project(":core:common"))
     api(project(":core:model"))
+    api(project(":core:novel"))
 
     api(libs.mmkv)
     api(libs.hilt.android)

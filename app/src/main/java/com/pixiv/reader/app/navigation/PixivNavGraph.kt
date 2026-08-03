@@ -225,6 +225,15 @@ fun PixivNavGraph(
         composable(ROUTE_DOWNLOADS) {
             DownloadsRoute(
                 onBack = { navController.popBackStack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+                onOpenReader = { novelId ->
+                    navController.navigate("reader/$novelId")
+                },
             )
         }
         composable(ROUTE_TAGS) {

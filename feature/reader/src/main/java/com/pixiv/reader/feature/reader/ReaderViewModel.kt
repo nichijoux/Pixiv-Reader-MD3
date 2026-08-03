@@ -10,6 +10,7 @@ import com.example.pixivapi.model.Novel
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.offline.OfflineNovelRepository
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
@@ -58,6 +59,7 @@ class ReaderViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val readingProgressDao: ReadingProgressDao,
     private val userPreferences: UserPreferences,
+    private val offlineNovelRepository: OfflineNovelRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -74,6 +76,10 @@ class ReaderViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** 当前阅读是否为离线缓存（下载到应用后断网可读）。 */
+    private val _isOffline = MutableStateFlow(false)
+    val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
 
     // ── 阅读偏好（DataStore 镜像到内存 StateFlow） ──
     private val _fontSize = MutableStateFlow(17f)
@@ -184,6 +190,21 @@ class ReaderViewModel @Inject constructor(
             try {
                 _isLoading.value = true
                 _error.value = null
+                // 离线优先：本地已有离线缓存则直接读取（断网可读，跳过网络与重新解析）
+                if (offlineNovelRepository.exists(novelId)) {
+                    val offlineDoc = offlineNovelRepository.loadDocument(novelId)
+                    val offlineNovel = offlineNovelRepository.loadNovel(novelId)
+                    if (offlineDoc != null && offlineNovel != null) {
+                        _isOffline.value = true
+                        _novel.value = offlineNovel
+                        _document.value = offlineDoc
+                        viewModelScope.launch { buildToc() }
+                        runCatching { restoreProgress() }
+                            .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
+                        return@launch
+                    }
+                }
+                _isOffline.value = false
                 runCatching {
                     val detail = pixivRepository.api.getNovel(novelId).novel
                     val html = withContext(Dispatchers.IO) {

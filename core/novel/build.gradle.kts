@@ -17,4 +17,6 @@ android {
 dependencies {
     api(libs.jsoup)
     testImplementation(libs.junit)
+    // org.json 为 Android 内置类，本地 JVM 单测需引入同 API 的独立实现
+    testImplementation("org.json:json:20240303")
 }

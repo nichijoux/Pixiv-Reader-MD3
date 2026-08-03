@@ -1,8 +1,12 @@
 package com.pixiv.reader.feature.novel
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.example.pixivapi.model.Comment
 import com.example.pixivapi.model.Novel
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
@@ -11,6 +15,7 @@ import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +30,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class NovelViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
     private val readingProgressDao: ReadingProgressDao,
     private val browseHistoryDao: BrowseHistoryDao,
@@ -148,6 +154,30 @@ class NovelViewModel @Inject constructor(
         }
     }
 
+    // ── 评论区输入 / 发布 ────────────────────────────────────────────────────
+
+    private val _commentDraft = MutableStateFlow("")
+    val commentDraft: StateFlow<String> = _commentDraft.asStateFlow()
+
+    fun onCommentDraftChange(value: String) {
+        _commentDraft.value = value
+    }
+
+    /** 发布评论（成功后清空并刷新评论区）。 */
+    fun postComment() {
+        val text = _commentDraft.value.trim()
+        if (text.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { pixivRepository.api.postNovelComment(novelId, text) }
+                .onSuccess {
+                    _commentDraft.value = ""
+                    _message.send("评论已发布")
+                    loadComments()
+                }
+                .onFailure { _message.send("评论失败：${it.message}") }
+        }
+    }
+
     fun toggleBookmark() {
         if (_isBookmarking.value) return
         viewModelScope.launch {
@@ -218,5 +248,33 @@ class NovelViewModel @Inject constructor(
             _downloading.value = false
             _downloadProgress.value = null
         }
+    }
+
+    // ── 离线下载（WorkManager 后台队列，缓存到 app，断网可读） ───────────────
+
+    /** 下载当前单本到应用（后台队列）。 */
+    fun downloadOfflineCurrent() {
+        val detail = _novel.value ?: return
+        val request = OneTimeWorkRequestBuilder<NovelOfflineDownloadWorker>()
+            .setInputData(workDataOf(NovelOfflineDownloadWorker.KEY_NOVEL_ID to detail.id))
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+        _message.trySend("已加入下载队列")
+    }
+
+    /** 下载整个系列到应用（后台队列，失败自动重试）。 */
+    fun downloadOfflineSeries() {
+        val detail = _novel.value ?: return
+        val seriesId = detail.series?.id ?: return
+        val request = OneTimeWorkRequestBuilder<NovelOfflineDownloadWorker>()
+            .setInputData(
+                workDataOf(
+                    NovelOfflineDownloadWorker.KEY_NOVEL_ID to detail.id,
+                    NovelOfflineDownloadWorker.KEY_SERIES_ID to seriesId,
+                ),
+            )
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+        _message.trySend("已加入下载队列（后台）")
     }
 }

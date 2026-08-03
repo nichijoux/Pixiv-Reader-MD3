@@ -387,4 +387,31 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - **导航**：新增 `downloads`/`tags`/`settings` 路由；`MainShell` 加 `onOpenDownloads`/`onOpenTags`/`onOpenSettings`；`history` 接 `onOpenUser`
   - TODO（P6）：自动更新实际逻辑、WorkManager 下载队列/重试、下载状态实时跟踪
   - 测试：全部相关模块回归通过
-- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1，core:novel 共 20 用例；feature:novel `NovelExporterTest` 6 用例
+- **P6 离线阅读闭环（第二十九轮）：下载到应用 → 断网可读**（验收：断网可读已下载作品）
+  - **序列化**：core:novel 新增 `NovelDocumentCodec`（org.json 编解码 NovelDocument：paragraph/heading/quote/image/separator 五类块 + fullText/textLength，图片保留最终 URL）；`NovelDocumentCodecTest` 4 用例（还原全类型/非法 JSON 返回 null/空文档/caption null）；core:novel 测试补 `org.json:json`（Android 内置类本地 JVM 单测不可用）
+  - **离线缓存仓库**：core:network 新增 `OfflineNovelRepository`（@Singleton，依赖新增 `:core:novel`）——`filesDir/offline/novels/{id}.json`（文档）+ `{id}_meta.json`（最小元数据：id/title/cover/seriesId/seriesTitle/userId/userName/textLength/pageCount/isBookmarked，org.json 手写）；`save/loadDocument/loadNovel/exists/delete`
+  - **下载到应用**：`NovelViewModel` 注入 `NovelContentLoader`+`OfflineNovelRepository`+`DownloadEntryDao`；`downloadOfflineCurrent()`/`downloadOfflineSeries()`（系列循环分页拉全逐章串行，进度"第 x/y 章"）；缓存保存 + `DownloadEntryDao` 写索引（`targetType="novel_offline"` 区分文件导出）；`fetchSeriesNovels` 复制
+  - **下载对话框**：`DownloadDialog` 分两组——"导出文件"（本文/系列 TXT·EPUB）+ "离线阅读"（下载到应用/下载整个系列）
+  - **离线阅读**：`ReaderViewModel` 注入 `OfflineNovelRepository`；`load()` **离线优先**——`exists(novelId)` 则读缓存文档+元数据（跳过网络与重新解析），`_isOffline` 状态；`ReaderRoute` 顶栏标题旁显示"离线"小字；目录/进度照常（本地 Room 恢复）
+  - **下载管理**：`DownloadFilter` 加 `OFFLINE`；`DownloadsViewModel.delete` 区分——`novel_offline` 清离线缓存 + 索引，illust/novel 删文件 + 索引；`DownloadsRoute` 离线分类 Chip + 行图标（Save/Description/Image）+ "离线阅读"标识
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过（core:novel 现 24 用例）
+  - TODO（P6 收尾）：WorkManager 后台队列/重试、下载状态实时跟踪、自动更新逻辑、网络错误提示框、图片质量接入、清缓存
+- **P6 收尾（第三十轮）：清缓存 + 下载状态 + 下载管理直达**
+  - **设置页"存储"卡片**：`DownloadEntryDao` 新增 `deleteByType`；`SettingsViewModel` 注入 `DownloadEntryDao`（feature:settings 补 `:core:database`）+ 缓存大小估算（offline/novel_debug/cacheDir 递归求和，`formatSize`）+ `clearCache()`（删 `filesDir/offline` + `novel_offline` 索引 + `novel_debug` + Coil `diskCache.clear()`）；`SettingsRoute` 增加"存储"卡片（当前占用 + 清除按钮，Snackbar 反馈）；修复 `File(cacheDir)` 无单参构造（cacheDir 已是 File）
+  - **离线下载状态**：`upsertOfflineIndex(novel, status)` 支持 `downloading`/`done`——系列逐章先标"下载中"再标"完成"，下载管理页实时可见
+  - **下载管理直达**：`DownloadsRoute` 新增 `onOpenIllust`/`onOpenNovel`/`onOpenReader`，条目可点击——**离线小说 → `reader/{id}`（离线优先直读）**、小说 → 详情、插画 → 详情；`DownloadRow` Card 加 clickable；`PixivNavGraph` downloads 路由接入回调
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+  - 剩余 TODO：WorkManager 后台队列/重试、自动更新实际逻辑、网络错误提示框、图片质量接入（P7 打磨候选）
+- **小说评论发布（第三十一轮）**：
+  - **core:ui** 新增 `CommentInput`（文本输入 + 发送按钮，插画/小说评论区共用）；`IllustDetailRoute` 删除私有 `CommentInput` 改 import 共用
+  - **feature:novel**：`NovelViewModel` 新增 `commentDraft` + `onCommentDraftChange` + `postComment`（`postNovelComment(novelId, text)`，成功清空 + 刷新评论区 + Snackbar）；`NovelRoute` 传参链（NovelDetailRoute → NovelDetailContent → CommentsSection）接入，评论区底部显示评论输入框
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+  - 剩余 TODO：WorkManager 后台队列/重试、自动更新实际逻辑、网络错误提示框、图片质量接入（P7 打磨候选）
+- **P6 TODO 完成（第三十二轮）：网络错误提示 + 检查更新 + WorkManager 离线下载**
+  - **网络错误提示框**：core:network 新增 `NetworkMonitor`（@Singleton，ConnectivityManager `registerDefaultNetworkCallback` → `isOnline` StateFlow）；`MainActivity` 包全局 `Scaffold` + `SnackbarHost`，`LaunchedEffect(isOnline)` 断网时 Snackbar"网络连接已断开"
+  - **检查更新**：`SettingsViewModel.checkUpdate()` + 设置页关于卡片"检查更新"入口（无发布渠道，提示"当前已是最新版本"；TODO 接入远程版本检查）
+  - **WorkManager 离线下载后台化**：`libs.versions.toml` 加 `androidx-hilt-work`；feature:novel / app 补 `work-runtime-ktx` + `hilt-work`；`PixivApp` 实现 `Configuration.Provider`（HiltWorkerFactory）；新增 `NovelOfflineDownloadWorker`（@HiltWorker + @AssistedInject，注入 NovelContentLoader/OfflineNovelRepository/DownloadEntryDao/PixivRepository，inputData `novelId`+`seriesId`，单本或系列逐章下载，索引 downloading→done，失败 `Result.retry()`，系列分页复制）；`NovelViewModel` 注入 `@ApplicationContext`，`downloadOfflineCurrent/Series` 改为 `WorkManager.getInstance(context).enqueue`（移除协程版与私有 fetchSeriesNovels/upsertOfflineIndex，`_message.trySend`）
+  - **图片质量接入说明**：pixiv 图床各尺寸 URL 为接口字段组合（medium/original 路径不同不可推导），全局接入需改所有调用点传不同字段——维持设置 `imageQuality` 偏好 + TODO
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+  - 至此 P6 剩余 TODO 全部完成（WorkManager 队列/重试 ✓、自动更新占位 ✓、网络错误提示 ✓、清缓存 ✓、下载状态 ✓）；仅剩图片质量接入（技术限制）+ P7 打磨
+- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1 + `NovelDocumentCodecTest` 4，core:novel 共 24 用例；feature:novel `NovelExporterTest` 6 用例

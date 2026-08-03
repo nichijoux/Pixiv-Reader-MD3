@@ -133,6 +133,7 @@ fun ReaderRoute(
     val document by viewModel.document.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
 
     val fontSize by viewModel.fontSize.collectAsStateWithLifecycle()
     val lineHeight by viewModel.lineHeight.collectAsStateWithLifecycle()
@@ -366,12 +367,23 @@ fun ReaderRoute(
                 TopAppBar(
                     modifier = Modifier.statusBarsPadding(),
                     title = {
-                        Text(
-                            text = novel?.title ?: "阅读",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = themeColors.text,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = novel?.title ?: "阅读",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = themeColors.text,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            if (isOffline) {
+                                Text(
+                                    text = "离线",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = themeColors.text.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(start = 6.dp),
+                                )
+                            }
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack) {

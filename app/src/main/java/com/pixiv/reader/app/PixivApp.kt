@@ -1,6 +1,8 @@
 package com.pixiv.reader.app
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -8,14 +10,22 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 /**
- * 应用入口。Hilt 装配网络层；同时作为 Coil 的默认 ImageLoader 工厂，
- * 注入 Pixiv 图片专用 OkHttpClient（自动带 Referer，否则 i.pximg.net 403）。
+ * 应用入口。Hilt 装配网络层 + WorkManager Worker 工厂；
+ * 同时作为 Coil 的默认 ImageLoader 工厂（注入 Pixiv 图片专用 OkHttpClient，带 Referer）。
  */
 @HiltAndroidApp
-class PixivApp : Application(), ImageLoaderFactory {
+class PixivApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var pixivRepository: PixivRepository
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,14 +50,21 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 下载管理（P5.5）：下载索引列表，按类型分类（全部/插画/小说），支持删除（含本地文件）。
+ * 下载管理（P5.5）：下载索引列表，按类型分类（全部/插画/小说/离线），支持删除（含本地资源）。
+ * 点击条目直达：离线小说 → 阅读器；小说 → 详情；插画 → 详情。
  *
  * @param onBack 返回
+ * @param onOpenIllust 打开插画详情
+ * @param onOpenNovel 打开小说详情
+ * @param onOpenReader 打开小说阅读器（离线直达）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsRoute(
     onBack: () -> Unit,
+    onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
@@ -98,6 +106,7 @@ fun DownloadsRoute(
                     DownloadFilter.ALL -> entries
                     DownloadFilter.ILLUST -> entries.filter { it.targetType == "illust" }
                     DownloadFilter.NOVEL -> entries.filter { it.targetType == "novel" }
+                    DownloadFilter.OFFLINE -> entries.filter { it.targetType == "novel_offline" }
                 }
                 if (visible.isEmpty()) {
                     EmptyBox("暂无下载")
@@ -110,6 +119,13 @@ fun DownloadsRoute(
                         items(visible, key = { it.targetId }) { entry ->
                             DownloadRow(
                                 entry = entry,
+                                onClick = {
+                                    when (entry.targetType) {
+                                        "novel_offline" -> onOpenReader(entry.targetId)
+                                        "novel" -> onOpenNovel(entry.targetId)
+                                        "illust" -> onOpenIllust(entry.targetId)
+                                    }
+                                },
                                 onDelete = { viewModel.delete(entry) },
                             )
                         }
@@ -123,14 +139,22 @@ fun DownloadsRoute(
 @Composable
 private fun DownloadRow(
     entry: DownloadEntryEntity,
+    onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val isOffline = entry.targetType == "novel_offline"
     val isNovel = entry.targetType == "novel"
-    val icon: ImageVector = if (isNovel) Icons.Filled.Description else Icons.Filled.Image
+    val icon: ImageVector = when {
+        isOffline -> Icons.Filled.Save
+        isNovel -> Icons.Filled.Description
+        else -> Icons.Filled.Image
+    }
     val localFile = entry.localPath?.let { File(it) }
     val sizeText = localFile?.takeIf { it.exists() }?.length()?.let { formatFileSize(it) }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -142,7 +166,11 @@ private fun DownloadRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isNovel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                tint = when {
+                    isOffline -> MaterialTheme.colorScheme.tertiary
+                    isNovel -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.tertiary
+                },
                 modifier = Modifier.size(24.dp),
             )
             Column(
@@ -162,10 +190,10 @@ private fun DownloadRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        text = if (entry.status == "done") {
-                            listOfNotNull(sizeText, entry.localPath?.substringAfterLast('/')).joinToString(" · ")
-                        } else {
-                            "下载失败"
+                        text = when {
+                            entry.status != "done" -> "下载失败"
+                            isOffline -> "离线阅读"
+                            else -> listOfNotNull(sizeText, entry.localPath?.substringAfterLast('/')).joinToString(" · ")
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = if (entry.status == "done") {
@@ -199,6 +227,7 @@ private fun DownloadFilter.label(): String = when (this) {
     DownloadFilter.ALL -> "全部"
     DownloadFilter.ILLUST -> "插画"
     DownloadFilter.NOVEL -> "小说"
+    DownloadFilter.OFFLINE -> "离线"
 }
 
 private fun formatFileSize(bytes: Long): String = when {
