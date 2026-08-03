@@ -88,6 +88,7 @@ import com.pixiv.reader.core.ui.component.currentWindowSizeClass
 fun IllustDetailRoute(
     onBack: () -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: IllustViewModel = hiltViewModel(),
 ) {
     val illust by viewModel.illust.collectAsStateWithLifecycle()
@@ -196,6 +197,7 @@ fun IllustDetailRoute(
                     currentPage = currentPage,
                     onPageChange = { currentPage = it },
                     onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
+                    onOpenUser = onOpenUser,
                     viewModel = viewModel,
                     commentDraft = commentDraft,
                     onCommentDraftChange = viewModel::onCommentDraftChange,
@@ -218,7 +220,7 @@ fun IllustDetailRoute(
                                 )
                             }
                         }
-                        item(key = "info") { InfoSection(illust) }
+                        item(key = "info") { InfoSection(illust, onOpenUser) }
                         item(key = "related") { RelatedSection(viewModel) }
                         item(key = "comments") {
                             CommentSection(
@@ -244,6 +246,7 @@ private fun TwoPaneContent(
     currentPage: Int,
     onPageChange: (Int) -> Unit,
     onOpenViewer: (Int) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: IllustViewModel,
     commentDraft: String,
     onCommentDraftChange: (String) -> Unit,
@@ -266,7 +269,7 @@ private fun TwoPaneContent(
                     onOpenViewer = onOpenViewer,
                 )
             }
-            InfoSection(illust)
+            InfoSection(illust, onOpenUser)
             RelatedSection(viewModel)
         }
 
@@ -432,7 +435,7 @@ private fun PagePager(
 }
 
 @Composable
-private fun InfoSection(illust: Illust?) {
+private fun InfoSection(illust: Illust?, onOpenUser: (Long) -> Unit) {
     if (illust == null) return
     Column(modifier = Modifier.padding(16.dp)) {
         Text(
@@ -441,7 +444,9 @@ private fun InfoSection(illust: Illust?) {
             fontWeight = FontWeight.SemiBold,
         )
         Row(
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .clickable { illust.user?.id?.let(onOpenUser) },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -629,6 +634,60 @@ private fun CommentRow(comment: Comment) {
             )
             Text(
                 text = comment.comment.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            // 树形对话：父评论下方直接渲染子回复（浅色块 + 缩进，区分父子层）。
+            val replies = comment.replies.orEmpty()
+            if (replies.isNotEmpty()) {
+                val visibleReplies = replies.take(20)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    visibleReplies.forEachIndexed { index, reply ->
+                        IllustReplyRow(reply)
+                        if (index != visibleReplies.lastIndex) {
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、无分隔线）。 */
+@Composable
+private fun IllustReplyRow(reply: Comment) {
+    Row(verticalAlignment = Alignment.Top) {
+        UserAvatar(
+            name = reply.user?.name,
+            avatarUrl = reply.user?.profile_image_urls?.best(),
+            modifier = Modifier.size(24.dp),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+        ) {
+            Text(
+                text = reply.user?.name.orEmpty(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = buildString {
+                    val parentName = reply.parent_comment?.user?.name
+                    if (!parentName.isNullOrBlank()) {
+                        append("回复 @$parentName：")
+                    }
+                    append(reply.comment.orEmpty())
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 2.dp),
             )

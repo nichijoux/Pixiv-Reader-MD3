@@ -9,10 +9,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.pixiv.reader.feature.auth.AuthRoute
+import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
 import com.pixiv.reader.feature.reader.ReaderRoute
+import com.pixiv.reader.feature.user.BlockedRoute
+import com.pixiv.reader.feature.user.HistoryRoute
+import com.pixiv.reader.feature.user.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
+import com.pixiv.reader.feature.watchlist.WatchlistRoute
 
 const val ROUTE_AUTH = "auth"
 const val ROUTE_MAIN = "main"
@@ -20,6 +25,11 @@ const val ROUTE_ILLUST = "illust/{illustId}"
 const val ROUTE_VIEWER = "viewer/{illustId}?page={page}"
 const val ROUTE_NOVEL = "novel/{novelId}"
 const val ROUTE_READER = "reader/{novelId}"
+const val ROUTE_USER = "user/{userId}"
+const val ROUTE_HISTORY = "history"
+const val ROUTE_BOOKMARKS = "bookmarks"
+const val ROUTE_WATCHLIST = "watchlist"
+const val ROUTE_BLOCKED = "blocked"
 
 /**
  * 应用根导航。
@@ -60,6 +70,18 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
+                onOpenHistory = {
+                    navController.navigate(ROUTE_HISTORY)
+                },
+                onOpenBookmarks = {
+                    navController.navigate(ROUTE_BOOKMARKS)
+                },
+                onOpenWatchlist = {
+                    navController.navigate(ROUTE_WATCHLIST)
+                },
+                onOpenBlocked = {
+                    navController.navigate(ROUTE_BLOCKED)
+                },
             )
         }
         composable(
@@ -72,6 +94,9 @@ fun PixivNavGraph(
                 onBack = { navController.popBackStack() },
                 onOpenViewer = { id, page ->
                     navController.navigate("viewer/$id?page=$page")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
                 },
             )
         }
@@ -100,6 +125,9 @@ fun PixivNavGraph(
                 onOpenReader = { id ->
                     navController.navigate("reader/$id")
                 },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
             )
         }
         composable(
@@ -115,6 +143,58 @@ fun PixivNavGraph(
                     // 系列目录：点击其他分册直接打开该本阅读器
                     navController.navigate("reader/$id")
                 },
+            )
+        }
+        composable(
+            route = ROUTE_USER,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType }),
+            deepLinks = listOf(navDeepLink { uriPattern = "pixiv://user/{userId}" }),
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
+            UserRoute(
+                userId = userId,
+                onBack = { navController.popBackStack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+            )
+        }
+        composable(ROUTE_HISTORY) {
+            HistoryRoute(
+                onBack = { navController.popBackStack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+            )
+        }
+        composable(ROUTE_BOOKMARKS) {
+            BookmarkRoute(
+                onBack = { navController.popBackStack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+            )
+        }
+        composable(ROUTE_WATCHLIST) {
+            WatchlistRoute(
+                onBack = { navController.popBackStack() },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+            )
+        }
+        composable(ROUTE_BLOCKED) {
+            BlockedRoute(
+                onBack = { navController.popBackStack() },
             )
         }
     }

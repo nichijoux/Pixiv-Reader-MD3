@@ -44,6 +44,10 @@ fun MainShell(
     onLogout: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onOpenWatchlist: () -> Unit,
+    onOpenBlocked: () -> Unit,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -78,7 +82,15 @@ fun MainShell(
             composable("discover_tab") { DiscoverRoute(onOpenIllust = onOpenIllust) }
             composable("ranking_tab") { RankingRoute(onOpenIllust = onOpenIllust) }
             composable("novel_tab") { NovelRoute(onOpenNovel = onOpenNovel) }
-            composable("me_tab") { MeRoute(onLogout = onLogout) }
+            composable("me_tab") {
+                MeRoute(
+                    onLogout = onLogout,
+                    onOpenHistory = onOpenHistory,
+                    onOpenBookmarks = onOpenBookmarks,
+                    onOpenWatchlist = onOpenWatchlist,
+                    onOpenBlocked = onOpenBlocked,
+                )
+            }
         }
     }
 }

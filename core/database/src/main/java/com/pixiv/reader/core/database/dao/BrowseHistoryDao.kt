@@ -17,6 +17,10 @@ interface BrowseHistoryDao {
     @Query("SELECT * FROM browse_history WHERE targetType = :type AND targetId = :targetId LIMIT 1")
     suspend fun get(type: String, targetId: Long): BrowseHistoryEntity?
 
+    /** 删除同类型同目标的旧记录（浏览详情前先删旧再插入，避免历史重复）。 */
+    @Query("DELETE FROM browse_history WHERE targetType = :type AND targetId = :targetId")
+    suspend fun deleteByTarget(type: String, targetId: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: BrowseHistoryEntity)
 

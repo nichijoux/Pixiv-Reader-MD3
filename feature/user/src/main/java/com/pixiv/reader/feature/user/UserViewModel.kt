@@ -1,0 +1,203 @@
+package com.pixiv.reader.feature.user
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.pixivapi.model.BlockSaveRequest
+import com.example.pixivapi.model.Illust
+import com.example.pixivapi.model.Novel
+import com.example.pixivapi.model.Profile
+import com.example.pixivapi.model.User
+import com.pixiv.reader.core.network.paging.PagedState
+import com.pixiv.reader.core.network.session.PixivRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+
+/** 用户主页作品分区。 */
+enum class UserSection { ILLUST, MANGA, NOVEL }
+
+/**
+ * 用户主页 ViewModel：用户详情（统计 / 关注态）+ 分区作品列表（插画 / 漫画 / 小说）+ 关注 / 取关。
+ */
+@HiltViewModel
+class UserViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val pixivRepository: PixivRepository,
+) : ViewModel() {
+
+    private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
+
+    private val _user = MutableStateFlow<User?>(null)
+    val user: StateFlow<User?> = _user.asStateFlow()
+
+    private val _profile = MutableStateFlow<Profile?>(null)
+    val profile: StateFlow<Profile?> = _profile.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _isFollowed = MutableStateFlow(false)
+    val isFollowed: StateFlow<Boolean> = _isFollowed.asStateFlow()
+
+    private val _isFollowing = MutableStateFlow(false)
+    val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
+
+    private val _section = MutableStateFlow(UserSection.ILLUST)
+    val section: StateFlow<UserSection> = _section.asStateFlow()
+
+    /** 是否已拉黑该用户（通过网页版用户详情 isBlocking 初始化） */
+    private val _isBlocked = MutableStateFlow(false)
+    val isBlocked: StateFlow<Boolean> = _isBlocked.asStateFlow()
+
+    private val _isBlocking = MutableStateFlow(false)
+    val isBlocking: StateFlow<Boolean> = _isBlocking.asStateFlow()
+
+    private val _message = Channel<String>(Channel.BUFFERED)
+    val message = _message.receiveAsFlow()
+
+    val illustPaged = PagedState<Illust>()
+    val mangaPaged = PagedState<Illust>()
+    val novelPaged = PagedState<Novel>()
+
+    init {
+        load()
+    }
+
+    fun load() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            runCatching { pixivRepository.api.getUserDetail(userId) }
+                .onSuccess { resp ->
+                    _user.value = resp.user
+                    _profile.value = resp.profile
+                    _isFollowed.value = resp.user?.is_followed == true
+                    loadSection(_section.value)
+                    loadBlockState()
+                }
+                .onFailure {
+                    _error.value = it.message ?: "加载失败"
+                }
+            _isLoading.value = false
+        }
+    }
+
+    /** 网页版用户详情含 isBlocking（我是否拉黑了对方），初始化拉黑态。 */
+    private fun loadBlockState() {
+        viewModelScope.launch {
+            runCatching {
+                pixivRepository.webApi.getWebUserDetail(userId).body?.isBlocking
+            }.onSuccess { blocked ->
+                if (blocked != null) _isBlocked.value = blocked
+            }
+        }
+    }
+
+    fun selectSection(section: UserSection) {
+        if (_section.value == section) return
+        _section.value = section
+        if (!hasLoaded(section)) loadSection(section)
+    }
+
+    private fun hasLoaded(section: UserSection): Boolean = when (section) {
+        UserSection.ILLUST -> illustPaged.items.value.isNotEmpty() || illustPaged.isLoading.value
+        UserSection.MANGA -> mangaPaged.items.value.isNotEmpty() || mangaPaged.isLoading.value
+        UserSection.NOVEL -> novelPaged.items.value.isNotEmpty() || novelPaged.isLoading.value
+    }
+
+    private fun loadSection(section: UserSection) {
+        viewModelScope.launch {
+            when (section) {
+                UserSection.ILLUST -> illustPaged.loadInitial(
+                    fetch = { pixivRepository.api.getUserIllusts(userId, "illust") },
+                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                )
+                UserSection.MANGA -> mangaPaged.loadInitial(
+                    fetch = { pixivRepository.api.getUserIllusts(userId, "manga") },
+                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                )
+                UserSection.NOVEL -> novelPaged.loadInitial(
+                    fetch = { pixivRepository.api.getUserNovels(userId) },
+                    fetchNext = { pixivRepository.api.getNextNovels(it) },
+                )
+            }
+        }
+    }
+
+    fun loadMore() {
+        viewModelScope.launch {
+            when (_section.value) {
+                UserSection.ILLUST -> illustPaged.loadMore()
+                UserSection.MANGA -> mangaPaged.loadMore()
+                UserSection.NOVEL -> novelPaged.loadMore()
+            }
+        }
+    }
+
+    /** 关注 / 取关（即时反馈）。 */
+    fun toggleFollow() {
+        if (_isFollowing.value) return
+        viewModelScope.launch {
+            _isFollowing.value = true
+            val current = _isFollowed.value
+            runCatching {
+                if (current) pixivRepository.api.unfollowUser(userId)
+                else pixivRepository.api.followUser(userId, "public")
+            }.onSuccess {
+                _isFollowed.value = !current
+                _message.send(if (!current) "已关注" else "已取消关注")
+            }.onFailure {
+                _message.send("操作失败：${it.message}")
+            }
+            _isFollowing.value = false
+        }
+    }
+
+    /** 拉黑 / 取消拉黑（网页接口 saveBlock，需要 CSRF token）。 */
+    fun toggleBlock() {
+        if (_isBlocking.value) return
+        viewModelScope.launch {
+            _isBlocking.value = true
+            val token = csrfToken()
+            if (token.isNullOrBlank()) {
+                _message.send("无法获取 CSRF Token，拉黑暂不可用")
+                _isBlocking.value = false
+                return@launch
+            }
+            val current = _isBlocked.value
+            runCatching {
+                pixivRepository.webApi.saveBlock(
+                    token,
+                    BlockSaveRequest(
+                        user_id = userId.toString(),
+                        action = if (current) "unblock" else "block",
+                    ),
+                )
+            }.onSuccess {
+                _isBlocked.value = !current
+                _message.send(if (!current) "已拉黑" else "已取消拉黑")
+            }.onFailure {
+                _message.send("操作失败：${it.message}")
+            }
+            _isBlocking.value = false
+        }
+    }
+
+    /** 从网页 Cookie 中解析 csrf_token（pixiv 网页写操作要求 x-csrf-token 头）。 */
+    private fun csrfToken(): String? {
+        return pixivRepository.pixivApi.session.cookie()
+            .split(';')
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("csrf_token=") }
+            ?.substringAfter('=')
+    }
+}

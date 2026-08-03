@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -42,7 +44,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,8 +65,10 @@ import com.example.pixivapi.model.Comment
 import com.example.pixivapi.model.Novel
 import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.formatCount
+import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.novel.htmlToPlainText
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
@@ -155,6 +162,7 @@ fun NovelDetailRoute(
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: NovelViewModel = hiltViewModel(),
 ) {
     val novel by viewModel.novel.collectAsStateWithLifecycle()
@@ -168,6 +176,9 @@ fun NovelDetailRoute(
     val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
     val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
     val isWatchlisting by viewModel.isWatchlisting.collectAsStateWithLifecycle()
+    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
@@ -193,16 +204,43 @@ fun NovelDetailRoute(
                     isBookmarking = isBookmarking,
                     isWatchlisted = isWatchlisted,
                     isWatchlisting = isWatchlisting,
+                    downloading = downloading,
+                    downloadProgress = downloadProgress,
                     comments = comments,
                     commentsLoading = commentsLoading,
                     onBack = onBack,
                     onOpenNovel = onOpenNovel,
                     onOpenReader = onOpenReader,
+                    onOpenUser = onOpenUser,
                     onBookmark = viewModel::toggleBookmark,
                     onWatchlist = viewModel::toggleWatchlist,
+                    onDownload = { showDownloadDialog = true },
                     onRetryComments = viewModel::loadComments,
                 )
             }
+        }
+        val dialogNovel = novel
+        if (showDownloadDialog && dialogNovel != null) {
+            DownloadDialog(
+                hasSeries = dialogNovel.series?.id != null,
+                onTxtCurrent = {
+                    viewModel.exportNovel(NovelExportFormat.TXT)
+                    showDownloadDialog = false
+                },
+                onEpubCurrent = {
+                    viewModel.exportNovel(NovelExportFormat.EPUB)
+                    showDownloadDialog = false
+                },
+                onTxtSeries = {
+                    viewModel.exportSeries(NovelExportFormat.TXT)
+                    showDownloadDialog = false
+                },
+                onEpubSeries = {
+                    viewModel.exportSeries(NovelExportFormat.EPUB)
+                    showDownloadDialog = false
+                },
+                onDismiss = { showDownloadDialog = false },
+            )
         }
         SnackbarHost(
             hostState = snackbarHostState,
@@ -227,13 +265,17 @@ private fun NovelDetailContent(
     isBookmarking: Boolean,
     isWatchlisted: Boolean,
     isWatchlisting: Boolean,
+    downloading: Boolean,
+    downloadProgress: String?,
     comments: List<Comment>,
     commentsLoading: Boolean,
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     onBookmark: () -> Unit,
     onWatchlist: () -> Unit,
+    onDownload: () -> Unit,
     onRetryComments: () -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -282,7 +324,7 @@ private fun NovelDetailContent(
                 }
             }
             item(key = "header") {
-                NovelCenteredBox { NovelHeader(detail) }
+                NovelCenteredBox { NovelHeader(detail, onOpenUser = onOpenUser) }
             }
             item(key = "actions") {
                 NovelCenteredBox {
@@ -293,8 +335,11 @@ private fun NovelDetailContent(
                         isBookmarking = isBookmarking,
                         isWatchlisted = isWatchlisted,
                         isWatchlisting = isWatchlisting,
+                        downloading = downloading,
+                        downloadProgress = downloadProgress,
                         onBookmark = onBookmark,
                         onWatchlist = onWatchlist,
+                        onDownload = onDownload,
                         onRead = { onOpenReader(detail.id) },
                     )
                 }
@@ -418,7 +463,7 @@ private fun CommentsSection(
 
             else -> comments.forEach { comment ->
                 CommentRow(comment)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -461,6 +506,69 @@ private fun CommentRow(comment: Comment) {
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            // 树形对话：父评论下方直接渲染子回复（浅色块 + 缩进，区分父子层）。
+            val replies = comment.replies.orEmpty()
+            if (replies.isNotEmpty()) {
+                val visibleReplies = replies.take(20)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    visibleReplies.forEachIndexed { index, reply ->
+                        ReplyRow(reply)
+                        if (index != visibleReplies.lastIndex) {
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、无分隔线）。 */
+@Composable
+private fun ReplyRow(reply: Comment) {
+    Row(verticalAlignment = Alignment.Top) {
+        UserAvatar(
+            name = reply.user?.name,
+            avatarUrl = reply.user?.profile_image_urls?.best(),
+            modifier = Modifier.size(28.dp),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = reply.user?.name ?: "匿名用户",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = formatCommentDate(reply.date),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = buildString {
+                    val parentName = reply.parent_comment?.user?.name
+                    if (!parentName.isNullOrBlank()) {
+                        append("回复 @$parentName：")
+                    }
+                    append(reply.comment.orEmpty())
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
     }
 }
@@ -470,7 +578,10 @@ private fun formatCommentDate(date: String?): String = date?.take(10) ?: ""
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun NovelHeader(novel: Novel) {
+private fun NovelHeader(
+    novel: Novel,
+    onOpenUser: (Long) -> Unit,
+) {
     Column(modifier = Modifier.padding(16.dp)) {
         Text(
             text = novel.title.orEmpty(),
@@ -478,7 +589,9 @@ private fun NovelHeader(novel: Novel) {
             fontWeight = FontWeight.SemiBold,
         )
         Row(
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .clickable { novel.user?.id?.let(onOpenUser) },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -546,8 +659,11 @@ private fun NovelActions(
     isBookmarking: Boolean,
     isWatchlisted: Boolean,
     isWatchlisting: Boolean,
+    downloading: Boolean,
+    downloadProgress: String?,
     onBookmark: () -> Unit,
     onWatchlist: () -> Unit,
+    onDownload: () -> Unit,
     onRead: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
@@ -587,6 +703,26 @@ private fun NovelActions(
                 )
                 Text(if (isWatchlisted) "已追更" else "追更", modifier = Modifier.padding(start = 4.dp))
             }
+            OutlinedButton(
+                onClick = onDownload,
+                enabled = !downloading,
+                modifier = Modifier.weight(1f).height(40.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text("下载", modifier = Modifier.padding(start = 4.dp))
+            }
+        }
+        if (downloading && !downloadProgress.isNullOrBlank()) {
+            Text(
+                text = downloadProgress,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
 }
@@ -638,4 +774,51 @@ private fun ChapterRow(
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** 下载选择对话框：TXT（跳过插图）/ EPUB（内嵌插图），可只下本文或整个系列。 */
+@Composable
+private fun DownloadDialog(
+    hasSeries: Boolean,
+    onTxtCurrent: () -> Unit,
+    onEpubCurrent: () -> Unit,
+    onTxtSeries: () -> Unit,
+    onEpubSeries: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("下载小说") },
+        text = {
+            Column {
+                DownloadOption("本文（TXT）", "纯文本，不包含插图", onTxtCurrent)
+                DownloadOption("本文（EPUB）", "标准电子书，内嵌插图", onEpubCurrent)
+                if (hasSeries) {
+                    DownloadOption("整个系列（TXT）", "合并所有分册为纯文本", onTxtSeries)
+                    DownloadOption("整个系列（EPUB）", "合并所有分册为电子书", onEpubSeries)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {},
+    )
+}
+
+@Composable
+private fun DownloadOption(title: String, subtitle: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
 }

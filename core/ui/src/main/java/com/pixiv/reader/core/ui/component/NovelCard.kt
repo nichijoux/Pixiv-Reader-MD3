@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,10 +23,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pixivapi.model.Novel
 import com.pixiv.reader.core.common.formatCount
-import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.common.formatCountForNovel
 
 /**
  * 小说卡片：封面 + 标题 + 作者 + 字数/收藏。
+ * 供小说推荐流、用户主页小说分区、收藏/追更列表等复用。
  */
 @Composable
 fun NovelCard(
@@ -95,10 +95,4 @@ fun NovelCard(
             )
         }
     }
-}
-
-/** 字数格式化：小于 1 万显示原始数字，否则显示万。 */
-fun formatCountForNovel(count: Int): String = when {
-    count >= 10000 -> String.format("%.1f万", count / 10000f)
-    else -> count.toString()
 }

@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.Comment
 import com.example.pixivapi.model.Illust
+import com.pixiv.reader.core.database.dao.BrowseHistoryDao
+import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.paging.PagedState
@@ -28,6 +30,7 @@ import okhttp3.Request
 class IllustViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
+    private val browseHistoryDao: BrowseHistoryDao,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -74,6 +77,7 @@ class IllustViewModel @Inject constructor(
                     _illust.value = ill
                     _isBookmarked.value = ill.is_bookmarked == true
                     _pages.value = ill.toPages()
+                    recordHistory(ill)
                     loadRelated()
                     loadComments()
                     loadRealSizes()
@@ -82,6 +86,23 @@ class IllustViewModel @Inject constructor(
                     _error.value = it.message ?: "加载失败"
                 }
             _isLoading.value = false
+        }
+    }
+
+    /** 打开详情时写入浏览历史（先删旧记录避免重复）。 */
+    private fun recordHistory(ill: Illust) {
+        viewModelScope.launch {
+            runCatching {
+                browseHistoryDao.deleteByTarget("illust", ill.id)
+                browseHistoryDao.upsert(
+                    BrowseHistoryEntity(
+                        targetType = "illust",
+                        targetId = ill.id,
+                        title = ill.title,
+                        coverUrl = ill.image_urls?.medium ?: ill.image_urls?.square_medium,
+                    ),
+                )
+            }
         }
     }
 

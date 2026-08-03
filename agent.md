@@ -347,4 +347,33 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - **修复**：core:ui 新增 `UserAvatar`（URL 用 `profile_image_urls?.best()` 自动 fallback 尺寸；URL 仍缺失时显示**用户名首字母圆形**兜底）；NovelRoute 作者/评论、IllustDetailRoute 作者/评论、IllustCard、DiscoverResults 全部改用 `UserAvatar`
   - **平板适配**：阅读器原本已由 `AdaptiveContentBox`（`MAX_CONTENT_WIDTH_DP=760dp`）限宽居中；小说推荐流补上 `AdaptiveContentBox` 限宽；小说详情页 banner 保持全宽沉浸、正文（header/操作/系列/评论）新增 `NovelCenteredBox`（`widthIn(max=760)` 居中）
   - **评论重叠 bug 修复（补充）**：`CommentsSection` 原无统一根容器（直接 emit 标题 + 各评论行多个并列 composable），被包在 `NovelCenteredBox` 的 **Box** 里 → Box 子项默认堆叠 → 评论内容/用户名/多个用户全部重叠。修复：`CommentsSection` 根改为 `Column` 统一包裹
-- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1，core:novel 共 20 用例
+- **评论区树形化 + 去 divider（第二十四轮）**：
+  - **数据**：`Comment` 模型（Models.kt）已含 `replies: List<Comment>?` / `parent_comment`，`v3/{type}/comments` 接口内嵌回复数组 → 零 API/ViewModel 改动，直接渲染 `comment.replies`
+  - **Novel 详情**：`CommentsSection` 移除 `HorizontalDivider`，评论间改 `Spacer(8.dp)`；`CommentRow` 父评论内容下方渲染子层：缩进浅色圆角块 `surfaceContainerLow` + `clip(12.dp)`，内部每条 `ReplyRow`（小头像 28dp + "回复 @被回复者：内容" + 日期），最多 20 条，行间 spacing 8dp
+  - **Illust 详情**：`CommentRow` 同款子层（`IllustReplyRow`，头像 24dp，无日期，保持该页原有无 divider 风格）
+  - **视觉**：区分父层（无背景、36dp 头像）与子层（缩进 + 浅色块、小头像），符合 Material Design 列表分组规范；评论与评论之间无分割线
+- **小说下载/导出 TXT·EPUB（第二十五轮）**：
+  - **能力**：详情页可将小说导出为文件——**TXT**（纯文本，跳过正文插图）/ **EPUB**（EPUB3 标准 zip，内嵌正文插图 + 封面）；范围支持**当前单本**或**整个系列**（`getNovelSeries` 循环分页拉全 → 逐章抓取串行下载）
+  - **新增** `feature:novel` 内：`NovelContentLoader`（@Singleton，正文管线 getNovel→getNovelHtml→getNovelWeb 插图映射→parse→resolvePixivImages，与 ReaderViewModel.load 同链路，TODO 后续去重）；`NovelExporter`（@Singleton，TXT/EPUB 生成；手写 EPUB3 zip：mimetype STORED 首位 + container.xml + content.opf + nav.xhtml + 章节 xhtml + images；图片下载失败即跳过不内嵌）；纯函数 `buildTxt/buildEpub/buildOpf/buildNav/buildChapterXhtml/escapeXml/sanitizeFileName` 可单测
+  - **存储**：`filesDir/Downloads/novels/{清洗标题}_{id}.txt|.epub`（与插画下载同目录体系，novels 子目录）
+  - **UI**：`NovelActions` 新增第三个"下载"按钮（下载中禁用 + 进度文案"第 x/y 章"）；点击弹 `DownloadDialog`（本文 TXT / 本文 EPUB / 系列 TXT / 系列 EPUB，系列项仅 `series?.id != null` 显示）；完成后 Snackbar 提示文件名；`NovelViewModel` 注入 exporter，新增 `downloading`/`downloadProgress` StateFlow + `exportNovel`/`exportSeries`
+  - **TODO（后续）**：①"我的下载"管理页（复用 `DownloadEntryDao.observeAll`）+ 删除；②离线阅读（`ReaderViewModel` 本地数据源优先，阅读器只消费 `NovelDocument` 已具备条件）；③SAF/MediaStore 导出公共 Downloads；④WorkManager 后台队列（`work-runtime-ktx 2.9.1` 已声明）+ 中断恢复；⑤`NovelContentLoader` 与阅读器去重
+  - **测试**：feature:novel 新建 `NovelExporterTest`（6 用例：sanitizeFileName/escapeXml/buildTxt 单章与系列/EPUB zip 结构/章节图片引用）；feature:novel 补 `testImplementation(libs.junit)`
+- **P5 用户社交 · 批次1（第二十六轮）：用户主页 + 我的页 + 阅读历史**
+  - **feature:user**（补 Hilt/ksp/`:core:network`/`:core:database` 依赖）：新增 `UserViewModel`（`getUserDetail` 统计 + `is_followed`；三区 `PagedState`——插画/漫画 `getUserIllusts(type)`→`getNextIllusts`、小说 `getUserNovels`→`getNextNovels`；`toggleFollow` 即时反馈）+ `UserRoute`（用户主页：头部头像/名称/@account/简介 `user.comment` + 统计格 插画/小说/收藏/关注 + 关注按钮 + 分区 FilterChip + `IllustWaterfallGrid`/`NovelCard` 列表 + 触底分页 + `AdaptiveContentBox` 平板适配 + Snackbar）
+  - **MeRoute 升级**：`MeViewModel`（`SessionRepository.currentUser`）+ 个人头部（`UserAvatar` 64dp + 名称/@account）+ 功能入口列表（阅读历史可跳；我的收藏/追更/屏蔽管理批次2占位"功能开发中"）+ 登出；`MeEntry` 列表项组件
+  - **阅读历史落地（横切）**：`BrowseHistoryDao` 新增 `deleteByTarget`（先删旧再插入避免重复）；`IllustViewModel`/`NovelViewModel` load 成功时 `upsert`（illust/novel + title + coverUrl，`feature:illust` 补 `:core:database` 依赖）
+  - **HistoryRoute**：`HistoryViewModel`（`observeRecent(100)` stateIn）+ 历史列表（封面 + 标题 + 类型标签 + 时间 `MM-dd HH:mm` + 删除），点击按类型跳 illust/novel 详情，支持单项删除/清空，空态
+  - **NovelCard 上移**：`NovelCard` 移至 `core:ui`（供 user/bookmark/watchlist 复用），`formatCountForNovel` 移至 `core:common`；`feature:novel` 删除旧文件改 import
+  - **导航**：`PixivNavGraph` 新增 `user/{userId}`（深链 `pixiv://user/{id}`）与 `history` 路由；`MainShell` 加 `onOpenHistory`；`IllustDetailRoute`/`NovelDetailRoute` 新增 `onOpenUser`——作者头像/名称可点击跳用户主页
+  - **TODO（批次2，下一步）**：feature:bookmark 收藏夹+标签筛选、feature:watchlist 追更、屏蔽（`saveBlock` 需从 `session.cookie()` 解析 `csrf_token=`，有 403 风险）；MeRoute 收藏/追更/屏蔽入口接入
+  - 测试：全部相关模块回归通过（core:novel / feature:reader / core:network / feature:novel / feature:user / core:common）
+- **P5 用户社交 · 批次2（第二十七轮）：收藏夹 + 追更 + 屏蔽 → P5 完成**
+  - **feature:bookmark**（补 Hilt/ksp/`:core:network`）：`BookmarkViewModel`（当前用户 uid=`session.loggedInUid`；类型 Tab 插画/小说；`getIllustBookmarkTags`/`getNovelBookmarkTags` 标签列表 + "全部"；`getUserBookmarkedIllusts/Novels(uid,"public",tag)` 按标签筛选，切标签 `loadInitial` 自动覆盖；`PagedState` 分页）+ `BookmarkRoute`（TopAppBar + 类型 FilterChip + 标签 LazyRow + `IllustWaterfallGrid`/`NovelCard` 列表 + 触底分页）
+  - **feature:watchlist**（补依赖）：`WatchlistViewModel`（`getWatchlistNovel`→`getNextWatchlist` 分页）+ `WatchlistRoute`（系列行：作者头像/标题/章节数，点击打开 `latest_content_id` 小说详情；`isMasked` 显示"已隐藏的系列"）
+  - **屏蔽**：`UserViewModel.toggleBlock`（网页 `saveBlock(BlockSaveRequest(user_id, block/unblock))`，`x-csrf-token` 从 `session.cookie()` 解析 `csrf_token=`；拉黑态用 `webApi.getWebUserDetail.isBlocking` 初始化）+ `UserRoute` 头部更多菜单（拉黑/取消拉黑）；`BlockedViewModel`（`getMutedHistory` 用户+标签）+ `BlockedRoute`（屏蔽管理：已屏蔽用户可取消屏蔽 `saveBlock(unblock)`，标签取消无 API 暂"开发中"）
+  - **导航**：`PixivNavGraph` 新增 `bookmarks`/`watchlist`/`blocked` 路由；`MainShell` 传 `onOpenBookmarks`/`onOpenWatchlist`/`onOpenBlocked`；`MeRoute` 三个入口接入（移除"功能开发中"占位）
+  - **风险记录**：拉黑依赖网页 Cookie 中的 `csrf_token`，若登录会话无该 Cookie 则提示"无法获取 CSRF Token，拉黑暂不可用"（不崩溃）
+  - 测试：全部相关模块回归通过
+  - **至此 P5 用户社交完成**（用户主页/关注/拉黑 + 收藏夹标签 + 追更 + 我的页 + 阅读历史 + 屏蔽管理）
+- 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1，core:novel 共 20 用例；feature:novel `NovelExporterTest` 6 用例

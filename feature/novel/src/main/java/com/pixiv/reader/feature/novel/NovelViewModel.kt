@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.Comment
 import com.example.pixivapi.model.Novel
+import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
+import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +27,8 @@ class NovelViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
     private val readingProgressDao: ReadingProgressDao,
+    private val browseHistoryDao: BrowseHistoryDao,
+    private val novelExporter: NovelExporter,
 ) : ViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
@@ -67,6 +71,14 @@ class NovelViewModel @Inject constructor(
     private val _message = Channel<String>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
+    /** 下载/导出进行中 */
+    private val _downloading = MutableStateFlow(false)
+    val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
+
+    /** 下载/导出进度文案（如"正在下载第 3/12 章…"） */
+    private val _downloadProgress = MutableStateFlow<String?>(null)
+    val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
+
     init {
         load()
     }
@@ -80,6 +92,7 @@ class NovelViewModel @Inject constructor(
                     val detail = resp.novel ?: return@onSuccess
                     _novel.value = detail
                     _isBookmarked.value = detail.is_bookmarked == true
+                    recordHistory(detail)
                     loadProgress()
                     loadSeries(detail)
                     loadComments()
@@ -88,6 +101,23 @@ class NovelViewModel @Inject constructor(
                     _error.value = it.message ?: "加载失败"
                 }
             _isLoading.value = false
+        }
+    }
+
+    /** 打开详情时写入浏览历史（先删旧记录避免重复）。 */
+    private fun recordHistory(detail: Novel) {
+        viewModelScope.launch {
+            runCatching {
+                browseHistoryDao.deleteByTarget("novel", detail.id)
+                browseHistoryDao.upsert(
+                    BrowseHistoryEntity(
+                        targetType = "novel",
+                        targetId = detail.id,
+                        title = detail.title,
+                        coverUrl = detail.image_urls?.medium ?: detail.image_urls?.square_medium,
+                    ),
+                )
+            }
         }
     }
 
@@ -152,6 +182,41 @@ class NovelViewModel @Inject constructor(
                 _message.send("操作失败：${it.message}")
             }
             _isWatchlisting.value = false
+        }
+    }
+
+    // ── 下载 / 导出 ──────────────────────────────────────────────────────────
+
+    /** 导出当前单本小说为指定格式文件。 */
+    fun exportNovel(format: NovelExportFormat) {
+        val detail = _novel.value ?: return
+        if (_downloading.value) return
+        viewModelScope.launch {
+            _downloading.value = true
+            _downloadProgress.value = "正在下载…"
+            // exportNovel 内部已 runCatching，返回 Result<File>
+            novelExporter.exportNovel(detail, format)
+                .onSuccess { file -> _message.send("已导出：${file.name}") }
+                .onFailure { _message.send("导出失败：${it.message}") }
+            _downloading.value = false
+            _downloadProgress.value = null
+        }
+    }
+
+    /** 导出整个系列为指定格式文件（逐章下载）。 */
+    fun exportSeries(format: NovelExportFormat) {
+        val detail = _novel.value ?: return
+        if (_downloading.value) return
+        viewModelScope.launch {
+            _downloading.value = true
+            _downloadProgress.value = "准备中…"
+            novelExporter.exportSeries(detail, format) { index, total ->
+                _downloadProgress.value = "正在下载第 $index/$total 章…"
+            }
+                .onSuccess { file -> _message.send("已导出：${file.name}") }
+                .onFailure { _message.send("导出失败：${it.message}") }
+            _downloading.value = false
+            _downloadProgress.value = null
         }
     }
 }
