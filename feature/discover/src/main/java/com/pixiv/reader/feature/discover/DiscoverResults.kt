@@ -1,9 +1,11 @@
 package com.pixiv.reader.feature.discover
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,11 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,11 +33,15 @@ import com.example.pixivapi.model.Illust
 import com.example.pixivapi.model.Novel
 import com.example.pixivapi.model.UserPreview
 import com.pixiv.reader.core.common.formatCount
+import com.pixiv.reader.core.common.formatCountForNovel
+import com.pixiv.reader.core.ui.component.CreatorProfile
+import com.pixiv.reader.core.ui.component.CreatorProfileCard
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
-import com.pixiv.reader.core.ui.component.UserAvatar
 
 @Composable
 internal fun IllustSearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
@@ -57,12 +60,18 @@ internal fun IllustSearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Lo
             onLoadMore = viewModel::loadMore,
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
+            onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
         )
     }
 }
 
 @Composable
-internal fun NovelSearchResults(viewModel: DiscoverViewModel) {
+internal fun NovelSearchResults(
+    viewModel: DiscoverViewModel,
+    onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
     val items by viewModel.novelPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.novelPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.novelPaged.isLoadingMore.collectAsStateWithLifecycle()
@@ -75,10 +84,20 @@ internal fun NovelSearchResults(viewModel: DiscoverViewModel) {
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(items, key = { it.id }) { novel ->
-                NovelRow(novel)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                NovelRow(
+                    novel = novel,
+                    onClick = { onOpenNovel(novel.id) },
+                    onOpenReader = { onOpenReader(novel.id) },
+                    onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                    onToggleFavorite = { nowFavorite -> viewModel.toggleNovelFavorite(novel.id, nowFavorite) },
+                    onTagClick = { tag ->
+                        viewModel.onQueryChange(tag)
+                        viewModel.search()
+                    },
+                )
             }
             if (hasMore) {
                 item(key = "load_more") {
@@ -90,7 +109,45 @@ internal fun NovelSearchResults(viewModel: DiscoverViewModel) {
 }
 
 @Composable
-internal fun UserSearchResults(viewModel: DiscoverViewModel) {
+private fun NovelRow(
+    novel: Novel,
+    onClick: () -> Unit,
+    onOpenReader: () -> Unit,
+    onOpenAuthor: () -> Unit,
+    onToggleFavorite: (Boolean) -> Unit,
+    onTagClick: (String) -> Unit,
+) {
+    NovelCard(
+        novel = NovelCardData(
+            id = novel.id,
+            title = novel.title.orEmpty(),
+            coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
+            authorId = novel.user?.id ?: 0L,
+            authorName = novel.user?.name.orEmpty(),
+            authorAvatarUrl = novel.user?.profile_image_urls?.best(),
+            publishDate = novel.create_date,
+            seriesTitle = novel.series?.title,
+            favoriteCount = novel.total_bookmarks ?: 0,
+            wordCount = novel.text_length ?: 0,
+            tags = novel.tags.orEmpty()
+                .take(6)
+                .map { it.translated_name ?: it.name ?: "" }
+                .filter { it.isNotBlank() },
+            isFavorite = novel.is_bookmarked == true,
+        ),
+        onClick = onClick,
+        onOpenReader = onOpenReader,
+        onOpenAuthor = onOpenAuthor,
+        onToggleFavorite = onToggleFavorite,
+        onTagClick = onTagClick,
+    )
+}
+
+@Composable
+internal fun UserSearchResults(
+    viewModel: DiscoverViewModel,
+    onOpenUser: (Long) -> Unit,
+) {
     val items by viewModel.userPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.userPaged.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.userPaged.error.collectAsStateWithLifecycle()
@@ -101,93 +158,41 @@ internal fun UserSearchResults(viewModel: DiscoverViewModel) {
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(items, key = { it.user?.id ?: 0L }) { preview ->
-                UserRow(preview)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                UserRow(
+                    preview = preview,
+                    onClick = { preview.user?.id?.let(onOpenUser) },
+                    onToggleFollow = { followed ->
+                        preview.user?.id?.let { viewModel.toggleFollowUser(it, followed) }
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun NovelRow(novel: Novel) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        PixivImage(
-            url = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
-            contentDescription = novel.title,
-            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = novel.title.orEmpty(),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                Text(
-                    text = novel.user?.name.orEmpty(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Icon(Icons.Filled.Favorite, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    text = formatCount((novel.total_bookmarks ?: 0).toLong()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun UserRow(preview: UserPreview) {
+private fun UserRow(
+    preview: UserPreview,
+    onClick: () -> Unit,
+    onToggleFollow: (Boolean) -> Unit,
+) {
     val user = preview.user
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        UserAvatar(
-            name = user?.name,
+    CreatorProfileCard(
+        profile = CreatorProfile(
+            id = user?.id ?: 0L,
+            name = user?.name.orEmpty(),
             avatarUrl = user?.profile_image_urls?.best(),
-            modifier = Modifier.size(48.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = user?.name.orEmpty(),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                preview.illusts.take(3).forEach { illust ->
-                    PixivImage(
-                        url = illust.image_urls?.square_medium,
-                        contentDescription = null,
-                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
-                    )
-                }
-            }
-        }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+            covers = preview.illusts.take(3).mapNotNull {
+                it.image_urls?.square_medium ?: it.image_urls?.medium
+            },
+            isFollowed = user?.is_followed == true,
+        ),
+        onToggleFollow = onToggleFollow,
+        onClick = onClick,
+    )
 }
 
 @Composable

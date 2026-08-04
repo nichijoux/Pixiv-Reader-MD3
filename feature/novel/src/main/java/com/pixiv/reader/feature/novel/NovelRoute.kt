@@ -69,19 +69,24 @@ import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.novel.htmlToPlainText
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.CommentInput
-import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.UserAvatar
 
 /**
  * 小说 Tab：推荐流（P4）。
+ * item 与搜索结果一致（NovelCard）：封面→阅读器、作者→主页、收藏、标签→搜索。
  */
 @Composable
 fun NovelRoute(
     onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onSearchTag: (String) -> Unit,
     viewModel: NovelFeedViewModel = hiltViewModel(),
 ) {
     val items by viewModel.feed.items.collectAsStateWithLifecycle()
@@ -122,7 +127,30 @@ fun NovelRoute(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(items, key = { it.id }) { novel ->
-                        NovelCard(novel = novel, onClick = { onOpenNovel(novel.id) })
+                        NovelCard(
+                            novel = NovelCardData(
+                                id = novel.id,
+                                title = novel.title.orEmpty(),
+                                coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
+                                authorId = novel.user?.id ?: 0L,
+                                authorName = novel.user?.name.orEmpty(),
+                                authorAvatarUrl = novel.user?.profile_image_urls?.best(),
+                                publishDate = novel.create_date,
+                                seriesTitle = novel.series?.title,
+                                favoriteCount = novel.total_bookmarks ?: 0,
+                                wordCount = novel.text_length ?: 0,
+                                tags = novel.tags.orEmpty()
+                                    .take(6)
+                                    .map { it.translated_name ?: it.name ?: "" }
+                                    .filter { it.isNotBlank() },
+                                isFavorite = novel.is_bookmarked == true,
+                            ),
+                            onClick = { onOpenNovel(novel.id) },
+                            onOpenReader = { onOpenReader(novel.id) },
+                            onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                            onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(novel.id, fav) },
+                            onTagClick = onSearchTag,
+                        )
                     }
                     if (hasMore) {
                         item(key = "load_more") {

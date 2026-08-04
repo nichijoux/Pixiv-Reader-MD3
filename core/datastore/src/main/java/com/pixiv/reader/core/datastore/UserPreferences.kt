@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -47,6 +48,12 @@ class UserPreferences @Inject constructor(
     // ── 通用 ──
     /** 是否自动更新（设置开关，实际更新逻辑后续接入） */
     val autoUpdate: Flow<Boolean> = context.dataStore.data.map { it[KEY_AUTO_UPDATE] ?: true }
+    /** 热门搜索缓存（展示名列表，\n 分隔；配合 updatedAt 控制刷新） */
+    val hotTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_HOT_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
+    }
+    /** 热门搜索缓存更新时间戳（epoch ms，0 表示从未缓存） */
+    val hotTagsUpdatedAt: Flow<Long> = context.dataStore.data.map { it[KEY_HOT_TAGS_AT] ?: 0L }
     val mutedTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
         prefs[KEY_MUTED_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
@@ -63,6 +70,9 @@ class UserPreferences @Inject constructor(
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
     suspend fun setThemeMode(value: Int) = context.dataStore.edit { it[KEY_THEME_MODE] = value }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
+    suspend fun setHotTags(value: List<String>) =
+        context.dataStore.edit { it[KEY_HOT_TAGS] = value.joinToString("\n") }
+    suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
 
@@ -79,6 +89,8 @@ class UserPreferences @Inject constructor(
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
+        val KEY_HOT_TAGS = stringPreferencesKey("hot_tags")
+        val KEY_HOT_TAGS_AT = longPreferencesKey("hot_tags_updated_at")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
     }
 }

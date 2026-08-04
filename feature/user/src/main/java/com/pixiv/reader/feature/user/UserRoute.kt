@@ -51,14 +51,19 @@ import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.UserAvatar
 
 /**
  * 用户主页（P5）：详情统计 + 关注/取关 + 分区作品（插画/漫画/小说）。
+ * 小说分区 item 与搜索结果一致（NovelCard）。
  *
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
  * @param onOpenNovel 打开小说详情
+ * @param onOpenReader 打开小说阅读器
+ * @param onOpenUser 打开用户主页
+ * @param onSearchTag 标签搜索（跳发现页）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +72,9 @@ fun UserRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onSearchTag: (String) -> Unit,
     viewModel: UserViewModel = hiltViewModel(),
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
@@ -149,6 +157,10 @@ fun UserRoute(
                             UserSection.NOVEL -> SectionNovel(
                                 paged = viewModel.novelPaged,
                                 onOpenNovel = onOpenNovel,
+                                onOpenReader = onOpenReader,
+                                onOpenUser = onOpenUser,
+                                onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
+                                onTagClick = onSearchTag,
                                 onRetry = viewModel::load,
                                 onLoadMore = viewModel::loadMore,
                             )
@@ -288,6 +300,10 @@ private fun SectionIllust(
 private fun SectionNovel(
     paged: com.pixiv.reader.core.network.paging.PagedState<com.example.pixivapi.model.Novel>,
     onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onToggleFavorite: (Long, Boolean) -> Unit,
+    onTagClick: (String) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -307,7 +323,30 @@ private fun SectionNovel(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(items, key = { it.id }) { novel ->
-                NovelCard(novel = novel, onClick = { onOpenNovel(novel.id) })
+                NovelCard(
+                    novel = NovelCardData(
+                        id = novel.id,
+                        title = novel.title.orEmpty(),
+                        coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
+                        authorId = novel.user?.id ?: 0L,
+                        authorName = novel.user?.name.orEmpty(),
+                        authorAvatarUrl = novel.user?.profile_image_urls?.best(),
+                        publishDate = novel.create_date,
+                        seriesTitle = novel.series?.title,
+                        favoriteCount = novel.total_bookmarks ?: 0,
+                        wordCount = novel.text_length ?: 0,
+                        tags = novel.tags.orEmpty()
+                            .take(6)
+                            .map { it.translated_name ?: it.name ?: "" }
+                            .filter { it.isNotBlank() },
+                        isFavorite = novel.is_bookmarked == true,
+                    ),
+                    onClick = { onOpenNovel(novel.id) },
+                    onOpenReader = { onOpenReader(novel.id) },
+                    onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                    onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
+                    onTagClick = onTagClick,
+                )
             }
             if (hasMore) {
                 item(key = "load_more") {

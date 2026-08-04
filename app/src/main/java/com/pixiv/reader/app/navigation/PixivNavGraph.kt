@@ -63,7 +63,13 @@ fun PixivNavGraph(
                 },
             )
         }
-        composable(ROUTE_MAIN) {
+        composable(
+            route = "main?search={search}",
+            arguments = listOf(
+                navArgument("search") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { backStackEntry ->
+            val initialSearch = backStackEntry.arguments?.getString("search")
             MainShell(
                 onLogout = {
                     onLogout()
@@ -76,6 +82,12 @@ fun PixivNavGraph(
                 },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
+                },
+                onOpenReader = { novelId ->
+                    navController.navigate("reader/$novelId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
                 },
                 onOpenHistory = {
                     navController.navigate(ROUTE_HISTORY)
@@ -98,6 +110,7 @@ fun PixivNavGraph(
                 onOpenSettings = {
                     navController.navigate(ROUTE_SETTINGS)
                 },
+                initialSearch = initialSearch,
             )
         }
         composable(
@@ -176,6 +189,18 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
+                onOpenReader = { novelId ->
+                    navController.navigate("reader/$novelId")
+                },
+                onOpenUser = { target ->
+                    navController.navigate("user/$target")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
             )
         }
         composable(ROUTE_HISTORY) {
@@ -206,6 +231,18 @@ fun PixivNavGraph(
                 },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
+                },
+                onOpenReader = { novelId ->
+                    navController.navigate("reader/$novelId")
+                },
+                onOpenUser = { target ->
+                    navController.navigate("user/$target")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 },
             )
         }

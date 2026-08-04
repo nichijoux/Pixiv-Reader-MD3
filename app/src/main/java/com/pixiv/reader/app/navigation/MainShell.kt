@@ -9,7 +9,11 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -44,6 +48,8 @@ fun MainShell(
     onLogout: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
@@ -51,10 +57,21 @@ fun MainShell(
     onOpenDownloads: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenSettings: () -> Unit,
+    initialSearch: String? = null,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    // 待搜索关键词（小说 Tab / 顶层路由标签点击 → 切到发现页搜索）
+    var pendingSearch by remember { mutableStateOf<String?>(null) }
+
+    // 顶层路由带 search 参数进入：切到发现页并搜索
+    LaunchedEffect(initialSearch) {
+        if (!initialSearch.isNullOrBlank()) {
+            pendingSearch = initialSearch
+            navController.navigate("discover_tab") { launchSingleTop = true }
+        }
+    }
 
     AdaptiveNavScaffold(
         items = TABS,
@@ -82,9 +99,27 @@ fun MainShell(
                     onOpenIllust = onOpenIllust,
                 )
             }
-            composable("discover_tab") { DiscoverRoute(onOpenIllust = onOpenIllust) }
+            composable("discover_tab") {
+                DiscoverRoute(
+                    onOpenIllust = onOpenIllust,
+                    onOpenNovel = onOpenNovel,
+                    onOpenReader = onOpenReader,
+                    onOpenUser = onOpenUser,
+                    initialQuery = pendingSearch?.also { pendingSearch = null },
+                )
+            }
             composable("ranking_tab") { RankingRoute(onOpenIllust = onOpenIllust) }
-            composable("novel_tab") { NovelRoute(onOpenNovel = onOpenNovel) }
+            composable("novel_tab") {
+                NovelRoute(
+                    onOpenNovel = onOpenNovel,
+                    onOpenReader = onOpenReader,
+                    onOpenUser = onOpenUser,
+                    onSearchTag = { tag ->
+                        pendingSearch = tag
+                        navController.navigate("discover_tab") { launchSingleTop = true }
+                    },
+                )
+            }
             composable("me_tab") {
                 MeRoute(
                     onLogout = onLogout,

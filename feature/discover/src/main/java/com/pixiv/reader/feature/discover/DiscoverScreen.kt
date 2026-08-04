@@ -1,113 +1,147 @@
 package com.pixiv.reader.feature.discover
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.pixivapi.model.AutocompleteTag
+import com.example.pixivapi.model.Illust
+import com.example.pixivapi.model.Novel
+import com.example.pixivapi.model.TrendingTag
+import com.pixiv.reader.core.database.entity.SearchHistoryEntity
+import com.pixiv.reader.core.ui.component.EmptyBox
+import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
+import kotlinx.coroutines.launch
 
 /**
- * 发现页：搜索（联想 + 热门 + V3 筛选）与结果列表。
- * @param onOpenIllust 点击插画结果打开详情
+ * 发现页搜索：热门 + 历史 → 联想 → 结果（TabRow + HorizontalPager 滑动切换插画/小说/用户）。
+ * 筛选入口在搜索框右侧，面板按当前类型动态渲染。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverRoute(
     onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    initialQuery: String? = null,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val type by viewModel.type.collectAsStateWithLifecycle()
     val hasSearched by viewModel.hasSearched.collectAsStateWithLifecycle()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val hotTags by viewModel.hotTags.collectAsStateWithLifecycle()
+    val history by viewModel.searchHistory.collectAsStateWithLifecycle()
+    val toolOptions by viewModel.toolOptions.collectAsStateWithLifecycle()
+    val genreOptions by viewModel.genreOptions.collectAsStateWithLifecycle()
 
     var showFilter by remember { mutableStateOf(false) }
+
+    // 跨 Tab 标签搜索：从别处带关键词进入则自动搜索
+    LaunchedEffect(initialQuery) {
+        if (!initialQuery.isNullOrBlank()) {
+            viewModel.onQueryChange(initialQuery)
+            viewModel.search()
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
     ) {
-        // 搜索输入框
-        OutlinedTextField(
-            value = query,
-            onValueChange = viewModel::onQueryChange,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-            placeholder = { Text("搜索作品、画师、标签") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-            singleLine = true,
-            trailingIcon = {
-                if (query.isNotBlank()) {
-                    androidx.compose.material3.TextButton(onClick = viewModel::search) {
-                        Text("搜索")
-                    }
-                }
-            },
+        // 搜索栏（聚焦高亮 + 清除/搜索按钮）
+        SearchField(
+            query = query,
+            onQueryChange = viewModel::onQueryChange,
+            onSearch = viewModel::search,
+            onClear = viewModel::clearSearch,
+            onOpenFilter = { showFilter = true },
         )
 
-        // 类型 + 筛选
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 2.dp),
-        ) {
-            items(SearchType.entries) { t ->
-                FilterChip(
-                    selected = type == t,
-                    onClick = { viewModel.setType(t) },
-                    label = { Text(t.label) },
-                )
-            }
-            item {
-                FilterChip(
-                    selected = false,
-                    onClick = { showFilter = true },
-                    label = {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(Icons.Filled.FilterList, contentDescription = null, modifier = Modifier.height(14.dp))
-                            Text("筛选")
-                        }
-                    },
-                )
-            }
-        }
-
-        if (hasSearched && query.isNotBlank()) {
-            SearchResults(viewModel, onOpenIllust)
-        } else {
-            SearchSuggestions(viewModel)
+        when {
+            hasSearched && query.isNotBlank() -> SearchResultPager(
+                type = type,
+                viewModel = viewModel,
+                onOpenIllust = onOpenIllust,
+                onOpenNovel = onOpenNovel,
+                onOpenReader = onOpenReader,
+                onOpenUser = onOpenUser,
+            )
+            query.isNotBlank() -> SuggestionList(
+                suggestions = suggestions,
+                onPick = { viewModel.onQueryChange(it); viewModel.search() },
+            )
+            else -> IdlePanel(
+                hotTags = hotTags,
+                history = history,
+                viewModel = viewModel,
+            )
         }
     }
 
     if (showFilter) {
         FilterBottomSheet(
             filters = filters,
+            type = type,
+            toolOptions = toolOptions,
+            genreOptions = genreOptions,
+            detailed = hasSearched,
             onDismiss = { showFilter = false },
             onApply = {
                 viewModel.applyFilters(it)
@@ -118,64 +152,323 @@ fun DiscoverRoute(
     }
 }
 
+// ── 搜索栏 ───────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
-    when (viewModel.type.value) {
-        SearchType.ILLUST -> IllustSearchResults(viewModel, onOpenIllust)
-        SearchType.NOVEL -> NovelSearchResults(viewModel)
-        SearchType.USER -> UserSearchResults(viewModel)
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onClear: () -> Unit,
+    onOpenFilter: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("搜索作品、画师、标签") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (query.isNotBlank()) {
+                        IconButton(onClick = onClear) {
+                            Icon(Icons.Filled.Close, contentDescription = "清除")
+                        }
+                        TextButton(onClick = onSearch) { Text("搜索") }
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(24.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        )
+        IconButton(
+            onClick = onOpenFilter,
+            modifier = Modifier
+                .clip(RoundedCornerShape(21.dp))
+                .size(42.dp),
+        ) {
+            Icon(
+                Icons.Filled.FilterList,
+                contentDescription = "筛选",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
     }
 }
 
-@Composable
-private fun SearchSuggestions(viewModel: DiscoverViewModel) {
-    val hotTags by viewModel.hotTags.collectAsStateWithLifecycle()
-    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+// ── 初始态：热门 + 搜索历史 ──────────────────────────────────────────────────
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(
-            text = "热门搜索",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-        hotTags.take(6).forEachIndexed { index, tag ->
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IdlePanel(
+    hotTags: List<TrendingTag>,
+    history: List<SearchHistoryEntity>,
+    viewModel: DiscoverViewModel,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+    ) {
+        if (history.isNotEmpty()) {
+            item(key = "history_title") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = "搜索历史",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 6.dp).weight(1f),
+                    )
+                    TextButton(onClick = viewModel::clearHistory) { Text("清空", color = MaterialTheme.colorScheme.error) }
+                }
+            }
+            // 历史胶囊：点击搜索、长按删除单条
+            item(key = "history_chips") {
+                FlowRow(
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    history.forEach { item ->
+                        HistoryChip(
+                            text = item.keyword,
+                            onClick = { viewModel.onQueryChange(item.keyword); viewModel.search() },
+                            onLongClick = { viewModel.removeHistory(item) },
+                        )
+                    }
+                }
+            }
+            item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp)) }
+        }
+        item(key = "hot_title") {
+            Text(
+                text = "热门搜索",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+            )
+        }
+        items(hotTags.take(6).withIndex().toList(), key = { it.index }) { (index, tag) ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { tag.tag?.let { viewModel.onQueryChange(it); viewModel.search() } }
+                    .padding(vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
                     text = "${index + 1}",
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = if (index < 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(24.dp),
                 )
                 Text(
-                    text = tag.displayName(),
+                    text = tag.translated_name ?: tag.tag.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-            }
-        }
-        if (suggestions.isNotEmpty()) {
-            Text(
-                text = "搜索联想",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 20.dp),
-            )
-            suggestions.forEach { tag ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.height(16.dp))
-                    Text(text = tag.name.orEmpty())
-                }
             }
         }
     }
 }
 
-private fun com.example.pixivapi.model.TrendingTag.displayName(): String =
-    translated_name ?: tag ?: ""
+/** 搜索历史胶囊：单击搜索、长按删除。 */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HistoryChip(
+    text: String,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
+}
+
+// ── 聚焦态：联想 ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun SuggestionList(
+    suggestions: List<AutocompleteTag>,
+    onPick: (String) -> Unit,
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        if (suggestions.isEmpty()) {
+            item {
+                Text(
+                    text = "输入关键词以搜索",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(20.dp),
+                )
+            }
+        }
+        items(suggestions, key = { it.name ?: it.hashCode() }) { tag ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { tag.name?.let(onPick) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Text(
+                    text = tag.name.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+// ── 结果态：TabRow + HorizontalPager ─────────────────────────────────────────
+
+@Composable
+private fun SearchResultPager(
+    type: SearchType,
+    viewModel: DiscoverViewModel,
+    onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
+    val pagerState = rememberPagerState(pageCount = { SearchType.entries.size })
+    val scope = rememberCoroutineScope()
+    val initialIndex = SearchType.entries.indexOf(type).coerceAtLeast(0)
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+
+    // 滑动切页 → 同步类型
+    LaunchedEffect(pagerState.currentPage) {
+        val page = pagerState.currentPage
+        if (page in SearchType.entries.indices) {
+            viewModel.setType(SearchType.entries[page])
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(
+            selectedTabIndex = initialIndex.coerceAtMost(SearchType.entries.size - 1),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            SearchType.entries.forEachIndexed { index, t ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                    text = { Text(t.label) },
+                )
+            }
+        }
+        HorizontalPager(state = pagerState) { page ->
+            when (SearchType.entries.getOrNull(page)) {
+                SearchType.ILLUST -> if (filters.mode == SearchMode.HOT) {
+                    HotIllustGrid(viewModel, onOpenIllust)
+                } else {
+                    IllustSearchResults(viewModel, onOpenIllust)
+                }
+                SearchType.NOVEL -> if (filters.mode == SearchMode.HOT) {
+                    HotNovelList(viewModel, onOpenNovel, onOpenReader, onOpenUser)
+                } else {
+                    NovelSearchResults(viewModel, onOpenNovel, onOpenReader, onOpenUser)
+                }
+                SearchType.USER -> UserSearchResults(viewModel, onOpenUser)
+                null -> {}
+            }
+        }
+    }
+}
+
+// ── 热门模式：一次性完整列表 ────────────────────────────────────────────────
+
+@Composable
+private fun HotIllustGrid(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
+    val popular by viewModel.popularIllusts.collectAsStateWithLifecycle()
+    if (popular.isEmpty()) {
+        EmptyBox("暂无热门作品")
+        return
+    }
+    IllustWaterfallGrid(
+        illusts = popular,
+        onItemClick = onOpenIllust,
+        onLoadMore = {},
+        hasMore = false,
+        isLoadingMore = false,
+    )
+}
+
+@Composable
+private fun HotNovelList(
+    viewModel: DiscoverViewModel,
+    onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
+    val popular by viewModel.popularNovels.collectAsStateWithLifecycle()
+    if (popular.isEmpty()) {
+        EmptyBox("暂无热门作品")
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(popular, key = { it.id }) { novel ->
+            NovelCard(
+                novel = NovelCardData(
+                    id = novel.id,
+                    title = novel.title.orEmpty(),
+                    coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
+                    authorId = novel.user?.id ?: 0L,
+                    authorName = novel.user?.name.orEmpty(),
+                    authorAvatarUrl = novel.user?.profile_image_urls?.best(),
+                    publishDate = novel.create_date,
+                    seriesTitle = novel.series?.title,
+                    favoriteCount = novel.total_bookmarks ?: 0,
+                    wordCount = novel.text_length ?: 0,
+                    tags = novel.tags.orEmpty()
+                        .take(6)
+                        .map { it.translated_name ?: it.name ?: "" }
+                        .filter { it.isNotBlank() },
+                    isFavorite = novel.is_bookmarked == true,
+                ),
+                onClick = { onOpenNovel(novel.id) },
+                onOpenReader = { onOpenReader(novel.id) },
+                onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(novel.id, fav) },
+                onTagClick = { tag ->
+                    viewModel.onQueryChange(tag)
+                    viewModel.search()
+                },
+            )
+        }
+    }
+}

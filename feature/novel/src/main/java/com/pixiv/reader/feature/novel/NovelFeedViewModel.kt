@@ -37,4 +37,14 @@ class NovelFeedViewModel @Inject constructor(
     fun loadMore() {
         viewModelScope.launch { feed.loadMore() }
     }
+
+    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
+    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
+                else pixivRepository.api.unbookmarkNovel(novelId)
+            }
+        }
+    }
 }

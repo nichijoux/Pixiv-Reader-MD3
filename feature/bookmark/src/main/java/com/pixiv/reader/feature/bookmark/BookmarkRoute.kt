@@ -44,6 +44,7 @@ import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
 
 /**
  * 我的收藏（P5）：插画/小说收藏 + 标签筛选 + 分页。
@@ -58,6 +59,9 @@ fun BookmarkRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onSearchTag: (String) -> Unit,
     viewModel: BookmarkViewModel = hiltViewModel(),
 ) {
     val type by viewModel.type.collectAsStateWithLifecycle()
@@ -134,6 +138,10 @@ fun BookmarkRoute(
                         BookmarkType.NOVEL -> BookmarkNovelList(
                             paged = viewModel.novelPaged,
                             onOpenNovel = onOpenNovel,
+                            onOpenReader = onOpenReader,
+                            onOpenUser = onOpenUser,
+                            onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
+                            onTagClick = onSearchTag,
                             onLoadMore = viewModel::loadMore,
                         )
                     }
@@ -174,6 +182,10 @@ private fun BookmarkIllustList(
 private fun BookmarkNovelList(
     paged: PagedState<com.example.pixivapi.model.Novel>,
     onOpenNovel: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onToggleFavorite: (Long, Boolean) -> Unit,
+    onTagClick: (String) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     val items by paged.items.collectAsStateWithLifecycle()
@@ -192,7 +204,30 @@ private fun BookmarkNovelList(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(items, key = { it.id }) { novel ->
-                NovelCard(novel = novel, onClick = { onOpenNovel(novel.id) })
+                NovelCard(
+                    novel = NovelCardData(
+                        id = novel.id,
+                        title = novel.title.orEmpty(),
+                        coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
+                        authorId = novel.user?.id ?: 0L,
+                        authorName = novel.user?.name.orEmpty(),
+                        authorAvatarUrl = novel.user?.profile_image_urls?.best(),
+                        publishDate = novel.create_date,
+                        seriesTitle = novel.series?.title,
+                        favoriteCount = novel.total_bookmarks ?: 0,
+                        wordCount = novel.text_length ?: 0,
+                        tags = novel.tags.orEmpty()
+                            .take(6)
+                            .map { it.translated_name ?: it.name ?: "" }
+                            .filter { it.isNotBlank() },
+                        isFavorite = novel.is_bookmarked == true,
+                    ),
+                    onClick = { onOpenNovel(novel.id) },
+                    onOpenReader = { onOpenReader(novel.id) },
+                    onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                    onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
+                    onTagClick = onTagClick,
+                )
             }
             if (hasMore) {
                 item(key = "load_more") {

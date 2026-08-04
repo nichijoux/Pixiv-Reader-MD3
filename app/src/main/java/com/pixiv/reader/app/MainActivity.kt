@@ -3,12 +3,13 @@ package com.pixiv.reader.app
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -39,7 +40,14 @@ class MainActivity : ComponentActivity() {
     lateinit var networkMonitor: NetworkMonitor
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // 系统导航栏透明（无 scrim）：底部导航背景延伸覆盖导航栏，实现沉浸式。
+        // 各页面（含沉浸式小说阅读器）自行处理 navigationBarsPadding，不受影响。
+        enableEdgeToEdge(
+            navigationBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
+            ),
+        )
         super.onCreate(savedInstanceState)
         handleIntent(intent)
         setContent {
@@ -65,10 +73,13 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isDark,
                 dynamicColor = dynamicColor,
             ) {
+                // 外层 Scaffold 不 padding（系统栏 insets 由内层 NavigationBar / 各页面自行处理），
+                // 保证 MainShell 底部导航延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
                 Scaffold(
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
-                ) { padding ->
-                    Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                ) { _ ->
+                    Box(modifier = Modifier.fillMaxSize()) {
                         PixivNavGraph(
                             isLoggedIn = isLoggedIn,
                             onLogout = { sessionRepository.logout() },

@@ -37,6 +37,7 @@ fun IllustWaterfallGrid(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
     minColumnWidth: Dp = 140.dp,
+    onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
 ) {
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(minColumnWidth),
@@ -54,6 +55,7 @@ fun IllustWaterfallGrid(
                 illust = illust,
                 onClick = { onItemClick(illust.id) },
                 coverHeight = coverHeight,
+                onToggleFavorite = onToggleFavorite?.let { cb -> { fav -> cb(illust.id, fav) } },
                 modifier = Modifier.fillMaxWidth(),
             )
         }

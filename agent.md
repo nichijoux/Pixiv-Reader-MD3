@@ -414,4 +414,56 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - **图片质量接入说明**：pixiv 图床各尺寸 URL 为接口字段组合（medium/original 路径不同不可推导），全局接入需改所有调用点传不同字段——维持设置 `imageQuality` 偏好 + TODO
   - 验证：`compileDebugKotlin` + 全部相关模块测试通过
   - 至此 P6 剩余 TODO 全部完成（WorkManager 队列/重试 ✓、自动更新占位 ✓、网络错误提示 ✓、清缓存 ✓、下载状态 ✓）；仅剩图片质量接入（技术限制）+ P7 打磨
+- **发现页搜索重构（第三十三轮）：滑动切换类型 + 全量筛选 + 搜索历史 + 热门预览**
+  - **搜索历史（Room，与现有 BrowseHistoryDao 模式一致）**：core:database 新增 `SearchHistoryEntity`（keyword/searchedAt）+ `SearchHistoryDao`（`observeRecent(20)`/`deleteByKeyword` 先删旧再插去重/upsert/delete/clearAll）；`PixivDatabase` version 1→2 加 `MIGRATION_1_2`（建表保数据）；`DatabaseModule` 提供 DAO
+  - **DiscoverViewModel 重构**：`SearchFilters` 全量扩展（sort 修正为 `popular_desc`、补 `exact_match_for_tags`；插画 tool/ratioPattern/contentType/width/height 区间；小说 genre/isOriginalOnly/isReplaceableOnly/textLength/wordCount/readingTime 区间）；`loadOptions()`（`searchOptions(word="")` → toolOptions/genreOptions）；`search()` 按类型传全量参数 + `recordHistory` 写历史 + `loadPopular`（`popularPreview`/`popularNovelPreview` 热门预览，插画/小说各取 10）；`clearSearch()`（清空回初始态）；`removeHistory`/`clearHistory`
+  - **DiscoverScreen 三态 UI**（对照 HTML 预览）：搜索框（聚焦高亮 + ✕ 清除 + 搜索按钮）；初始态 = 热门搜索 + **搜索历史**（可单删/清空/点击重搜）；有输入 = 联想列表；结果态 = `TabRow` + `HorizontalPager` 滑动切换 插画/小说/用户、下划线跟随、点 Tab 平滑滚动；`LaunchedEffect(currentPage)` 同步 `setType`（切类型重搜）；顶部**热门预览横滑区**
+  - **FilterSheet 按类型动态渲染**：插画（通用+专属：比例/内容类型/工具下拉/宽高区间）/小说（通用+专属：题材下拉/仅原创/仅可转载/文字数/字数/阅读时长）/用户（提示无筛选）；FilterChip 互斥、Switch、`LazyRow` 选项滚动；**宽度约束**——时间/区间输入行用 `Row` + 两端 `weight(1f)` + 固定"~"分隔，不超宽；重置/应用
+  - **结果行可点击**：`NovelSearchResults`/`UserSearchResults` 加 `onOpenNovel`/`onOpenUser`（NovelRow/UserRow clickable）；`DiscoverRoute` 签名扩展；`MainShell`/`PixivNavGraph` 补 `onOpenUser` 传参
+  - 修复：`searchOptions` 需必填 `word`；feature:discover 补 `:core:database` 依赖；RangeInputRow 可空参数；genre `it?.toIntOrNull()`
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **搜索结果 UI 修正（第三十四轮，对照 search-ui-mockup）**：
+  - **小说条目卡片化**：`NovelRow` 改为 `Card`（surfaceContainer 圆角 14dp，行间距 10dp 去掉 divider）；封面 68×90 圆角 10dp；标题 bodyLarge SemiBold（2 行）+ 作者 + "字数/收藏"（labelMedium，间距 14dp）；**移除右侧 KeyboardArrowRight 箭头**
+  - **用户条目卡片化**：`UserRow` 改为 `Card`：头像 52dp + 名称 titleMedium + @account + "代表作 N"；**代表作缩略图放大到 76dp ×3、间距 8dp**（清晰可辨）；布局宽松（padding 14dp）
+  - **列表容器**：小说/用户搜索结果 `LazyColumn` 改 `verticalArrangement.spacedBy(10.dp)`，去掉分隔线；清理未使用 imports（Icons/Favorite/HorizontalDivider/Icon）
+  - 说明：真实 Novel 数据无"连载中"等状态字段，未加状态标签（mockup 为演示）
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **搜索体验优化（第三十五轮）：热门缓存 + 历史胶囊长按删除 + 用户更多信息**
+  - **热门搜索缓存**：`UserPreferences` 新增 `hotTags`（`\n` 分隔 List<String>）+ `hotTagsUpdatedAt`（`longPreferencesKey`）与 setters；`DiscoverViewModel` 注入 `UserPreferences`（feature:discover 补 `:core:datastore`），`loadHotTags()` **24 小时 TTL 缓存优先**（`first()` 读缓存 → 新鲜直接用 `TrendingTag(tag=name)` 构造；过期才网络刷新并回写缓存），避免每次打开发现页都请求
+  - **搜索历史胶囊化**：`IdlePanel` 历史区从列表行改为 **FlowRow 胶囊**（圆角 16dp + surfaceContainerHigh 背景），`HistoryChip` 用 `combinedClickable`——**单击搜索、长按删除单条**（`ExperimentalFoundationApi`/`ExperimentalLayoutApi`），保留"清空"
+  - **用户搜索更多信息**：`UserRow` 增加 **简介**（`user.comment`，最多 2 行）+ **代表作最多 6 张**（`chunked(3)` 两行 × 3，76dp 圆角 10dp），不再只显示 3 张
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **CreatorProfileCard 用户卡片（第三十六轮，按规格组件化）**：
+  - **core:ui 新增 `CreatorProfileCard`**（+`CreatorProfile` data class：id/name/avatarUrl/covers/isFollowed）——深色圆角卡片（32dp 圆角，固定 `0xFF1C1B1F`）；顶部 **3 封面横排**（高 180dp，`ContentScale.Crop` 边缘到边缘）；底部 **96dp 圆形头像**（3dp 白边框 + `offset(y=-40dp)` 负垂直偏移重叠封面）+ **白色 20sp 粗体用户名** + **药丸关注按钮**（150×56dp、透明背景、紫色描边/文字）；关注状态 `remember` 组件内维护，切换回调 `onToggleFollow(Boolean)`；Coil `AsyncImage`（走 app ImageLoader 带 Referer）
+  - **应用**：`DiscoverViewModel` 加 `toggleFollowUser(userId, nowFollowed)`（follow/unfollow）；`DiscoverResults.UserRow` 改用 `CreatorProfileCard`（covers 取 `preview.illusts.take(3)` 封面、`isFollowed=user.is_followed`）——回到 3 代表作但按新规格展示；用户搜索结果列表卡片化
+  - **主题化修正（补充）**：按反馈去除固定深色卡/紫色——改用 `MaterialTheme.colorScheme`（`surfaceContainer` 卡片、`surface` 头像边框、`onSurface` 用户名、`OutlinedButton` 关注按钮）；尺寸缩小——封面 180→120dp、头像 96→64dp（边框 3→2dp、负偏移 -40→-24dp）、用户名 20sp→titleMedium、按钮 150×56→40dp 高 OutlinedButton、圆角 32→16dp，与 NovelCard 等其余组件风格一致
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **搜索图片卡片修正（第三十八轮）：插画卡片收藏按钮 + 图片完整显示**：
+  - **`IllustCard`**：封面按作品 `width/height` 比例 `aspectRatio` 完整显示（无尺寸回退 `coverHeight`），修复瀑布流固定高度 `Crop` 导致"只显示中间部分"；新增 `onToggleFavorite: ((Boolean) -> Unit)?` 参数（null 隐藏）——右上角半透明圆底收藏按钮（`remember` 状态 + `Favorite/FavoriteBorder` 红/白，点击切换回调）；AI 标识移到左上角避免冲突；收藏数角标保留右下
+  - **`IllustWaterfallGrid`**：新增 `onToggleFavorite: ((Long, Boolean) -> Unit)? = null` 透传（`cb(illust.id, fav)`）
+  - **搜索页接入**：`DiscoverViewModel.toggleIllustFavorite`（bookmark/unbookmarkIllust）；`IllustSearchResults` 传 `onToggleFavorite`（搜索结果卡片外面即可收藏/取消）
+  - **微调（补充）**：收藏按钮 padding 4→8dp 避开卡片圆角裁剪（修复右上角被遮挡）；`NovelSearchResultCard` 放大——封面 88→104dp（圆角 10→12dp）、卡片 padding 12→14dp、作者头像 24→28dp、收藏按钮 34→36dp、行距 8→10dp，小说卡片不再偏小
+  - **插画卡片封面浮层四项调整（补充2）**：① 右下收藏数角标放大（图标 11→14dp、`labelSmall`→`labelMedium`、内边距 8×3、圆角 8dp）；② AI 标签放大 + **Material 配色**（固定紫 → `tertiaryContainer`+`onTertiaryContainer`，`labelMedium`，圆角 8dp）；③ 右上收藏按钮缩小（30→24dp、图标 16→14dp、黑底 0.4→0.35）；④ 左上角新增**页码标识**（`page_count > 1` 显示 `"xP"`，`secondaryContainer` 配色，单张不显示）——左上角改为 Row 并排 AI + 页码
+  - **AI/页码标签中性化（补充3）**：按反馈去除鲜艳色——AI 标签与页码标识均改为 **中性黑底白字**（`Color.Black.copy(alpha=0.45f)` + `Color.White`，`labelMedium`，圆角 8dp），与收藏数角标风格统一，不鲜艳
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **热门/最新 作为搜索模式（第三十九轮）**：
+  - **模式化**：`DiscoverViewModel` 新增 `SearchMode { LATEST, HOT }`，`SearchFilters.mode` 字段（默认 LATEST）；`search()` 按模式分支——`HOT`（插画/小说）只调 `loadPopular()` 拉 `popularIllusts/popularNovels` 一次性；`LATEST` 走常规 `illustPaged/novelPaged` 分页；用户类型忽略 HOT
+  - **筛选面板入口**：`FilterSheet` 通用区最上方加 **"模式"** 单选行（热门/最新，FilterChip），随"应用筛选"生效
+  - **结果页**：`SearchResultPager` 按 `mode` 分支——HOT 显示**热门一次性完整列表**（插画 `IllustWaterfallGrid` / 小说 `LazyColumn`+`NovelSearchResultCard`，空态"暂无热门作品"）；LATEST 显示常规结果；**移除顶部固定热门横滑区**（`PopularIllustRow/PopularNovelRow/PopularCard/PopularNovelCard`/`ResultPage` 删除）——不再突兀/挡结果
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **筛选面板两级展示（第四十轮）：公共条件 + 完整条件**：
+  - `FilterBottomSheet` 新增 `detailed: Boolean`：**通用区**（模式/排序/匹配/时间/收藏/AI）始终平铺显示（公共条件，与类型无关）；`detailed=true` 时追加当前类型专属区（插画比例/内容类型/工具/宽高、小说题材/仅原创/仅可转载/文字数/字数/阅读时长）；标题分级（未搜索"高级筛选"、搜索后"高级筛选 · 插画/小说"）
+  - `DiscoverScreen` 传 `detailed = hasSearched`——**进入发现页默认筛选面板 = 公共通用条件**（不再"像小说条件"）；**搜索出结果后 = 完整条件**（保留全量筛选）；用户类型始终"无筛选"
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **底部导航沉浸式修复（第四十一轮）**：
+  - **根因**：`MainActivity` 外层 `Scaffold` 默认 `contentWindowInsets`（含系统栏）+ `Box.padding(padding)` 把内层 `MainShell` 的 `NavigationBar` 抬离系统导航栏 → 底部不沉浸
+  - **修复**：外层 `Scaffold` 设 `contentWindowInsets = WindowInsets(0,0,0,0)`、`Box` 不再 padding（`{ _ -> }`）——`MainShell` 的 `NavigationBar`（默认 insets 自带沉浸背景）延伸到系统导航栏；`enableEdgeToEdge(navigationBarStyle = SystemBarStyle.auto(TRANSPARENT, TRANSPARENT))` 去掉系统导航栏暗色 scrim
+  - **不影响小说界面**：阅读器（ReaderRoute）为顶层沉浸浮层路由，自行处理 `statusBarsPadding`/`navigationBarsPadding`（第十三四轮实现），不依赖外层 padding；其他顶层页（illust/novel/user 详情）用 Scaffold+TopAppBar 默认 insets 自处理，均不受影响
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **小说列表 item 统一 + 组件更名（第四十三轮）**：
+  - **三处统一**：小说 Tab 推荐流（`NovelRoute`）、用户主页小说分区（`UserRoute.SectionNovel`）、收藏夹小说（`BookmarkRoute.BookmarkNovelList`）全部改用通用小说卡片（原 `NovelSearchResultCard`）——样式与搜索结果完全一致；各 ViewModel（`NovelFeedViewModel`/`UserViewModel`/`BookmarkViewModel`）新增 `toggleNovelFavorite`
+  - **交互完整接通**：封面→阅读器（`onOpenReader`）、作者→主页（`onOpenUser`）、收藏切换、标签→搜索（`onSearchTag`）——`MainShell`/`PixivNavGraph` 补 `onOpenReader`/`onOpenUser` 传参
+  - **标签搜索跨 Tab**：`ROUTE_MAIN` 加可选 `search` 参数（`main?search={search}`）；`MainShell` `initialSearch` + `pendingSearch`（顶层路由标签 → `navigate("main?search=xxx")`，小说 Tab 标签 → 直接切 `discover_tab`）；`DiscoverRoute` 加 `initialQuery`（进入自动 `onQueryChange`+`search`）
+  - **组件更名（通用化）**：`NovelSearchResultCard` → **`NovelCard`**（core:ui，文件更名），`NovelSearchResult` → **`NovelCardData`**；全部引用更新（DiscoverResults/DiscoverScreen/NovelRoute/UserRoute/BookmarkRoute）；删除旧 `NovelCard`（第三十三轮的上移版，已无引用）；`formatCountForNovel` 保留（详情页仍用）
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
 - 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1 + `NovelDocumentCodecTest` 4，core:novel 共 24 用例；feature:novel `NovelExporterTest` 6 用例

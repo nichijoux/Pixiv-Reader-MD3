@@ -107,4 +107,16 @@ class BookmarkViewModel @Inject constructor(
             }
         }
     }
+
+    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调；取消后刷新当前列表）。 */
+    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
+                else pixivRepository.api.unbookmarkNovel(novelId)
+            }.onSuccess {
+                if (!nowFavorite) viewModelScope.launch { loadList(_type.value) }
+            }
+        }
+    }
 }
