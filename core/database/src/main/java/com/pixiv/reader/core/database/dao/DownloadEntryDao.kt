@@ -11,12 +11,15 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DownloadEntryDao {
 
+    /** 观察全部下载索引（按更新时间倒序，下载管理页数据源）。 */
     @Query("SELECT * FROM download_entry ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<DownloadEntryEntity>>
 
+    /** 查询所有已完成的下载（status='done'）。 */
     @Query("SELECT * FROM download_entry WHERE status = 'done'")
     suspend fun getDone(): List<DownloadEntryEntity>
 
+    /** 查询某类型某目标的下载记录。 */
     @Query("SELECT * FROM download_entry WHERE targetId = :targetId AND targetType = :type LIMIT 1")
     suspend fun get(type: String, targetId: Long): DownloadEntryEntity?
 
@@ -24,9 +27,11 @@ interface DownloadEntryDao {
     @Query("DELETE FROM download_entry WHERE targetType = :type")
     suspend fun deleteByType(type: String)
 
+    /** 插入/覆盖下载索引（同主键 targetId 更新）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: DownloadEntryEntity)
 
+    /** 删除单条下载索引。 */
     @Delete
     suspend fun delete(entity: DownloadEntryEntity)
 }

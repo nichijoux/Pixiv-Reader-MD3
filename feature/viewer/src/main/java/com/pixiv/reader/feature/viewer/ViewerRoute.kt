@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -17,8 +19,10 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -36,7 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,6 +62,7 @@ fun ViewerRoute(
     val isGif by viewModel.isGif.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
     val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
+    val isOriginal by viewModel.isOriginal.collectAsStateWithLifecycle()
 
     // 初始页在 pages 加载前 pageCount 可能为 1，直接传 initialPage>0 会越界崩溃；
     // 因此从第 0 页开始，待 pages 就绪后再滚动到目标页（钳制在合法范围）。
@@ -96,7 +103,11 @@ fun ViewerRoute(
                 val page = pages.getOrNull(index)
                 if (page != null) {
                     ZoomableImage(
-                        model = page.originalUrl ?: page.displayUrl,
+                        model = if (isOriginal) {
+                            page.originalUrl ?: page.displayUrl
+                        } else {
+                            page.displayUrl
+                        },
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         onZoomChanged = { zoomed -> anyZoomed = zoomed },
@@ -190,9 +201,113 @@ fun ViewerRoute(
             }
         }
 
+        // 底部操作条：收藏 / 下载 / 壁纸 / 原图
+        ViewerActionBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            isBookmarked = isBookmarked,
+            isGif = isGif,
+            isOriginal = isOriginal,
+            onBookmark = viewModel::toggleBookmark,
+            onDownload = {
+                if (isGif) {
+                    viewModel.downloadGifStub()
+                } else {
+                    pages.getOrNull(pagerState.currentPage)?.let(viewModel::download)
+                }
+            },
+            onWallpaper = {
+                if (!isGif) pages.getOrNull(pagerState.currentPage)?.let(viewModel::wallpaper)
+            },
+            onOriginal = viewModel::toggleOriginal,
+        )
+
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 24.dp, end = 24.dp, bottom = 100.dp),
+        )
+    }
+}
+
+// ── 底部圆形操作条 ───────────────────────────────────────────────────────────
+
+@Composable
+private fun ViewerActionBar(
+    modifier: Modifier = Modifier,
+    isBookmarked: Boolean,
+    isGif: Boolean,
+    isOriginal: Boolean,
+    onBookmark: () -> Unit,
+    onDownload: () -> Unit,
+    onWallpaper: () -> Unit,
+    onOriginal: () -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
+                ),
+            )
+            .navigationBarsPadding()
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ViewerActionButton(
+            icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = if (isBookmarked) "取消收藏" else "收藏",
+            tint = if (isBookmarked) Color(0xFFFF5252) else Color.White,
+            onClick = onBookmark,
+        )
+        ViewerActionButton(
+            icon = Icons.Filled.Download,
+            contentDescription = "下载原图",
+            onClick = onDownload,
+        )
+        ViewerActionButton(
+            icon = Icons.Filled.Wallpaper,
+            contentDescription = "设为壁纸",
+            enabled = !isGif,
+            onClick = onWallpaper,
+        )
+        ViewerActionButton(
+            icon = Icons.Filled.HighQuality,
+            contentDescription = "查看原图",
+            enabled = !isGif,
+            selected = isOriginal,
+            onClick = onOriginal,
+        )
+    }
+}
+
+@Composable
+private fun ViewerActionButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    selected: Boolean = false,
+    tint: Color = Color.White,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(
+                if (selected) Color.White.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.45f),
+            ),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(22.dp),
         )
     }
 }

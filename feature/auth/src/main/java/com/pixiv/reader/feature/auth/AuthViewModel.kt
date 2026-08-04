@@ -15,16 +15,23 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** 登录页 UI 状态（加载中 / 错误文案）。 */
 data class AuthUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
 )
 
+/** 登录事件：打开网页登录 / 登录成功（导航切 main）。 */
 sealed interface AuthEvent {
     data class OpenLoginPage(val url: String) : AuthEvent
     data object LoginSuccess : AuthEvent
 }
 
+/**
+ * 登录 ViewModel：OAuth 授权码模式（PKCE）。
+ * 监听 SessionRepository.pendingOAuthUri（冷启动 / onNewIntent 均触发），
+ * 授权码单次去重，成功后发出 LoginSuccess 事件由导航切换。
+ */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
@@ -50,6 +57,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    /** 发起 OAuth 登录：构建授权链接并发 OpenLoginPage 事件（由 UI 打开网页）。 */
     fun startLogin() {
         if (_uiState.value.isLoading) return
         viewModelScope.launch {
@@ -60,16 +68,19 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    /** 申请 pixiv 官方「临时账号」（provisional account），同样走网页授权。 */
     fun startProvisionalAccount() {
         viewModelScope.launch {
             _events.send(AuthEvent.OpenLoginPage(sessionRepository.buildProvisionalAccountUrl()))
         }
     }
 
+    /** 清除错误文案。 */
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
     }
 
+    /** 处理 OAuth 回调：提取 code 交换 token；同一 code 只提交一次。 */
     private suspend fun processCallback(uri: Uri) {
         val code = uri.getQueryParameter("code").orEmpty()
         // 授权码去重：同一 code 只提交一次

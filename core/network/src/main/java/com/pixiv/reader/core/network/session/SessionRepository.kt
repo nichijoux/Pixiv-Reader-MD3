@@ -40,6 +40,7 @@ class SessionRepository @Inject constructor(
     /** 临时账号注册 URL */
     fun buildProvisionalAccountUrl(): String = pixivApi.oauth.startProvisionalAccountUrl()
 
+    /** 是否为 OAuth 回调 scheme（pixiv://account/login）。 */
     fun isOAuthCallback(uri: Uri): Boolean = pixivApi.oauth.isOAuthCallback(uri)
 
     /** MainActivity 收到深链回调时调用（onCreate / onNewIntent） */
@@ -68,6 +69,7 @@ class SessionRepository @Inject constructor(
         }
     }
 
+    /** 主动登出：清会话并同步登录态（MainShell 回调链触发）。 */
     fun logout() {
         pixivApi.session.logout()
         _isLoggedIn.value = false

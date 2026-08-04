@@ -34,7 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 
-/** 创作者档案数据。 */
+/** 创作者档案数据（用户搜索 / 浏览历史用户类共用）。 */
 data class CreatorProfile(
     val id: Long,
     val name: String,
@@ -44,11 +44,24 @@ data class CreatorProfile(
 )
 
 /**
- * 创作者档案卡片（Material 主题色，与其他组件保持一致）：
- * - 圆角卡片（surfaceContainer 背景）
- * - 顶部 3 张封面横排（高 120dp，边缘到边缘裁剪）
- * - 底部：64dp 圆形头像（负垂直偏移重叠封面）+ 用户名 + OutlinedButton 关注按钮
- * 关注状态在组件内维护，切换时回调 [onToggleFollow]（外部执行 API）。
+ * 创作者档案卡片（Material 主题自适应，用户搜索结果/历史共用）。
+ *
+ * ## UI 设计方式
+ * 纵向 Column 分两段：
+ * - **封面区**（Row，高 120dp）：3 张代表作横排 `weight(1f)` 均分，`ContentScale.Crop` 边缘到边缘裁剪
+ * - **信息区**（Row，14dp 内边距）：64dp 圆形头像（2dp 主题色边框 + `offset(y=-24dp)` 负垂直偏移
+ *   重叠封面区，产生"头像盖在封面上"的层次感）+ 用户名（`titleMedium` 半粗，`weight(1f)`）
+ *   + `OutlinedButton` 关注按钮（主题色描边/文字）
+ * 颜色全部取自 `MaterialTheme`，尺寸相对布局，不硬编码。
+ *
+ * ## 交互
+ * 关注按钮点击**先翻转本地状态再回调** [onToggleFollow]（参数为目标状态），外部执行 API；
+ * 整卡 [onClick] 进入用户主页。
+ *
+ * @param profile 创作者数据（id/name/avatarUrl/covers/isFollowed）
+ * @param onToggleFollow 关注切换回调（true=已关注）
+ * @param onClick 整卡点击（打开用户主页）
+ * @param modifier 外部传入的 Modifier
  */
 @Composable
 fun CreatorProfileCard(

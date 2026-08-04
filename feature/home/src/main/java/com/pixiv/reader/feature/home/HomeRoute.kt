@@ -134,6 +134,7 @@ private fun RecommendContent(viewModel: HomeViewModel, onOpenIllust: (Long) -> U
             onLoadMore = viewModel::loadMore,
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
+            onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
         )
     }
 }
@@ -155,6 +156,7 @@ private fun FollowContent(viewModel: HomeViewModel, onOpenIllust: (Long) -> Unit
             onLoadMore = viewModel::loadMore,
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
+            onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
         )
     }
 }

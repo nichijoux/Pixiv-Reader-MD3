@@ -64,6 +64,18 @@ data class SearchFilters(
     val readingTimeMax: Int? = null,
 )
 
+/**
+ * 发现页（搜索）ViewModel。
+ *
+ * ## 职责
+ * - 搜索联想（300ms 防抖 + 去重，`searchAutocomplete`）
+ * - 按类型（插画/小说/用户）+ 全量筛选（[SearchFilters]）+ 模式（最新/热门）执行搜索
+ * - 热门搜索缓存（DataStore，24h TTL）、搜索历史（Room）、热门预览（popular-preview）
+ * - 搜索结果分页：插画/小说/用户各自 `PagedState`（next_url 游标）
+ *
+ * ## 状态
+ * `query`/`type`/`filters` 为可变 StateFlow（UI 直接改），其余只读 StateFlow。
+ */
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
@@ -130,6 +142,7 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** 更新搜索关键词（触发联想防抖）。 */
     fun onQueryChange(value: String) {
         query.value = value
     }
@@ -143,6 +156,7 @@ class DiscoverViewModel @Inject constructor(
         _popularNovels.value = emptyList()
     }
 
+    /** 切换搜索类型；已搜索过则按当前词重新搜索。 */
     fun setType(value: SearchType) {
         if (type.value == value) return
         type.value = value
@@ -152,10 +166,12 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** 应用筛选条件（筛选面板"应用"后调用）。 */
     fun applyFilters(value: SearchFilters) {
         filters.value = value
     }
 
+    /** 拉取搜索选项（工具 / 题材下拉数据，来自 /v1/search/options）。 */
     private fun loadOptions() {
         viewModelScope.launch {
             runCatching { pixivRepository.api.searchOptions(word = "") }
@@ -266,6 +282,7 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** 加载更多（当前类型的下一页，触底时由 UI 调用）。 */
     fun loadMore() {
         viewModelScope.launch {
             when (type.value) {
@@ -276,10 +293,12 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** 重试当前搜索。 */
     fun retry() = search()
 
     // ── 搜索历史 ──
 
+    /** 记录搜索历史（先删同词旧记录再插入，去重置顶）。 */
     private fun recordHistory(keyword: String) {
         viewModelScope.launch {
             runCatching {
@@ -289,6 +308,7 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** 删除单条搜索历史（历史胶囊长按删除）。 */
     fun removeHistory(entity: SearchHistoryEntity) {
         viewModelScope.launch { runCatching { searchHistoryDao.delete(entity) } }
     }
@@ -323,10 +343,12 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** 清空搜索历史。 */
     fun clearHistory() {
         viewModelScope.launch { runCatching { searchHistoryDao.clearAll() } }
     }
 
+    /** 加载热门搜索（DataStore 缓存 24h TTL 优先，过期才网络刷新并回写缓存）。 */
     private fun loadHotTags() {
         viewModelScope.launch {
             // 缓存优先：24 小时内直接用本地缓存，避免每次打开都网络请求

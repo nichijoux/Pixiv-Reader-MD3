@@ -127,6 +127,8 @@ fun ReaderRoute(
     novelId: Long,
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
+    localDocument: NovelDocument? = null,
+    localTitle: String? = null,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val novel by viewModel.novel.collectAsStateWithLifecycle()
@@ -134,6 +136,13 @@ fun ReaderRoute(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
+
+    // 本地文件阅读（TXT/EPUB 解析后直接渲染，跳过网络）
+    LaunchedEffect(localDocument) {
+        if (localDocument != null) {
+            viewModel.useLocalDocument(localDocument, localTitle.orEmpty())
+        }
+    }
 
     val fontSize by viewModel.fontSize.collectAsStateWithLifecycle()
     val lineHeight by viewModel.lineHeight.collectAsStateWithLifecycle()

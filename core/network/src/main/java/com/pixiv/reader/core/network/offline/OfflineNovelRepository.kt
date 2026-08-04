@@ -31,13 +31,23 @@ class OfflineNovelRepository @Inject constructor(
     private fun docFile(novelId: Long): File = File(offlineDir, "$novelId.json")
     private fun metaFile(novelId: Long): File = File(offlineDir, "${novelId}_meta.json")
 
-    /** 保存小说文档 + 最小元数据。 */
+    /**
+     * 保存小说离线缓存（文档 JSON + 元数据 JSON）。
+     *
+     * @param novel 小说元数据（仅保存阅读器离线所需的最小字段）
+     * @param document 解析后的文档（[NovelDocumentCodec.encode] 序列化）
+     */
     suspend fun save(novel: Novel, document: NovelDocument) = withContext(Dispatchers.IO) {
         docFile(novel.id).writeText(NovelDocumentCodec.encode(document), Charsets.UTF_8)
         metaFile(novel.id).writeText(encodeMeta(novel), Charsets.UTF_8)
     }
 
-    /** 读取离线文档（无缓存返回 null）。 */
+    /**
+     * 读取离线文档（离线阅读用，反序列化重建 [NovelDocument]，无需网络）。
+     *
+     * @param novelId 小说 ID
+     * @return 文档；无缓存返回 null
+     */
     suspend fun loadDocument(novelId: Long): NovelDocument? = withContext(Dispatchers.IO) {
         val f = docFile(novelId)
         if (!f.exists()) null else NovelDocumentCodec.decode(f.readText(Charsets.UTF_8))
@@ -49,12 +59,12 @@ class OfflineNovelRepository @Inject constructor(
         if (!f.exists()) null else decodeMeta(f.readText(Charsets.UTF_8))
     }
 
-    /** 是否有离线缓存。 */
+    /** 是否有离线缓存（文档 + 元数据都存在）。 */
     suspend fun exists(novelId: Long): Boolean = withContext(Dispatchers.IO) {
         docFile(novelId).exists() && metaFile(novelId).exists()
     }
 
-    /** 删除离线缓存。 */
+    /** 删除离线缓存（文档 + 元数据）。 */
     suspend fun delete(novelId: Long) = withContext(Dispatchers.IO) {
         docFile(novelId).delete()
         metaFile(novelId).delete()

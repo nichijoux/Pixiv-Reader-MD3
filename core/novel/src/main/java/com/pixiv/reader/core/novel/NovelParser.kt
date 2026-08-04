@@ -34,6 +34,16 @@ object NovelParser {
         "article",
     )
 
+    /**
+     * 解析小说正文 HTML 为 [NovelDocument]。
+     *
+     * 解析策略（按优先级）：候选容器选择器逐个尝试 → 整页正文兜底 → `<script>` 内嵌 JSON 兜底。
+     *
+     * @param html `/webview/v2/novel` 返回的整页 HTML
+     * @param imageUrls 正文嵌入图片映射：key 为 `uploadedimage:file` 标记，value 为图片 URL
+     *   （来自 `webApi.getNovelWeb().textEmbeddedImages`）；用于把正文标记解析为 [NovelBlock.Image]
+     * @return 结构化文档；解析失败/无内容返回 [NovelDocument.EMPTY]
+     */
     fun parse(html: String, imageUrls: Map<String, String> = emptyMap()): NovelDocument {
         if (html.isBlank()) return NovelDocument.EMPTY
         val doc = Jsoup.parse(html)

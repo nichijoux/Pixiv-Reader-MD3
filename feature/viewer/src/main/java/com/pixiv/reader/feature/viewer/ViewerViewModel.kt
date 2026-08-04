@@ -1,5 +1,8 @@
 package com.pixiv.reader.feature.viewer
 
+import android.app.WallpaperManager
+import android.content.Context
+import android.graphics.BitmapFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,17 +13,27 @@ import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.Request
 
+/**
+ * 全屏查看器 ViewModel：多图横滑 / 动图（UgoiraLoader）/ 预览·原图切换 /
+ * 壁纸设置 / 收藏 / 原图下载（写下载索引，含真实宽高）。
+ * illustId 与初始 page 从 SavedStateHandle 读取（路由参数）。
+ */
 @HiltViewModel
 class ViewerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
     private val ugoiraLoader: UgoiraLoader,
     private val imageSaver: ImageSaver,
@@ -44,6 +57,10 @@ class ViewerViewModel @Inject constructor(
 
     private val _isBookmarked = MutableStateFlow(false)
     val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
+
+    /** 是否显示原图（false 显示预览图 displayUrl，true 显示原图 originalUrl）。 */
+    private val _isOriginal = MutableStateFlow(false)
+    val isOriginal: StateFlow<Boolean> = _isOriginal.asStateFlow()
 
     private val _message = Channel<String>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
@@ -93,6 +110,37 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    /** 切换预览 / 原图显示。 */
+    fun toggleOriginal() {
+        _isOriginal.value = !_isOriginal.value
+        viewModelScope.launch {
+            _message.send(if (_isOriginal.value) "已加载原图" else "已切换预览")
+        }
+    }
+
+    /** 把当前页设为手机壁纸（下载原图 → WallpaperManager）。 */
+    fun wallpaper(page: IllustPageInfo) {
+        val url = page.originalUrl ?: page.displayUrl ?: return
+        viewModelScope.launch {
+            _message.send("正在设置壁纸…")
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = pixivRepository.imageClient.newCall(Request.Builder().url(url).build())
+                        .execute()
+                        .use { resp ->
+                            if (!resp.isSuccessful) error("HTTP ${resp.code}")
+                            resp.body?.bytes() ?: error("空响应")
+                        }
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: error("图片解析失败")
+                    WallpaperManager.getInstance(context).setBitmap(bitmap)
+                }
+            }
+            result
+                .onSuccess { _message.send("已设为壁纸") }
+                .onFailure { _message.send("设置壁纸失败：${it.message}") }
+        }
+    }
+
     fun download(page: IllustPageInfo) {
         viewModelScope.launch {
             val url = page.originalUrl ?: page.displayUrl ?: return@launch
@@ -108,10 +156,21 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** 写入下载索引（targetType=illust）。 */
+    /** 写入下载索引（targetType=illust；解析本地文件真实宽高）。 */
     private fun recordDownload(localPath: String?, status: String) {
         viewModelScope.launch {
             runCatching {
+                var w = 0
+                var h = 0
+                if (localPath != null) {
+                    val file = java.io.File(localPath)
+                    if (file.exists()) {
+                        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        android.graphics.BitmapFactory.decodeFile(file.path, opts)
+                        w = opts.outWidth
+                        h = opts.outHeight
+                    }
+                }
                 downloadEntryDao.upsert(
                     DownloadEntryEntity(
                         targetId = illustId,
@@ -122,6 +181,8 @@ class ViewerViewModel @Inject constructor(
                         localPath = localPath,
                         status = status,
                         pageCount = _pages.value.size,
+                        width = w,
+                        height = h,
                     ),
                 )
             }

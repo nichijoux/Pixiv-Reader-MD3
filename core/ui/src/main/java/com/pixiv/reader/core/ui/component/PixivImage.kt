@@ -11,7 +11,19 @@ import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 
 /**
- * Pixiv 图片：默认使用应用级 SingletonImageLoader（自动带 Referer 头）。
+ * Pixiv 图片加载（全项目统一图片入口）。
+ *
+ * ## 设计说明
+ * 使用 Coil `AsyncImage`，默认走应用级 `SingletonImageLoader`
+ * （`PixivApp` 注入 `PixivRepository.imageClient`，自动带 `Referer: app-api.pixiv.net`，
+ * 否则 `i.pximg.net` 返回 403）。`url` 为 null 时渲染纯色占位块。
+ * 占位/错误统一用 `ColorPainter`（`surfaceContainerHigh` 或自定义色）填充，避免闪烁/灰块。
+ *
+ * @param url 图片 URL（`null` 显示占位色块）
+ * @param contentDescription 无障碍描述
+ * @param modifier 外部传入的 Modifier
+ * @param contentScale 图片缩放方式（默认 `ContentScale.Crop` 裁剪填充）
+ * @param placeholderColor 占位/错误背景色（null 用主题 `surfaceContainerHigh`）
  */
 @Composable
 fun PixivImage(

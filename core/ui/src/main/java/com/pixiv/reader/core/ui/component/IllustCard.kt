@@ -40,9 +40,28 @@ import com.example.pixivapi.model.User
 import com.pixiv.reader.core.common.formatCount
 
 /**
- * 瀑布流卡片：封面（按作品宽高比完整显示）+ 收藏按钮 + 收藏角标 + AI 标识 + 标题 + 作者。
+ * 插画瀑布流卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史共用）。
  *
- * @param onToggleFavorite 传入则显示右上角收藏按钮（点击切换并回调新状态）；null 隐藏按钮
+ * ## UI 设计方式
+ * 纵向 Column 分两段：
+ * - **封面区**（Box，撑满宽度）：图片按作品 `width/height` 计算 `aspectRatio` 完整显示
+ *   （`ContentScale.Crop` + 比例匹配即不裁剪）；无宽高时回退 [coverHeight] 固定高度，
+ *   可能只显示中间部分——调用方应尽量提供宽高（历史/下载实体已存）。
+ *   浮层统一用 `Modifier.align` 定位，黑底白字中性风：
+ *   - 左上角：AI 标识 + 页码（多 P 时 `xP`）
+ *   - 右上角：收藏切换按钮（[onToggleFavorite] 非空才显示）
+ *   - 右下角：收藏数角标
+ * - **信息区**（Column，10dp 内边距）：标题（最多 2 行省略号）+ 作者行（20dp 小头像 + 名称）。
+ *
+ * ## 交互
+ * 整卡 [onClick] 打开详情；收藏按钮点击**先翻转本地状态再回调**外部执行 API
+ * （成功与否由外部负责，组件仅维护 UI 态 [favorite]）。
+ *
+ * @param illust 作品数据（`width/height` 用于完整显示、`is_bookmarked` 初始化收藏态）
+ * @param onClick 整卡点击回调（通常打开作品详情）
+ * @param modifier 外部传入的 Modifier（瀑布流网格通常传 `fillMaxWidth`）
+ * @param coverHeight 无宽高数据时的回退封面高度
+ * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
  */
 @Composable
 fun IllustCard(
@@ -52,13 +71,16 @@ fun IllustCard(
     coverHeight: Dp = 150.dp,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
 ) {
+    // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
+    // 卡片根容器：圆角 + 卡片底色 + 整卡点击
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick),
     ) {
+        // ── 封面区（Box 内浮层用 align 定位） ──
         Box(modifier = Modifier.fillMaxWidth()) {
             // 封面：有宽高比按原比例完整显示，否则回退固定高度
             val ratio = if (illust.width > 0 && illust.height > 0) {

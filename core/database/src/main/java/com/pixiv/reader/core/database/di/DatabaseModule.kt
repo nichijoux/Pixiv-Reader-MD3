@@ -3,6 +3,7 @@ package com.pixiv.reader.core.database.di
 import android.content.Context
 import androidx.room.Room
 import com.pixiv.reader.core.database.MIGRATION_1_2
+import com.pixiv.reader.core.database.MIGRATION_2_3
 import com.pixiv.reader.core.database.PixivDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -23,7 +24,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PixivDatabase =
         Room.databaseBuilder(context, PixivDatabase::class.java, "pixiv_reader.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
 

@@ -466,4 +466,52 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - **标签搜索跨 Tab**：`ROUTE_MAIN` 加可选 `search` 参数（`main?search={search}`）；`MainShell` `initialSearch` + `pendingSearch`（顶层路由标签 → `navigate("main?search=xxx")`，小说 Tab 标签 → 直接切 `discover_tab`）；`DiscoverRoute` 加 `initialQuery`（进入自动 `onQueryChange`+`search`）
   - **组件更名（通用化）**：`NovelSearchResultCard` → **`NovelCard`**（core:ui，文件更名），`NovelSearchResult` → **`NovelCardData`**；全部引用更新（DiscoverResults/DiscoverScreen/NovelRoute/UserRoute/BookmarkRoute）；删除旧 `NovelCard`（第三十三轮的上移版，已无引用）；`formatCountForNovel` 保留（详情页仍用）
   - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **个人中心/设置界面重构（第四十四轮）**：
+  - **可复用组件（core:ui）**：`SettingsCard`（数据驱动 `SettingsCardItem(icon/title/description/trailingIcon/onClick)`，Card + Row[leadingIcon + 标题/描述 + trailing]，全 Material 主题色/typography）；`ProfileHeader`（`ProfileHeaderData` + 头像可点击 + 名称/@account + 可选操作按钮）；`UserAvatar` 加 `onClick` 支持
+  - **MeRoute 重构**：ProfileHeader（头像/名称/@account + "个人主页"按钮，点击进 `user/{ownUid}`）+ 6 个分组数据驱动卡片：
+    - 用户内容管理：收藏/浏览历史/下载管理/收藏标签/屏蔽管理（现有回调）
+    - 账户管理：账户信息（@account·UID，点击进主页）+ 退出登录
+    - 外观与阅读设置：主题与外观 → SettingsRoute
+    - 推荐与过滤：**屏蔽标签**（内嵌 `MutedTagsDialog`：FlowRow chips 点击删除 + 输入添加，读写 `UserPreferences.mutedTags`）
+    - 系统设置：缓存与更新 → SettingsRoute
+    - 关于信息：logo + 名称 + 版本 + **开源链接 `https://github.com/nichijoux/Pixiv-Material`**（点击 `Intent.ACTION_VIEW` 打开）+ 许可文本
+  - **MeViewModel 增强**：`ownUid`/`versionName`/`mutedTags`（stateIn）+ `addMutedTag`/`removeMutedTag`（feature:user 补 `:core:datastore`）
+  - **导航**：`MeRoute` 加 `onOpenUser`，MainShell 已有 onOpenUser 直接传入
+  - **屏蔽标签独立设置页（补充）**：新增 `MutedTagsRoute`（TopAppBar"屏蔽标签" + 返回/清空；添加输入框 + `InputChip` 列表点击/✕删除 + 空态）+ `MutedTagsViewModel`（读写 `UserPreferences.mutedTags`，`addTag/removeTag/clear`）；`MeRoute` 删除内嵌 `MutedTagsDialog`，"屏蔽标签"卡片改跳 `ROUTE_MUTED_TAGS`（`onOpenMutedTags`，MainShell/PixivNavGraph 接线）；**ProfileHeader 操作按钮由"个人主页"改为"退出登录"**，删除"账户管理"section 的"账户信息"卡片（保留退出登录卡片）
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **首页图片卡片收藏按钮（补充）**：`HomeRoute` 推荐流与关注流 `IllustWaterfallGrid` 传 `onToggleFavorite`（`HomeViewModel.toggleIllustFavorite` bookmark/unbookmarkIllust）——首页图片卡片与搜索结果一致显示右上角收藏按钮，可直接收藏/取消
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **屏蔽功能合并（第四十五轮，方案 A）**：解决"屏蔽管理"与"屏蔽标签"功能重合——统一为单一**屏蔽管理**入口：
+  - `BlockedRoute` 重构为三区块：**本地过滤标签**（推荐/搜索过滤，顶部添加输入框 + `InputChip` 点击/✕删除 + TopAppBar 清空，读写 `UserPreferences.mutedTags`）+ **服务端已屏蔽标签**（展示）+ **已屏蔽用户**（可取消）
+  - `BlockedViewModel` 注入 `UserPreferences`，新增 `localTags`（stateIn）+ `addLocalTag/removeLocalTag/clearLocalTags`
+  - `MeRoute` **删除"推荐与过滤" section**（"屏蔽标签"卡片移除）——"用户内容管理"的"屏蔽管理"成为唯一屏蔽入口；移除 `onOpenMutedTags` 参数
+  - 清理：删除 `MutedTagsRoute`/`MutedTagsViewModel`/`ROUTE_MUTED_TAGS`/MainShell·PixivNavGraph 接线/`Refresh` import
+  - **空态修复（补充）**：原 `EmptyBox("暂无屏蔽")` 在本地标签也空时整页隐藏管理入口 → 移除整体空态；`LazyColumn` 始终渲染——**本地过滤标签区块始终显示**（添加输入框 + chips / "暂无本地过滤标签"），服务端部分按数据显示、全空时显示"暂无服务端屏蔽"
+  - **UI 重新设计（补充2）**：屏蔽管理页改为 **Material 卡片分组 + pill 标签**——本地过滤标签卡片（标题 + 说明 + 输入框 + `FilledIconButton` 添加 + `FlowRow` pill 标签带 ✕ 删除）；服务端屏蔽卡片（标签 pill 展示 + 用户行头像/取消 + 分割线）；`LazyColumn` 卡片间距 12dp、统一 `surfaceContainer` 圆角卡片，移除裸露 SectionTitle 列表
+  - **外观设置内嵌（补充3）**："主题与外观"不再跳 `SettingsRoute`（避免无关内容）——`MeViewModel` 增加 `themeMode`/`dynamicColor`（stateIn）+ `setThemeMode`/`setDynamicColor`；`MeRoute` "外观设置" section 内嵌 Card（主题模式 FilterChip 三选：跟随系统/浅色/深色 + 动态取色 Switch）；`SettingsRoute` 仅由"系统设置（缓存与更新）"访问
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **浏览历史界面重构（第四十六轮）**：`HistoryRoute` 改为 **TabRow（插画/小说/用户）+ HorizontalPager 滑动切换**（滑动切页同步 `HistoryFilter`、点击 Tab 平滑滚动、下划线跟随）：
+  - 插画：`IllustWaterfallGrid` + `IllustCard`（首页同款，含收藏按钮，`toggleIllustFavorite`）
+  - 小说：`LazyColumn` + `NovelCard`
+  - 用户：`LazyColumn` + `CreatorProfileCard`
+  - TopAppBar 保留"清空"；`HistoryFilter` 去 `ALL` 仅三类、默认 `ILLUST`；删除 `AllHistoryList`/`HistoryRow`/`typeLabel`
+  - **小说历史完整信息（补充）**：历史快照只有 title/coverUrl 导致 `NovelCard` 信息不全 → 利用 `BrowseHistoryEntity.payloadJson`——`NovelViewModel.recordHistory` 存完整 `NovelCardData` JSON（作者/头像/日期/系列/收藏/字数/标签/是否收藏）；`HistoryRoute.toNovelCardData` 优先 `Gson().fromJson(payloadJson)` 完整展示、旧记录/失败回退最小数据；小说历史卡 `onOpenAuthor`（payloadJson 提供 authorId）→ 用户主页、`onToggleFavorite` → `toggleNovelFavorite`；`HistoryViewModel` 注入 `PixivRepository` + `toggleIllustFavorite`/`toggleNovelFavorite`
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **历史插画完整显示修复（补充）**：根因——历史 `toIllust()` 构造的 `Illust` 无 `width/height` → `IllustCard` 走固定高度 + `Crop` 裁剪中间；修复——`IllustViewModel.recordHistory` 存 `payloadJson`（id/title/coverUrl/**width/height**/bookmarks/pageCount/isBookmarked，org.json）；`HistoryRoute.toIllust` 优先解析 payloadJson 恢复宽高（`IllustCard` aspectRatio 完整显示），旧记录回退最小数据；修复 `optInt` 平台类型（`?: 0`）与 `page_count` 非空类型
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
+- **全屏查看器底部操作条（第四十七轮）**：
+  - `ViewerRoute` 新增**底部圆形操作条**（`navigationBarsPadding` + 底部渐变，与顶部对称）：4 个 52dp 圆形按钮（黑底 45%/白 icon，收藏时红 `0xFFFF5252`，原图选中高亮 28% 白底）——**收藏**（`Favorite`/`FavoriteBorder`，`toggleBookmark`）/ **下载**（`Download`，非 GIF 下载当前页原图+索引，GIF `downloadGifStub`）/ **壁纸**（`Wallpaper`，`wallpaper()` 设为手机壁纸；GIF 禁用）/ **原图**（`HighQuality`，`toggleOriginal` 切换预览↔原图；GIF 禁用）
+  - `ViewerViewModel`：注入 `@ApplicationContext`；新增 `isOriginal`（默认 false）+ `toggleOriginal`（Snackbar"已加载原图/已切换预览"）；`wallpaper()`——下载原图字节 → `BitmapFactory.decode` → `WallpaperManager.setBitmap`（minSdk 26 无需权限）；图片 URL 按 `isOriginal` 选 `displayUrl`（预览，默认）或 `originalUrl`（原图）
+  - `SnackbarHost` 底部 padding 调至 100dp 避开操作条；顶栏"更多"菜单保留（收藏/下载/举报，与底部一致）
+  - 说明：pixiv `displayUrl(large)` 通常 1200px 上限，多数作品与原图差距小；原图按钮提供超清查看
+  - **壁纸权限修复（补充）**：设置壁纸报 "Access denied ... must have permission android.permission.SET_WALLPAPER" → `AndroidManifest.xml` 声明 `<uses-permission android:name="android.permission.SET_WALLPAPER" />`（normal 权限，安装即授予，无需运行时请求）
+  - 验证：`compileDebugKotlin` + 全部相关模块测试通过
 - 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1 + `NovelDocumentCodecTest` 4，core:novel 共 24 用例；feature:novel `NovelExporterTest` 6 用例
+- **全项目注释补充（第四十八轮，纯注释无逻辑变更）**：
+  - 目标：为代码补齐 KDoc（参数含义 + 函数含义 + UI 设计方式），分批推进
+  - 第一批（core:ui + core 数据层）：`IllustCard`/`NovelCard`+`NovelCardData`/`SettingsCard`+`SettingsCardItem`/`ProfileHeader`/`UserAvatar`/`CreatorProfileCard`/`CommentInput`/`IllustWaterfallGrid`/`AdaptiveScaffold`/`StatusViews`/`PixivImage` 全部通用组件（每处含 UI 设计方式 + @param）；`NovelParser.parse`/`NovelDocumentCodec.encode`；`BrowseHistoryDao`/`SearchHistoryDao`/`DownloadEntryDao`/`ReadingProgressDao`（含"先删旧再 upsert 去重置顶"语义）；`OfflineNovelRepository` 方法注释
+  - 第二批：`DiscoverViewModel` 类级 KDoc（职责/状态）+ 全部方法注释（联想防抖/热门缓存 24h TTL/搜索历史去重置顶/屏蔽标签过滤等）
+  - 第三批：`PixivNavGraph` 14 个路由常量逐个 KDoc + 各 composable 块注释（深链 scheme `pixiv://`、登录清栈、`main?search` 跨 Tab、全屏路由、`local_reader` 单次消费、系列分册跳转语义）；补 `IllustViewModel`/`HomeViewModel`/`AuthViewModel`/`RankingViewModel`/`ViewerViewModel` 类级注释（含枚举与状态/事件注释）
+  - 第四批：`PagedState` 方法注释（游标语义/失败处理/防重入）；`MainShell` TABS 注释 + 类级注释补 `pendingSearch` 跨 Tab 搜索机制；`PixivRepository` 类级增强（api/webApi/imageClient 分工 + Referer 防 403）；`SessionRepository` 补 isOAuthCallback/logout
+  - 每批验证：`:app:compileDebugKotlin` BUILD SUCCESSFUL
+  - 备注：feature Route 文件注释多为各开发轮次自带；`lib:pixivapi` vendor 副本只读未动；agent.md 本文件即为会话记忆与轮次记录（后续会话先读本文件 + AGENTS.md）

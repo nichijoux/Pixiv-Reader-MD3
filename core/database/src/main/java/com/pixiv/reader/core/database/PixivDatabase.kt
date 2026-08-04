@@ -25,6 +25,14 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/** v2→v3：download_entry 新增 width/height 列（插画真实宽高）。 */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `width` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `height` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
     entities = [
         ReadingProgressEntity::class,
@@ -32,7 +40,7 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         DownloadEntryEntity::class,
         SearchHistoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {

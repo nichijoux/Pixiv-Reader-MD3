@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** 排行榜模式（对应 pixiv ranking mode 参数）。 */
 enum class RankingMode(val value: String, val label: String) {
     DAY("day", "每日"),
     WEEK("week", "每周"),
@@ -22,6 +23,10 @@ enum class RankingMode(val value: String, val label: String) {
     DAY_FEMALE("day_female", "女性向"),
 }
 
+/**
+ * 排行榜 ViewModel：按模式（每日/每周/每月/新人/原创/男/女向）切换并分页加载插画。
+ * 切换模式时重新拉取第一页；触底调用 loadMore 加载下一页。
+ */
 @HiltViewModel
 class RankingViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -36,12 +41,14 @@ class RankingViewModel @Inject constructor(
         load()
     }
 
+    /** 切换排行模式：相同模式忽略，否则更新模式并重新加载。 */
     fun selectMode(mode: RankingMode) {
         if (_mode.value == mode) return
         _mode.value = mode
         load()
     }
 
+    /** 加载更多（触底时由 UI 调用）。 */
     fun loadMore() {
         viewModelScope.launch { paged.loadMore() }
     }

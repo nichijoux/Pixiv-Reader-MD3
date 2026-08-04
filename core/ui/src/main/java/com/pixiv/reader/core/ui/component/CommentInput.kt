@@ -15,7 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * 评论输入框：文本输入 + 发送按钮（插画/小说详情评论区共用）。
+ * 评论输入框（插画/小说详情评论区共用）。
+ *
+ * ## UI 设计方式
+ * 横向 `Row`：`OutlinedTextField`（单行输入，`weight(1f)` 占满）+ 发送 `IconButton`
+ * （`AutoMirrored.Send` 主色图标）。紧凑的一行式输入条，贴合评论区底部。
+ *
+ * @param draft 当前输入内容（由外部 ViewModel 持有状态）
+ * @param onDraftChange 输入内容变化回调
+ * @param onPost 发送评论回调（外部校验非空并调 API，成功后清空 draft）
+ * @param modifier 外部传入的 Modifier
  */
 @Composable
 fun CommentInput(

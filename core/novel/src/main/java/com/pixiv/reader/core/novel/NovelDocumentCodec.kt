@@ -14,6 +14,13 @@ import org.json.JSONObject
  */
 object NovelDocumentCodec {
 
+    /**
+     * 序列化 [NovelDocument] 为 JSON 字符串。
+     * 块类型编码：`p` 段落 / `h` 标题(带 level) / `q` 引用 / `i` 图片(带 url/caption) / `s` 分隔线。
+     *
+     * @param document 待序列化文档
+     * @return JSON 字符串
+     */
     fun encode(document: NovelDocument): String {
         val root = JSONObject()
         root.put("textLength", document.textLength)

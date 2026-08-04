@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.pixiv.reader.core.novel.LocalReaderStore
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
@@ -23,26 +24,49 @@ import com.pixiv.reader.feature.user.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
 import com.pixiv.reader.feature.watchlist.WatchlistRoute
 
+/** 登录页（未登录时的导航起点）。 */
 const val ROUTE_AUTH = "auth"
+/**
+ * 主壳（底部导航五 Tab）。
+ * 可通过 `main?search={search}` 携带搜索词跨 Tab 直达发现页搜索。
+ */
 const val ROUTE_MAIN = "main"
+/** 插画详情（全屏路由，隐藏底部导航）。 */
 const val ROUTE_ILLUST = "illust/{illustId}"
+/** 全屏查看器（多图翻页），可选 page 参数指定起始页。 */
 const val ROUTE_VIEWER = "viewer/{illustId}?page={page}"
+/** 小说详情（沉浸式 banner + 系列 + 评论）。 */
 const val ROUTE_NOVEL = "novel/{novelId}"
+/** 小说阅读器（在线 / 离线缓存共用同一路由）。 */
 const val ROUTE_READER = "reader/{novelId}"
+/** 用户主页（插画 / 小说 / 收藏 Tab）。 */
 const val ROUTE_USER = "user/{userId}"
+/** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
+/** 收藏列表（插画 / 小说），可带 type + tag 过滤。 */
 const val ROUTE_BOOKMARKS = "bookmarks"
+/** 追更小说列表。 */
 const val ROUTE_WATCHLIST = "watchlist"
+/** 屏蔽名单（屏蔽标签按卡片分组展示）。 */
 const val ROUTE_BLOCKED = "blocked"
+/** 下载管理（图片 / 小说 / 本地文件三类，支持删除）。 */
 const val ROUTE_DOWNLOADS = "downloads"
+/** 收藏标签管理（点击标签跳收藏列表）。 */
 const val ROUTE_TAGS = "tags"
+/** 设置。 */
 const val ROUTE_SETTINGS = "settings"
+/**
+ * 本地文件阅读（TXT / EPUB 解析后直接渲染，跳过网络）。
+ * novelId 对应 LocalReaderStore 的存储键，正文经 `LocalReaderStore.consume()` 单次取走。
+ */
+const val ROUTE_LOCAL_READER = "local_reader/{novelId}"
 
 /**
  * 应用根导航。
  * 未登录 → auth（登录页）；已登录 → main（底部导航主壳）。
- * illust/viewer 为全屏路由（隐藏底部导航）。
- * OAuth 回调 scheme: pixiv://account/login
+ * illust/viewer 为全屏路由（隐藏底部导航）；其余为全屏页路由。
+ * 深链 scheme: `pixiv://`（illust/novel/reader/user 支持，OAuth 回调走 `pixiv://account/login`）。
+ * 导航约定：顶层路由回调统一在此接线；内层 Tab 无法直达顶层路由，必须经 MainShell 回调上抛。
  */
 @Composable
 fun PixivNavGraph(
@@ -57,12 +81,14 @@ fun PixivNavGraph(
         composable(ROUTE_AUTH) {
             AuthRoute(
                 onLoginSuccess = {
+                    // 登录成功后清空登录页栈，避免返回键回到登录页
                     navController.navigate(ROUTE_MAIN) {
                         popUpTo(ROUTE_AUTH) { inclusive = true }
                     }
                 },
             )
         }
+        // 主壳：携带 search 参数跨 Tab 搜索（发现页初始查询词）
         composable(
             route = "main?search={search}",
             arguments = listOf(
@@ -73,6 +99,7 @@ fun PixivNavGraph(
             MainShell(
                 onLogout = {
                     onLogout()
+                    // 登出：清空主壳栈回到登录页
                     navController.navigate(ROUTE_AUTH) {
                         popUpTo(ROUTE_MAIN) { inclusive = true }
                     }
@@ -113,6 +140,7 @@ fun PixivNavGraph(
                 initialSearch = initialSearch,
             )
         }
+        // 插画详情：全屏路由（隐藏底部导航），支持 pixiv://illust/{id} 深链
         composable(
             route = ROUTE_ILLUST,
             arguments = listOf(navArgument("illustId") { type = NavType.LongType }),
@@ -122,6 +150,7 @@ fun PixivNavGraph(
             IllustDetailRoute(
                 onBack = { navController.popBackStack() },
                 onOpenViewer = { id, page ->
+                    // 打开全屏查看器并定位到指定页
                     navController.navigate("viewer/$id?page=$page")
                 },
                 onOpenUser = { userId ->
@@ -129,6 +158,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 全屏查看器：page 可选，缺省从第 0 页开始
         composable(
             route = ROUTE_VIEWER,
             arguments = listOf(
@@ -138,6 +168,7 @@ fun PixivNavGraph(
         ) {
             ViewerRoute(onBack = { navController.popBackStack() })
         }
+        // 小说详情：支持 pixiv://novel/{id} 深链；系列分册点击打开对应详情
         composable(
             route = ROUTE_NOVEL,
             arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
@@ -159,6 +190,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 小说阅读器：支持 pixiv://reader/{id} 深链；系列目录点击其他分册直接换读
         composable(
             route = ROUTE_READER,
             arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
@@ -174,6 +206,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 用户主页：支持 pixiv://user/{id} 深链；标签点击跳 main 搜索
         composable(
             route = ROUTE_USER,
             arguments = listOf(navArgument("userId") { type = NavType.LongType }),
@@ -203,6 +236,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 浏览历史：三类（插画/小说/作者），点击对应卡片跳详情
         composable(ROUTE_HISTORY) {
             HistoryRoute(
                 onBack = { navController.popBackStack() },
@@ -217,6 +251,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 收藏列表：type（插画/小说）+ tag 可选过滤；标签点击跳 main 搜索
         composable(
             route = "bookmarks?type={type}&tag={tag}",
             arguments = listOf(
@@ -246,6 +281,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 追更小说列表
         composable(ROUTE_WATCHLIST) {
             WatchlistRoute(
                 onBack = { navController.popBackStack() },
@@ -254,11 +290,13 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 屏蔽名单
         composable(ROUTE_BLOCKED) {
             BlockedRoute(
                 onBack = { navController.popBackStack() },
             )
         }
+        // 下载管理：三类（图片/小说/本地文件）；本地文件走 local_reader 路由
         composable(ROUTE_DOWNLOADS) {
             DownloadsRoute(
                 onBack = { navController.popBackStack() },
@@ -271,8 +309,29 @@ fun PixivNavGraph(
                 onOpenReader = { novelId ->
                     navController.navigate("reader/$novelId")
                 },
+                onOpenLocalReader = { novelId ->
+                    navController.navigate("local_reader/$novelId")
+                },
             )
         }
+        // 本地文件阅读：正文经 LocalReaderStore.consume() 单次取走（仅一次，避免重复消费）
+        composable(
+            route = ROUTE_LOCAL_READER,
+            arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
+            val local = LocalReaderStore.consume()
+            ReaderRoute(
+                novelId = novelId,
+                onBack = { navController.popBackStack() },
+                onOpenNovel = { id ->
+                    navController.navigate("reader/$id")
+                },
+                localDocument = local?.first,
+                localTitle = local?.second,
+            )
+        }
+        // 收藏标签管理：点击标签带 type+tag 跳收藏列表
         composable(ROUTE_TAGS) {
             TagsRoute(
                 onBack = { navController.popBackStack() },
@@ -283,6 +342,7 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 设置（主题/账号等）
         composable(ROUTE_SETTINGS) {
             SettingsRoute(
                 onBack = { navController.popBackStack() },

@@ -43,7 +43,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
-/** 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹）。 */
+/**
+ * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
+ * 由 API 的 [com.example.pixivapi.model.Novel] 映射，或由历史/下载快照恢复。
+ *
+ * @param id 小说 ID（点击跳转 / 收藏 API 用）
+ * @param title 小说标题
+ * @param coverUrl 封面 URL（square_medium 优先，其次 medium）
+ * @param authorId 作者用户 ID（点击作者行跳用户主页用；0 表示无）
+ * @param authorName 作者名称
+ * @param authorAvatarUrl 作者头像 URL
+ * @param publishDate 发布日期（ISO 字符串，展示时取前 10 位 yyyy-MM-dd）
+ * @param seriesTitle 所属系列标题（非系列为 null）
+ * @param favoriteCount 收藏数（封面底部角标）
+ * @param wordCount 字数（封面底部角标）
+ * @param tags 标签展示名列表（FlowRow chip；最多展示 3 个，多余折叠 "+N"）
+ * @param isFavorite 是否已收藏（初始化收藏按钮状态）
+ */
 data class NovelCardData(
     val id: Long,
     val title: String,
@@ -60,13 +76,30 @@ data class NovelCardData(
 )
 
 /**
- * 小说搜索结果卡片（Material 主题自适应，横向：封面 + 信息）。
+ * 小说通用卡片（Material 主题自适应，横向布局：左侧封面 + 右侧信息）。
  *
- * - 封面：书籍宽高比、圆角，底部叠加收藏数 / 字数；点击打开阅读器
- * - 信息：标题（高优先级）+ 收藏图标按钮；系列信息；作者头像/名 + 发布日期（点击作者进主页）
- * - 标签：FlowRow 圆角 chip，多余折叠 "+N"；点击标签搜索
+ * ## UI 设计方式
+ * - **封面**（88dp 宽 + `aspectRatio(3/4)` 书籍比例，圆角 12dp）：图片底部叠加黑色渐变遮罩，
+ *   其上显示收藏数（♡ + 数值）与字数两行角标；点击封面进入阅读器。
+ * - **信息区**（Column）：
+ *   - 标题行：`titleMedium` 加粗标题（最多 2 行省略）+ 右侧收藏图标按钮
+ *   - 系列信息（若有）：`labelMedium` 次级色，最多 1 行
+ *   - 作者行：24dp 头像 + 作者名 + 发布日期（点击作者行进主页）
+ *   - 标签区：`FlowRow` 圆角 chip（最多 3 个 + "+N" 折叠），点击标签触发搜索
+ * 颜色全部取自 `MaterialTheme`，尺寸用 `aspectRatio`/`typography`/相对布局，不硬编码。
  *
- * 颜色全部取自 MaterialTheme，尺寸用 aspectRatio / typography / 相对布局。
+ * ## 交互
+ * - [onClick] 整卡 → 小说详情；[onOpenReader] 封面 → 阅读器
+ * - [onOpenAuthor] 作者行 → 用户主页；[onToggleFavorite] 收藏切换（组件维护 UI 态 + 回调外部 API）
+ * - [onTagClick] 标签 → 搜索该标签
+ *
+ * @param novel 卡片数据（见 [NovelCardData]）
+ * @param onClick 整卡点击（打开小说详情）
+ * @param onOpenReader 封面点击（打开阅读器，历史/下载等可复用此入口直达阅读）
+ * @param onOpenAuthor 作者行点击（打开用户主页；快照缺 authorId 时传空 lambda）
+ * @param onToggleFavorite 收藏切换回调（参数为目标状态 true=收藏）；组件本地维护 UI 态
+ * @param onTagClick 标签点击（触发标签搜索）
+ * @param modifier 外部传入的 Modifier
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -79,6 +112,7 @@ fun NovelCard(
     onTagClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 收藏态：初始化为数据模型中的 isFavorite，点击切换并回调外部执行 API
     var favorite by remember(novel.id) { mutableStateOf(novel.isFavorite) }
 
     Card(

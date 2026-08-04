@@ -7,11 +7,14 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "download_entry")
 data class DownloadEntryEntity(
     @PrimaryKey val targetId: Long,
-    val targetType: String,        // illust / ugoira / novel
+    val targetType: String,        // illust / ugoira / novel / novel_offline
     val title: String? = null,
     val coverUrl: String? = null,
     val localPath: String? = null,
     val status: String = "pending", // pending / downloading / done / failed
     val pageCount: Int = 0,
+    /** 插画真实宽高（下载后解析，供历史/下载列表完整显示）。 */
+    val width: Int = 0,
+    val height: Int = 0,
     val updatedAt: Long = System.currentTimeMillis(),
 )

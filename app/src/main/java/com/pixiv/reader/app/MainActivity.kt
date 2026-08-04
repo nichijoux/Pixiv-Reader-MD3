@@ -27,6 +27,12 @@ import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
+/**
+ * 应用唯一 Activity：装配根导航 + 主题（UserPreferences.themeMode/dynamicColor 生效）。
+ * 处理 OAuth 深链回调（onCreate 冷启动 / onNewIntent 热启动均转发到会话层）；
+ * 监听网络状态（离线时全局 Snackbar）。
+ * 沉浸式说明：外层 Scaffold 不处理系统栏 insets，底部导航/各页面自行 padding。
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -53,7 +59,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val isLoggedIn by sessionRepository.isLoggedIn.collectAsStateWithLifecycle()
             val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = 0)
-            val dynamicColor by userPreferences.dynamicColor.collectAsStateWithLifecycle(initialValue = true)
+            val dynamicColor by userPreferences.dynamicColor.collectAsStateWithLifecycle(
+                initialValue = true
+            )
             val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
             val isDark = when (themeMode) {
                 1 -> false

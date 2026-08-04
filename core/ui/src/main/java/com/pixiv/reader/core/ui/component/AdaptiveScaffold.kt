@@ -28,7 +28,7 @@ import com.pixiv.reader.core.common.WindowSizeClass
 import com.pixiv.reader.core.common.classifyWindowWidth
 import com.pixiv.reader.core.common.useRail
 
-/** 底部/侧边导航项 */
+/** 底部/侧边导航项（自适应导航壳的数据单元）。 */
 data class AdaptiveNavItem(
     val route: String,
     val label: String,
@@ -36,15 +36,24 @@ data class AdaptiveNavItem(
     val selectedIcon: ImageVector = icon,
 )
 
-/** 当前窗口尺寸类（基于屏幕宽度，无需额外依赖） */
+/** 当前窗口尺寸类（基于屏幕宽度，无需额外依赖）。 */
 @Composable
 fun currentWindowSizeClass(): WindowSizeClass =
     classifyWindowWidth(LocalConfiguration.current.screenWidthDp)
 
 /**
- * 自适应导航壳：
- * - Compact（手机）：底部 NavigationBar
- * - Medium / Expanded（平板）：左侧 NavigationRail
+ * 自适应导航壳（App 主壳）：手机底部 NavigationBar，平板左侧 NavigationRail。
+ *
+ * ## UI 设计方式
+ * 按窗口宽度分类（`classifyWindowWidth`）：
+ * - Compact（<600dp）：`Scaffold` 底部 `NavigationBar`
+ * - Medium/Expanded（≥840dp）：左侧 84dp `NavigationRail` + 内容区 `weight(1f)`
+ * 内容通过 [content] 传入 `PaddingValues`（壳内 Scaffold 已处理系统栏边距）。
+ *
+ * @param items 导航项列表（route 用于选中匹配）
+ * @param selectedRoute 当前选中的路由（与 `currentBackStackEntry.route` 比对）
+ * @param onSelect 点击导航项回调（通常 `navigate(route)` + popUpTo/restoreState）
+ * @param content 内容区（接收壳的 `PaddingValues`）
  */
 @Composable
 fun AdaptiveNavScaffold(
@@ -107,8 +116,15 @@ fun AdaptiveNavScaffold(
 }
 
 /**
- * 平板内容宽度约束：内容居中且不超过 [maxWidth]。
- * 详情页 / 阅读器使用，避免在宽屏上拉伸过长。
+ * 平板内容宽度约束：内容居中且不超过 [maxWidth]（默认 `MAX_CONTENT_WIDTH_DP`=760dp）。
+ *
+ * ## UI 设计方式
+ * 双层 `Box`：外层 `fillMaxSize` + `TopCenter` 对齐，内层 `fillMaxHeight` + `widthIn(max)`，
+ * 使宽屏（平板）上内容限宽居中、两侧留白；手机宽度不足时自然占满。
+ *
+ * @param modifier 外部传入的 Modifier（通常带 padding）
+ * @param maxWidth 内容最大宽度
+ * @param content 限宽内容
  */
 @Composable
 fun AdaptiveContentBox(

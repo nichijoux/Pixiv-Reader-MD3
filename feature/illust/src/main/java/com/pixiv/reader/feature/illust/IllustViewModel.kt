@@ -28,6 +28,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 
+/**
+ * 插画详情 ViewModel：详情 / 多页（网页接口补每 P 真实宽高）/ 相关推荐 / 评论区 / 收藏。
+ * 附带副作用：打开详情写浏览历史；下载原图到 filesDir/Downloads 并写下载索引。
+ * illustId 从 SavedStateHandle 读取（路由参数）。
+ */
 @HiltViewModel
 class IllustViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -92,10 +97,20 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /** 打开详情时写入浏览历史（先删旧记录避免重复）。 */
+    /** 打开详情时写入浏览历史（先删旧记录避免重复；payloadJson 存宽高等，供历史页完整显示）。 */
     private fun recordHistory(ill: Illust) {
         viewModelScope.launch {
             runCatching {
+                val payload = org.json.JSONObject().apply {
+                    put("id", ill.id)
+                    put("title", ill.title.orEmpty())
+                    put("coverUrl", ill.image_urls?.medium ?: ill.image_urls?.square_medium)
+                    put("width", ill.width)
+                    put("height", ill.height)
+                    put("bookmarks", ill.total_bookmarks ?: 0)
+                    put("pageCount", ill.page_count ?: 0)
+                    put("isBookmarked", ill.is_bookmarked == true)
+                }.toString()
                 browseHistoryDao.deleteByTarget("illust", ill.id)
                 browseHistoryDao.upsert(
                     BrowseHistoryEntity(
@@ -103,6 +118,7 @@ class IllustViewModel @Inject constructor(
                         targetId = ill.id,
                         title = ill.title,
                         coverUrl = ill.image_urls?.medium ?: ill.image_urls?.square_medium,
+                        payloadJson = payload,
                     ),
                 )
             }
@@ -222,10 +238,18 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /** 写入下载索引（targetType=illust）。 */
+    /** 写入下载索引（targetType=illust；解析本地文件真实宽高）。 */
     private fun recordDownload(file: File?, status: String) {
         viewModelScope.launch {
             runCatching {
+                var w = 0
+                var h = 0
+                if (file != null && file.exists()) {
+                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(file.path, opts)
+                    w = opts.outWidth
+                    h = opts.outHeight
+                }
                 downloadEntryDao.upsert(
                     DownloadEntryEntity(
                         targetId = illustId,
@@ -236,6 +260,8 @@ class IllustViewModel @Inject constructor(
                         localPath = file?.path,
                         status = status,
                         pageCount = _pages.value.size,
+                        width = w,
+                        height = h,
                     ),
                 )
             }

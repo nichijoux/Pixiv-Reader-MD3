@@ -5,22 +5,28 @@ import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.BlockSaveRequest
 import com.example.pixivapi.model.MuteTag
 import com.example.pixivapi.model.MuteUser
+import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 屏蔽管理 ViewModel：已屏蔽用户 / 标签（getMutedHistory），支持取消屏蔽用户。
+ * 屏蔽管理 ViewModel：
+ * - 服务端：已屏蔽用户 / 标签（getMutedHistory），取消屏蔽用户（saveBlock unblock）
+ * - 本地：推荐过滤标签（UserPreferences.mutedTags）增删
  */
 @HiltViewModel
 class BlockedViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
+    private val userPreferences: UserPreferences,
 ) : ViewModel() {
 
     private val _mutedUsers = MutableStateFlow<List<MuteUser>>(emptyList())
@@ -28,6 +34,10 @@ class BlockedViewModel @Inject constructor(
 
     private val _mutedTags = MutableStateFlow<List<MuteTag>>(emptyList())
     val mutedTags: StateFlow<List<MuteTag>> = _mutedTags.asStateFlow()
+
+    /** 本地推荐过滤标签。 */
+    val localTags: StateFlow<List<String>> =
+        userPreferences.mutedTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -49,6 +59,30 @@ class BlockedViewModel @Inject constructor(
                 }
                 .onFailure { _message.send("加载失败：${it.message}") }
             _isLoading.value = false
+        }
+    }
+
+    // ── 本地过滤标签 ──
+
+    fun addLocalTag(tag: String) {
+        val t = tag.trim()
+        if (t.isBlank()) return
+        viewModelScope.launch {
+            runCatching {
+                if (t !in localTags.value) userPreferences.setMutedTags(localTags.value + t)
+            }
+        }
+    }
+
+    fun removeLocalTag(tag: String) {
+        viewModelScope.launch {
+            runCatching { userPreferences.setMutedTags(localTags.value - tag) }
+        }
+    }
+
+    fun clearLocalTags() {
+        viewModelScope.launch {
+            runCatching { userPreferences.setMutedTags(emptyList()) }
         }
     }
 

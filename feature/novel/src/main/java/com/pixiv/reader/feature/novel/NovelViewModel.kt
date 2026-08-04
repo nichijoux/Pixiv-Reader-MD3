@@ -14,6 +14,8 @@ import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.ui.component.NovelCardData
+import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -110,10 +112,27 @@ class NovelViewModel @Inject constructor(
         }
     }
 
-    /** 打开详情时写入浏览历史（先删旧记录避免重复）。 */
+    /** 打开详情时写入浏览历史（先删旧记录避免重复；payloadJson 存完整卡片数据供历史页展示）。 */
     private fun recordHistory(detail: Novel) {
         viewModelScope.launch {
             runCatching {
+                val card = NovelCardData(
+                    id = detail.id,
+                    title = detail.title.orEmpty(),
+                    coverUrl = detail.image_urls?.square_medium ?: detail.image_urls?.medium,
+                    authorId = detail.user?.id ?: 0L,
+                    authorName = detail.user?.name.orEmpty(),
+                    authorAvatarUrl = detail.user?.profile_image_urls?.best(),
+                    publishDate = detail.create_date,
+                    seriesTitle = detail.series?.title,
+                    favoriteCount = detail.total_bookmarks ?: 0,
+                    wordCount = detail.text_length ?: 0,
+                    tags = detail.tags.orEmpty()
+                        .take(6)
+                        .map { it.translated_name ?: it.name ?: "" }
+                        .filter { it.isNotBlank() },
+                    isFavorite = detail.is_bookmarked == true,
+                )
                 browseHistoryDao.deleteByTarget("novel", detail.id)
                 browseHistoryDao.upsert(
                     BrowseHistoryEntity(
@@ -121,6 +140,7 @@ class NovelViewModel @Inject constructor(
                         targetId = detail.id,
                         title = detail.title,
                         coverUrl = detail.image_urls?.medium ?: detail.image_urls?.square_medium,
+                        payloadJson = Gson().toJson(card),
                     ),
                 )
             }

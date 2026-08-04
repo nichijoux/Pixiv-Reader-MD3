@@ -1,62 +1,66 @@
 package com.pixiv.reader.feature.user
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.pixivapi.model.ImageUrls
+import com.example.pixivapi.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.pixiv.reader.core.ui.component.IllustCard
+import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
+import kotlinx.coroutines.launch
 
 /**
- * 下载管理（P5.5）：下载索引列表，按类型分类（全部/插画/小说/离线），支持删除（含本地资源）。
- * 点击条目直达：离线小说 → 阅读器；小说 → 详情；插画 → 详情。
+ * 下载管理：TabRow（插画/小说/离线）+ HorizontalPager 滑动切换。
+ * 插画用 `IllustCard`（宽高完整显示）、小说/离线用 `NovelCard`；每项右上角删除按钮。
+ * 小说（txt/epub 导出文件）点击 → 解析本地文件本地阅读。
  *
  * @param onBack 返回
  * @param onOpenIllust 打开插画详情
  * @param onOpenNovel 打开小说详情
  * @param onOpenReader 打开小说阅读器（离线直达）
+ * @param onOpenLocalReader 打开本地文件阅读（local_reader）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,10 +69,21 @@ fun DownloadsRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
+    onOpenLocalReader: (Long) -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val filter by viewModel.filterFlow.collectAsStateWithLifecycle()
+    val pagerState = rememberPagerState(pageCount = { DownloadFilter.entries.size })
+    val scope = rememberCoroutineScope()
+
+    // 滑动切页 → 同步筛选
+    LaunchedEffect(pagerState.currentPage) {
+        val page = pagerState.currentPage
+        if (page in DownloadFilter.entries.indices) {
+            viewModel.selectFilter(DownloadFilter.entries[page])
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -88,47 +103,42 @@ fun DownloadsRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                TabRow(
+                    selectedTabIndex = filter.ordinal.coerceAtMost(DownloadFilter.entries.size - 1),
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ) {
-                    DownloadFilter.entries.forEach { f ->
-                        item(key = f.name) {
-                            FilterChip(
-                                selected = filter == f,
-                                onClick = { viewModel.selectFilter(f) },
-                                label = { Text(f.label()) },
-                            )
-                        }
+                    DownloadFilter.entries.forEachIndexed { index, f ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(f.label()) },
+                        )
                     }
                 }
-                val visible = when (filter) {
-                    DownloadFilter.ALL -> entries
-                    DownloadFilter.ILLUST -> entries.filter { it.targetType == "illust" }
-                    DownloadFilter.NOVEL -> entries.filter { it.targetType == "novel" }
-                    DownloadFilter.OFFLINE -> entries.filter { it.targetType == "novel_offline" }
-                }
-                if (visible.isEmpty()) {
-                    EmptyBox("暂无下载")
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(visible, key = { it.targetId }) { entry ->
-                            DownloadRow(
-                                entry = entry,
-                                onClick = {
-                                    when (entry.targetType) {
-                                        "novel_offline" -> onOpenReader(entry.targetId)
-                                        "novel" -> onOpenNovel(entry.targetId)
-                                        "illust" -> onOpenIllust(entry.targetId)
-                                    }
-                                },
-                                onDelete = { viewModel.delete(entry) },
-                            )
-                        }
+                HorizontalPager(state = pagerState) { page ->
+                    when (DownloadFilter.entries.getOrNull(page)) {
+                        DownloadFilter.ILLUST -> IllustDownloadList(
+                            entries = entries.filter { it.targetType == "illust" },
+                            onOpenIllust = onOpenIllust,
+                            onDelete = viewModel::delete,
+                        )
+                        DownloadFilter.NOVEL -> NovelDownloadList(
+                            entries = entries.filter { it.targetType == "novel" },
+                            onOpen = { entry ->
+                                if (isLocalFile(entry)) {
+                                    viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
+                                } else {
+                                    onOpenNovel(entry.targetId)
+                                }
+                            },
+                            onDelete = viewModel::delete,
+                        )
+                        DownloadFilter.OFFLINE -> NovelDownloadList(
+                            entries = entries.filter { it.targetType == "novel_offline" },
+                            onOpen = { entry -> onOpenReader(entry.targetId) },
+                            onDelete = viewModel::delete,
+                        )
+                        null -> {}
                     }
                 }
             }
@@ -136,108 +146,128 @@ fun DownloadsRoute(
     }
 }
 
+// ── 插画：IllustCard 瀑布流 ─────────────────────────────────────────────────
+
 @Composable
-private fun DownloadRow(
-    entry: DownloadEntryEntity,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
+private fun IllustDownloadList(
+    entries: List<DownloadEntryEntity>,
+    onOpenIllust: (Long) -> Unit,
+    onDelete: (DownloadEntryEntity) -> Unit,
 ) {
-    val isOffline = entry.targetType == "novel_offline"
-    val isNovel = entry.targetType == "novel"
-    val icon: ImageVector = when {
-        isOffline -> Icons.Filled.Save
-        isNovel -> Icons.Filled.Description
-        else -> Icons.Filled.Image
+    if (entries.isEmpty()) {
+        EmptyBox("暂无插画下载")
+        return
     }
-    val localFile = entry.localPath?.let { File(it) }
-    val sizeText = localFile?.takeIf { it.exists() }?.length()?.let { formatFileSize(it) }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Adaptive(140.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalItemSpacing = 8.dp,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = when {
-                    isOffline -> MaterialTheme.colorScheme.tertiary
-                    isNovel -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.tertiary
-                },
-                modifier = Modifier.size(24.dp),
-            )
-            Column(
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .weight(1f),
-            ) {
-                Text(
-                    text = entry.title ?: (if (isNovel) "小说 #${entry.targetId}" else "插画 #${entry.targetId}"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+        items(entries, key = { it.targetId }) { entry ->
+            Box {
+                IllustCard(
+                    illust = entry.toDownloadIllust(),
+                    onClick = { onOpenIllust(entry.targetId) },
                 )
-                Row(
-                    modifier = Modifier.padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = when {
-                            entry.status != "done" -> "下载失败"
-                            isOffline -> "离线阅读"
-                            else -> listOfNotNull(sizeText, entry.localPath?.substringAfterLast('/')).joinToString(" · ")
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (entry.status == "done") {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            Text(
-                text = formatTime(entry.updatedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 4.dp),
-            )
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                DeleteOverlay(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                    onDelete = { onDelete(entry) },
                 )
             }
         }
     }
+}
+
+// ── 小说 / 离线：NovelCard ───────────────────────────────────────────────────
+
+@Composable
+private fun NovelDownloadList(
+    entries: List<DownloadEntryEntity>,
+    onOpen: (DownloadEntryEntity) -> Unit,
+    onDelete: (DownloadEntryEntity) -> Unit,
+) {
+    if (entries.isEmpty()) {
+        EmptyBox("暂无下载")
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(entries, key = { it.targetId }) { entry ->
+            Box {
+                NovelCard(
+                    novel = entry.toDownloadNovelCard(),
+                    onClick = { onOpen(entry) },
+                    onOpenReader = { onOpen(entry) },
+                    onOpenAuthor = {},
+                    onToggleFavorite = {},
+                    onTagClick = {},
+                )
+                DeleteOverlay(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                    onDelete = { onDelete(entry) },
+                )
+            }
+        }
+    }
+}
+
+/** 右上角圆形删除按钮。 */
+@Composable
+private fun DeleteOverlay(
+    modifier: Modifier = Modifier,
+    onDelete: () -> Unit,
+) {
+    IconButton(
+        onClick = onDelete,
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.45f)),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Close,
+            contentDescription = "删除",
+            tint = Color.White,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+// ── 数据转换 ────────────────────────────────────────────────────────────────
+
+private fun DownloadEntryEntity.toDownloadIllust(): Illust = Illust(
+    id = targetId,
+    title = title,
+    image_urls = ImageUrls(medium = coverUrl),
+    width = width,
+    height = height,
+)
+
+private fun DownloadEntryEntity.toDownloadNovelCard(): NovelCardData = NovelCardData(
+    id = targetId,
+    title = title ?: "无标题",
+    coverUrl = coverUrl,
+    authorId = 0,
+    authorName = "",
+    authorAvatarUrl = null,
+    publishDate = null,
+    seriesTitle = null,
+    favoriteCount = 0,
+    wordCount = 0,
+)
+
+private fun isLocalFile(entry: DownloadEntryEntity): Boolean {
+    val ext = entry.localPath?.substringAfterLast('.', "")?.lowercase() ?: return false
+    return ext == "txt" || ext == "epub"
 }
 
 private fun DownloadFilter.label(): String = when (this) {
-    DownloadFilter.ALL -> "全部"
     DownloadFilter.ILLUST -> "插画"
     DownloadFilter.NOVEL -> "小说"
     DownloadFilter.OFFLINE -> "离线"
 }
-
-private fun formatFileSize(bytes: Long): String = when {
-    bytes >= 1024 * 1024 -> String.format(Locale.US, "%.1f MB", bytes / 1024f / 1024f)
-    bytes >= 1024 -> String.format(Locale.US, "%.1f KB", bytes / 1024f)
-    else -> "$bytes B"
-}
-
-private val downloadTimeFormat = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
-
-private fun formatTime(epochMs: Long): String = runCatching {
-    downloadTimeFormat.format(Date(epochMs))
-}.getOrDefault("")

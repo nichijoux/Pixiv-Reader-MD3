@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -29,6 +28,7 @@ import com.pixiv.reader.feature.home.HomeRoute
 import com.pixiv.reader.feature.novel.NovelRoute
 import com.pixiv.reader.feature.user.MeRoute
 
+/** 底部导航五项：首页 / 发现 / 排行 / 小说 / 我的。 */
 private val TABS = listOf(
     AdaptiveNavItem("home_tab", "首页", Icons.Filled.Home),
     AdaptiveNavItem("discover_tab", "发现", Icons.Filled.Explore),
@@ -40,6 +40,10 @@ private val TABS = listOf(
 /**
  * 登录后的主壳。
  * 自适应导航：手机 = 底部 NavigationBar；平板 = 左侧 NavigationRail。
+ *
+ * 内层 Tab 的跨 Tab 搜索：NovelRoute 标签点击 → pendingSearch 缓存关键词 →
+ * 切到 discover_tab 后 DiscoverRoute 以 initialQuery 消费（一次性）。
+ * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道。
  *
  * @param onOpenIllust 打开作品详情（由外层导航处理，底部导航自动隐藏）
  */
@@ -89,7 +93,9 @@ fun MainShell(
         NavHost(
             navController = navController,
             startDestination = "home_tab",
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
         ) {
             composable("home_tab") {
                 HomeRoute(
@@ -130,6 +136,7 @@ fun MainShell(
                     onOpenDownloads = onOpenDownloads,
                     onOpenTags = onOpenTags,
                     onOpenSettings = onOpenSettings,
+                    onOpenUser = onOpenUser,
                 )
             }
         }

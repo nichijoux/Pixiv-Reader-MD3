@@ -13,8 +13,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** 首页 Tab：推荐 / 关注。 */
 enum class HomeTab { RECOMMEND, FOLLOW }
 
+/**
+ * 首页 ViewModel：推荐流 / 关注流（PagedState 分页，切 Tab 懒加载）+ 热门标签横滑。
+ * 收藏操作即时回调（nowFavorite 为目标状态），失败静默。
+ */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -34,6 +39,7 @@ class HomeViewModel @Inject constructor(
         loadRecommend()
     }
 
+    /** 切换 Tab：对应列表为空时懒加载（避免每次切 Tab 都重新请求）。 */
     fun selectTab(tab: HomeTab) {
         _tab.value = tab
         when (tab) {
@@ -50,6 +56,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** 加载更多：按当前 Tab 拉取对应列表下一页。 */
     fun loadMore() {
         viewModelScope.launch {
             when (_tab.value) {
@@ -59,6 +66,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** 重试：按当前 Tab 重新加载。 */
     fun retry() {
         when (_tab.value) {
             HomeTab.RECOMMEND -> loadRecommend()
@@ -84,10 +92,21 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** 加载热门标签（横滑区，取前 10 个；失败静默）。 */
     private fun loadTrendingTags() {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getTrendingTags("illust") }
                 .onSuccess { _trendingTags.value = it.trend_tags.take(10) }
+        }
+    }
+
+    /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
+    fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
+                else pixivRepository.api.unbookmarkIllust(illustId)
+            }
         }
     }
 }

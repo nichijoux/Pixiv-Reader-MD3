@@ -81,6 +81,23 @@ class ReaderViewModel @Inject constructor(
     private val _isOffline = MutableStateFlow(false)
     val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
 
+    /** 是否本地文件阅读模式（TXT/EPUB 解析后直接渲染，跳过网络/离线加载）。 */
+    private val _isLocalMode = MutableStateFlow(false)
+
+    /** 直接注入本地解析文档（下载管理点 txt/epub 进入）。 */
+    fun useLocalDocument(document: NovelDocument, title: String) {
+        _isLocalMode.value = true
+        _isLoading.value = false
+        _error.value = null
+        _novel.value = Novel(id = novelId, title = title)
+        _document.value = document
+        _isOffline.value = true
+        viewModelScope.launch {
+            runCatching { restoreProgress() }
+                .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
+        }
+    }
+
     // ── 阅读偏好（DataStore 镜像到内存 StateFlow） ──
     private val _fontSize = MutableStateFlow(17f)
     val fontSize: StateFlow<Float> = _fontSize.asStateFlow()
@@ -187,6 +204,7 @@ class ReaderViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
+            if (_isLocalMode.value) return@launch
             try {
                 _isLoading.value = true
                 _error.value = null
@@ -236,6 +254,7 @@ class ReaderViewModel @Inject constructor(
                     logParseResult(document)
                     detail to document
                 }.onSuccess { (detail, document) ->
+                    if (_isLocalMode.value) return@onSuccess
                     _novel.value = detail
                     _document.value = document
                     // 目录构建含系列小说列表的网络请求，放到 IO 之外异步执行
