@@ -38,6 +38,10 @@
     <string name="me_novel_default_tab">Default novel page</string>
     <string name="me_novel_default_recommend">Recommended</string>
     <string name="me_novel_default_follow">Following</string>
+    <string name="me_viewer_orientation">Illustration view direction</string>
+    <string name="me_viewer_orientation_horizontal">Horizontal</string>
+    <string name="me_viewer_orientation_vertical">Vertical pages</string>
+    <string name="me_viewer_orientation_seamless">Seamless vertical</string>
     <string name="me_bookmarks_title">My bookmarks</string>
     <string name="me_bookmarks_desc">Bookmarked works</string>
     <string name="me_history_title">Browse history</string>

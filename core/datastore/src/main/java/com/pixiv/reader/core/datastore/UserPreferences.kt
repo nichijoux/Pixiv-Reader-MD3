@@ -65,6 +65,8 @@ class UserPreferences @Inject constructor(
     val autoUpdate: Flow<Boolean> = context.dataStore.data.map { it[KEY_AUTO_UPDATE] ?: true }
     /** 小说 Tab 默认页：0 推荐 / 1 关注（我的页-浏览设置可改） */
     val novelDefaultTab: Flow<Int> = context.dataStore.data.map { it[KEY_NOVEL_DEFAULT_TAB] ?: 0 }
+    /** 插画查看器翻页方向：0 横向翻页 / 1 竖向翻页 / 2 无缝竖向（我的页-浏览设置可改） */
+    val viewerOrientation: Flow<Int> = context.dataStore.data.map { it[KEY_VIEWER_ORIENTATION] ?: 0 }
     /** 热门搜索缓存（展示名列表，\n 分隔；配合 updatedAt 控制刷新） */
     val hotTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
         prefs[KEY_HOT_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
@@ -88,6 +90,7 @@ class UserPreferences @Inject constructor(
     suspend fun setThemeMode(value: Int) = context.dataStore.edit { it[KEY_THEME_MODE] = value }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
     suspend fun setNovelDefaultTab(value: Int) = context.dataStore.edit { it[KEY_NOVEL_DEFAULT_TAB] = value }
+    suspend fun setViewerOrientation(value: Int) = context.dataStore.edit { it[KEY_VIEWER_ORIENTATION] = value }
     suspend fun setAppLanguage(value: String) = context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
     suspend fun setHotTags(value: List<String>) =
         context.dataStore.edit { it[KEY_HOT_TAGS] = value.joinToString("\n") }
@@ -109,6 +112,7 @@ class UserPreferences @Inject constructor(
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
         val KEY_NOVEL_DEFAULT_TAB = intPreferencesKey("novel_default_tab")
+        val KEY_VIEWER_ORIENTATION = intPreferencesKey("viewer_orientation")
         val KEY_HOT_TAGS = stringPreferencesKey("hot_tags")
         val KEY_HOT_TAGS_AT = longPreferencesKey("hot_tags_updated_at")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")

@@ -10,6 +10,7 @@ import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -19,9 +20,11 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -39,6 +42,7 @@ class ViewerViewModel @Inject constructor(
     private val ugoiraLoader: UgoiraLoader,
     private val imageSaver: ImageSaver,
     private val downloadEntryDao: DownloadEntryDao,
+    private val userPreferences: UserPreferences,
 ) : ViewModel() {
 
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
@@ -66,6 +70,15 @@ class ViewerViewModel @Inject constructor(
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
+    /** 查看器翻页方向：0 横向翻页 / 1 竖向翻页 / 2 无缝竖向（我的页-浏览设置控制）。 */
+    val viewerOrientation: StateFlow<Int> =
+        userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** 设置查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */
+    fun setViewerOrientation(value: Int) {
+        viewModelScope.launch { userPreferences.setViewerOrientation(value) }
+    }
+
     init {
         load()
     }
@@ -84,6 +97,28 @@ class ViewerViewModel @Inject constructor(
                     }
                 }
                 .onFailure { _message.send(UiMessage(R.string.viewer_msg_load_failed_reason, listOf(it.message ?: ""))) }
+        }
+        loadRealSizes()
+    }
+
+    /** 网页接口补齐每 P 真实宽高（无缝竖向模式按自然宽高比堆叠用；app-api 不提供） */
+    private fun loadRealSizes() {
+        viewModelScope.launch {
+            runCatching { pixivRepository.webApi.getIllustPages(illustId) }
+                .onSuccess { resp ->
+                    val sizes = resp.body.orEmpty()
+                    if (sizes.isNotEmpty()) {
+                        val updated = _pages.value.mapIndexed { index, page ->
+                            val size = sizes.getOrNull(index)
+                            if (size != null && size.width > 0 && size.height > 0) {
+                                page.copy(width = size.width, height = size.height)
+                            } else {
+                                page
+                            }
+                        }
+                        _pages.value = updated
+                    }
+                }
         }
     }
 

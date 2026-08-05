@@ -38,6 +38,10 @@
     <string name="me_novel_default_tab">小说默认页</string>
     <string name="me_novel_default_recommend">推荐</string>
     <string name="me_novel_default_follow">关注</string>
+    <string name="me_viewer_orientation">插画查看方向</string>
+    <string name="me_viewer_orientation_horizontal">横向滑动</string>
+    <string name="me_viewer_orientation_vertical">竖向翻页</string>
+    <string name="me_viewer_orientation_seamless">无缝竖向</string>
     <string name="me_bookmarks_title">我的收藏</string>
     <string name="me_bookmarks_desc">收藏的作品</string>
     <string name="me_history_title">浏览历史</string>

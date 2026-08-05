@@ -71,6 +71,10 @@ class MeViewModel @Inject constructor(
     val novelDefaultTab: StateFlow<Int> =
         userPreferences.novelDefaultTab.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /** 插画查看器翻页方向：0 横向翻页 / 1 竖向翻页 / 2 无缝竖向。 */
+    val viewerOrientation: StateFlow<Int> =
+        userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
     val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
@@ -110,6 +114,11 @@ class MeViewModel @Inject constructor(
     /** 设置小说 Tab 默认页（0 推荐 / 1 关注）。 */
     fun setNovelDefaultTab(value: Int) {
         viewModelScope.launch { userPreferences.setNovelDefaultTab(value) }
+    }
+
+    /** 设置插画查看器翻页方向（0 横向翻页 / 1 竖向翻页 / 2 无缝竖向）。 */
+    fun setViewerOrientation(value: Int) {
+        viewModelScope.launch { userPreferences.setViewerOrientation(value) }
     }
 
     /** 检查更新（暂为占位：无发布渠道，提示已是最新）。TODO：接入远程版本检查 */

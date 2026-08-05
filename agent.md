@@ -776,3 +776,23 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **修复**（core:ui/IllustCard.kt）：`IconButton` → **自绘 `Box` 浮层按钮**：`size(28.dp).clip(CircleShape).background(黑0.35).clickable` + `contentAlignment.Center`，内层 `Icon` 14→**18dp**（爱心放大）；删除未用 `IconButton` import。完全掌控尺寸，无强制最小尺寸。
 - **不动**：`NovelCard` 标题行收藏按钮（非封面浮层，40dp 正常）；`FullscreenImageRoute`/`CommentInput` IconButton（工具栏/输入框场景）。
 - 验证：`:app:compileDebugKotlin` 通过；`:core:ui` 单测通过。**未提交**（第五十三~六十一轮全部改动）。
+
+### 第六十二轮：插画查看器竖向翻页 + 我的页切换方向
+- **需求**：全屏插画查看器原本只能横向滑动，新增竖向查看方式；在「我的」页添加选项切换横向/竖向。
+- **偏好**（core:datastore/UserPreferences）：`viewerOrientation` Flow<Int>，默认 **0 横向 / 1 竖向**，`KEY_VIEWER_ORIENTATION = "viewer_orientation"` + `setViewerOrientation(value)`；沿用 raw-int 风格（同 themeMode/novelDefaultTab），无数据库变更。
+- **feature:viewer**：build.gradle.kts 新增 `api(project(":core:datastore"))`；`ViewerViewModel` 注入 `UserPreferences` 暴露 `viewerOrientation: StateFlow<Int>`（`stateIn`）+ `setViewerOrientation`。
+- **ViewerRoute**：页内容抽为局部 `val pageContent: @Composable (Int) -> Unit`（含 ZoomableImage），`orientation == 1` 用 **`VerticalPager`**、否则 `HorizontalPager`；**共用同一 `pagerState`** → 初始定位 `scrollToPage`/页码指示/`userScrollEnabled = !anyZoomed`（缩放禁翻页）全部不变，切向零重复加载；动图（Ugoira）分支不受影响；`FullscreenImageRoute`（单图全屏无 pager）不涉及。
+- **我的页**（feature:user）：`MeViewModel` + `viewerOrientation` StateFlow + `setViewerOrientation`；`MeRoute` 浏览设置节「小说默认页」卡片后新增「插画查看方向」卡片（横向滑动/竖向滑动两个 `PillSelectButton`，复用现有模式）；strings：`me_viewer_orientation`/`me_viewer_orientation_horizontal`/`me_viewer_orientation_vertical`（中英双语）。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user`/`:feature:viewer`/`:core:datastore`/`:core:ui` 单测通过。**未提交**。
+
+### 第六十二轮补充：无缝竖向滑动模式
+- **需求**：在横向/竖向翻页之外，新增「无缝竖向」webtoon 连续滚动模式；「我的」页插画查看方向改为三选项。
+- **偏好语义**（core:datastore `viewerOrientation`）：**0 横向翻页 / 1 竖向翻页 / 2 无缝竖向**；key 不变、无数据库变更；三处注释同步更新（UserPreferences/MeViewModel/ViewerViewModel）。
+- **每 P 真实宽高**（feature:viewer/ViewerViewModel）：新增 `loadRealSizes()`，镜像 `IllustViewModel.kt:131-149`——`pixivRepository.webApi.getIllustPages(illustId)`（`ajax/illust/{id}/pages`，单图也返回 1 项）合并 `width/height` 回 `_pages`；`load()` 始终调用，三模式统一受益，无缝模式按自然宽高比堆叠。
+- **无缝 UI**（feature:viewer/ViewerRoute）：
+  - `orientation == 2` → 新增私有 composable `SeamlessViewer`：`LazyColumn` + `rememberLazyListState`，`userScrollEnabled = !anyZoomed`（**foundation 1.7.0 已确认支持该参数**，与翻页模式缩放锁滚动一致）；每项 `Box(fillMaxWidth + aspectRatio(width/height))` + 复用 `pageContent`（ZoomableImage fillMaxSize 填满宽高比盒）；宽高缺失兜底 `aspectRatio(0.75f)`；无间距连续堆叠（真无缝）。
+  - 页内容抽为 `pageContent: @Composable (Int) -> Unit` 三种方向共用；pager/无缝两套 list state 共存。
+  - **currentIndex 统一**：`orientation == 2` 用 `listState.firstVisibleItemIndex`（snapshot state 驱动重组），否则 `pagerState.currentPage`；页码指示「当前页/N」、下载（菜单 + 底部条）、壁纸目标全部改用 `currentIndex`。
+  - 初始定位：新增 `LaunchedEffect(pages.size){ if (initialPage>0) listState.scrollToItem(target) }`（与 pagerState 同逻辑）。
+- **我的页**（feature:user）：插画查看方向卡片由 2 个胶囊改 3 个（横向滑动/竖向翻页/无缝竖向）；**竖向文案「竖向滑动」→「竖向翻页」**避免与无缝竖向混淆（key 不变）；新增 `me_viewer_orientation_seamless`（无缝竖向 / Seamless vertical），中英双语。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user`/`:feature:viewer`/`:core:datastore`/`:core:ui` 单测通过。**未提交**（第六十二轮全部改动）。

@@ -89,6 +89,7 @@ fun MeRoute(
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
     val novelDefaultTab by viewModel.novelDefaultTab.collectAsStateWithLifecycle()
+    val viewerOrientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
@@ -279,6 +280,39 @@ fun MeRoute(
                                 PillSelectButton(
                                     selected = novelDefaultTab == value,
                                     onClick = { viewModel.setNovelDefaultTab(value) },
+                                    text = stringResource(labelRes),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+                CardSpacer()
+                // 插画查看方向（全屏查看器横向 / 竖向滑动切换）
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.me_viewer_orientation),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(
+                                0 to R.string.me_viewer_orientation_horizontal,
+                                1 to R.string.me_viewer_orientation_vertical,
+                                2 to R.string.me_viewer_orientation_seamless,
+                            ).forEach { (value, labelRes) ->
+                                PillSelectButton(
+                                    selected = viewerOrientation == value,
+                                    onClick = { viewModel.setViewerOrientation(value) },
                                     text = stringResource(labelRes),
                                     modifier = Modifier.weight(1f),
                                 )

@@ -23,6 +23,7 @@ dependencies {
     api(project(":core:model"))
     api(project(":core:network"))
     api(project(":core:database"))
+    api(project(":core:datastore"))
     api(libs.androidx.navigation.compose)
 
     api(libs.hilt.android)

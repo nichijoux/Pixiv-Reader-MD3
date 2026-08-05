@@ -5,13 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -46,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ZoomableImage
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
@@ -65,6 +72,7 @@ fun ViewerRoute(
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
     val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
     val isOriginal by viewModel.isOriginal.collectAsStateWithLifecycle()
+    val orientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
 
     // 初始页在 pages 加载前 pageCount 可能为 1，直接传 initialPage>0 会越界崩溃；
     // 因此从第 0 页开始，待 pages 就绪后再滚动到目标页（钳制在合法范围）。
@@ -78,8 +86,22 @@ fun ViewerRoute(
             if (target > 0) pagerState.scrollToPage(target)
         }
     }
+    // 无缝竖向模式用列表状态（与 pagerState 二选一，按当前方向取用）
+    val listState = rememberLazyListState()
+    LaunchedEffect(pages.size) {
+        if (pages.isNotEmpty()) {
+            val target = viewModel.initialPage.coerceIn(0, pages.size - 1)
+            if (target > 0) listState.scrollToItem(target)
+        }
+    }
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // 当前页：无缝竖向按首可见项，其余按 pager 当前页（页码指示 / 下载 / 壁纸共用）
+    val currentIndex = if (orientation == 2) {
+        listState.firstVisibleItemIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+    } else {
+        pagerState.currentPage
+    }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
 
@@ -98,11 +120,8 @@ fun ViewerRoute(
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            HorizontalPager(
-                state = pagerState,
-                userScrollEnabled = !anyZoomed,
-                modifier = Modifier.fillMaxSize(),
-            ) { index ->
+            // 页内容（放大 / 预览·原图切换），三种方向共用
+            val pageContent: @Composable (Int) -> Unit = { index ->
                 val page = pages.getOrNull(index)
                 if (page != null) {
                     ZoomableImage(
@@ -116,6 +135,27 @@ fun ViewerRoute(
                         onZoomChanged = { zoomed -> anyZoomed = zoomed },
                     )
                 }
+            }
+            when (orientation) {
+                // 无缝竖向：按自然宽高比连续堆叠，上下滚动（我的页-浏览设置可切）
+                2 -> SeamlessViewer(
+                    pages = pages,
+                    state = listState,
+                    userScrollEnabled = !anyZoomed,
+                    content = pageContent,
+                )
+                // 竖向翻页：整页上下滑动切换
+                1 -> VerticalPager(
+                    state = pagerState,
+                    userScrollEnabled = !anyZoomed,
+                    modifier = Modifier.fillMaxSize(),
+                ) { index -> pageContent(index) }
+                // 横向翻页（默认）
+                else -> HorizontalPager(
+                    state = pagerState,
+                    userScrollEnabled = !anyZoomed,
+                    modifier = Modifier.fillMaxSize(),
+                ) { index -> pageContent(index) }
             }
         }
 
@@ -170,7 +210,7 @@ fun ViewerRoute(
                             if (isGif) {
                                 viewModel.downloadGifStub()
                             } else {
-                                pages.getOrNull(pagerState.currentPage)?.let(viewModel::download)
+                                pages.getOrNull(currentIndex)?.let(viewModel::download)
                             }
                         },
                     )
@@ -197,7 +237,7 @@ fun ViewerRoute(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "${pagerState.currentPage + 1} / ${pages.size}",
+                    text = "${currentIndex + 1} / ${pages.size}",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White,
                 )
@@ -215,11 +255,11 @@ fun ViewerRoute(
                 if (isGif) {
                     viewModel.downloadGifStub()
                 } else {
-                    pages.getOrNull(pagerState.currentPage)?.let(viewModel::download)
+                    pages.getOrNull(currentIndex)?.let(viewModel::download)
                 }
             },
             onWallpaper = {
-                if (!isGif) pages.getOrNull(pagerState.currentPage)?.let(viewModel::wallpaper)
+                if (!isGif) pages.getOrNull(currentIndex)?.let(viewModel::wallpaper)
             },
             onOriginal = viewModel::toggleOriginal,
         )
@@ -230,6 +270,42 @@ fun ViewerRoute(
                 .align(Alignment.BottomCenter)
                 .padding(start = 24.dp, end = 24.dp, bottom = 100.dp),
         )
+    }
+}
+
+// ── 无缝竖向滚动（webtoon 连续堆叠） ───────────────────────────────────────────
+
+/**
+ * 无缝竖向模式：每 P 按真实宽高比撑满屏宽连续堆叠（无间距），
+ * 单指上下连续滚动；缩放时由 [LazyColumn.userScrollEnabled] 锁定滚动（与翻页模式一致）。
+ */
+@Composable
+private fun SeamlessViewer(
+    pages: List<IllustPageInfo>,
+    state: LazyListState,
+    userScrollEnabled: Boolean,
+    content: @Composable (Int) -> Unit,
+) {
+    LazyColumn(
+        state = state,
+        userScrollEnabled = userScrollEnabled,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        itemsIndexed(pages) { index, page ->
+            // 宽高缺失时兜底 3:4 竖图比例（loadRealSizes 补齐前/失败时）
+            val ratio = if (page.width > 0 && page.height > 0) {
+                page.width.toFloat() / page.height.toFloat()
+            } else {
+                0.75f
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(ratio),
+            ) {
+                content(index)
+            }
+        }
     }
 }
 
