@@ -26,6 +26,7 @@ dependencies {
     api(project(":core:novel"))
     api(libs.androidx.navigation.compose)
 
+    implementation(project(":core:datastore"))
     api(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)

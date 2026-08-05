@@ -67,6 +67,10 @@ class MeViewModel @Inject constructor(
     val autoUpdate: StateFlow<Boolean> =
         userPreferences.autoUpdate.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    /** 小说 Tab 默认页：0 推荐 / 1 关注。 */
+    val novelDefaultTab: StateFlow<Int> =
+        userPreferences.novelDefaultTab.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
     val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
@@ -101,6 +105,11 @@ class MeViewModel @Inject constructor(
 
     fun setAutoUpdate(value: Boolean) {
         viewModelScope.launch { userPreferences.setAutoUpdate(value) }
+    }
+
+    /** 设置小说 Tab 默认页（0 推荐 / 1 关注）。 */
+    fun setNovelDefaultTab(value: Int) {
+        viewModelScope.launch { userPreferences.setNovelDefaultTab(value) }
     }
 
     /** 检查更新（暂为占位：无发布渠道，提示已是最新）。TODO：接入远程版本检查 */

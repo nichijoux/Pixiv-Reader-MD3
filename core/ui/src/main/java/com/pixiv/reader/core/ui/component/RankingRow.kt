@@ -28,8 +28,8 @@ import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.ui.R
 
-/** 排名徽标配色：1 金 / 2 橙 / 3 灰，其余用主题次级色。 */
-private fun rankColor(rank: Int): Color? = when (rank) {
+/** 排名徽标配色：1 金 / 2 橙 / 3 灰，其余用主题次级色（[NovelCard] 排名徽标复用）。 */
+internal fun rankColor(rank: Int): Color? = when (rank) {
     1 -> Color(0xFFE8A33D)
     2 -> Color(0xFFB45309)
     3 -> Color(0xFF6B7280)

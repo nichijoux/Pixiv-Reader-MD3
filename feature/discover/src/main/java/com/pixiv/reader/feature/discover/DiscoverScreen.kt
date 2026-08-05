@@ -63,6 +63,7 @@ import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
+import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.NovelCard
@@ -79,8 +80,9 @@ import kotlinx.coroutines.launch
 fun DiscoverRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
     initialQuery: String? = null,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
@@ -104,36 +106,40 @@ fun DiscoverRoute(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
-    ) {
-        // 搜索栏（聚焦高亮 + 清除/搜索按钮）
-        SearchField(
-            query = query,
-            onQueryChange = viewModel::onQueryChange,
-            onSearch = viewModel::search,
-            onClear = viewModel::clearSearch,
-            onOpenFilter = { showFilter = true },
-        )
+    // 平板限宽居中：搜索栏 + TabRow + 结果列表不超过 MAX_CONTENT_WIDTH_DP
+    AdaptiveContentBox {
+        Column(
+            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        ) {
+            // 搜索栏（聚焦高亮 + 清除/搜索按钮）
+            SearchField(
+                query = query,
+                onQueryChange = viewModel::onQueryChange,
+                onSearch = viewModel::search,
+                onClear = viewModel::clearSearch,
+                onOpenFilter = { showFilter = true },
+            )
 
-        when {
-            hasSearched && query.isNotBlank() -> SearchResultPager(
-                type = type,
-                viewModel = viewModel,
-                onOpenIllust = onOpenIllust,
-                onOpenNovel = onOpenNovel,
-                onOpenReader = onOpenReader,
-                onOpenUser = onOpenUser,
-            )
-            query.isNotBlank() -> SuggestionList(
-                suggestions = suggestions,
-                onPick = { viewModel.onQueryChange(it); viewModel.search() },
-            )
-            else -> IdlePanel(
-                hotTags = hotTags,
-                history = history,
-                viewModel = viewModel,
-            )
+            when {
+                hasSearched && query.isNotBlank() -> SearchResultPager(
+                    type = type,
+                    viewModel = viewModel,
+                    onOpenIllust = onOpenIllust,
+                    onOpenNovel = onOpenNovel,
+                    onOpenCover = onOpenCover,
+                    onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
+                )
+                query.isNotBlank() -> SuggestionList(
+                    suggestions = suggestions,
+                    onPick = { viewModel.onQueryChange(it); viewModel.search() },
+                )
+                else -> IdlePanel(
+                    hotTags = hotTags,
+                    history = history,
+                    viewModel = viewModel,
+                )
+            }
         }
     }
 
@@ -360,8 +366,9 @@ private fun SearchResultPager(
     viewModel: DiscoverViewModel,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { SearchType.entries.size })
     val scope = rememberCoroutineScope()
@@ -397,9 +404,9 @@ private fun SearchResultPager(
                     IllustSearchResults(viewModel, onOpenIllust)
                 }
                 SearchType.NOVEL -> if (filters.mode == SearchMode.HOT) {
-                    HotNovelList(viewModel, onOpenNovel, onOpenReader, onOpenUser)
+                    HotNovelList(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
                 } else {
-                    NovelSearchResults(viewModel, onOpenNovel, onOpenReader, onOpenUser)
+                    NovelSearchResults(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
                 }
                 SearchType.USER -> UserSearchResults(viewModel, onOpenUser)
                 null -> {}
@@ -430,8 +437,9 @@ private fun HotIllustGrid(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> 
 private fun HotNovelList(
     viewModel: DiscoverViewModel,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
 ) {
     val popular by viewModel.popularNovels.collectAsStateWithLifecycle()
     if (popular.isEmpty()) {
@@ -454,6 +462,7 @@ private fun HotNovelList(
                     authorAvatarUrl = novel.user?.profile_image_urls?.best(),
                     publishDate = novel.create_date,
                     seriesTitle = novel.series?.title,
+                    seriesId = novel.series?.id,
                     favoriteCount = novel.total_bookmarks ?: 0,
                     wordCount = novel.text_length ?: 0,
                     tags = novel.tags.orEmpty()
@@ -463,13 +472,14 @@ private fun HotNovelList(
                     isFavorite = novel.is_bookmarked == true,
                 ),
                 onClick = { onOpenNovel(novel.id) },
-                onOpenReader = { onOpenReader(novel.id) },
+                onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(novel.id, fav) },
                 onTagClick = { tag ->
                     viewModel.onQueryChange(tag)
                     viewModel.search()
                 },
+                onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
             )
         }
     }

@@ -52,7 +52,9 @@ import kotlinx.coroutines.launch
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
  * @param onOpenNovel 打开小说详情
+ * @param onOpenCover 打开小说封面全屏大图
  * @param onOpenUser 打开用户主页
+ * @param onOpenSeries 打开小说系列详情
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +62,9 @@ fun HistoryRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val history by viewModel.history.collectAsStateWithLifecycle()
@@ -131,7 +135,9 @@ fun HistoryRoute(
                             entries = history,
                             viewModel = viewModel,
                             onOpenNovel = onOpenNovel,
+                            onOpenCover = onOpenCover,
                             onOpenUser = onOpenUser,
+                            onOpenSeries = onOpenSeries,
                             context = context,
                         )
                         HistoryFilter.USER -> UserHistoryList(
@@ -176,7 +182,9 @@ private fun NovelHistoryList(
     entries: List<BrowseHistoryEntity>,
     viewModel: HistoryViewModel,
     onOpenNovel: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
     context: Context,
 ) {
     if (entries.isEmpty()) {
@@ -193,10 +201,11 @@ private fun NovelHistoryList(
             NovelCard(
                 novel = card,
                 onClick = { onOpenNovel(entry.targetId) },
-                onOpenReader = { onOpenNovel(entry.targetId) },
+                onOpenCover = { card.coverUrl?.let(onOpenCover) },
                 onOpenAuthor = { card.authorId.takeIf { it != 0L }?.let(onOpenUser) },
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(entry.targetId, fav) },
                 onTagClick = {},
+                onSeriesClick = { card.seriesId?.let(onOpenSeries) },
             )
         }
     }

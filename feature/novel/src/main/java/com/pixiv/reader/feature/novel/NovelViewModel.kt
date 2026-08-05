@@ -127,6 +127,7 @@ class NovelViewModel @Inject constructor(
                     authorAvatarUrl = detail.user?.profile_image_urls?.best(),
                     publishDate = detail.create_date,
                     seriesTitle = detail.series?.title,
+                    seriesId = detail.series?.id,
                     favoriteCount = detail.total_bookmarks ?: 0,
                     wordCount = detail.text_length ?: 0,
                     tags = detail.tags.orEmpty()

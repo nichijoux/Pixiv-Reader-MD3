@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp
  * @param contentPadding 网格内容边距
  * @param minColumnWidth 每列最小宽度（决定自适应列数）
  * @param onToggleFavorite 收藏切换回调（参数为 id + 目标状态）；null 则卡片不显示收藏按钮
+ * @param header 网格头部内容（整行跨列，随列表滚动，如排行榜入口 banner）；null 不显示
  */
 @Composable
 fun IllustWaterfallGrid(
@@ -51,6 +53,7 @@ fun IllustWaterfallGrid(
     contentPadding: PaddingValues = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
     minColumnWidth: Dp = 140.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
+    header: (@Composable () -> Unit)? = null,
 ) {
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(minColumnWidth),
@@ -59,6 +62,11 @@ fun IllustWaterfallGrid(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalItemSpacing = 8.dp,
     ) {
+        if (header != null) {
+            item(span = StaggeredGridItemSpan.FullLine, key = "grid_header") {
+                header()
+            }
+        }
         items(
             items = illusts,
             key = { it.id },

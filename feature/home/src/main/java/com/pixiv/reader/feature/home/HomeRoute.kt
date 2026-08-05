@@ -1,7 +1,6 @@
 package com.pixiv.reader.feature.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.TrendingTag
+import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
@@ -57,12 +58,10 @@ fun HomeRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(R.string.home_follow),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
+                    // 平板限宽居中（与下方 AdaptiveContentBox 内容对齐）
+                    AdaptiveContentTitle(
+                        text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(R.string.home_follow),
+                    )
                 },
                 actions = {
                     IconButton(onClick = { /* 通知（P7） */ }) {
@@ -79,41 +78,41 @@ fun HomeRoute(
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        androidx.compose.foundation.layout.Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            // 分区 + 热门标签
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
+            androidx.compose.foundation.layout.Column(
+                modifier = Modifier.fillMaxSize(),
             ) {
-                item {
-                    FilterChip(
-                        selected = tab == HomeTab.RECOMMEND,
-                        onClick = { viewModel.selectTab(HomeTab.RECOMMEND) },
-                        label = { Text(stringResource(R.string.home_for_you)) },
-                    )
+                // 分区 + 热门标签
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                ) {
+                    item {
+                        FilterChip(
+                            selected = tab == HomeTab.RECOMMEND,
+                            onClick = { viewModel.selectTab(HomeTab.RECOMMEND) },
+                            label = { Text(stringResource(R.string.home_for_you)) },
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = tab == HomeTab.FOLLOW,
+                            onClick = { viewModel.selectTab(HomeTab.FOLLOW) },
+                            label = { Text(stringResource(R.string.home_follow)) },
+                        )
+                    }
+                    items(trendingTags, key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
+                        AssistChip(
+                            onClick = { /* 点击标签跳搜索（P3） */ },
+                            label = { Text(tag.displayName()) },
+                        )
+                    }
                 }
-                item {
-                    FilterChip(
-                        selected = tab == HomeTab.FOLLOW,
-                        onClick = { viewModel.selectTab(HomeTab.FOLLOW) },
-                        label = { Text(stringResource(R.string.home_follow)) },
-                    )
-                }
-                items(trendingTags, key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
-                    AssistChip(
-                        onClick = { /* 点击标签跳搜索（P3） */ },
-                        label = { Text(tag.displayName()) },
-                    )
-                }
-            }
 
-            when (tab) {
-                HomeTab.RECOMMEND -> RecommendContent(viewModel, onOpenIllust)
-                HomeTab.FOLLOW -> FollowContent(viewModel, onOpenIllust)
+                when (tab) {
+                    HomeTab.RECOMMEND -> RecommendContent(viewModel, onOpenIllust)
+                    HomeTab.FOLLOW -> FollowContent(viewModel, onOpenIllust)
+                }
             }
         }
     }

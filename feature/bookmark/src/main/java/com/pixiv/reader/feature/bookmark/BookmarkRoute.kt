@@ -61,8 +61,9 @@ fun BookmarkRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     viewModel: BookmarkViewModel = hiltViewModel(),
 ) {
@@ -143,8 +144,9 @@ fun BookmarkRoute(
                         BookmarkType.NOVEL -> BookmarkNovelList(
                             paged = viewModel.novelPaged,
                             onOpenNovel = onOpenNovel,
-                            onOpenReader = onOpenReader,
+                            onOpenCover = onOpenCover,
                             onOpenUser = onOpenUser,
+                            onOpenSeries = onOpenSeries,
                             onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
                             onTagClick = onSearchTag,
                             onLoadMore = viewModel::loadMore,
@@ -187,8 +189,9 @@ private fun BookmarkIllustList(
 private fun BookmarkNovelList(
     paged: PagedState<com.pixiv.api.model.Novel>,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
     onToggleFavorite: (Long, Boolean) -> Unit,
     onTagClick: (String) -> Unit,
     onLoadMore: () -> Unit,
@@ -219,6 +222,7 @@ private fun BookmarkNovelList(
                         authorAvatarUrl = novel.user?.profile_image_urls?.best(),
                         publishDate = novel.create_date,
                         seriesTitle = novel.series?.title,
+                        seriesId = novel.series?.id,
                         favoriteCount = novel.total_bookmarks ?: 0,
                         wordCount = novel.text_length ?: 0,
                         tags = novel.tags.orEmpty()
@@ -228,10 +232,11 @@ private fun BookmarkNovelList(
                         isFavorite = novel.is_bookmarked == true,
                     ),
                     onClick = { onOpenNovel(novel.id) },
-                    onOpenReader = { onOpenReader(novel.id) },
+                    onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                     onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,
+                    onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
                 )
             }
             if (hasMore) {

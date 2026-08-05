@@ -607,3 +607,130 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - 用户要求删除「我的页-账户管理」分组下的退出登录项（该分组仅此一项）→ 整个分组删除（`SectionSpacer + SectionTitle(me_section_account) + SettingsCard(Logout)`），并清理 `Icons.AutoMirrored.Filled.Logout` import 与 `me_section_account` string（zh/en）。
 - **保留**：头部 `ProfileHeader` 的 `actionLabel`（`me_logout`）退出登录快捷按钮仍在，`me_logout` string 保留。
 - 验证：`:app:compileDebugKotlin` 通过。
+
+### 第五十三轮：小说页改造——推荐/关注 Tab + 小说排行榜
+- **需求**：小说页增加排行榜，并分为推荐/关注两个页面。
+- **API 分析（lib:pixivapi 零改动，全部已就绪）**：排行榜 `GET v1/novel/ranking?mode=`、推荐 `GET v1/novel/recommended`、关注 `GET v1/novel/follow?restrict=public`——三者响应均带 `next_url`（`NovelResponse`/`NovelRecommendResponse`），分页统一走 `getNextNovels`。小说排行榜 mode 与插画通用（`day/week/day_male/day_female/week_rookie/day_r18`，无小说专属 mode；`day_manga` 是漫画专属不适用）。用户选定 6 段：日榜/周榜/男性向/女性向/新人/R18。
+- **交互（用户选定）**：排行榜 = 推荐页顶部 banner 入口 → 全屏排行榜页（同漫画 Tab 模式）；推荐/关注 = 小说 Tab 内 `PrimaryTabRow + HorizontalPager`（2 页滑动切换）。
+- **新增 core:ui `NovelRankingRow.kt`**：小说排行行（与 `RankingRow` 布局一致的小说版）——28dp 斜体加粗序号（复用 `RankingRow` 内 `rankColor`，已从 private 改 `internal`）+ 88dp 圆角封面 + 标题2行/作者/收藏徽标/字数；core:ui strings 新增 `ranking_word_count`（%1$s 字 / %1$s words）。
+- **新增 `NovelRankingViewModel.kt`**（仿 MangaRankingViewModel）：6 段 `RankingModeInfo` + `pages` map + `initialized` set，每段独立 `PagedState` 惰性创建驻留 VM；`fetch = getRankingNovels(mode)`、`fetchNext = getNextNovels(it)`。
+- **新增 `NovelRankingRoute.kt`**：全屏页 `Scaffold + TopAppBar（返回）+ RankingList(modes, stateFor, onRetry, onLoadMore, emptyText)`，itemContent = `NovelRankingRow` → `onOpenNovel`。
+- **`NovelFeedViewModel` 扩展**：新增 `follow = PagedState<Novel>()` + `ensureFollowLoaded()`（幂等，关注 Tab 首进加载）/`refreshFollow()`/`loadMoreFollow()`，数据源 `getFollowingNovels("public")`。
+- **`NovelRoute` 重构**：`PrimaryTabRow`（推荐/关注）+ `HorizontalPager`（2 页）；推荐页 = `NovelRankingBanner`（仿漫画入口卡，primaryContainer + Leaderboard 图标）+ 推荐流；关注页 = 关注流；抽出私有 `NovelPagedList`（三态 + 触底自动加载 + NovelCard 渲染，推荐/关注共用）。**坑**：`PrimaryTabRow` 是 experimental M3 API，`NovelRoute` 需 `@OptIn(ExperimentalMaterial3Api::class)`。
+- **导航**：`MainShell` 加 `onOpenNovelRanking` 参数透传；`PixivNavGraph` 新增 `ROUTE_NOVEL_RANKING = "novel_ranking"` + 注册 `NovelRankingRoute`（onOpenNovel → `novel/{id}`）。
+- **strings（feature:novel，zh/en）**：`novel_tab_recommend`/`novel_tab_follow`、`novel_follow_empty`、`novel_ranking_title/empty/banner(+desc)`、6 个 mode 标签（日榜/周榜/男性向/女性向/新人/R18）。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:novel:testDebugUnitTest :core:ui:testDebugUnitTest` 通过。**未提交**（含上一轮删除退出登录 + 本轮全部改动）。
+
+### 第五十四轮：小说页顶部对齐漫画 + 下拉刷新（小说/漫画）+ 排行榜随滚动 + 默认页自定义
+- **需求**：① 小说页顶部边距与漫画不一致（顶得高）；② 小说刷新按钮改排行榜（与漫画一致）+ 小说/漫画下拉刷新；③ 小说 Tab 默认页（推荐/关注）可自定义，选项放"我的"页。
+- **根因**：`AdaptiveNavScaffold`/`MainActivity` 外层 Scaffold 均 `contentWindowInsets = WindowInsets(0,0,0,0)`（顶栏 inset 由各页自行处理）。漫画用 `Scaffold + TopAppBar`（自带状态栏 inset）而小说用 `AdaptiveContentBox{ Column{ Row(标题) } }` 无状态栏 inset → 标题顶到状态栏、位置与漫画不一致。
+- **`NovelRoute` 顶部重构**：改 `Scaffold + TopAppBar(title=小说, actions={ Leaderboard → onOpenNovelRanking })`（移除 AdaptiveContentBox 与 Refresh 按钮），TopAppBar 自带状态栏 inset → 与漫画完全一致；`PrimaryTabRow`+`HorizontalPager` 保留。
+- **下拉刷新**：material3 1.3.0 `PullToRefreshBox`（`androidx.compose.material3.pulltorefresh`，experimental，BOM 2024.09 自带无新依赖）。小说 `NovelPagedList` 包 PullToRefreshBox（`isRefreshing`/`onRefresh` 参数，空/错误态用 `Modifier.verticalScroll(rememberScrollState())` 包裹保证可下拉）；漫画 `MangaRoute` 同样包裹。VM 各自加 `isRefreshing`/`isFollowRefreshing`（`MutableStateFlow`）+ `pullRefresh()`/`pullRefreshFollow()`（防重入 → true → reset+loadInitial → finally false）。**坑**：`PullToRefreshBox` 需 `@OptIn(ExperimentalMaterial3Api::class)`。
+- **排行榜随滚动**：`IllustWaterfallGrid` 新增可选 `header: (@Composable () -> Unit)?` slot，网格头部用 `item(span = StaggeredGridItemSpan.FullLine)` 整行渲染（漫画 banner 移入 header，随列表滚动/下拉）。**坑**：`LazyStaggeredGridScope.item` 是作用域成员函数，**不要** import `androidx.compose.foundation.lazy.staggeredgrid.item`（不存在该顶层函数）。小说推荐页 banner 同样改为 `NovelPagedList` 的 `header`（LazyColumn 首 item）。
+- **默认页自定义**：`UserPreferences` 加 `novelDefaultTab: Flow<Int>`（0 推荐/1 关注，默认 0）+ `setNovelDefaultTab` + `KEY_NOVEL_DEFAULT_TAB`；`NovelFeedViewModel` 注入 `UserPreferences`（feature:novel build.gradle 补 `implementation(project(":core:datastore"))`）+ `novelDefaultTab: StateFlow<Int>`（stateIn 0）+ `suspend loadDefaultTab() = userPreferences.novelDefaultTab.first()`；`NovelRoute` 用 `LaunchedEffect(Unit)` + `rememberSaveable` 防重 guard → `pagerState.scrollToPage(viewModel.loadDefaultTab())` 首帧定位（旋转不跳页、进程重建回默认）。**坑**：不能用 stateIn 初始值做首帧定位（DataStore 异步读，初始 0 会先 emit 导致默认值永远生效）→ 用 `first()` 读真实落盘值。
+- **我的页「浏览设置」分组**（用户选定新建分组，不并入外观/系统）：`MeRoute` 外观设置之后、系统设置之前新增 `SectionTitle(me_section_browse)` + Card「小说默认页」`PillSelectButton [推荐, 关注]`（weight 均分，样式与主题/语言胶囊一致）；`MeViewModel` 加 `novelDefaultTab: StateFlow<Int>` + `setNovelDefaultTab(value)`。
+- **strings**：feature:user 加 `me_section_browse`/`me_novel_default_tab`/`me_novel_default_recommend`/`me_novel_default_follow`；feature:novel 加 `novel_cd_ranking`（排行榜图标描述）；`novel_cd_refresh` 已无引用但保留。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:novel :feature:manga :feature:user :core:ui` 单测通过。**未提交**（第五十三+五十四轮全部改动）。
+
+### 第五十五轮：路由 bug 修复——小说标签跳发现页后点回小说不跳转
+- **现象**：小说页点标签 → 进发现页（bottom bar 也切到发现）→ 此时点底部「小说」不跳转，只有先点其它页再点小说才正常。
+- **根因**：小说标签跳发现走 `navigate("discover_tab"){ launchSingleTop }`（**无 popUpTo**），把 discover **压栈**到 novel 之上形成非标准栈 `[home, novel, discover]`。此时点小说 Tab，tab 切换的 `navigate("novel_tab"){ popUpTo(home){saveState}; launchSingleTop; restoreState }` 在**同一次 navigate 内**先 `popUpTo` 把 novel 弹出并 saveState，紧接着 `restoreState` 恢复**同 route** 的 novel——「同一 navigate 中 save 后立即 restore 同一 destination」触发 Navigation 2.8 状态恢复异常，NavHost 未切到小说页。
+- **为何其它路径正常**：点首页（startDestination）`launchSingleTop` 直接复用栈顶不走 restoreState；点从未进过的 tab 无 savedState 可恢复；先点其它页再点小说时 novel 的 savedState 是**跨 navigate** 保存的（正常路径）。
+- **修复**：`MainShell` 新增 `fun navigateToTab(route)`（`popUpTo(findStartDestination){saveState}` + `launchSingleTop` + `restoreState`），**所有跳到某 Tab 的导航统一走它**：底部 tab `onSelect`、`onSearchTag`（小说标签→发现）、`HomeRoute.onOpenSearch`（首页搜索→发现）、`initialSearch` 通道（顶层 `main?search`）。栈始终保持标准 tab 栈（栈底 home、目标 tab 在顶），消除「discover 压栈 + 同 navigate save/restore 同 route」场景；小说页状态（Tab/滚动）经 saveState/restoreState 正常保留。
+- **备选**（若仍复现说明 restoreState 无条件 bug）：tab 切换去掉 `restoreState`（代价：切 Tab 丢页面状态/滚动位置）。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:novel :feature:home :core:ui` 单测通过。**未提交**（第五十三~五十五轮全部改动）。
+
+### 第五十六轮：NovelCard 重构——上下两部分布局（HTML 设计稿驱动）
+- **需求**：`NovelCard` 改上下两部分（上：左封面|右信息；下：标签），先出 HTML 设计稿 `novel-card-design.html`（项目根，可反复改）再实现。
+- **HTML 迭代定稿要点**：① 封面角标（收藏数/字数）**底部居中**、**无背景**、白色 **加粗** 11sp + 轻文字阴影（用户先要居中→再要底部居中→无背景→加粗）；收藏数 icon 为**红色爱心** `Color(0xFFE53935)`（不随收藏状态）；② 系列名**仅换色为 APP 主题色 `primary`**（不要 Material 默认紫 #6750A4；App 主题色 = `theme/Color.kt` `Primary = 0xFF00639B` 蓝，字号/不加粗/无前缀不变）；③ **作者名 + 时间同一行**（头像 + 作者名撑满 + 时间靠右）并**抵到信息区底部**（`Spacer(weight 1f)` 弹性占位）；④ 标签区无分隔线。
+- **实现（core:ui `NovelCard.kt`）**：`Card > Column(padding 14dp)`；上部分 `Row`（封面 104dp 3:4 + 底部居中角标 Column/红心12dp+收藏数/字数 `labelSmall.copy(weight=SemiBold, color=White, shadow=Shadow(黑0.45, 0,1,2))`；右信息 `Column(weight(1f) + fillMaxHeight)`——标题行（+收藏按钮）、系列（`primary`）、`Spacer(weight 1f)` 推底、作者+时间行（作者名 weight 1f、时间 `outline` 色））；下部分 `FlowRow` 标签（take3 + N，无分隔线）。`NovelCardData` 模型与全部调用方**不变**。
+- **坑**：右信息 Column 必须 `fillMaxHeight()` 撑满封面高度，`Spacer(weight)` 才能把作者行抵底；移除 `Brush`/`sp` import（不再有渐变遮罩/硬编码字号）。
+- **Bug 修复（补充）**：仅 `fillMaxHeight()` 在 LazyColumn 的 wrap 高度 Row 中不生效（Row 高度未确定），作者行不抵底 → Row 需加 `Modifier.height(IntrinsicSize.Min)`（等高 Row 标准做法，Row 高度取封面固有高度），右 Column fillMaxHeight 才有确定高度撑满、weight 推底生效。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui :feature:novel` 单测通过。**未提交**（第五十三~五十六轮全部改动）。
+
+### 第五十七轮：NovelCard 收藏按钮放大 + 收藏通知 + 小说排行榜改用 NovelCard（含排名）
+- **需求**：① 收藏按钮大一些 + 点击有通知；② 小说排行榜改用 `NovelCard` 但可显示排名。
+- **`NovelCard` 扩展（通用）**：收藏按钮 `IconButton 36→40dp`、icon `20→24dp`；新增可选 `rank: Int? = null`——非 null 时封面**左上角**显示排名徽标（`Color.Black 0.45` 圆角底 + `titleMedium Bold Italic`，颜色 `rankColor(rank)`：1金/2橙/3灰，其余白色）。
+- **收藏通知**：`NovelFeedViewModel`/`NovelRankingViewModel` 加 `_message = Channel<UiMessage>` + `message = receiveAsFlow()`，`toggleNovelFavorite` 成功发 `novel_msg_bookmarked/unbookmarked`、失败发 `novel_msg_action_failed`（复用 feature:novel 已有 string）。`NovelRoute` 主体（小说 Tab）与 `NovelRankingRoute` 的 Scaffold 加 `snackbarHost = NotificationHost` + `LaunchedEffect collect message`。
+- **排行榜改用 NovelCard**：`NovelRankingRoute` 的 itemContent 从 `NovelRankingRow` 改为 `NovelCard`（映射 `NovelCardData` + `rank` 传入），新增参数 `onOpenReader/onOpenUser/onSearchTag`（`onToggleFavorite` 由 VM 处理）；卡片间用 `modifier = padding(bottom 10dp)` 分隔（RankingList 列表项无间距）。`PixivNavGraph` 注册处接线 reader/user；**onSearchTag 暂传空 lambda**（顶层路由无法直达 MainShell 内 Tab，跨 Tab 搜索后续再处理）。
+- **删除**：`NovelRankingRow.kt`（改用 NovelCard 后无引用）+ core:ui `ranking_word_count` string（zh/en，仅该行用）；`RankingRow.kt` 的 `rankColor` 注释更新为「[NovelCard] 排名徽标复用」（仍在 core:ui 同包 internal 可见）。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:novel :core:ui` 单测通过。**未提交**（第五十三~五十七轮全部改动）。
+
+### 第五十八轮：平板限宽改造——小说/漫画/首页/发现页 + 两个排行榜
+- **需求**：小说页、漫画页（尤其排行榜）在平板端内容全宽拉伸不符合平板设计；用户选定范围**含首页/发现页**，且 **TopAppBar 标题限宽居中**（与内容对齐）。
+- **背景**：项目平板规范 = `AdaptiveContentBox`（`MAX_CONTENT_WIDTH_DP=760dp` 限宽居中），此前仅全屏页与 Me 页套用；Home/Manga/Novel/Discover/排行榜全宽。
+- **core:ui 新增 `AdaptiveContentTitle(text, modifier, maxWidth)`**（AdaptiveScaffold.kt）：`Box(fillMaxWidth, CenterStart) > Box(widthIn(max)) > Text(SemiBold)`，TopAppBar 标题限宽居中（5 处 TopAppBar 复用）。
+- **`RankingList`（通用）**：内部 `Column(modifier.fillMaxSize())` → 包 `AdaptiveContentBox(modifier)`，TabRow + 列表整体限宽居中（漫画/小说/未来插画排行榜自动适配）。**坑**：包一层后需在末尾多补一个闭合括号；HorizontalPager 内部内容缩进需整体 +4 整理。
+- **各页面**：`HomeRoute`（title=AdaptiveContentTitle 动态推荐/关注 + content Column 包 AdaptiveContentBox）、`MangaRoute`（title + PullToRefreshBox 包 AdaptiveContentBox）、`NovelRoute`（title + Column(PrimaryTabRow+HorizontalPager) 包 AdaptiveContentBox）、`MangaRankingRoute`/`NovelRankingRoute`（title 限宽，列表由 RankingList 内部限宽）、`DiscoverScreen`（无 TopAppBar，外层 Column 包 AdaptiveContentBox，搜索栏+TabRow+结果限宽）。
+- **坑**：① `AdaptiveScaffold.kt` 需补 `fillMaxWidth` import；② 删除 title 的 `FontWeight.SemiBold` 后清理 unused `FontWeight`/`Row`/`Alignment` imports（MangaRanking/NovelRanking/Home）；③ NovelRankingRoute 缺 `androidx.compose.ui.unit.dp` import（padding(bottom=10.dp) 用）需补。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui :feature:home :feature:manga :feature:novel :feature:discover` 单测通过。**未提交**（第五十三~五十八轮全部改动）。
+
+### 第五十八轮补充（排行榜 TabRow 平板居中）
+- **现象**：小说/漫画排行榜 TabRow 在平板限宽容器内 tabs 靠左，不居中。
+- **根因**：`ScrollableTabRow` 内部强制 `fillMaxWidth` + tabs 内容宽度排列（靠左），限宽容器（760dp 居中）内左侧留白。
+- **修复**（`RankingList`）：`BoxWithConstraints` 判断限宽是否生效（`maxWidth >= MAX_CONTENT_WIDTH_DP.dp`）——平板（限宽生效）改用 **`PrimaryTabRow`**（tab 自动均分占满 → 居中），手机保留 **`ScrollableTabRow`**（内容宽度可滑动）。用 `for (index in modes.indices)` 循环替代 `forEachIndexed`。
+- **坑**：`Modifier.weight(1f)` 在 `ScrollableTabRow` content 的 `forEachIndexed` lambda 内无法解析 implicit RowScope receiver（lambda 无 receiver 丢失 dispatch receiver；`with(rowScope)`/`rowScope.weight(Modifier,1f)` 也失败）→ 最终放弃 weight 方案，改用 PrimaryTabRow 均分。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui :feature:novel :feature:manga` 单测通过。**未提交**（第五十三~五十八轮全部改动）。
+
+### 第五十九轮：NovelCard 封面点击 → 全屏查看封面大图
+- **需求**：NovelCard 封面点击由「直达阅读器」改为「全屏查看封面大图」（同插画 Viewer 体验）；阅读器入口移除，阅读走整卡→详情页；全局 7 处生效，快照无封面 URL 项点击不响应。
+- **core:ui 新增 `FullscreenImageRoute(url, title, onBack)`**（FullscreenImageRoute.kt）：纯展示零依赖，黑底 `0xFF0A0A0A` + 复用 `ZoomableImage`（捏合缩放）+ `BackHandler` + 顶部黑渐变返回栏（仿 ViewerRoute）；core/ui strings 新增 `fullscreen_image_cd_back`（中/英）。
+- **`NovelCard`**：删除 `onOpenReader` 参数 → 新增 `onOpenCover: () -> Unit = {}`；封面 `clickable(enabled = !coverUrl.isNullOrBlank(), onClick = onOpenCover)`。
+- **app**：新增顶层路由 `ROUTE_IMAGE_PREVIEW = "image_preview?url={url}&title={title}"`（url/title 均可空，全屏路由隐藏底部导航）；`MainShell` 加 `onOpenCover: (String) -> Unit` 并删 `onOpenReader`（Discover/Novel 链已无阅读器直达）；UserRoute/BookmarkRoute/HistoryRoute/DownloadsRoute 顶层接线均 `navigate("image_preview?url=${Uri.encode(url)}")`（DownloadsRoute 保留 onOpenReader 供离线阅读）。
+- **回调链改法**（feature 层）：各 NovelCard 链 `onOpenReader: (Long)` → `onOpenCover: (String)`，卡片处 `onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) }`（Novel 模型无 `coverUrl` 属性，必须用 image_urls）；历史/下载快照用 `card.coverUrl?.let(onOpenCover)`（NovelCardData 有 coverUrl）。
+- **坑**：① `Novel`（lib API 模型）无 `coverUrl`，编译期报 Unresolved reference（NovelRoute line 365）；② PixivNavGraph MainShell 调用 onOpenCover 传了两次（先加在 onOpenNovel 后、后加在 onOpenNovelRanking 后）→ "Argument already passed"。
+- **保留**：`NovelDetailRoute` 的 `onOpenReader`（阅读按钮 onRead）不受影响；Reader 路由不变。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui :feature:novel :feature:discover :feature:user :feature:bookmark` 单测通过。**未提交**（第五十三~五十九轮全部改动）。
+
+### 第六十轮：用户主页重设计（骨架 + 4 Tab 滑动 + 系列 Tab + 拉黑按钮 + 统计可点 + 3 新子页）
+- **需求**（用户 8 条）：① 加载骨架图 ② 插画/漫画/小说滑动切换 ③ 小说系列（确认作为第 4 个滑动 Tab）④ 三个竖点替换为拉黑按钮 ⑤ 插画/小说/收藏/关注统计可点击 ⑥ Material 3 ⑦ 平板/手机两端 ⑧ 先出 HTML 原型。原型 `user-profile-design.html` 已产出（手机 390dp / 平板 880dp 双画框 + 6 状态视图：骨架/主页/系列Tab/收藏/关注/系列详情，可交互）。
+- **UserRoute 重构**（feature:user/UserRoute.kt）：
+  - 首屏 `LoadingBox` → 新增私有 `UserProfileSkeleton`（呼吸脉冲 `surfaceVariant.copy(alpha)`，头部头像/名称/按钮 + 统计条 + Tab 条 + 瀑布流占位）。
+  - FilterChips → **`BoxWithConstraints` + `PrimaryTabRow`(平板均分)/`ScrollableTabRow`(手机) + `HorizontalPager`**（4 页），`LaunchedEffect(currentPage)` 同步 `viewModel.selectSection`；每段独立 `PagedState`（沿用 RankingList 模式）。
+  - 头部：删 MoreVert+DropdownMenu → **FilledTonalButton(关注/已关注) + OutlinedButton(拉黑/取消拉黑)**（拉黑用 `ButtonDefaults.outlinedButtonColors(contentColor=error)`）。
+  - 统计格 `StatItem(label, value, onClick)` 可点：插画/小说 → `pagerState.animateScrollToPage`；收藏/关注 → `onOpenUserBookmarks/onOpenUserFollowing`。
+  - 新增 `SectionSeries`：系列卡（MenuBook 图标 + 标题/简介/N 篇/连载中或已完结徽章），点击 `onOpenSeries`。
+- **UserViewModel**：`UserSection` 增 `SERIES`；`seriesPaged = PagedState<NovelSeriesItem>`（`getUserNovelSeries/getNextNovelSeries`）；`hasLoaded/loadSection/loadMore` 补 SERIES 分支。
+- **3 新子页**：
+  - `UserBookmarksRoute+VM`（ROUTE_USER_BOOKMARKS = `user_bookmarks/{userId}`）：`getUserBookmarkedIllusts(userId,"public")` + `getNextIllusts`，IllustWaterfallGrid。
+  - `UserFollowingRoute+VM`（ROUTE_USER_FOLLOWING = `user_following/{userId}`）：`getFollowingUsers(userId,"public")` + `getNextUsers`，复用 `CreatorProfileCard` 用户行 + toggleFollowUser。
+  - `NovelSeriesRoute+VM`（ROUTE_NOVEL_SERIES = `novel_series/{seriesId}`，feature:novel）：`getNovelSeries` 详情头（primaryContainer 信息卡：标题/简介/篇数/连载态/作者）+ `getNextNovelSeriesDetail` 分页 NovelCard。
+- **坑**：① `OutlinedButtonDefaults` 在 material3 1.3.0 不可用 → 改 `ButtonDefaults.outlinedButtonColors`；② 跨模块 property（`NovelSeriesItem.caption`）不能 smart-cast → 先 `val caption = series.caption` 再判空；③ 标题想带用户名的方案（nav 传 name query）放弃，改用固定标题「该用户的收藏/关注」。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user :feature:novel :core:ui :core:network` 单测通过。**未提交**（第五十三~六十轮全部改动）。
+
+### 第六十轮补充：系列 item + 系列详情页 UI 优化（书封视觉签名）
+- **设计方向**（frontend-design + ui-ux-pro-max 技能）：系列无封面 URL，需要视觉签名 → 以「多卷层叠书本」意象作为系列在 App 内的统一视觉身份。
+- **core:ui 新增 `SeriesBookCover`**（SeriesBookCover.kt）：三层错位圆角块（tertiaryContainer/secondaryContainer 错位书脊 + `primaryContainer→secondaryContainer` 渐变封面）+ 书名首字大号加粗 + 右侧书页边缘竖条 + 底部横线装饰（经典书封排印）；全部 MaterialTheme 取色，深/浅自适应；参数 `shape`/`initialTextStyle` 供列表小卡与详情 hero 复用。
+- **用户主页 SeriesCard**（feature:user/UserRoute.kt）：图标盒 → `SeriesBookCover`（52×70dp）；新增 `watchlist_added`「已追更」徽章（surfaceContainerHigh 次要位）；右侧进入箭头 `KeyboardArrowRight`。
+- **系列详情页 header 重设计**（feature:novel/NovelSeriesRoute.kt）：扁平 primaryContainer → 渐变 hero（`Brush.verticalGradient(primaryContainer→surface)`）：88×118dp 书封 + 眉题「系列作品」+ headlineSmall 标题 + 篇数/连载态徽章（完结=errorContainer）+ 总字数 `formatCountForNovel`；简介 3 行截断；**作者行可点击**（头像+名称+查看作者+箭头，`onOpenAuthor` 即 onOpenUser）；列表前新增「分册（N）」section 标签。
+- **strings**（中/英）：user `user_series_watchlisted`；novel `novel_series_eyebrow/total_chars/view_author/volumes_section`。
+- **坑**：`Modifier.padding(vertical=, end=)` 组合不合法 → 拆 `padding(top=,bottom=,end=)`。
+- HTML 原型同步：系列卡 + 系列详情页更新为书封视觉与 hero 结构。
+### 第六十轮补充 2：系列 UI 返工（纯 MD3 扁平，去渐变）
+- **用户反馈**：渐变书封"还是丑，不符合 material-design 审美"。返工为纯 MD3 语言：**无渐变、无自创书封装饰**，改用标准扁平 token。
+- **`SeriesBookCover` 重写**（core:ui）：删除三层错位 + 渐变 + 首字 + 书页边缘/横线装饰，改为 **MD3 Filled tonal icon container**——扁平 `secondaryContainer` 圆角容器 + `MenuBook` 图标（`onSecondaryContainer`），与「无头像显示首字母」兜底同思路；签名 `(modifier, iconSize=28.dp, shape)`。
+- **用户主页 SeriesCard**：48dp 图标容器（去 52×70 书封、去右侧箭头）；简介 1 行截断；徽章改 **MD3 药丸**（`RoundedCornerShape(999.dp)`，间距 10×3，`labelMedium`），提炼私有 `SeriesStatusBadge(text, container, content)`；已追更=surfaceContainerHigh。
+- **系列详情页 header 重写**（feature:novel）：删除渐变背景 + 眉题 + 88×118 书封；改为扁平 `Column`（surface 底）：64dp 图标容器 + headlineSmall 标题 + 篇数/连载态药丸（`SeriesMetaChip`）+ 总字数（bodySmall onSurfaceVariant）+ 简介（bodyMedium，3 行）+ 可点击作者行（头像 40dp + bodyLarge 名称 + labelMedium「查看作者」）。
+- HTML 原型同步去渐变：系列卡 48dp 图标容器 + 详情页扁平头。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui :feature:user :feature:novel` 单测通过。**未提交**（第五十三~六十轮全部改动）。
+
+### 第六十轮补充 3：系列详情页真实封面（方案 A，大封面适配）
+- **背景**：用户问"为什么没有封面"——根因是 API 限制：`NovelSeriesItem`（/v1/user/novel-series 列表项）**无封面字段**（对比 `MangaSeriesItem` 有 cover_image_urls）；但系列详情 `NovelSeriesResp.novel_series_first_novel.image_urls`（第一册封面）可用。
+- **方案 A**（用户确认）：系列详情页显示第一册真实封面；用户主页系列列表保持图标占位（API 无封面）。
+- **`NovelSeriesViewModel`**：新增 `firstNovelCover: StateFlow<String?>`；`load()` 的 `also` 中取 `resp.novel_series_first_novel?.image_urls?.medium ?: ...?.square_medium`（与 NovelCard 取 URL 策略一致）。
+- **`SeriesHeader`**（feature:novel）：新增 `coverUrl: String?` + `onOpenCover: () -> Unit` 参数；封面改为**大号 3:4（110×148dp）**：
+  - 有图 → `PixivImage`（自动 Referer 防 403，圆角 12dp，**点击全屏看大图** `onOpenCover`）
+  - 无图 → `SeriesBookCover` 图标兜底（同步放大至 110×148、iconSize 44）
+  - 其他元素适配：头部 `Row` 改 `Alignment.Top` 顶对齐；药丸间距 10dp；总字数下移到右侧列内（封面并排区）；简介间距 14dp；作者头像 44dp。
+- HTML 原型同步：系列详情头改为 110px 3:4 真实封面占位。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:novel :core:ui` 单测通过。**未提交**（第五十三~六十轮全部改动）。
+
+### 第六十轮补充 4：用户主页系列列表真实封面 + 总字数（SeriesCoverCache 内存缓存）
+- **需求**：用户主页「系列」Tab 每个 item 显示真实封面（不是统一 icon）+ 总字数。
+- **数据约束**：`NovelSeriesItem`（列表项）无封面字段；只能逐个调 `getNovelSeries` 详情取第一册 `image_urls`（统一 **medium**）。用户确认**进程级内存缓存**（不持久化到 Room）+ 统一 medium。
+- **core:network 新增 `SeriesCoverCache`**（`session/SeriesCoverCache.kt`，`@Singleton`）：`ConcurrentHashMap<Long,String>` 驻留进程 + `inFlight: ConcurrentHashMap<Long, Deferred<String?>>` **in-flight 去重**（同 seriesId 并发只发一次网络，其余 await 同一结果）；`get(id)` 同步查 / `getOrFetch(id, fetcher)` 未命中才发请求并写缓存；自建 `CoroutineScope(SupervisorJob()+Dispatchers.IO)`；**未改 AppApi/PixivRepository 任何现有逻辑**（纯新增容器）。
+- **`UserViewModel`**：注入 `SeriesCoverCache`；新增 `seriesCovers: StateFlow<Map<Long,String>>`；`loadSection(SERIES)`/`loadMore` 后 `loadSeriesCovers(ids)`——只对未缓存 id 取（`chunked(6)` 限并发），成功写 `_seriesCovers`。
+- **`NovelSeriesViewModel`**：注入缓存，`firstNovelCover` 改走 `getOrFetch(seriesId)`——与用户主页列表**共享同一缓存**，从列表进详情零重复请求。
+- **`SeriesCard`**（feature:user）：新增 `coverUrl: String?` + `totalCharacters`（取 `NovelSeriesItem.total_character_count`）；封面有 URL → `PixivImage`（3:4 52×70dp，自动 Referer）/ 无 → `SeriesBookCover` 兜底；元信息行加**总字数** `formatCountForNovel` + 「字」与「N 篇」并列。
+- **strings**（中/英）：`user_series_chars`（`%1$s 字` / `%1$s characters`）。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user :feature:novel :core:network` 单测通过。**未提交**（第五十三~六十轮全部改动）。

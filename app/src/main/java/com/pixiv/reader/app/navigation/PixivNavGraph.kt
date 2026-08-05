@@ -10,16 +10,21 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.pixiv.reader.core.novel.LocalReaderStore
+import com.pixiv.reader.core.ui.component.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
+import com.pixiv.reader.feature.novel.NovelRankingRoute
+import com.pixiv.reader.feature.novel.NovelSeriesRoute
 import com.pixiv.reader.feature.reader.ReaderRoute
 import com.pixiv.reader.feature.user.BlockedRoute
 import com.pixiv.reader.feature.user.DownloadsRoute
 import com.pixiv.reader.feature.user.HistoryRoute
 import com.pixiv.reader.feature.user.TagsRoute
+import com.pixiv.reader.feature.user.UserBookmarksRoute
+import com.pixiv.reader.feature.user.UserFollowingRoute
 import com.pixiv.reader.feature.user.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
 import com.pixiv.reader.feature.watchlist.WatchlistRoute
@@ -41,6 +46,12 @@ const val ROUTE_NOVEL = "novel/{novelId}"
 const val ROUTE_READER = "reader/{novelId}"
 /** 用户主页（插画 / 小说 / 收藏 Tab）。 */
 const val ROUTE_USER = "user/{userId}"
+/** 用户公开收藏（该用户公开收藏的插画，从用户主页统计格进入）。 */
+const val ROUTE_USER_BOOKMARKS = "user_bookmarks/{userId}"
+/** 用户关注列表（该用户关注的作者，从用户主页统计格进入）。 */
+const val ROUTE_USER_FOLLOWING = "user_following/{userId}"
+/** 小说系列详情（系列信息 + 分册列表）。 */
+const val ROUTE_NOVEL_SERIES = "novel_series/{seriesId}"
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
 /** 收藏列表（插画 / 小说），可带 type + tag 过滤。 */
@@ -55,6 +66,10 @@ const val ROUTE_DOWNLOADS = "downloads"
 const val ROUTE_TAGS = "tags"
 /** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
+/** 小说排行榜（全屏页，从小说 Tab 推荐页顶部入口进入）。 */
+const val ROUTE_NOVEL_RANKING = "novel_ranking"
+/** 全屏图片查看（URL 直入，如小说封面大图），全屏路由隐藏底部导航。 */
+const val ROUTE_IMAGE_PREVIEW = "image_preview?url={url}&title={title}"
 /**
  * 本地文件阅读（TXT / EPUB 解析后直接渲染，跳过网络）。
  * novelId 对应 LocalReaderStore 的存储键，正文经 `LocalReaderStore.consume()` 单次取走。
@@ -110,11 +125,14 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
-                onOpenReader = { novelId ->
-                    navController.navigate("reader/$novelId")
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
                 },
                 onOpenHistory = {
                     navController.navigate(ROUTE_HISTORY)
@@ -136,6 +154,9 @@ fun PixivNavGraph(
                 },
                 onOpenMangaRanking = {
                     navController.navigate(ROUTE_MANGA_RANKING)
+                },
+                onOpenNovelRanking = {
+                    navController.navigate(ROUTE_NOVEL_RANKING)
                 },
                 initialSearch = initialSearch,
             )
@@ -167,6 +188,20 @@ fun PixivNavGraph(
             ),
         ) {
             ViewerRoute(onBack = { navController.popBackStack() })
+        }
+        // 全屏图片查看（URL 直入）：小说封面等单图全屏，title 可选
+        composable(
+            route = ROUTE_IMAGE_PREVIEW,
+            arguments = listOf(
+                navArgument("url") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { backStackEntry ->
+            FullscreenImageRoute(
+                url = backStackEntry.arguments?.getString("url"),
+                title = backStackEntry.arguments?.getString("title").orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
         }
         // 小说详情：支持 pixiv://novel/{id} 深链；系列分册点击打开对应详情
         composable(
@@ -222,8 +257,8 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
-                onOpenReader = { novelId ->
-                    navController.navigate("reader/$novelId")
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
@@ -233,6 +268,66 @@ fun PixivNavGraph(
                         popUpTo(ROUTE_MAIN) { inclusive = true }
                         launchSingleTop = true
                     }
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
+                },
+                onOpenUserBookmarks = {
+                    navController.navigate("user_bookmarks/$userId")
+                },
+                onOpenUserFollowing = {
+                    navController.navigate("user_following/$userId")
+                },
+            )
+        }
+        // 用户公开收藏：该用户公开收藏的插画（瀑布流），从用户主页统计格进入
+        composable(
+            route = ROUTE_USER_BOOKMARKS,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType }),
+        ) {
+            UserBookmarksRoute(
+                onBack = { navController.popBackStack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+            )
+        }
+        // 用户关注列表：该用户关注的作者，从用户主页统计格进入
+        composable(
+            route = ROUTE_USER_FOLLOWING,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType }),
+        ) {
+            UserFollowingRoute(
+                onBack = { navController.popBackStack() },
+                onOpenUser = { target ->
+                    navController.navigate("user/$target")
+                },
+            )
+        }
+        // 小说系列详情：系列信息 + 分册列表
+        composable(
+            route = ROUTE_NOVEL_SERIES,
+            arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
+        ) {
+            NovelSeriesRoute(
+                onBack = { navController.popBackStack() },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
+                },
+                onOpenUser = { target ->
+                    navController.navigate("user/$target")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
                 },
             )
         }
@@ -246,8 +341,14 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
+                },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
                 },
             )
         }
@@ -267,11 +368,14 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
-                onOpenReader = { novelId ->
-                    navController.navigate("reader/$novelId")
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
                 },
                 onSearchTag = { tag ->
                     navController.navigate("main?search=${Uri.encode(tag)}") {
@@ -305,6 +409,9 @@ fun PixivNavGraph(
                 },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
+                },
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 onOpenReader = { novelId ->
                     navController.navigate("reader/$novelId")
@@ -348,6 +455,27 @@ fun PixivNavGraph(
                 onBack = { navController.popBackStack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
+                },
+            )
+        }
+        // 小说排行榜（全屏页）：条目用 NovelCard（封面→全屏大图、作者→主页、收藏、标签）
+        composable(ROUTE_NOVEL_RANKING) {
+            NovelRankingRoute(
+                onBack = { navController.popBackStack() },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+                onOpenCover = { url ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+                onSearchTag = {
+                    // 排行榜页标签跳转暂不接入（顶层路由无法直达 MainShell 内 Tab，后续再处理）
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
                 },
             )
         }

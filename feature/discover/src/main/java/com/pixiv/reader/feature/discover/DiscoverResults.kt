@@ -83,8 +83,9 @@ internal fun IllustSearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Lo
 internal fun NovelSearchResults(
     viewModel: DiscoverViewModel,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
 ) {
     val items by viewModel.novelPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.novelPaged.isLoading.collectAsStateWithLifecycle()
@@ -104,13 +105,14 @@ internal fun NovelSearchResults(
                 NovelRow(
                     novel = novel,
                     onClick = { onOpenNovel(novel.id) },
-                    onOpenReader = { onOpenReader(novel.id) },
+                    onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                     onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                     onToggleFavorite = { nowFavorite -> viewModel.toggleNovelFavorite(novel.id, nowFavorite) },
                     onTagClick = { tag ->
                         viewModel.onQueryChange(tag)
                         viewModel.search()
                     },
+                    onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
                 )
             }
             if (hasMore) {
@@ -126,10 +128,11 @@ internal fun NovelSearchResults(
 private fun NovelRow(
     novel: Novel,
     onClick: () -> Unit,
-    onOpenReader: () -> Unit,
+    onOpenCover: () -> Unit,
     onOpenAuthor: () -> Unit,
     onToggleFavorite: (Boolean) -> Unit,
     onTagClick: (String) -> Unit,
+    onSeriesClick: (Long) -> Unit = {},
 ) {
     NovelCard(
         novel = NovelCardData(
@@ -141,6 +144,7 @@ private fun NovelRow(
             authorAvatarUrl = novel.user?.profile_image_urls?.best(),
             publishDate = novel.create_date,
             seriesTitle = novel.series?.title,
+            seriesId = novel.series?.id,
             favoriteCount = novel.total_bookmarks ?: 0,
             wordCount = novel.text_length ?: 0,
             tags = novel.tags.orEmpty()
@@ -150,10 +154,11 @@ private fun NovelRow(
             isFavorite = novel.is_bookmarked == true,
         ),
         onClick = onClick,
-        onOpenReader = onOpenReader,
+        onOpenCover = onOpenCover,
         onOpenAuthor = onOpenAuthor,
         onToggleFavorite = onToggleFavorite,
         onTagClick = onTagClick,
+        onSeriesClick = onSeriesClick,
     )
 }
 

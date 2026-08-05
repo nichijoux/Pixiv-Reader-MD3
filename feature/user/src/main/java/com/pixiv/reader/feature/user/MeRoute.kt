@@ -88,6 +88,7 @@ fun MeRoute(
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
+    val novelDefaultTab by viewModel.novelDefaultTab.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
@@ -243,6 +244,41 @@ fun MeRoute(
                                             }
                                         }
                                     },
+                                    text = stringResource(labelRes),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ── 浏览设置（内容/浏览类偏好） ──
+                SectionSpacer()
+                SectionTitle(stringResource(R.string.me_section_browse))
+                // 小说默认页（进入小说 Tab 时显示推荐还是关注）
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.me_novel_default_tab),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(
+                                0 to R.string.me_novel_default_recommend,
+                                1 to R.string.me_novel_default_follow,
+                            ).forEach { (value, labelRes) ->
+                                PillSelectButton(
+                                    selected = novelDefaultTab == value,
+                                    onClick = { viewModel.setNovelDefaultTab(value) },
                                     text = stringResource(labelRes),
                                     modifier = Modifier.weight(1f),
                                 )

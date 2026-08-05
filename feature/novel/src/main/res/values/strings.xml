@@ -2,13 +2,41 @@
     <!-- 小说 Tab 推荐流 -->
     <string name="novel_title">小说</string>
     <string name="novel_cd_refresh">刷新</string>
+    <string name="novel_cd_ranking">排行榜</string>
     <string name="novel_feed_empty">暂时没有推荐小说</string>
     <string name="novel_load_more">上滑加载更多</string>
+
+    <!-- 小说 Tab 推荐/关注 + 排行榜（第五十三轮） -->
+    <string name="novel_tab_recommend">推荐</string>
+    <string name="novel_tab_follow">关注</string>
+    <string name="novel_follow_empty">暂无关注动态，先去关注喜欢的作者吧</string>
+    <string name="novel_ranking_title">小说排行榜</string>
+    <string name="novel_ranking_empty">榜单暂无内容</string>
+    <string name="novel_ranking_banner">小说排行榜</string>
+    <string name="novel_ranking_banner_desc">日榜 · 周榜 · 男性向 · 女性向 · 新人 · R18</string>
+    <string name="novel_ranking_day">日榜</string>
+    <string name="novel_ranking_week">周榜</string>
+    <string name="novel_ranking_male">男性向</string>
+    <string name="novel_ranking_female">女性向</string>
+    <string name="novel_ranking_rookie">新人</string>
+    <string name="novel_ranking_r18">R18</string>
 
     <!-- 小说详情 -->
     <string name="novel_not_found">没有找到该小说</string>
     <string name="novel_cd_back">返回</string>
     <string name="novel_series_section">系列分册（%1$d）</string>
+
+    <!-- 小说系列详情页 -->
+    <string name="novel_series_title">系列</string>
+    <string name="novel_series_eyebrow">系列作品</string>
+    <string name="novel_series_empty">系列暂无分册</string>
+    <string name="novel_series_parts">%1$d 篇</string>
+    <string name="novel_series_ongoing">连载中</string>
+    <string name="novel_series_concluded">已完结</string>
+    <string name="novel_series_author">作者：%1$s</string>
+    <string name="novel_series_total_chars">总字数 %1$s</string>
+    <string name="novel_series_view_author">查看作者</string>
+    <string name="novel_series_volumes_section">分册（%1$d）</string>
     <string name="novel_comments_section">评论（%1$d）</string>
     <string name="novel_comments_loading">评论加载中…</string>
     <string name="novel_comments_empty">暂无评论</string>

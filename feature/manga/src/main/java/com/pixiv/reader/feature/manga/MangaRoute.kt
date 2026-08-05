@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Leaderboard
@@ -23,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -33,12 +36,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
 
 /**
- * 漫画 Tab：顶部排行榜入口 banner + 推荐漫画瀑布流。
+ * 漫画 Tab：顶部排行榜入口 banner（网格头部，随滚动）+ 推荐漫画瀑布流 + 下拉刷新。
  *
  * @param onOpenIllust 点击漫画卡打开详情
  * @param onOpenMangaRanking 点击排行榜 banner / 顶栏奖杯打开漫画排行榜全屏页
@@ -55,12 +60,14 @@ fun MangaRoute(
     val isLoadingMore by viewModel.recommendPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.recommendPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.recommendPaged.error.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(stringResource(R.string.manga_title), fontWeight = FontWeight.SemiBold)
+                    // 平板限宽居中（与下方 AdaptiveContentBox 内容对齐）
+                    AdaptiveContentTitle(stringResource(R.string.manga_title))
                 },
                 actions = {
                     IconButton(onClick = onOpenMangaRanking) {
@@ -77,29 +84,42 @@ fun MangaRoute(
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // 排行榜入口 banner（纯 M3 primaryContainer 主色系，无渐变、无紫色突兀）
-            MangaRankingBanner(onClick = onOpenMangaRanking)
-
-            when {
-                isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(message = error, onRetry = viewModel::refresh)
-                items.isEmpty() -> androidx.compose.material3.Text(
-                    text = stringResource(R.string.manga_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                )
-                else -> IllustWaterfallGrid(
-                    illusts = items,
-                    onItemClick = onOpenIllust,
-                    onLoadMore = viewModel::loadMore,
-                    hasMore = hasMore,
-                    isLoadingMore = isLoadingMore,
-                    onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-                )
+        // 平板限宽居中（banner + 瀑布流不超过 MAX_CONTENT_WIDTH_DP）
+        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::pullRefresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                when {
+                    isLoading && items.isEmpty() -> LoadingBox()
+                    error != null && items.isEmpty() -> ErrorBox(
+                        message = error,
+                        onRetry = viewModel::refresh,
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                    )
+                    items.isEmpty() -> Box(
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.manga_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(32.dp),
+                        )
+                    }
+                    else -> IllustWaterfallGrid(
+                        illusts = items,
+                        onItemClick = onOpenIllust,
+                        onLoadMore = viewModel::loadMore,
+                        hasMore = hasMore,
+                        isLoadingMore = isLoadingMore,
+                        onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                        // 排行榜入口 banner 作为网格头部（随列表滚动/下拉）
+                        header = { MangaRankingBanner(onClick = onOpenMangaRanking) },
+                    )
+                }
             }
         }
     }

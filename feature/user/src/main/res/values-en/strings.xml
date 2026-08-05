@@ -22,6 +22,7 @@
     <string name="user_section_illust">Illustrations</string>
     <string name="user_section_manga">Manga</string>
     <string name="user_section_novel">Novels</string>
+    <string name="user_section_series">Series</string>
 
     <!-- Tag types -->
     <string name="tags_type_illust">Illustrations</string>
@@ -31,8 +32,12 @@
     <string name="me_logout">Sign out</string>
     <string name="me_section_content">Content</string>
     <string name="me_section_appearance">Appearance</string>
+    <string name="me_section_browse">Browsing</string>
     <string name="me_section_system">System</string>
     <string name="me_section_about">About</string>
+    <string name="me_novel_default_tab">Default novel page</string>
+    <string name="me_novel_default_recommend">Recommended</string>
+    <string name="me_novel_default_follow">Following</string>
     <string name="me_bookmarks_title">My bookmarks</string>
     <string name="me_bookmarks_desc">Bookmarked works</string>
     <string name="me_history_title">Browse history</string>
@@ -110,6 +115,17 @@
     <string name="user_stat_follow">Follows</string>
     <string name="user_empty_illust">No works yet</string>
     <string name="user_empty_novel">No novels yet</string>
+    <string name="user_empty_series">No novel series yet</string>
+    <string name="user_series_parts">%1$d parts</string>
+    <string name="user_series_chars">%1$s characters</string>
+    <string name="user_series_ongoing">Ongoing</string>
+    <string name="user_series_concluded">Completed</string>
+    <string name="user_series_watchlisted">Following</string>
+    <string name="user_stat_series">Series</string>
+    <string name="user_bookmarks_title">User\'s bookmarks</string>
+    <string name="user_bookmarks_empty">No public bookmarks</string>
+    <string name="user_following_title">User\'s following</string>
+    <string name="user_following_empty">No following yet</string>
 
     <!-- ViewModel messages -->
     <string name="user_load_failed">Failed to load: %1$s</string>

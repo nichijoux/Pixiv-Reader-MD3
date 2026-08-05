@@ -16,8 +16,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.RankingList
 import com.pixiv.reader.core.ui.component.RankingRow
 
@@ -42,7 +42,8 @@ fun MangaRankingRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(stringResource(R.string.manga_ranking_title), fontWeight = FontWeight.SemiBold)
+                    // 平板限宽居中（与下方 RankingList 内容对齐）
+                    AdaptiveContentTitle(stringResource(R.string.manga_ranking_title))
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

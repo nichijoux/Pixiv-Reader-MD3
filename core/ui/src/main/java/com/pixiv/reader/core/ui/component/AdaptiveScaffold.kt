@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
@@ -139,6 +141,27 @@ fun AdaptiveContentBox(
                 .widthIn(max = maxWidth),
         ) {
             content()
+        }
+    }
+}
+
+/**
+ * TopAppBar 标题（平板限宽居中）：标题内容限宽 [maxWidth]（默认 `MAX_CONTENT_WIDTH_DP`=760dp）
+ * 并水平居中，与下方 [AdaptiveContentBox] 的内容对齐；手机（宽度 < maxWidth）自然占满。
+ * 用于小说/漫画/首页等带 TopAppBar 的页面，解决平板端标题最左、内容居中的错位。
+ *
+ * @param text 标题文本
+ * @param modifier 外部传入的 Modifier（TopAppBar 的 title slot 内无需传）
+ */
+@Composable
+fun AdaptiveContentTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxWidth: Dp = MAX_CONTENT_WIDTH_DP.dp,
+) {
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.widthIn(max = maxWidth)) {
+            Text(text, fontWeight = FontWeight.SemiBold)
         }
     }
 }

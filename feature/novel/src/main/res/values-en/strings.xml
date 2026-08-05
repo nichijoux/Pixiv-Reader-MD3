@@ -2,13 +2,41 @@
     <!-- Novel tab feed -->
     <string name="novel_title">Novels</string>
     <string name="novel_cd_refresh">Refresh</string>
+    <string name="novel_cd_ranking">Ranking</string>
     <string name="novel_feed_empty">No recommended novels yet</string>
     <string name="novel_load_more">Scroll to load more</string>
+
+    <!-- Novel tabs (recommend/follow) + ranking (Round 53) -->
+    <string name="novel_tab_recommend">Recommended</string>
+    <string name="novel_tab_follow">Following</string>
+    <string name="novel_follow_empty">Nothing from authors you follow yet. Go follow some!</string>
+    <string name="novel_ranking_title">Novel Ranking</string>
+    <string name="novel_ranking_empty">No ranking data</string>
+    <string name="novel_ranking_banner">Novel Ranking</string>
+    <string name="novel_ranking_banner_desc">Daily · Weekly · Male · Female · Rookie · R18</string>
+    <string name="novel_ranking_day">Daily</string>
+    <string name="novel_ranking_week">Weekly</string>
+    <string name="novel_ranking_male">Male</string>
+    <string name="novel_ranking_female">Female</string>
+    <string name="novel_ranking_rookie">Rookie</string>
+    <string name="novel_ranking_r18">R18</string>
 
     <!-- Novel detail -->
     <string name="novel_not_found">Novel not found</string>
     <string name="novel_cd_back">Back</string>
     <string name="novel_series_section">Series volumes (%1$d)</string>
+
+    <!-- Novel series detail page -->
+    <string name="novel_series_title">Series</string>
+    <string name="novel_series_eyebrow">Novel series</string>
+    <string name="novel_series_empty">No volumes in this series</string>
+    <string name="novel_series_parts">%1$d parts</string>
+    <string name="novel_series_ongoing">Ongoing</string>
+    <string name="novel_series_concluded">Completed</string>
+    <string name="novel_series_author">Author: %1$s</string>
+    <string name="novel_series_total_chars">Total characters %1$s</string>
+    <string name="novel_series_view_author">View author</string>
+    <string name="novel_series_volumes_section">Volumes (%1$d)</string>
     <string name="novel_comments_section">Comments (%1$d)</string>
     <string name="novel_comments_loading">Loading comments…</string>
     <string name="novel_comments_empty">No comments yet</string>

@@ -22,6 +22,7 @@
     <string name="user_section_illust">插画</string>
     <string name="user_section_manga">漫画</string>
     <string name="user_section_novel">小说</string>
+    <string name="user_section_series">系列</string>
 
     <!-- 收藏标签类型 -->
     <string name="tags_type_illust">插画</string>
@@ -31,8 +32,12 @@
     <string name="me_logout">退出登录</string>
     <string name="me_section_content">用户内容管理</string>
     <string name="me_section_appearance">外观设置</string>
+    <string name="me_section_browse">浏览设置</string>
     <string name="me_section_system">系统设置</string>
     <string name="me_section_about">关于信息</string>
+    <string name="me_novel_default_tab">小说默认页</string>
+    <string name="me_novel_default_recommend">推荐</string>
+    <string name="me_novel_default_follow">关注</string>
     <string name="me_bookmarks_title">我的收藏</string>
     <string name="me_bookmarks_desc">收藏的作品</string>
     <string name="me_history_title">浏览历史</string>
@@ -110,6 +115,17 @@
     <string name="user_stat_follow">关注</string>
     <string name="user_empty_illust">暂无作品</string>
     <string name="user_empty_novel">暂无小说</string>
+    <string name="user_empty_series">暂无系列小说</string>
+    <string name="user_series_parts">%1$d 篇</string>
+    <string name="user_series_chars">%1$s 字</string>
+    <string name="user_series_ongoing">连载中</string>
+    <string name="user_series_concluded">已完结</string>
+    <string name="user_series_watchlisted">已追更</string>
+    <string name="user_stat_series">系列</string>
+    <string name="user_bookmarks_title">该用户的收藏</string>
+    <string name="user_bookmarks_empty">暂无公开收藏</string>
+    <string name="user_following_title">该用户的关注</string>
+    <string name="user_following_empty">暂无关注</string>
 
     <!-- ViewModel 消息 -->
     <string name="user_load_failed">加载失败：%1$s</string>

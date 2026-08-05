@@ -62,6 +62,7 @@ import kotlinx.coroutines.launch
  * @param onBack 返回
  * @param onOpenIllust 打开插画详情
  * @param onOpenNovel 打开小说详情
+ * @param onOpenCover 打开小说封面全屏大图
  * @param onOpenReader 打开小说阅读器（离线直达）
  * @param onOpenLocalReader 打开本地文件阅读（local_reader）
  */
@@ -71,6 +72,7 @@ fun DownloadsRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenLocalReader: (Long) -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
@@ -129,6 +131,7 @@ fun DownloadsRoute(
                         DownloadFilter.NOVEL -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel" },
                             context = context,
+                            onOpenCover = onOpenCover,
                             onOpen = { entry ->
                                 if (isLocalFile(entry)) {
                                     viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
@@ -141,6 +144,7 @@ fun DownloadsRoute(
                         DownloadFilter.OFFLINE -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel_offline" },
                             context = context,
+                            onOpenCover = onOpenCover,
                             onOpen = { entry -> onOpenReader(entry.targetId) },
                             onDelete = viewModel::delete,
                         )
@@ -192,6 +196,7 @@ private fun IllustDownloadList(
 private fun NovelDownloadList(
     entries: List<DownloadEntryEntity>,
     context: Context,
+    onOpenCover: (String) -> Unit,
     onOpen: (DownloadEntryEntity) -> Unit,
     onDelete: (DownloadEntryEntity) -> Unit,
 ) {
@@ -206,10 +211,11 @@ private fun NovelDownloadList(
     ) {
         items(entries, key = { it.targetId }) { entry ->
             Box {
+                val card = entry.toDownloadNovelCard(context)
                 NovelCard(
-                    novel = entry.toDownloadNovelCard(context),
+                    novel = card,
                     onClick = { onOpen(entry) },
-                    onOpenReader = { onOpen(entry) },
+                    onOpenCover = { card.coverUrl?.let(onOpenCover) },
                     onOpenAuthor = {},
                     onToggleFavorite = {},
                     onTagClick = {},

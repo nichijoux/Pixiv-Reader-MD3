@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -43,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.RankingModeInfo
 import com.pixiv.reader.core.network.paging.PagedState
 import kotlinx.coroutines.launch
@@ -105,68 +108,91 @@ fun <T> RankingList(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        ScrollableTabRow(
-            selectedTabIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0)),
-            edgePadding = 8.dp,
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            modes.forEachIndexed { index, mode ->
-                Tab(
-                    selected = pagerState.currentPage == index,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = { Text(stringResource(mode.labelRes)) },
-                )
-            }
-        }
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f),
-        ) { page ->
-            val mode = modes.getOrNull(page)
-            if (mode == null) {
-                LoadingBox()
-            } else {
-                // 该页独立的 PagedState（实例由 ViewModel 缓存，数据驻留 VM）
-                val paged = remember(mode.value) { stateFor(mode.value) }
-                val items by paged.items.collectAsStateWithLifecycle()
-                val isLoading by paged.isLoading.collectAsStateWithLifecycle()
-                val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
-                val hasMore by paged.hasMore.collectAsStateWithLifecycle()
-                val error by paged.error.collectAsStateWithLifecycle()
-                val contentState = when {
-                    error != null && items.isEmpty() -> RankContentState.Error
-                    items.isNotEmpty() -> RankContentState.Content
-                    else -> RankContentState.Loading
+    // 平板限宽居中：TabRow + 列表整体不超过 MAX_CONTENT_WIDTH_DP（手机 <760 自然占满）
+    AdaptiveContentBox(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 限宽生效（平板）→ PrimaryTabRow 均分占满居中；手机 → ScrollableTabRow 内容宽度可滑动
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val isWide = maxWidth >= MAX_CONTENT_WIDTH_DP.dp
+                val selectedIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0))
+                if (isWide) {
+                    PrimaryTabRow(
+                        selectedTabIndex = selectedIndex,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ) {
+                        for (index in modes.indices) {
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                text = { Text(stringResource(modes[index].labelRes)) },
+                            )
+                        }
+                    }
+                } else {
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedIndex,
+                        edgePadding = 8.dp,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ) {
+                        for (index in modes.indices) {
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                text = { Text(stringResource(modes[index].labelRes)) },
+                            )
+                        }
+                    }
                 }
-                AnimatedContent(
-                    // 用"该页自身内容状态"：已就绪页切回时状态不变 → 不重播过渡；
-                    // 首次数据到位（Loading→Content）只淡入（骨架占位淡出 + 内容淡入），无跳动位移
-                    targetState = contentState,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(240))
-                            .togetherWith(fadeOut(animationSpec = tween(160)))
-                    },
-                    label = "rankPage",
-                ) { state ->
-                    when (state) {
-                        RankContentState.Content -> RankingPage(
-                            modeValue = mode.value,
-                            items = items,
-                            isLoading = isLoading,
-                            isLoadingMore = isLoadingMore,
-                            hasMore = hasMore,
-                            error = error,
-                            onRetry = onRetry,
-                            onLoadMore = onLoadMore,
-                            emptyText = emptyText,
-                            itemContent = itemContent,
-                        )
-                        RankContentState.Error -> ErrorBox(
-                            message = error,
-                            onRetry = { onRetry(mode.value) },
-                        )
-                        RankContentState.Loading -> RankingSkeleton()
+            }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+            ) { page ->
+                val mode = modes.getOrNull(page)
+                if (mode == null) {
+                    LoadingBox()
+                } else {
+                    // 该页独立的 PagedState（实例由 ViewModel 缓存，数据驻留 VM）
+                    val paged = remember(mode.value) { stateFor(mode.value) }
+                    val items by paged.items.collectAsStateWithLifecycle()
+                    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
+                    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
+                    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
+                    val error by paged.error.collectAsStateWithLifecycle()
+                    val contentState = when {
+                        error != null && items.isEmpty() -> RankContentState.Error
+                        items.isNotEmpty() -> RankContentState.Content
+                        else -> RankContentState.Loading
+                    }
+                    AnimatedContent(
+                        // 用"该页自身内容状态"：已就绪页切回时状态不变 → 不重播过渡；
+                        // 首次数据到位（Loading→Content）只淡入（骨架占位淡出 + 内容淡入），无跳动位移
+                        targetState = contentState,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(240))
+                                .togetherWith(fadeOut(animationSpec = tween(160)))
+                        },
+                        label = "rankPage",
+                    ) { state ->
+                        when (state) {
+                            RankContentState.Content -> RankingPage(
+                                modeValue = mode.value,
+                                items = items,
+                                isLoading = isLoading,
+                                isLoadingMore = isLoadingMore,
+                                hasMore = hasMore,
+                                error = error,
+                                onRetry = onRetry,
+                                onLoadMore = onLoadMore,
+                                emptyText = emptyText,
+                                itemContent = itemContent,
+                            )
+                            RankContentState.Error -> ErrorBox(
+                                message = error,
+                                onRetry = { onRetry(mode.value) },
+                            )
+                            RankContentState.Loading -> RankingSkeleton()
+                        }
                     }
                 }
             }

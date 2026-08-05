@@ -55,8 +55,9 @@ fun MainShell(
     onLogout: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
@@ -64,6 +65,7 @@ fun MainShell(
     onOpenDownloads: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenMangaRanking: () -> Unit,
+    onOpenNovelRanking: () -> Unit,
     initialSearch: String? = null,
 ) {
     val navController = rememberNavController()
@@ -73,26 +75,32 @@ fun MainShell(
     // 待搜索关键词（小说 Tab / 顶层路由标签点击 → 切到发现页搜索）
     var pendingSearch by remember { mutableStateOf<String?>(null) }
 
+    // 统一 Tab 导航：清栈到 start（保存被弹出的状态）+ launchSingleTop + restoreState。
+    // 所有「跳到某 Tab」的导航都必须走这里——否则（如 launchSingleTop 不带 popUpTo）会把目标
+    // 压栈到当前 Tab 之上形成非标准栈，再切回原 Tab 时同一 navigate 内 popUpTo(saveState) 弹出
+    // 并立即 restoreState 恢复同 destination，触发 Navigation 状态恢复异常（点原 Tab 不跳转）。
+    fun navigateToTab(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     // 顶层路由带 search 参数进入：切到发现页并搜索
     LaunchedEffect(initialSearch) {
         if (!initialSearch.isNullOrBlank()) {
             pendingSearch = initialSearch
-            navController.navigate("discover_tab") { launchSingleTop = true }
+            navigateToTab("discover_tab")
         }
     }
 
     AdaptiveNavScaffold(
         items = tabs,
         selectedRoute = currentRoute,
-        onSelect = { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            }
-        },
+        onSelect = { route -> navigateToTab(route) },
     ) { padding ->
         NavHost(
             navController = navController,
@@ -104,7 +112,7 @@ fun MainShell(
             composable("home_tab") {
                 HomeRoute(
                     onOpenSearch = {
-                        navController.navigate("discover_tab") { launchSingleTop = true }
+                        navigateToTab("discover_tab")
                     },
                     onOpenIllust = onOpenIllust,
                 )
@@ -113,8 +121,9 @@ fun MainShell(
                 DiscoverRoute(
                     onOpenIllust = onOpenIllust,
                     onOpenNovel = onOpenNovel,
-                    onOpenReader = onOpenReader,
+                    onOpenCover = onOpenCover,
                     onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
                     initialQuery = pendingSearch?.also { pendingSearch = null },
                 )
             }
@@ -127,11 +136,13 @@ fun MainShell(
             composable("novel_tab") {
                 NovelRoute(
                     onOpenNovel = onOpenNovel,
-                    onOpenReader = onOpenReader,
+                    onOpenCover = onOpenCover,
                     onOpenUser = onOpenUser,
+                    onOpenNovelRanking = onOpenNovelRanking,
+                    onOpenSeries = onOpenSeries,
                     onSearchTag = { tag ->
                         pendingSearch = tag
-                        navController.navigate("discover_tab") { launchSingleTop = true }
+                        navigateToTab("discover_tab")
                     },
                 )
             }
