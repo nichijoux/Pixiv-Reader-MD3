@@ -58,7 +58,11 @@ import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
 
 @Composable
-internal fun IllustSearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
+internal fun IllustSearchResults(
+    viewModel: DiscoverViewModel,
+    onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
     val items by viewModel.illustPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.illustPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.illustPaged.isLoadingMore.collectAsStateWithLifecycle()
@@ -75,6 +79,7 @@ internal fun IllustSearchResults(viewModel: DiscoverViewModel, onOpenIllust: (Lo
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
             onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+            onOpenUser = onOpenUser,
         )
     }
 }

@@ -734,3 +734,45 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **`SeriesCard`**（feature:user）：新增 `coverUrl: String?` + `totalCharacters`（取 `NovelSeriesItem.total_character_count`）；封面有 URL → `PixivImage`（3:4 52×70dp，自动 Referer）/ 无 → `SeriesBookCover` 兜底；元信息行加**总字数** `formatCountForNovel` + 「字」与「N 篇」并列。
 - **strings**（中/英）：`user_series_chars`（`%1$s 字` / `%1$s characters`）。
 - 验证：`:app:compileDebugKotlin` 通过；`:feature:user :feature:novel :core:network` 单测通过。**未提交**（第五十三~六十轮全部改动）。
+
+### 第六十一轮：IllustCard 作者行可点击 → 用户主页（全插画网格接线）
+- **需求**：插画卡片作者行（20dp 头像 + 名称）**整行可点击**进入作者用户主页（与 NovelCard onOpenAuthor 对齐）。
+- **`IllustCard`**（core:ui）：新增 `onOpenAuthor: () -> Unit = {}`；作者行 `Row` 包 `clip(RoundedCornerShape(8.dp)) + clickable(onClick = onOpenAuthor) + padding(end=4.dp)`（user 为 null 时行不渲染，天然不可点）。
+- **`IllustWaterfallGrid`**（core:ui）：新增 `onOpenUser: ((Long) -> Unit)? = null`；内部透传 `onOpenAuthor = onOpenUser?.let { cb -> { illust.user?.id?.let(cb); Unit } } ?: {}`。
+- **10 处调用点接线**：
+  - 已有 `onOpenUser` 直接传：`BookmarkRoute.BookmarkIllustList`、`HistoryRoute.IllustHistoryList`、`UserRoute.SectionIllust`（ILLUST/MANGA 两处）。
+  - 补参数 + 透传：`DiscoverResults.IllustSearchResults`、`DiscoverScreen.HotIllustGrid`（经 SearchResultPager，DiscoverRoute 已有 onOpenUser）。
+  - 路由新增 `onOpenUser`：`HomeRoute`（→RecommendContent/FollowContent）、`MangaRoute`、`UserBookmarksRoute`。
+- **导航**：`MainShell` 的 HomeRoute/MangaRoute 调用补 `onOpenUser = onOpenUser`（MainShell 已有）；`PixivNavGraph` 的 UserBookmarksRoute 调用补 `onOpenUser = { id -> navigate("user/$id") }`。
+- **不动**：`DownloadsRoute` 直调 `IllustCard`（快照 `toDownloadIllust` 无 user，作者行不渲染，无需接线）。
+- **坑**：`onOpenUser?.let { cb -> { illust.user?.id?.let(cb) } }` 内层 lambda 推断为 `() -> Unit?` 类型不匹配 → 显式收尾 `; Unit` + 外补 `?: {}`。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui :feature:user :feature:bookmark :feature:discover` 单测通过。**未提交**（第五十三~六十一轮全部改动）。
+
+### 第六十一轮补充：个人中心 TabBar 手机端不占满修复
+- **Bug**：个人中心（UserRoute）4 个 Tab（插画/漫画/小说/系列）手机端靠左留白，未占满宽度。
+- **根因**：手机端走了 `ScrollableTabRow`——其 tabs **按内容宽度靠左排列**，内容不足宽度时不拉伸；平板端 `PrimaryTabRow`（内部 Tab `weight(1f)` 均分）没问题。
+- **全项目排查**（8 处 TabBar）：`TabRow`/`PrimaryTabRow` 均均分占满（Novel 推荐/关注、Discover 搜索、History、Downloads）；`ScrollableTabRow` 仅 2 处：个人中心（此 Bug）+ 排行榜 RankingList。排行榜 5~6 段、需可滑动（第五十八轮有意保留，段多均分会挤爆），**用户确认不改**，只修个人中心。
+- **修复**：删除 `BoxWithConstraints`+`isWide` 分支，统一 `PrimaryTabRow`（4 个短标签手机放得下，均分占满，平板/手机一致）；清理未用 import（`BoxWithConstraints`/`ScrollableTabRow`/`MAX_CONTENT_WIDTH_DP`）。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user` 单测通过。**未提交**（第五十三~六十一轮全部改动）。
+
+### 第六十一轮补充 2：个人中心插画/漫画卡片缺收藏按钮修复
+- **Bug**：个人中心「插画」「漫画」Tab 的卡片右上角无收藏按钮（小说 Tab 有）。
+- **根因**：`SectionIllust`（插画/漫画共用）签名与两处调用**都没接 `onToggleFavorite`**，`IllustWaterfallGrid` 未传 → null → `IllustCard.kt:138` `if (onToggleFavorite != null)` 不渲染收藏按钮。
+- **修复**：`UserViewModel` 新增 `toggleIllustFavorite(illustId, nowFavorite)`（`bookmarkIllust/unbookmarkIllust`，与 toggleNovelFavorite/HomeViewModel 同款无通知）；`SectionIllust` 签名加 `onToggleFavorite: (Long, Boolean) -> Unit` + `IllustWaterfallGrid` 补传；两处调用（ILLUST/MANGA）传 `viewModel::toggleIllustFavorite`。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user` 单测通过。**未提交**（第五十三~六十一轮全部改动）。
+
+### 第六十一轮补充 3：用户主页点击头像 → 全屏展示头像大图
+- **需求**：用户主页头部点击头像全屏查看大图。
+- **改动**（仅 feature:user/UserRoute.kt）：
+  - `UserHeader` 新增 `onOpenAvatar: (String) -> Unit`；头部 `UserAvatar` 加 `onClick = { user.profile_image_urls?.best()?.let(onOpenAvatar) }`（头像 URL 空则不可点，天然兜底）。
+  - `UserHeader` 调用处补 `onOpenAvatar = onOpenCover`（**复用现有 onOpenCover 回调**，与小说封面全屏同一路由）。
+  - KDoc：onOpenCover 注释改「全屏大图（小说封面 / 头部头像共用）」。
+- **不动**：`PixivNavGraph`（UserRoute 的 onOpenCover 已接 `image_preview?url=` 全屏路由，头像点击自动复用）；`FullscreenImageRoute`/`ROUTE_IMAGE_PREVIEW` 均为既有能力。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:user` 单测通过。**未提交**（第五十三~六十一轮全部改动）。
+
+### 第六十一轮补充 4：插画卡片封面收藏按钮溢出 + 爱心偏小修复
+- **Bug**：插画/漫画卡片封面右上角收藏按钮超出边界、爱心图标偏小。
+- **根因**：`IllustCard` 用了 Material3 `IconButton`——内部有强制最小交互尺寸（`minimumInteractiveComponentSize` ≈ 40dp 状态层 + 48dp 触控区），外层 `.size(24.dp)` 被覆盖，实际渲染约 40dp，在瀑布流窄卡片右上角溢出；内层 Icon 仅 14dp，在 40dp 容器内比例失衡。
+- **修复**（core:ui/IllustCard.kt）：`IconButton` → **自绘 `Box` 浮层按钮**：`size(28.dp).clip(CircleShape).background(黑0.35).clickable` + `contentAlignment.Center`，内层 `Icon` 14→**18dp**（爱心放大）；删除未用 `IconButton` import。完全掌控尺寸，无强制最小尺寸。
+- **不动**：`NovelCard` 标题行收藏按钮（非封面浮层，40dp 正常）；`FullscreenImageRoute`/`CommentInput` IconButton（工具栏/输入框场景）。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui` 单测通过。**未提交**（第五十三~六十一轮全部改动）。

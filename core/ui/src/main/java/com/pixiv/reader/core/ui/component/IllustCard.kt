@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,13 +56,15 @@ import com.pixiv.reader.core.ui.R
  *
  * ## 交互
  * 整卡 [onClick] 打开详情；收藏按钮点击**先翻转本地状态再回调**外部执行 API
- * （成功与否由外部负责，组件仅维护 UI 态 [favorite]）。
+ * （成功与否由外部负责，组件仅维护 UI 态 [favorite]）；作者行（头像+名称）点击
+ * [onOpenAuthor] 打开作者主页（user 为 null 时不可点）。
  *
  * @param illust 作品数据（`width/height` 用于完整显示、`is_bookmarked` 初始化收藏态）
  * @param onClick 整卡点击回调（通常打开作品详情）
  * @param modifier 外部传入的 Modifier（瀑布流网格通常传 `fillMaxWidth`）
  * @param coverHeight 无宽高数据时的回退封面高度
  * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
+ * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
  */
 @Composable
 fun IllustCard(
@@ -72,6 +73,7 @@ fun IllustCard(
     modifier: Modifier = Modifier,
     coverHeight: Dp = 150.dp,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
+    onOpenAuthor: () -> Unit = {},
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
@@ -120,7 +122,7 @@ fun IllustCard(
                         )
                     }
                 }
-                if ((illust.page_count ?: 0) > 1) {
+                if (illust.page_count > 1) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.45f),
                         shape = RoundedCornerShape(8.dp),
@@ -134,25 +136,26 @@ fun IllustCard(
                     }
                 }
             }
-            // 收藏切换按钮：右上角（外面即可点击收藏/取消）
+            // 收藏切换按钮：右上角自绘浮层（28dp 圆，避免 IconButton 强制 40dp 溢出边界）
             if (onToggleFavorite != null) {
-                IconButton(
-                    onClick = {
-                        favorite = !favorite
-                        onToggleFavorite(favorite)
-                    },
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
-                        .size(24.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.35f)),
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .clickable {
+                            favorite = !favorite
+                            onToggleFavorite(favorite)
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
                         tint = if (favorite) Color(0xFFFF5252) else Color.White,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
@@ -195,7 +198,11 @@ fun IllustCard(
             val user: User? = illust.user
             if (user != null) {
                 Row(
-                    modifier = Modifier.padding(top = 6.dp),
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onOpenAuthor)
+                        .padding(end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {

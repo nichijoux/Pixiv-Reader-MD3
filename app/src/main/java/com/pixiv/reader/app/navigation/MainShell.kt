@@ -115,6 +115,7 @@ fun MainShell(
                         navigateToTab("discover_tab")
                     },
                     onOpenIllust = onOpenIllust,
+                    onOpenUser = onOpenUser,
                 )
             }
             composable("discover_tab") {
@@ -131,6 +132,7 @@ fun MainShell(
                 MangaRoute(
                     onOpenIllust = onOpenIllust,
                     onOpenMangaRanking = onOpenMangaRanking,
+                    onOpenUser = onOpenUser,
                 )
             }
             composable("novel_tab") {

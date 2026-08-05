@@ -139,6 +139,7 @@ fun BookmarkRoute(
                         BookmarkType.ILLUST -> BookmarkIllustList(
                             paged = viewModel.illustPaged,
                             onOpenIllust = onOpenIllust,
+                            onOpenUser = onOpenUser,
                             onLoadMore = viewModel::loadMore,
                         )
                         BookmarkType.NOVEL -> BookmarkNovelList(
@@ -162,6 +163,7 @@ fun BookmarkRoute(
 private fun BookmarkIllustList(
     paged: PagedState<com.pixiv.api.model.Illust>,
     onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     val items by paged.items.collectAsStateWithLifecycle()
@@ -181,6 +183,7 @@ private fun BookmarkIllustList(
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+            onOpenUser = onOpenUser,
         )
     }
 }

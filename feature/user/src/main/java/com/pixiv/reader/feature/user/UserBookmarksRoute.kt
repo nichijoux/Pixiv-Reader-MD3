@@ -32,12 +32,14 @@ import com.pixiv.reader.core.ui.component.LoadingBox
  *
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
+ * @param onOpenUser 点击作者行打开用户主页
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserBookmarksRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: UserBookmarksViewModel = hiltViewModel(),
 ) {
     val items by viewModel.paged.items.collectAsStateWithLifecycle()
@@ -80,6 +82,7 @@ fun UserBookmarksRoute(
                     hasMore = hasMore,
                     isLoadingMore = isLoadingMore,
                     contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+                    onOpenUser = onOpenUser,
                 )
             }
         }

@@ -290,6 +290,9 @@ fun PixivNavGraph(
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
+                onOpenUser = { target ->
+                    navController.navigate("user/$target")
+                },
             )
         }
         // 用户关注列表：该用户关注的作者，从用户主页统计格进入

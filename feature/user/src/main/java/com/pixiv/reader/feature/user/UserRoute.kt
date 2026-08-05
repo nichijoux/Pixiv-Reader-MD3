@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,7 +37,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -58,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.NovelSeriesItem
-import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox
@@ -82,7 +79,7 @@ import kotlinx.coroutines.launch
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
  * @param onOpenNovel 打开小说详情
- * @param onOpenCover 打开小说封面全屏大图
+ * @param onOpenCover 打开全屏大图（小说封面 / 头部头像共用）
  * @param onOpenUser 打开用户主页
  * @param onSearchTag 标签搜索（跳发现页）
  * @param onOpenSeries 打开小说系列详情
@@ -178,38 +175,19 @@ fun UserRoute(
                         },
                         onOpenUserBookmarks = onOpenUserBookmarks,
                         onOpenUserFollowing = onOpenUserFollowing,
+                        onOpenAvatar = onOpenCover,
                     )
-                    // 分区 Tab（平板均分居中 / 手机可滑动）
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val isWide = maxWidth >= MAX_CONTENT_WIDTH_DP.dp
-                        val selectedIndex = pagerState.currentPage.coerceIn(0, (sections.size - 1).coerceAtLeast(0))
-                        if (isWide) {
-                            PrimaryTabRow(
-                                selectedTabIndex = selectedIndex,
-                                containerColor = MaterialTheme.colorScheme.surface,
-                            ) {
-                                for (index in sections.indices) {
-                                    Tab(
-                                        selected = pagerState.currentPage == index,
-                                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                        text = { Text(stringResource(sections[index].labelRes)) },
-                                    )
-                                }
-                            }
-                        } else {
-                            ScrollableTabRow(
-                                selectedTabIndex = selectedIndex,
-                                edgePadding = 8.dp,
-                                containerColor = MaterialTheme.colorScheme.surface,
-                            ) {
-                                for (index in sections.indices) {
-                                    Tab(
-                                        selected = pagerState.currentPage == index,
-                                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                        text = { Text(stringResource(sections[index].labelRes)) },
-                                    )
-                                }
-                            }
+                    // 分区 Tab：PrimaryTabRow 均分占满（手机/平板一致，4 个短标签均放得下）
+                    PrimaryTabRow(
+                        selectedTabIndex = pagerState.currentPage.coerceIn(0, (sections.size - 1).coerceAtLeast(0)),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ) {
+                        for (index in sections.indices) {
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                text = { Text(stringResource(sections[index].labelRes)) },
+                            )
                         }
                     }
                     // 分区内容（Pager 每页只 collect 自己段的状态）
@@ -221,12 +199,16 @@ fun UserRoute(
                             UserSection.ILLUST -> SectionIllust(
                                 paged = viewModel.illustPaged,
                                 onOpenIllust = onOpenIllust,
+                                onOpenUser = onOpenUser,
+                                onToggleFavorite = viewModel::toggleIllustFavorite,
                                 onRetry = viewModel::load,
                                 onLoadMore = viewModel::loadMore,
                             )
                             UserSection.MANGA -> SectionIllust(
                                 paged = viewModel.mangaPaged,
                                 onOpenIllust = onOpenIllust,
+                                onOpenUser = onOpenUser,
+                                onToggleFavorite = viewModel::toggleIllustFavorite,
                                 onRetry = viewModel::load,
                                 onLoadMore = viewModel::loadMore,
                             )
@@ -270,6 +252,7 @@ private fun UserHeader(
     onScrollToSection: (UserSection) -> Unit,
     onOpenUserBookmarks: () -> Unit,
     onOpenUserFollowing: () -> Unit,
+    onOpenAvatar: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -277,6 +260,7 @@ private fun UserHeader(
                 name = user.name,
                 avatarUrl = user.profile_image_urls?.best(),
                 modifier = Modifier.size(64.dp),
+                onClick = { user.profile_image_urls?.best()?.let(onOpenAvatar) },
             )
             Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
                 Text(
@@ -374,6 +358,8 @@ private fun StatItem(
 private fun SectionIllust(
     paged: com.pixiv.reader.core.network.paging.PagedState<com.pixiv.api.model.Illust>,
     onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onToggleFavorite: (Long, Boolean) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -394,6 +380,8 @@ private fun SectionIllust(
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+            onToggleFavorite = onToggleFavorite,
+            onOpenUser = onOpenUser,
         )
     }
 }

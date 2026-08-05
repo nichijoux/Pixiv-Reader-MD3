@@ -130,6 +130,7 @@ fun HistoryRoute(
                             entries = history,
                             viewModel = viewModel,
                             onOpenIllust = onOpenIllust,
+                            onOpenUser = onOpenUser,
                         )
                         HistoryFilter.NOVEL -> NovelHistoryList(
                             entries = history,
@@ -159,6 +160,7 @@ private fun IllustHistoryList(
     entries: List<BrowseHistoryEntity>,
     viewModel: HistoryViewModel,
     onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
 ) {
     val illusts = entries.map { it.toIllust() }
     if (illusts.isEmpty()) {
@@ -172,6 +174,7 @@ private fun IllustHistoryList(
         hasMore = false,
         isLoadingMore = false,
         onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+        onOpenUser = onOpenUser,
     )
 }
 

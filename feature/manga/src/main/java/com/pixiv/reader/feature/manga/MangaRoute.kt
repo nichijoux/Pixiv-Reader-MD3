@@ -47,12 +47,14 @@ import com.pixiv.reader.core.ui.component.LoadingBox
  *
  * @param onOpenIllust 点击漫画卡打开详情
  * @param onOpenMangaRanking 点击排行榜 banner / 顶栏奖杯打开漫画排行榜全屏页
+ * @param onOpenUser 点击作者行打开用户主页
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MangaRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenMangaRanking: () -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
 ) {
     val items by viewModel.recommendPaged.items.collectAsStateWithLifecycle()
@@ -116,6 +118,7 @@ fun MangaRoute(
                         hasMore = hasMore,
                         isLoadingMore = isLoadingMore,
                         onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                        onOpenUser = onOpenUser,
                         // 排行榜入口 banner 作为网格头部（随列表滚动/下拉）
                         header = { MangaRankingBanner(onClick = onOpenMangaRanking) },
                     )

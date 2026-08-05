@@ -43,12 +43,14 @@ import com.pixiv.reader.feature.home.R
  *
  * @param onOpenSearch 点击搜索图标跳转发现页
  * @param onOpenIllust 点击作品卡片打开详情
+ * @param onOpenUser 点击作者行打开用户主页
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeRoute(
     onOpenSearch: () -> Unit,
     onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
@@ -110,8 +112,8 @@ fun HomeRoute(
                 }
 
                 when (tab) {
-                    HomeTab.RECOMMEND -> RecommendContent(viewModel, onOpenIllust)
-                    HomeTab.FOLLOW -> FollowContent(viewModel, onOpenIllust)
+                    HomeTab.RECOMMEND -> RecommendContent(viewModel, onOpenIllust, onOpenUser)
+                    HomeTab.FOLLOW -> FollowContent(viewModel, onOpenIllust, onOpenUser)
                 }
             }
         }
@@ -119,7 +121,11 @@ fun HomeRoute(
 }
 
 @Composable
-private fun RecommendContent(viewModel: HomeViewModel, onOpenIllust: (Long) -> Unit) {
+private fun RecommendContent(
+    viewModel: HomeViewModel,
+    onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
     val items by viewModel.recommendPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.recommendPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.recommendPaged.isLoadingMore.collectAsStateWithLifecycle()
@@ -136,12 +142,17 @@ private fun RecommendContent(viewModel: HomeViewModel, onOpenIllust: (Long) -> U
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
             onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+            onOpenUser = onOpenUser,
         )
     }
 }
 
 @Composable
-private fun FollowContent(viewModel: HomeViewModel, onOpenIllust: (Long) -> Unit) {
+private fun FollowContent(
+    viewModel: HomeViewModel,
+    onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
     val items by viewModel.followingPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.followingPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.followingPaged.isLoadingMore.collectAsStateWithLifecycle()
@@ -158,6 +169,7 @@ private fun FollowContent(viewModel: HomeViewModel, onOpenIllust: (Long) -> Unit
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
             onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+            onOpenUser = onOpenUser,
         )
     }
 }

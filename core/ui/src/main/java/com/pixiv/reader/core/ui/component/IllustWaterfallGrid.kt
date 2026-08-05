@@ -40,6 +40,7 @@ private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp
  * @param contentPadding 网格内容边距
  * @param minColumnWidth 每列最小宽度（决定自适应列数）
  * @param onToggleFavorite 收藏切换回调（参数为 id + 目标状态）；null 则卡片不显示收藏按钮
+ * @param onOpenUser 作者行点击回调（参数为作者用户 id；null 则卡片作者行不可点）
  * @param header 网格头部内容（整行跨列，随列表滚动，如排行榜入口 banner）；null 不显示
  */
 @Composable
@@ -53,6 +54,7 @@ fun IllustWaterfallGrid(
     contentPadding: PaddingValues = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
     minColumnWidth: Dp = 140.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
+    onOpenUser: ((Long) -> Unit)? = null,
     header: (@Composable () -> Unit)? = null,
 ) {
     LazyVerticalStaggeredGrid(
@@ -77,6 +79,9 @@ fun IllustWaterfallGrid(
                 onClick = { onItemClick(illust.id) },
                 coverHeight = coverHeight,
                 onToggleFavorite = onToggleFavorite?.let { cb -> { fav -> cb(illust.id, fav) } },
+                onOpenAuthor = onOpenUser?.let { cb ->
+                    { illust.user?.id?.let(cb); Unit }
+                } ?: {},
                 modifier = Modifier.fillMaxWidth(),
             )
         }

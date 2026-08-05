@@ -399,9 +399,9 @@ private fun SearchResultPager(
         HorizontalPager(state = pagerState) { page ->
             when (SearchType.entries.getOrNull(page)) {
                 SearchType.ILLUST -> if (filters.mode == SearchMode.HOT) {
-                    HotIllustGrid(viewModel, onOpenIllust)
+                    HotIllustGrid(viewModel, onOpenIllust, onOpenUser)
                 } else {
-                    IllustSearchResults(viewModel, onOpenIllust)
+                    IllustSearchResults(viewModel, onOpenIllust, onOpenUser)
                 }
                 SearchType.NOVEL -> if (filters.mode == SearchMode.HOT) {
                     HotNovelList(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
@@ -418,7 +418,11 @@ private fun SearchResultPager(
 // ── 热门模式：一次性完整列表 ────────────────────────────────────────────────
 
 @Composable
-private fun HotIllustGrid(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
+private fun HotIllustGrid(
+    viewModel: DiscoverViewModel,
+    onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
     val popular by viewModel.popularIllusts.collectAsStateWithLifecycle()
     if (popular.isEmpty()) {
         EmptyBox(stringResource(R.string.search_no_hot))
@@ -430,6 +434,7 @@ private fun HotIllustGrid(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> 
         onLoadMore = {},
         hasMore = false,
         isLoadingMore = false,
+        onOpenUser = onOpenUser,
     )
 }
 
