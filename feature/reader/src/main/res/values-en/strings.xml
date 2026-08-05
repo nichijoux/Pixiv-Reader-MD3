@@ -1,0 +1,71 @@
+<resources>
+    <!-- Reader theme / font / page mode names -->
+    <string name="reader_theme_day">Day</string>
+    <string name="reader_theme_paper">Paper</string>
+    <string name="reader_theme_night">Night</string>
+    <string name="reader_theme_deep_black">Deep black</string>
+    <string name="reader_page_mode_scroll">Scroll</string>
+    <string name="reader_page_mode_paginate">Paginate</string>
+    <string name="reader_page_mode_simulation">Page turn</string>
+    <string name="reader_font_family_serif">Serif</string>
+    <string name="reader_font_family_sans">Sans</string>
+    <string name="reader_font_family_mono">Mono</string>
+    <string name="reader_font_family_custom">Custom</string>
+
+    <!-- Reader settings sheet -->
+    <string name="reader_settings_title">Reader settings</string>
+    <string name="reader_settings_font_size">Font size</string>
+    <string name="reader_settings_line_spacing">Line spacing</string>
+    <string name="reader_settings_brightness">Brightness</string>
+    <string name="reader_settings_section_font">Font</string>
+    <string name="reader_settings_change_custom_font">Change custom font</string>
+    <string name="reader_settings_import_custom_font">Import custom font</string>
+    <string name="reader_settings_clear">Clear</string>
+    <string name="reader_settings_section_theme">Theme</string>
+    <string name="reader_settings_follow_system">Follow system</string>
+    <string name="reader_settings_follow_system_desc">Switch night/paper automatically with system dark mode</string>
+    <string name="reader_settings_section_page_mode">Page mode</string>
+
+    <!-- Reader top bar / menu -->
+    <string name="reader_title_default">Reading</string>
+    <string name="reader_offline_badge">Offline</string>
+    <string name="reader_cd_back">Back</string>
+    <string name="reader_cd_more">More</string>
+    <string name="reader_menu_unbookmark">Remove bookmark</string>
+    <string name="reader_menu_bookmark">Bookmark</string>
+    <string name="reader_menu_remove_mark">Remove reading mark</string>
+    <string name="reader_menu_add_mark">Add reading mark</string>
+    <string name="reader_menu_unwatch">Unwatch</string>
+    <string name="reader_menu_watch">Watch</string>
+
+    <!-- Bottom bar / panels -->
+    <string name="reader_cd_toc">Contents</string>
+    <string name="reader_cd_search">Search</string>
+    <string name="reader_cd_settings">Reader settings</string>
+    <string name="reader_panel_toc">Contents</string>
+    <string name="reader_toc_loading">Loading…</string>
+    <string name="reader_toc_empty">No contents available</string>
+    <string name="reader_toc_current_novel">This novel</string>
+    <string name="reader_untitled">Untitled</string>
+    <string name="reader_search_placeholder">Search body text</string>
+    <string name="reader_search_position">Match %1$d / %2$d</string>
+    <string name="reader_search_total">%1$d matches</string>
+    <string name="reader_cd_prev">Previous</string>
+    <string name="reader_cd_next">Next</string>
+    <string name="reader_empty_content">No content</string>
+
+    <!-- ViewModel messages / errors -->
+    <string name="reader_error_load_failed">Failed to load</string>
+    <string name="reader_error_load_failed_reason">Failed to load: %1$s</string>
+    <string name="reader_msg_font_import_failed">Failed to import font: %1$s</string>
+    <string name="reader_msg_font_set">Custom font set</string>
+    <string name="reader_msg_font_cleared">Custom font cleared</string>
+    <string name="reader_msg_action_failed">Action failed: %1$s</string>
+    <string name="reader_msg_mark_added">Reading mark added</string>
+    <string name="reader_msg_mark_removed">Reading mark removed</string>
+    <string name="reader_msg_bookmarked">Bookmarked</string>
+    <string name="reader_msg_unbookmarked">Removed bookmark</string>
+    <string name="reader_msg_watching_added">Added to watchlist</string>
+    <string name="reader_msg_watching_removed">Removed from watchlist</string>
+    <string name="reader_msg_not_in_series">This work is not part of a series</string>
+</resources>

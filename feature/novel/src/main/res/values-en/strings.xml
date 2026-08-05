@@ -1,0 +1,66 @@
+<resources>
+    <!-- Novel tab feed -->
+    <string name="novel_title">Novels</string>
+    <string name="novel_cd_refresh">Refresh</string>
+    <string name="novel_feed_empty">No recommended novels yet</string>
+    <string name="novel_load_more">Scroll to load more</string>
+
+    <!-- Novel detail -->
+    <string name="novel_not_found">Novel not found</string>
+    <string name="novel_cd_back">Back</string>
+    <string name="novel_series_section">Series volumes (%1$d)</string>
+    <string name="novel_comments_section">Comments (%1$d)</string>
+    <string name="novel_comments_loading">Loading comments…</string>
+    <string name="novel_comments_empty">No comments yet</string>
+    <string name="novel_comments_retry">Tap to retry</string>
+    <string name="novel_anonymous_user">Anonymous</string>
+    <string name="novel_reply_prefix">Reply to @%1$s: </string>
+    <string name="novel_stat_word">Words</string>
+    <string name="novel_stat_bookmark">Bookmarks</string>
+    <string name="novel_stat_view">Views</string>
+    <string name="novel_chapter_word">Words %1$s</string>
+    <string name="novel_chapter_bookmark">Bookmarks %1$s</string>
+    <string name="novel_chapter_current">Current</string>
+    <string name="novel_continue_reading">Continue %1$d%%</string>
+    <string name="novel_start_reading">Start reading</string>
+    <string name="novel_bookmarked">Bookmarked</string>
+    <string name="novel_bookmark">Bookmark</string>
+    <string name="novel_watchlisted">Watching</string>
+    <string name="novel_watch">Watch</string>
+    <string name="novel_download">Download</string>
+
+    <!-- Download dialog -->
+    <string name="novel_download_title">Download novel</string>
+    <string name="novel_download_group_export">Export file</string>
+    <string name="novel_download_group_offline">Offline reading</string>
+    <string name="novel_download_txt_current">This volume (TXT)</string>
+    <string name="novel_download_txt_current_desc">Plain text, without images</string>
+    <string name="novel_download_epub_current">This volume (EPUB)</string>
+    <string name="novel_download_epub_current_desc">Standard e-book, with embedded images</string>
+    <string name="novel_download_txt_series">Entire series (TXT)</string>
+    <string name="novel_download_txt_series_desc">Merge all volumes as plain text</string>
+    <string name="novel_download_epub_series">Entire series (EPUB)</string>
+    <string name="novel_download_epub_series_desc">Merge all volumes as an e-book</string>
+    <string name="novel_download_offline_current">Save in app (offline)</string>
+    <string name="novel_download_offline_current_desc">Read this volume offline</string>
+    <string name="novel_download_offline_series">Save whole series (offline)</string>
+    <string name="novel_download_offline_series_desc">Read all volumes offline</string>
+
+    <!-- ViewModel messages / errors -->
+    <string name="novel_error_load_failed">Failed to load</string>
+    <string name="novel_error_load_failed_reason">Failed to load: %1$s</string>
+    <string name="novel_msg_comment_published">Comment posted</string>
+    <string name="novel_msg_comment_failed">Failed to post comment: %1$s</string>
+    <string name="novel_msg_bookmarked">Bookmarked</string>
+    <string name="novel_msg_unbookmarked">Removed bookmark</string>
+    <string name="novel_msg_action_failed">Action failed: %1$s</string>
+    <string name="novel_msg_watching_added">Added to watchlist</string>
+    <string name="novel_msg_watching_removed">Removed from watchlist</string>
+    <string name="novel_msg_downloading">Downloading…</string>
+    <string name="novel_msg_preparing">Preparing…</string>
+    <string name="novel_msg_downloading_chapter">Downloading chapter %1$d/%2$d…</string>
+    <string name="novel_msg_exported">Exported: %1$s</string>
+    <string name="novel_msg_export_failed">Export failed: %1$s</string>
+    <string name="novel_msg_queued">Added to download queue</string>
+    <string name="novel_msg_queued_background">Added to download queue (background)</string>
+</resources>

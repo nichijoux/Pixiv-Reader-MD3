@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.user
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
@@ -16,7 +17,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** 历史类型筛选（插画 / 小说 / 用户）。 */
-enum class HistoryFilter { ILLUST, NOVEL, USER }
+enum class HistoryFilter(@StringRes val labelRes: Int) {
+    ILLUST(R.string.history_filter_illust),
+    NOVEL(R.string.history_filter_novel),
+    USER(R.string.history_filter_user),
+}
 
 /**
  * 阅读历史 ViewModel：观察本地浏览历史（Room），按类型筛选；支持历史卡片收藏。

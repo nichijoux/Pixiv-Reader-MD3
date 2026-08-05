@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.discover
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.AutocompleteTag
@@ -14,6 +15,7 @@ import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.pixiv.reader.feature.discover.R
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,10 +28,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class SearchType(val label: String) {
-    ILLUST("插画"),
-    NOVEL("小说"),
-    USER("用户"),
+enum class SearchType(@StringRes val labelRes: Int) {
+    ILLUST(R.string.search_type_illust),
+    NOVEL(R.string.search_type_novel),
+    USER(R.string.search_type_user),
 }
 
 /** 搜索模式：最新（正常搜索，sort=date_desc）/ 热门（仅显示热门作品，一次性）。 */

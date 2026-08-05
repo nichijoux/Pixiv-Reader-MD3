@@ -1,0 +1,27 @@
+<resources>
+    <string name="illust_title">Artwork Details</string>
+    <string name="illust_cd_back">Back</string>
+    <string name="illust_cd_more">More</string>
+    <string name="illust_cd_download">Download</string>
+    <string name="illust_btn_fullscreen">Open fullscreen</string>
+    <string name="illust_cd_fullscreen">Open fullscreen</string>
+    <string name="illust_menu_download_original">Download original</string>
+    <string name="illust_menu_unbookmark">Remove bookmark</string>
+    <string name="illust_menu_bookmark">Bookmark</string>
+    <string name="illust_menu_report">Report</string>
+    <string name="illust_page_count">Total %1$d P</string>
+    <string name="illust_stat_view">Views</string>
+    <string name="illust_stat_bookmark">Bookmarks</string>
+    <string name="illust_section_related">Related works</string>
+    <string name="illust_section_comments">Comments</string>
+    <string name="illust_comments_empty">No comments yet</string>
+    <string name="illust_reply_prefix">Reply to @%1$s: </string>
+    <string name="illust_error_load_failed">Failed to load</string>
+    <string name="illust_error_load_failed_reason">Failed to load: %1$s</string>
+    <string name="illust_msg_comment_published">Comment posted</string>
+    <string name="illust_msg_comment_failed">Failed to post comment: %1$s</string>
+    <string name="illust_msg_action_failed">Action failed: %1$s</string>
+    <string name="illust_msg_saved_to_downloads">Saved to Downloads</string>
+    <string name="illust_msg_download_failed">Download failed: %1$s</string>
+    <string name="illust_msg_report_wip">Report feature is under development</string>
+</resources>

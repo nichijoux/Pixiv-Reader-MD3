@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -48,12 +49,12 @@ fun UgoiraPlayer(
         if (current != null) {
             Image(
                 bitmap = current.asImageBitmap(),
-                contentDescription = "动图",
+                contentDescription = stringResource(R.string.viewer_cd_ugoira),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
             )
         } else {
-            Text("动图加载中…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.viewer_ugoira_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -65,6 +65,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -103,34 +105,35 @@ fun IllustDetailRoute(
     var currentPage by remember { mutableStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("作品详情") },
+                title = { Text(stringResource(R.string.illust_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.illust_cd_back)) }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.illust_cd_more))
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("下载原图") },
+                                text = { Text(stringResource(R.string.illust_menu_download_original)) },
                                 leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
                                 onClick = { menuExpanded = false; viewModel.download() },
                             )
                             DropdownMenuItem(
-                                text = { Text(if (isBookmarked) "取消收藏" else "收藏") },
+                                text = { Text(stringResource(if (isBookmarked) R.string.illust_menu_unbookmark else R.string.illust_menu_bookmark)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -140,7 +143,7 @@ fun IllustDetailRoute(
                                 onClick = { menuExpanded = false; viewModel.toggleBookmark() },
                             )
                             DropdownMenuItem(
-                                text = { Text("举报") },
+                                text = { Text(stringResource(R.string.illust_menu_report)) },
                                 leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
                                 onClick = { menuExpanded = false; viewModel.report() },
                             )
@@ -160,11 +163,11 @@ fun IllustDetailRoute(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                IconButton(onClick = viewModel::download) { Icon(Icons.Filled.Download, contentDescription = "下载") }
+                IconButton(onClick = viewModel::download) { Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.illust_cd_download)) }
                 IconButton(onClick = viewModel::toggleBookmark, enabled = !isBookmarking) {
                     Icon(
                         imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = if (isBookmarked) "取消收藏" else "收藏",
+                        contentDescription = stringResource(if (isBookmarked) R.string.illust_menu_unbookmark else R.string.illust_menu_bookmark),
                         tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -172,7 +175,7 @@ fun IllustDetailRoute(
                     onClick = { onOpenViewer(illust?.id ?: 0L, pageToOpen) },
                     modifier = Modifier.weight(1f).height(44.dp),
                 ) {
-                    Text("全屏查看")
+                    Text(stringResource(R.string.illust_btn_fullscreen))
                 }
             }
         },
@@ -187,7 +190,7 @@ fun IllustDetailRoute(
             when {
                 isLoading && illust == null -> LoadingBox(modifier = Modifier.padding(padding))
                 error != null && illust == null -> ErrorBox(
-                    message = error.orEmpty(),
+                    message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                     onRetry = viewModel::load,
                     modifier = Modifier.padding(padding),
                 )
@@ -210,7 +213,7 @@ fun IllustDetailRoute(
             AdaptiveContentBox(modifier = Modifier.padding(padding)) {
                 when {
                     isLoading && illust == null -> LoadingBox()
-                    error != null && illust == null -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
+                    error != null && illust == null -> ErrorBox(message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }, onRetry = viewModel::load)
                     else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         if (pages.isNotEmpty()) {
                             item(key = "pager") {
@@ -290,7 +293,7 @@ private fun TwoPaneContent(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
             ) {
-                Text("评论", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.illust_section_comments), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
                 CommentList(comments)
             }
@@ -425,7 +428,7 @@ private fun PagePager(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Fullscreen,
-                        contentDescription = "全屏查看",
+                        contentDescription = stringResource(R.string.illust_cd_fullscreen),
                         tint = Color.White,
                         modifier = Modifier.size(18.dp),
                     )
@@ -459,7 +462,7 @@ private fun InfoSection(illust: Illust?, onOpenUser: (Long) -> Unit) {
             Column {
                 Text(illust.user?.name.orEmpty(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Text(
-                    "共 ${illust.page_count} P",
+                    stringResource(R.string.illust_page_count, illust.page_count ?: 0),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -469,8 +472,8 @@ private fun InfoSection(illust: Illust?, onOpenUser: (Long) -> Unit) {
             modifier = Modifier.padding(top = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            StatText("浏览", (illust.total_view ?: 0).toLong())
-            StatText("收藏", (illust.total_bookmarks ?: 0).toLong())
+            StatText(stringResource(R.string.illust_stat_view), (illust.total_view ?: 0).toLong())
+            StatText(stringResource(R.string.illust_stat_bookmark), (illust.total_bookmarks ?: 0).toLong())
         }
         @OptIn(ExperimentalLayoutApi::class)
         FlowRow(
@@ -521,7 +524,7 @@ private fun StatText(label: String, value: Long) {
 private fun RelatedSection(viewModel: IllustViewModel) {
     val items by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("相关作品", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.illust_section_related), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(items, key = { it.id }) { related ->
@@ -562,7 +565,7 @@ private fun CommentSection(
 ) {
     val comments by viewModel.commentsPaged.items.collectAsStateWithLifecycle()
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("评论", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.illust_section_comments), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         CommentList(comments)
         Spacer(Modifier.height(12.dp))
@@ -578,7 +581,7 @@ private fun CommentSection(
 private fun CommentList(comments: List<Comment>) {
     if (comments.isEmpty()) {
         Text(
-            text = "还没有评论",
+            text = stringResource(R.string.illust_comments_empty),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 8.dp),
@@ -656,14 +659,10 @@ private fun IllustReplyRow(reply: Comment) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val parentName = reply.parent_comment?.user?.name
+            val prefix = if (!parentName.isNullOrBlank()) stringResource(R.string.illust_reply_prefix, parentName) else ""
             Text(
-                text = buildString {
-                    val parentName = reply.parent_comment?.user?.name
-                    if (!parentName.isNullOrBlank()) {
-                        append("回复 @$parentName：")
-                    }
-                    append(reply.comment.orEmpty())
-                },
+                text = prefix + reply.comment.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 2.dp),
             )

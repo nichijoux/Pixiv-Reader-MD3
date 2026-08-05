@@ -1,0 +1,71 @@
+<resources>
+    <!-- 阅读器主题 / 字体 / 翻页模式名称 -->
+    <string name="reader_theme_day">日间</string>
+    <string name="reader_theme_paper">纸张</string>
+    <string name="reader_theme_night">夜间</string>
+    <string name="reader_theme_deep_black">深黑</string>
+    <string name="reader_page_mode_scroll">滑动</string>
+    <string name="reader_page_mode_paginate">翻页</string>
+    <string name="reader_page_mode_simulation">仿真</string>
+    <string name="reader_font_family_serif">衬线</string>
+    <string name="reader_font_family_sans">无衬线</string>
+    <string name="reader_font_family_mono">等宽</string>
+    <string name="reader_font_family_custom">自定义</string>
+
+    <!-- 阅读设置面板 -->
+    <string name="reader_settings_title">阅读设置</string>
+    <string name="reader_settings_font_size">字号</string>
+    <string name="reader_settings_line_spacing">行距</string>
+    <string name="reader_settings_brightness">亮度</string>
+    <string name="reader_settings_section_font">字体</string>
+    <string name="reader_settings_change_custom_font">更换自定义字体</string>
+    <string name="reader_settings_import_custom_font">导入自定义字体</string>
+    <string name="reader_settings_clear">清除</string>
+    <string name="reader_settings_section_theme">主题</string>
+    <string name="reader_settings_follow_system">跟随系统</string>
+    <string name="reader_settings_follow_system_desc">按系统深色模式自动切换夜间/纸张</string>
+    <string name="reader_settings_section_page_mode">翻页模式</string>
+
+    <!-- 阅读器顶栏 / 菜单 -->
+    <string name="reader_title_default">阅读</string>
+    <string name="reader_offline_badge">离线</string>
+    <string name="reader_cd_back">返回</string>
+    <string name="reader_cd_more">更多</string>
+    <string name="reader_menu_unbookmark">取消收藏</string>
+    <string name="reader_menu_bookmark">收藏</string>
+    <string name="reader_menu_remove_mark">移除阅读书签</string>
+    <string name="reader_menu_add_mark">添加阅读书签</string>
+    <string name="reader_menu_unwatch">取消追更</string>
+    <string name="reader_menu_watch">加入追更</string>
+
+    <!-- 底栏 / 面板 -->
+    <string name="reader_cd_toc">目录</string>
+    <string name="reader_cd_search">搜索</string>
+    <string name="reader_cd_settings">阅读设置</string>
+    <string name="reader_panel_toc">目录</string>
+    <string name="reader_toc_loading">加载中…</string>
+    <string name="reader_toc_empty">没有可展示的目录</string>
+    <string name="reader_toc_current_novel">本小说</string>
+    <string name="reader_untitled">无标题</string>
+    <string name="reader_search_placeholder">搜索正文关键词</string>
+    <string name="reader_search_position">第 %1$d / %2$d 处</string>
+    <string name="reader_search_total">共 %1$d 处匹配</string>
+    <string name="reader_cd_prev">上一个</string>
+    <string name="reader_cd_next">下一个</string>
+    <string name="reader_empty_content">没有正文内容</string>
+
+    <!-- ViewModel 消息 / 错误 -->
+    <string name="reader_error_load_failed">加载失败</string>
+    <string name="reader_error_load_failed_reason">加载失败：%1$s</string>
+    <string name="reader_msg_font_import_failed">字体导入失败：%1$s</string>
+    <string name="reader_msg_font_set">自定义字体已设置</string>
+    <string name="reader_msg_font_cleared">已清除自定义字体</string>
+    <string name="reader_msg_action_failed">操作失败：%1$s</string>
+    <string name="reader_msg_mark_added">已添加阅读书签</string>
+    <string name="reader_msg_mark_removed">已移除阅读书签</string>
+    <string name="reader_msg_bookmarked">已收藏</string>
+    <string name="reader_msg_unbookmarked">已取消收藏</string>
+    <string name="reader_msg_watching_added">已加入追更</string>
+    <string name="reader_msg_watching_removed">已取消追更</string>
+    <string name="reader_msg_not_in_series">该作品不属于系列</string>
+</resources>

@@ -1,0 +1,70 @@
+<resources>
+    <!-- 搜索类型 Tab -->
+    <string name="search_type_illust">插画</string>
+    <string name="search_type_novel">小说</string>
+    <string name="search_type_user">用户</string>
+
+    <!-- 搜索栏 / 初始态 / 联想 -->
+    <string name="search_placeholder">搜索作品、画师、标签</string>
+    <string name="search_clear">清除</string>
+    <string name="search_action">搜索</string>
+    <string name="search_filter">筛选</string>
+    <string name="search_history_title">搜索历史</string>
+    <string name="search_history_clear">清空</string>
+    <string name="search_hot_title">热门搜索</string>
+    <string name="search_hint">输入关键词以搜索</string>
+    <string name="search_no_hot">暂无热门作品</string>
+
+    <!-- 筛选面板 -->
+    <string name="filter_title_user">筛选 · 用户</string>
+    <string name="filter_title_illust">高级筛选 · 插画</string>
+    <string name="filter_title_novel">高级筛选 · 小说</string>
+    <string name="filter_title_default">高级筛选</string>
+    <string name="filter_user_hint">用户搜索仅支持关键词匹配，暂无高级筛选条件。</string>
+    <string name="filter_mode">模式</string>
+    <string name="filter_latest">最新</string>
+    <string name="filter_hot">热门</string>
+    <string name="filter_sort">排序</string>
+    <string name="filter_oldest">最旧</string>
+    <string name="filter_popular">收藏多</string>
+    <string name="filter_match">匹配方式</string>
+    <string name="filter_match_partial">标签部分一致</string>
+    <string name="filter_match_exact">标签完全一致</string>
+    <string name="filter_match_title">标题简介</string>
+    <string name="filter_date_range">时间范围</string>
+    <string name="filter_date_start_hint">2026-01-01</string>
+    <string name="filter_date_end_hint">2026-08-01</string>
+    <string name="filter_bookmark_min">最低收藏</string>
+    <string name="filter_unlimited">不限</string>
+    <string name="filter_ai">AI 作品</string>
+    <string name="filter_all">全部</string>
+    <string name="filter_ai_human">仅人绘</string>
+    <string name="filter_ai_only">仅 AI</string>
+    <string name="filter_illust_section">插画专属</string>
+    <string name="filter_ratio">比例</string>
+    <string name="filter_ratio_square">正方</string>
+    <string name="filter_ratio_wide">横长</string>
+    <string name="filter_ratio_tall">竖长</string>
+    <string name="filter_content_type">内容类型</string>
+    <string name="filter_content_illust">插画</string>
+    <string name="filter_content_manga">漫画</string>
+    <string name="filter_content_ugoira">动图</string>
+    <string name="filter_tool_section">绘制工具</string>
+    <string name="filter_width">宽度</string>
+    <string name="filter_height">高度</string>
+    <string name="filter_px_min">最小 px</string>
+    <string name="filter_px_max">最大 px</string>
+    <string name="filter_novel_section">小说专属</string>
+    <string name="filter_genre_section">题材</string>
+    <string name="filter_genre_unknown">未知</string>
+    <string name="filter_original_only">仅原创</string>
+    <string name="filter_replaceable_only">仅可转载</string>
+    <string name="filter_text_length">正文文字数</string>
+    <string name="filter_word_count">字数</string>
+    <string name="filter_reading_time">阅读时长</string>
+    <string name="filter_min">最小</string>
+    <string name="filter_max">最大</string>
+    <string name="filter_reading_time_min">最小 分钟</string>
+    <string name="filter_reset">重置</string>
+    <string name="filter_apply">应用筛选</string>
+</resources>

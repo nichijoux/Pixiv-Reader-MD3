@@ -22,9 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.feature.auth.R
 
 @Composable
 fun LoginScreen(
@@ -65,7 +67,7 @@ fun LoginScreen(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "浏览插画与小说，享受舒适阅读",
+            text = stringResource(R.string.auth_tagline),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -80,13 +82,13 @@ fun LoginScreen(
         if (uiState.error != null) {
             Spacer(Modifier.height(16.dp))
             Text(
-                text = uiState.error,
+                text = stringResource(uiState.error.res, *uiState.error.args.toTypedArray()),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(4.dp))
-            TextButton(onClick = onDismissError) { Text("知道了") }
+            TextButton(onClick = onDismissError) { Text(stringResource(R.string.auth_got_it)) }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -97,7 +99,7 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(26.dp),
         ) {
-            Text("使用 Pixiv 账号登录", fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.auth_login_button), fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -108,13 +110,13 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(26.dp),
         ) {
-            Text("注册临时账号")
+            Text(stringResource(R.string.auth_register_button))
         }
 
         Spacer(Modifier.height(24.dp))
 
         Text(
-            text = "登录即代表同意 Pixiv 服务条款。\n若无法打开登录页，请检查网络连接。",
+            text = stringResource(R.string.auth_terms_hint),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.outline,
             textAlign = TextAlign.Center,

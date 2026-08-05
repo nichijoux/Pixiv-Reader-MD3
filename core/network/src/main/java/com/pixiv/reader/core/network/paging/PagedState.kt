@@ -62,7 +62,7 @@ class PagedState<T> {
             _hasMore.value = page.nextPageUrl != null
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            _error.value = e.message ?: "加载失败"
+            _error.value = e.message
             _hasMore.value = false
         } finally {
             _isLoading.value = false
@@ -85,7 +85,7 @@ class PagedState<T> {
             _hasMore.value = page.nextPageUrl != null
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            _error.value = e.message ?: "加载失败"
+            _error.value = e.message
         } finally {
             _isLoadingMore.value = false
         }

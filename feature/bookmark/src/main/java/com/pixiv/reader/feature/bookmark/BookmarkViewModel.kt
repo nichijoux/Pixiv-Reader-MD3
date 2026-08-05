@@ -1,11 +1,13 @@
 package com.pixiv.reader.feature.bookmark
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.BookmarkTag
 import com.example.pixivapi.model.Illust
 import com.example.pixivapi.model.Novel
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +20,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** 收藏夹类型：插画 / 小说。 */
-enum class BookmarkType { ILLUST, NOVEL }
+enum class BookmarkType(@StringRes val labelRes: Int) {
+    ILLUST(R.string.bookmark_type_illust),
+    NOVEL(R.string.bookmark_type_novel),
+}
 
 /**
  * 我的收藏 ViewModel：插画/小说收藏列表 + 标签筛选 + 分页。
@@ -42,7 +47,7 @@ class BookmarkViewModel @Inject constructor(
     private val _selectedTag = MutableStateFlow<String?>(null)
     val selectedTag: StateFlow<String?> = _selectedTag.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     val illustPaged = PagedState<Illust>()

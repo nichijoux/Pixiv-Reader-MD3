@@ -10,13 +10,26 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.pixiv.reader.core.common.AppLanguage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "pixiv_prefs")
+internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "pixiv_prefs")
+
+internal val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
+
+/**
+ * 同步读取应用语言设置（供 MainActivity.attachBaseContext 在 Hilt 装配前调用）。
+ *
+ * DataStore 文件极小，runBlocking 首次读取为毫秒级；仅在 attachBaseContext 调用一次。
+ */
+fun readAppLanguageSync(context: Context): String =
+    runBlocking { context.dataStore.data.first()[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
 
 /**
  * 应用偏好（DataStore Preferences）。
@@ -46,6 +59,8 @@ class UserPreferences @Inject constructor(
     val themeMode: Flow<Int> = context.dataStore.data.map { it[KEY_THEME_MODE] ?: 0 }
 
     // ── 通用 ──
+    /** 应用语言：system 跟随系统 / zh 简体中文 / en 英语 */
+    val appLanguage: Flow<String> = context.dataStore.data.map { it[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
     /** 是否自动更新（设置开关，实际更新逻辑后续接入） */
     val autoUpdate: Flow<Boolean> = context.dataStore.data.map { it[KEY_AUTO_UPDATE] ?: true }
     /** 热门搜索缓存（展示名列表，\n 分隔；配合 updatedAt 控制刷新） */
@@ -70,6 +85,7 @@ class UserPreferences @Inject constructor(
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
     suspend fun setThemeMode(value: Int) = context.dataStore.edit { it[KEY_THEME_MODE] = value }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
+    suspend fun setAppLanguage(value: String) = context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
     suspend fun setHotTags(value: List<String>) =
         context.dataStore.edit { it[KEY_HOT_TAGS] = value.joinToString("\n") }
     suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.example.pixivapi.model.Illust
 import com.example.pixivapi.model.User
 import com.pixiv.reader.core.common.formatCount
+import com.pixiv.reader.core.ui.R
 
 /**
  * 插画瀑布流卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史共用）。
@@ -148,7 +150,7 @@ fun IllustCard(
                 ) {
                     Icon(
                         imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = if (favorite) "取消收藏" else "收藏",
+                        contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
                         tint = if (favorite) Color(0xFFFF5252) else Color.White,
                         modifier = Modifier.size(14.dp),
                     )

@@ -1,0 +1,12 @@
+<resources>
+    <string name="load_failed">Failed to load</string>
+    <string name="retry">Retry</string>
+    <string name="comment_placeholder">Say something…</string>
+    <string name="comment_send">Send</string>
+    <string name="not_logged_in">Not logged in</string>
+    <string name="follow">Follow</string>
+    <string name="following">Following</string>
+    <string name="favorite">Favorite</string>
+    <string name="unfavorite">Unfavorite</string>
+    <string name="ranking_bookmarks">%1$s bookmarks</string>
+</resources>

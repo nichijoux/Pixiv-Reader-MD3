@@ -1,0 +1,8 @@
+<resources>
+    <string name="cd_back">Back</string>
+    <string name="watchlist_title">Watchlist</string>
+    <string name="watchlist_empty">No watchlist yet</string>
+    <string name="watchlist_masked_series">Hidden series</string>
+    <string name="watchlist_chapters">%1$d chapters</string>
+    <string name="watchlist_view">View</string>
+</resources>

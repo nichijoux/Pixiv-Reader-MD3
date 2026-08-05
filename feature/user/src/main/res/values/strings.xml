@@ -1,0 +1,126 @@
+<resources>
+    <!-- 通用 contentDescription -->
+    <string name="cd_back">返回</string>
+    <string name="cd_more">更多</string>
+    <string name="cd_add">添加</string>
+    <string name="cd_delete">删除</string>
+    <string name="cd_delete_tag">删除 %1$s</string>
+    <string name="untitled">无标题</string>
+    <string name="unknown_user">未知用户</string>
+
+    <!-- 历史 HistoryFilter -->
+    <string name="history_filter_illust">插画</string>
+    <string name="history_filter_novel">小说</string>
+    <string name="history_filter_user">用户</string>
+
+    <!-- 下载 DownloadFilter -->
+    <string name="downloads_filter_illust">插画</string>
+    <string name="downloads_filter_novel">小说</string>
+    <string name="downloads_filter_offline">离线</string>
+
+    <!-- 用户分区 UserSection -->
+    <string name="user_section_illust">插画</string>
+    <string name="user_section_manga">漫画</string>
+    <string name="user_section_novel">小说</string>
+
+    <!-- 收藏标签类型 -->
+    <string name="tags_type_illust">插画</string>
+    <string name="tags_type_novel">小说</string>
+
+    <!-- 我的页 MeRoute -->
+    <string name="me_logout">退出登录</string>
+    <string name="me_section_content">用户内容管理</string>
+    <string name="me_section_account">账户管理</string>
+    <string name="me_section_appearance">外观设置</string>
+    <string name="me_section_system">系统设置</string>
+    <string name="me_section_about">关于信息</string>
+    <string name="me_bookmarks_title">我的收藏</string>
+    <string name="me_bookmarks_desc">收藏的作品</string>
+    <string name="me_history_title">浏览历史</string>
+    <string name="me_history_desc">浏览过的作品</string>
+    <string name="me_downloads_title">下载管理</string>
+    <string name="me_downloads_desc">已下载的内容</string>
+    <string name="me_tags_title">收藏标签</string>
+    <string name="me_tags_desc">按标签浏览收藏</string>
+    <string name="me_blocked_title">屏蔽管理</string>
+    <string name="me_blocked_desc">已屏蔽的用户与标签</string>
+    <string name="me_theme_mode">主题模式</string>
+    <string name="me_theme_follow_system">跟随系统</string>
+    <string name="me_theme_light">浅色</string>
+    <string name="me_theme_dark">深色</string>
+    <string name="me_dynamic_color">动态取色</string>
+    <string name="me_dynamic_color_desc">Android 12+ 使用壁纸取色</string>
+    <string name="me_language">语言</string>
+    <string name="me_language_follow_system">跟随系统</string>
+    <string name="me_language_chinese">中文</string>
+    <string name="me_language_english">English</string>
+    <string name="me_auto_update">自动更新</string>
+    <string name="me_auto_update_desc">启动时检查新版本（更新逻辑待接入）</string>
+    <string name="me_storage_title">存储</string>
+    <string name="me_clear_cache">清除缓存</string>
+    <string name="me_cache_size">当前占用 %1$s（离线小说/图片/调试文件）</string>
+    <string name="me_cache_calculating">计算中…</string>
+    <string name="me_clear">清除</string>
+    <string name="me_check_update">检查更新</string>
+    <string name="me_already_latest">当前已是最新版本</string>
+    <string name="me_cache_cleared">缓存已清除</string>
+    <string name="me_version">版本 %1$s</string>
+    <string name="me_about_description">一款开源 Pixiv Android 客户端：浏览推荐/排行/发现，查看插画与小说，支持收藏、评论、下载导出、离线阅读等能力。数据来自 pixiv 官方接口，仅供学习交流使用。</string>
+    <string name="me_open_source_repo">开源仓库</string>
+    <string name="me_open_source_license">开源许可：项目基于 pixiv 开放接口，仅供学习与交流使用。</string>
+
+    <!-- HistoryRoute -->
+    <string name="history_title">阅读历史</string>
+    <string name="history_clear">清空</string>
+    <string name="history_empty_illust">暂无插画浏览记录</string>
+    <string name="history_empty_novel">暂无小说浏览记录</string>
+    <string name="history_empty_user">暂无用户浏览记录</string>
+
+    <!-- DownloadsRoute -->
+    <string name="downloads_title">下载管理</string>
+    <string name="downloads_empty_illust">暂无插画下载</string>
+    <string name="downloads_empty">暂无下载</string>
+    <string name="downloads_local_novel">本地小说</string>
+
+    <!-- BlockedRoute -->
+    <string name="blocked_title">屏蔽管理</string>
+    <string name="blocked_clear">清空</string>
+    <string name="blocked_local_tags_title">本地过滤标签</string>
+    <string name="blocked_local_tags_desc">在推荐与搜索中过滤的标签</string>
+    <string name="blocked_local_tags_input_hint">输入标签后添加</string>
+    <string name="blocked_local_tags_empty">暂无本地过滤标签，可在上方添加</string>
+    <string name="blocked_server_title">服务端屏蔽</string>
+    <string name="blocked_server_desc">pixiv 账号级屏蔽</string>
+    <string name="blocked_server_empty">暂无服务端屏蔽</string>
+    <string name="blocked_unblock">取消屏蔽</string>
+
+    <!-- TagsRoute -->
+    <string name="tags_title">收藏标签</string>
+    <string name="tags_empty">暂无收藏标签</string>
+
+    <!-- UserRoute -->
+    <string name="user_title_default">用户主页</string>
+    <string name="user_not_found">没有找到该用户</string>
+    <string name="user_follow">关注</string>
+    <string name="user_following">已关注</string>
+    <string name="user_block">拉黑</string>
+    <string name="user_unblock">取消拉黑</string>
+    <string name="user_stat_illust">插画</string>
+    <string name="user_stat_novel">小说</string>
+    <string name="user_stat_bookmark">收藏</string>
+    <string name="user_stat_follow">关注</string>
+    <string name="user_empty_illust">暂无作品</string>
+    <string name="user_empty_novel">暂无小说</string>
+
+    <!-- ViewModel 消息 -->
+    <string name="user_load_failed">加载失败：%1$s</string>
+    <string name="user_followed">已关注</string>
+    <string name="user_unfollowed">已取消关注</string>
+    <string name="user_blocked">已拉黑</string>
+    <string name="user_unblocked_user">已取消拉黑</string>
+    <string name="user_csrf_unavailable">无法获取 CSRF Token，拉黑暂不可用</string>
+    <string name="operation_failed">操作失败：%1$s</string>
+    <string name="blocked_load_failed">加载失败：%1$s</string>
+    <string name="blocked_csrf_unavailable">无法获取 CSRF Token，操作不可用</string>
+    <string name="blocked_unblocked">已取消屏蔽</string>
+</resources>

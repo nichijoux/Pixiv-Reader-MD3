@@ -34,6 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,17 +68,20 @@ fun WatchlistRoute(
     val error by viewModel.watchlistPaged.error.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg ->
+            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("追更") },
+                title = { Text(stringResource(R.string.watchlist_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -91,7 +96,7 @@ fun WatchlistRoute(
             when {
                 isLoading && items.isEmpty() -> LoadingBox()
                 error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
-                items.isEmpty() -> EmptyBox("暂无追更")
+                items.isEmpty() -> EmptyBox(stringResource(R.string.watchlist_empty))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp),
@@ -148,7 +153,7 @@ private fun WatchlistRow(
                 .weight(1f),
         ) {
             Text(
-                text = if (series.isMasked) "已隐藏的系列" else series.title,
+                text = if (series.isMasked) stringResource(R.string.watchlist_masked_series) else series.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -166,14 +171,14 @@ private fun WatchlistRow(
                     )
                 }
                 Text(
-                    text = "${series.published_content_count} 章",
+                    text = stringResource(R.string.watchlist_chapters, series.published_content_count),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         Text(
-            text = "查看",
+            text = stringResource(R.string.watchlist_view),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
         )

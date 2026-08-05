@@ -62,6 +62,7 @@ dependencies {
     implementation(project(":feature:user"))
     implementation(project(":feature:bookmark"))
     implementation(project(":feature:watchlist"))
+    implementation(project(":feature:manga"))
     implementation(project(":feature:download"))
     implementation(project(":feature:settings"))
 

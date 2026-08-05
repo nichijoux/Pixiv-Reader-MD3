@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -121,7 +122,7 @@ fun SimulationPageContent(
     }
 
     if (pages.isEmpty()) {
-        EmptyBox("没有正文内容", modifier = modifier)
+        EmptyBox(stringResource(R.string.reader_empty_content), modifier = modifier)
         return
     }
 

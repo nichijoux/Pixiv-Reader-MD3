@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.auth.PixivAuthResult
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.session.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -15,10 +16,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** 登录页 UI 状态（加载中 / 错误文案）。 */
+/** 登录页 UI 状态（加载中 / 错误文案事件）。 */
 data class AuthUiState(
     val isLoading: Boolean = false,
-    val error: String? = null,
+    val error: UiMessage? = null,
 )
 
 /** 登录事件：打开网页登录 / 登录成功（导航切 main）。 */
@@ -96,15 +97,15 @@ class AuthViewModel @Inject constructor(
                 _events.send(AuthEvent.LoginSuccess)
             }
             is PixivAuthResult.Failure.MissingCode ->
-                _uiState.update { it.copy(error = "缺少授权码，请重试") }
+                _uiState.update { it.copy(error = UiMessage(R.string.auth_error_missing_code)) }
             is PixivAuthResult.Failure.MissingVerifier ->
-                _uiState.update { it.copy(error = "登录状态已过期，请重新登录") }
+                _uiState.update { it.copy(error = UiMessage(R.string.auth_error_missing_verifier)) }
             is PixivAuthResult.Failure.ServerRejected ->
                 _uiState.update {
-                    it.copy(error = "登录被服务器拒绝（${result.httpCode}）：${result.message}")
+                    it.copy(error = UiMessage(R.string.auth_error_server_rejected, listOf(result.httpCode, result.message)))
                 }
             is PixivAuthResult.Failure.NetworkError ->
-                _uiState.update { it.copy(error = "网络错误，请检查网络连接") }
+                _uiState.update { it.copy(error = UiMessage(R.string.auth_error_network)) }
         }
         _uiState.update { it.copy(isLoading = false) }
     }

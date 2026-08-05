@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.Illust
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.model.IllustPageInfo
@@ -62,7 +63,7 @@ class ViewerViewModel @Inject constructor(
     private val _isOriginal = MutableStateFlow(false)
     val isOriginal: StateFlow<Boolean> = _isOriginal.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     init {
@@ -82,7 +83,7 @@ class ViewerViewModel @Inject constructor(
                         loadUgoira()
                     }
                 }
-                .onFailure { _message.send("加载失败：${it.message}") }
+                .onFailure { _message.send(UiMessage(R.string.viewer_msg_load_failed_reason, listOf(it.message ?: ""))) }
         }
     }
 
@@ -90,7 +91,7 @@ class ViewerViewModel @Inject constructor(
         viewModelScope.launch {
             _ugoiraFrames.value = ugoiraLoader.prepare(illustId).orEmpty()
             if (_ugoiraFrames.value.isEmpty()) {
-                _message.send("动图加载失败")
+                _message.send(UiMessage(R.string.viewer_msg_ugoira_load_failed))
             }
         }
     }
@@ -106,7 +107,7 @@ class ViewerViewModel @Inject constructor(
                 }
             }
                 .onSuccess { _isBookmarked.value = !current }
-                .onFailure { _message.send("操作失败：${it.message}") }
+                .onFailure { _message.send(UiMessage(R.string.viewer_msg_action_failed, listOf(it.message ?: ""))) }
         }
     }
 
@@ -114,7 +115,7 @@ class ViewerViewModel @Inject constructor(
     fun toggleOriginal() {
         _isOriginal.value = !_isOriginal.value
         viewModelScope.launch {
-            _message.send(if (_isOriginal.value) "已加载原图" else "已切换预览")
+            _message.send(UiMessage(if (_isOriginal.value) R.string.viewer_msg_loaded_original else R.string.viewer_msg_switched_preview))
         }
     }
 
@@ -122,22 +123,22 @@ class ViewerViewModel @Inject constructor(
     fun wallpaper(page: IllustPageInfo) {
         val url = page.originalUrl ?: page.displayUrl ?: return
         viewModelScope.launch {
-            _message.send("正在设置壁纸…")
+            _message.send(UiMessage(R.string.viewer_msg_wallpaper_setting))
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val bytes = pixivRepository.imageClient.newCall(Request.Builder().url(url).build())
                         .execute()
                         .use { resp ->
                             if (!resp.isSuccessful) error("HTTP ${resp.code}")
-                            resp.body?.bytes() ?: error("空响应")
+                            resp.body?.bytes() ?: error("Empty response")
                         }
-                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: error("图片解析失败")
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: error("Image decode failed")
                     WallpaperManager.getInstance(context).setBitmap(bitmap)
                 }
             }
             result
-                .onSuccess { _message.send("已设为壁纸") }
-                .onFailure { _message.send("设置壁纸失败：${it.message}") }
+                .onSuccess { _message.send(UiMessage(R.string.viewer_msg_wallpaper_set)) }
+                .onFailure { _message.send(UiMessage(R.string.viewer_msg_wallpaper_failed, listOf(it.message ?: ""))) }
         }
     }
 
@@ -147,11 +148,11 @@ class ViewerViewModel @Inject constructor(
             imageSaver.save(url, "pixiv_${illustId}.jpg")
                 .onSuccess { file ->
                     recordDownload(file.path, "done")
-                    _message.send("已保存到下载目录")
+                    _message.send(UiMessage(R.string.viewer_msg_saved_to_downloads))
                 }
                 .onFailure {
                     recordDownload(null, "failed")
-                    _message.send("下载失败：${it.message}")
+                    _message.send(UiMessage(R.string.viewer_msg_download_failed, listOf(it.message ?: "")))
                 }
         }
     }
@@ -191,11 +192,11 @@ class ViewerViewModel @Inject constructor(
 
     /** 动图下载（zip）占位：P6 下载管理中实现 */
     fun downloadGifStub() {
-        viewModelScope.launch { _message.send("动图下载开发中（P6）") }
+        viewModelScope.launch { _message.send(UiMessage(R.string.viewer_msg_ugoira_download_wip)) }
     }
 
     /** 举报占位：P7 接入 /v2/illust/report */
     fun report() {
-        viewModelScope.launch { _message.send("举报功能开发中") }
+        viewModelScope.launch { _message.send(UiMessage(R.string.viewer_msg_report_wip)) }
     }
 }

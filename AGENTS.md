@@ -25,9 +25,11 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - 新增 feature ViewModel 需在 build.gradle 加：`hilt`/`ksp` 插件 + `api(project(":core:network"))` + `api(libs.hilt.android)` + `ksp(libs.hilt.compiler)` + `implementation(libs.hilt.navigation.compose)`；用 DAO/DataStore 再加对应 core 模块。
 - **`lib:pixivapi` 是 vendor 副本**：`pixiv-api-kotlin/` 只读勿改；改 API 只能在 `lib/pixivapi/`。所有 `com.example.pixivapi.*` import 解析到 lib 副本。
 - `feature/download` 模块是空壳（未使用）；下载管理实现在 `feature:user`。
+- **排行榜通用组件**：`core:ui RankingList<T>`（ScrollableTabRow + HorizontalPager 滑动切段 + 三态 + 触底加载，`itemContent(T, rank)` slot）+ `core:ui RankingRow`（插画/漫画默认行）+ `core:common RankingModeInfo(@StringRes labelRes, value)`。各 feature 提供自己的 mode 列表即可复用（漫画 5 段在 `feature:manga/MangaRankingViewModel`；未来小说/插画榜直接复用）。
 
 ## 核心机制（易踩坑）
 
+- **i18n**：全项目用户可见文案必须走各模块 `res/values/strings.xml`（默认中文）+ `res/values-en/`（英文），Compose 用 `stringResource(R.string.x)`；ViewModel 的 Snackbar/error 发 `UiMessage(@StringRes, args)`（core:common），UI 侧 `LaunchedEffect{ message.collect{ msg -> context.getString(msg.res, *msg.args.toTypedArray()) } }` 解析（**LaunchedEffect 内不可调 stringResource**）。语言中性 token（AI/`xP`/`#tag`/`+N`）保留内联。应用内语言切换：`UserPreferences.appLanguage`(system/zh/en) + `MainActivity.attachBaseContext` 同步读（`core:datastore.readAppLanguageSync`）→ `createConfigurationContext` 覆盖 + `Locale.setDefault` + `PixivLang.code`（lib:pixivapi 网络语言头/`lang` 参数动态化）；**我的页外观设置内嵌语言卡**（切换后 `activity.recreate()` 生效，MeRoute 内直接 `(LocalContext.current as? Activity)?.recreate()`，无独立设置页）。**注意**：`@ApplicationContext.getString` 跟随系统语言而非应用内覆盖（应用上下文未重建），VM 持续展示型文案（如下载进度）用 context.getString 时仅在应用内切换语言后偶发语言不一致——可接受。`formatCount/formatCountForNovel` 已 locale-aware（zh 万/亿，en K/M/B），纯函数默认 `Locale.getDefault()`。
 - **图片 URL 必须走 `PixivRepository.imageClient`**（自动 Referer，否则 403）。Coil 由 `PixivApp` 注入该 client，`PixivImage`/`AsyncImage` 自动带。
 - **org.json 是 Android 内置类**：本地 JVM 单测（testDebugUnitTest）不可用，需 `testImplementation("org.json:json:20240303")`（core:novel 已配）。
 - **Gson 经 lib:pixivapi 传递**，feature 层可直接 `Gson()`（如历史 payloadJson）。

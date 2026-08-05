@@ -84,7 +84,9 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -171,6 +173,7 @@ fun ReaderRoute(
     val effectiveTheme = if (followSystem) (if (isDark) 2 else 1) else readerTheme
     val themeColors = remember(effectiveTheme) { readerThemeColors(effectiveTheme) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var settingsOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var pageInfo by remember { mutableStateOf(0 to 0) }
@@ -195,7 +198,7 @@ fun ReaderRoute(
     ) { uri -> uri?.let(viewModel::importCustomFont) }
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.flushProgress() }
@@ -242,9 +245,9 @@ fun ReaderRoute(
             when {
                     isLoading && document == null -> LoadingBox()
                     error != null && document == null ->
-                        ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
+                        ErrorBox(message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(), onRetry = viewModel::load)
 
-                    document == null -> EmptyBox("没有正文内容")
+                    document == null -> EmptyBox(stringResource(R.string.reader_empty_content))
                     else -> {
                         val doc = checkNotNull(document)
                         AdaptiveContentBox {
@@ -378,7 +381,7 @@ fun ReaderRoute(
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = novel?.title ?: "阅读",
+                                text = novel?.title ?: stringResource(R.string.reader_title_default),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 color = themeColors.text,
@@ -386,7 +389,7 @@ fun ReaderRoute(
                             )
                             if (isOffline) {
                                 Text(
-                                    text = "离线",
+                                    text = stringResource(R.string.reader_offline_badge),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = themeColors.text.copy(alpha = 0.7f),
                                     modifier = Modifier.padding(start = 6.dp),
@@ -398,7 +401,7 @@ fun ReaderRoute(
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "返回",
+                                contentDescription = stringResource(R.string.reader_cd_back),
                                 tint = themeColors.text
                             )
                         }
@@ -408,7 +411,7 @@ fun ReaderRoute(
                             IconButton(onClick = { menuOpen = true }) {
                                 Icon(
                                     Icons.Filled.MoreVert,
-                                    contentDescription = "更多",
+                                    contentDescription = stringResource(R.string.reader_cd_more),
                                     tint = themeColors.text
                                 )
                             }
@@ -416,7 +419,7 @@ fun ReaderRoute(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(if (isBookmarked) "取消收藏" else "收藏") },
+                                    text = { Text(if (isBookmarked) stringResource(R.string.reader_menu_unbookmark) else stringResource(R.string.reader_menu_bookmark)) },
                                     leadingIcon = {
                                         Icon(
                                             if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -426,7 +429,7 @@ fun ReaderRoute(
                                     onClick = { menuOpen = false; viewModel.toggleBookmark() },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (isMarked) "移除阅读书签" else "添加阅读书签") },
+                                    text = { Text(if (isMarked) stringResource(R.string.reader_menu_remove_mark) else stringResource(R.string.reader_menu_add_mark)) },
                                     leadingIcon = {
                                         Icon(
                                             if (isMarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
@@ -436,7 +439,7 @@ fun ReaderRoute(
                                     onClick = { menuOpen = false; viewModel.toggleMark() },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (isWatchlisted) "取消追更" else "加入追更") },
+                                    text = { Text(if (isWatchlisted) stringResource(R.string.reader_menu_unwatch) else stringResource(R.string.reader_menu_watch)) },
                                     leadingIcon = {
                                         Icon(
                                             if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
@@ -513,21 +516,21 @@ fun ReaderRoute(
     if (tocOpen) {
         ModalBottomSheet(onDismissRequest = { tocOpen = false }) {
             Text(
-                text = "目录",
+                text = stringResource(R.string.reader_panel_toc),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
             when {
                 tocLoading -> Text(
-                    text = "加载中…",
+                    text = stringResource(R.string.reader_toc_loading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(20.dp),
                 )
 
                 toc.isEmpty() -> Text(
-                    text = "没有可展示的目录",
+                    text = stringResource(R.string.reader_toc_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(20.dp),
@@ -598,7 +601,7 @@ fun ReaderRoute(
                         viewModel.searchText(it)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索正文关键词") },
+                    placeholder = { Text(stringResource(R.string.reader_search_placeholder)) },
                     singleLine = true,
                 )
                 Row(
@@ -607,9 +610,9 @@ fun ReaderRoute(
                 ) {
                     Text(
                         text = if (searchIndex >= 0) {
-                            "第 ${searchIndex + 1} / ${searchResults.size} 处"
+                            stringResource(R.string.reader_search_position, searchIndex + 1, searchResults.size)
                         } else {
-                            "共 ${searchResults.size} 处匹配"
+                            stringResource(R.string.reader_search_total, searchResults.size)
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -618,12 +621,12 @@ fun ReaderRoute(
                     IconButton(onClick = {
                         viewModel.setSearchIndex(searchIndex - 1)
                     }, enabled = searchIndex > 0) {
-                        Icon(Icons.Filled.ArrowUpward, contentDescription = "上一个")
+                        Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.reader_cd_prev))
                     }
                     IconButton(onClick = {
                         viewModel.setSearchIndex(searchIndex + 1)
                     }, enabled = searchIndex in 0 until searchResults.size - 1) {
-                        Icon(Icons.Filled.ArrowDownward, contentDescription = "下一个")
+                        Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.reader_cd_next))
                     }
                 }
                 if (searchResults.isNotEmpty()) {
@@ -681,21 +684,21 @@ private fun ReaderToolBar(
         IconButton(onClick = onToc) {
             Icon(
                 Icons.AutoMirrored.Filled.List,
-                contentDescription = "目录",
+                contentDescription = stringResource(R.string.reader_cd_toc),
                 tint = themeColors.text
             )
         }
         IconButton(onClick = onSearch) {
             Icon(
                 Icons.Filled.Search,
-                contentDescription = "搜索",
+                contentDescription = stringResource(R.string.reader_cd_search),
                 tint = themeColors.text
             )
         }
         IconButton(onClick = onSettings) {
             Icon(
                 Icons.Filled.Settings,
-                contentDescription = "阅读设置",
+                contentDescription = stringResource(R.string.reader_cd_settings),
                 tint = themeColors.text
             )
         }
@@ -869,7 +872,7 @@ private fun PagerReaderContent(
     }
 
     if (pages.isEmpty()) {
-        EmptyBox("没有正文内容", modifier = modifier)
+        EmptyBox(stringResource(R.string.reader_empty_content), modifier = modifier)
         return
     }
 
@@ -930,7 +933,7 @@ private fun BookPageTurnContent(
     }
 
     if (pages.isEmpty()) {
-        EmptyBox("没有正文内容", modifier = modifier)
+        EmptyBox(stringResource(R.string.reader_empty_content), modifier = modifier)
         return
     }
 

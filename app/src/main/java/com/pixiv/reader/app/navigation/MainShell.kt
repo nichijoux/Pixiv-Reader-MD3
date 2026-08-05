@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,26 +15,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.pixiv.reader.app.R
 import com.pixiv.reader.core.ui.component.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.AdaptiveNavScaffold
 import com.pixiv.reader.feature.discover.DiscoverRoute
-import com.pixiv.reader.feature.discover.RankingRoute
 import com.pixiv.reader.feature.home.HomeRoute
+import com.pixiv.reader.feature.manga.MangaRoute
 import com.pixiv.reader.feature.novel.NovelRoute
 import com.pixiv.reader.feature.user.MeRoute
 
-/** 底部导航五项：首页 / 发现 / 排行 / 小说 / 我的。 */
-private val TABS = listOf(
-    AdaptiveNavItem("home_tab", "首页", Icons.Filled.Home),
-    AdaptiveNavItem("discover_tab", "发现", Icons.Filled.Explore),
-    AdaptiveNavItem("ranking_tab", "排行", Icons.Filled.Leaderboard),
-    AdaptiveNavItem("novel_tab", "小说", Icons.AutoMirrored.Filled.MenuBook),
-    AdaptiveNavItem("me_tab", "我的", Icons.Filled.Person),
+/** 底部导航五项：首页 / 发现 / 漫画 / 小说 / 我的。 */
+@Composable
+private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
+    AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
+    AdaptiveNavItem("discover_tab", stringResource(R.string.main_tab_discover), Icons.Filled.Explore),
+    AdaptiveNavItem("manga_tab", stringResource(R.string.main_tab_manga), Icons.Filled.Collections),
+    AdaptiveNavItem("novel_tab", stringResource(R.string.main_tab_novel), Icons.AutoMirrored.Filled.MenuBook),
+    AdaptiveNavItem("me_tab", stringResource(R.string.main_tab_me), Icons.Filled.Person),
 )
 
 /**
@@ -60,12 +63,13 @@ fun MainShell(
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenTags: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenMangaRanking: () -> Unit,
     initialSearch: String? = null,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    val tabs = rememberTabs()
     // 待搜索关键词（小说 Tab / 顶层路由标签点击 → 切到发现页搜索）
     var pendingSearch by remember { mutableStateOf<String?>(null) }
 
@@ -78,7 +82,7 @@ fun MainShell(
     }
 
     AdaptiveNavScaffold(
-        items = TABS,
+        items = tabs,
         selectedRoute = currentRoute,
         onSelect = { route ->
             navController.navigate(route) {
@@ -114,7 +118,12 @@ fun MainShell(
                     initialQuery = pendingSearch?.also { pendingSearch = null },
                 )
             }
-            composable("ranking_tab") { RankingRoute(onOpenIllust = onOpenIllust) }
+            composable("manga_tab") {
+                MangaRoute(
+                    onOpenIllust = onOpenIllust,
+                    onOpenMangaRanking = onOpenMangaRanking,
+                )
+            }
             composable("novel_tab") {
                 NovelRoute(
                     onOpenNovel = onOpenNovel,
@@ -135,7 +144,6 @@ fun MainShell(
                     onOpenBlocked = onOpenBlocked,
                     onOpenDownloads = onOpenDownloads,
                     onOpenTags = onOpenTags,
-                    onOpenSettings = onOpenSettings,
                     onOpenUser = onOpenUser,
                 )
             }

@@ -10,6 +10,7 @@ import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.paging.PagedState
@@ -53,8 +54,8 @@ class IllustViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _error = MutableStateFlow<UiMessage?>(null)
+    val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
     private val _isBookmarked = MutableStateFlow(false)
     val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
@@ -65,7 +66,7 @@ class IllustViewModel @Inject constructor(
     private val _commentDraft = MutableStateFlow("")
     val commentDraft: StateFlow<String> = _commentDraft.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     val relatedPaged = PagedState<Illust>()
@@ -91,7 +92,8 @@ class IllustViewModel @Inject constructor(
                     loadRealSizes()
                 }
                 .onFailure {
-                    _error.value = it.message ?: "加载失败"
+                    _error.value = it.message?.let { m -> UiMessage(R.string.illust_error_load_failed_reason, listOf(m)) }
+                        ?: UiMessage(R.string.illust_error_load_failed)
                 }
             _isLoading.value = false
         }
@@ -179,10 +181,10 @@ class IllustViewModel @Inject constructor(
             runCatching { pixivRepository.api.postIllustComment(illustId, text) }
                 .onSuccess {
                     _commentDraft.value = ""
-                    _message.send("评论已发布")
+                    _message.send(UiMessage(R.string.illust_msg_comment_published))
                     loadComments()
                 }
-                .onFailure { _message.send("评论失败：${it.message}") }
+                .onFailure { _message.send(UiMessage(R.string.illust_msg_comment_failed, listOf(it.message ?: ""))) }
         }
     }
 
@@ -200,7 +202,7 @@ class IllustViewModel @Inject constructor(
             }
             result
                 .onSuccess { _isBookmarked.value = !current }
-                .onFailure { _message.send("操作失败：${it.message}") }
+                .onFailure { _message.send(UiMessage(R.string.illust_msg_action_failed, listOf(it.message ?: ""))) }
             _isBookmarking.value = false
         }
     }
@@ -229,11 +231,11 @@ class IllustViewModel @Inject constructor(
             result
                 .onSuccess { file ->
                     recordDownload(file, status = "done")
-                    _message.send("已保存到下载目录")
+                    _message.send(UiMessage(R.string.illust_msg_saved_to_downloads))
                 }
                 .onFailure {
                     recordDownload(file = null, status = "failed")
-                    _message.send("下载失败：${it.message}")
+                    _message.send(UiMessage(R.string.illust_msg_download_failed, listOf(it.message ?: "")))
                 }
         }
     }
@@ -271,7 +273,7 @@ class IllustViewModel @Inject constructor(
     /** 举报（占位；P7 接入 /v2/illust/report） */
     fun report() {
         viewModelScope.launch {
-            _message.send("举报功能开发中")
+            _message.send(UiMessage(R.string.illust_msg_report_wip))
         }
     }
 }

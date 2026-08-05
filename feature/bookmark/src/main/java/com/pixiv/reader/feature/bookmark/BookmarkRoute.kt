@@ -32,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,17 +71,20 @@ fun BookmarkRoute(
     val selectedTag by viewModel.selectedTag.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg ->
+            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("我的收藏") },
+                title = { Text(stringResource(R.string.bookmark_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -101,7 +106,7 @@ fun BookmarkRoute(
                         FilterChip(
                             selected = type == t,
                             onClick = { viewModel.selectType(t) },
-                            label = { Text(if (t == BookmarkType.ILLUST) "插画" else "小说") },
+                            label = { Text(stringResource(t.labelRes)) },
                         )
                     }
                 }
@@ -115,7 +120,7 @@ fun BookmarkRoute(
                             FilterChip(
                                 selected = selectedTag == null,
                                 onClick = { viewModel.selectTag(null) },
-                                label = { Text("全部") },
+                                label = { Text(stringResource(R.string.bookmark_tag_all)) },
                             )
                         }
                         items(tags, key = { it.name ?: it.hashCode() }) { tag ->
@@ -166,7 +171,7 @@ private fun BookmarkIllustList(
     when {
         isLoading && items.isEmpty() -> LoadingBox()
         error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onLoadMore)
-        items.isEmpty() -> EmptyBox("暂无收藏")
+        items.isEmpty() -> EmptyBox(stringResource(R.string.bookmark_empty))
         else -> IllustWaterfallGrid(
             illusts = items,
             onItemClick = onOpenIllust,
@@ -197,7 +202,7 @@ private fun BookmarkNovelList(
     when {
         isLoading && items.isEmpty() -> LoadingBox()
         error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onLoadMore)
-        items.isEmpty() -> EmptyBox("暂无收藏")
+        items.isEmpty() -> EmptyBox(stringResource(R.string.bookmark_empty))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),

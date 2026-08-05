@@ -2,6 +2,7 @@ package com.pixiv.reader.feature.user
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +79,7 @@ fun DownloadsRoute(
     val filter by viewModel.filterFlow.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(pageCount = { DownloadFilter.entries.size })
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // 滑动切页 → 同步筛选
     LaunchedEffect(pagerState.currentPage) {
@@ -88,10 +92,10 @@ fun DownloadsRoute(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("下载管理") },
+                title = { Text(stringResource(R.string.downloads_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -111,7 +115,7 @@ fun DownloadsRoute(
                         Tab(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(f.label()) },
+                            text = { Text(stringResource(f.labelRes)) },
                         )
                     }
                 }
@@ -124,6 +128,7 @@ fun DownloadsRoute(
                         )
                         DownloadFilter.NOVEL -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel" },
+                            context = context,
                             onOpen = { entry ->
                                 if (isLocalFile(entry)) {
                                     viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
@@ -135,6 +140,7 @@ fun DownloadsRoute(
                         )
                         DownloadFilter.OFFLINE -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel_offline" },
+                            context = context,
                             onOpen = { entry -> onOpenReader(entry.targetId) },
                             onDelete = viewModel::delete,
                         )
@@ -155,7 +161,7 @@ private fun IllustDownloadList(
     onDelete: (DownloadEntryEntity) -> Unit,
 ) {
     if (entries.isEmpty()) {
-        EmptyBox("暂无插画下载")
+        EmptyBox(stringResource(R.string.downloads_empty_illust))
         return
     }
     LazyVerticalStaggeredGrid(
@@ -185,11 +191,12 @@ private fun IllustDownloadList(
 @Composable
 private fun NovelDownloadList(
     entries: List<DownloadEntryEntity>,
+    context: Context,
     onOpen: (DownloadEntryEntity) -> Unit,
     onDelete: (DownloadEntryEntity) -> Unit,
 ) {
     if (entries.isEmpty()) {
-        EmptyBox("暂无下载")
+        EmptyBox(stringResource(R.string.downloads_empty))
         return
     }
     LazyColumn(
@@ -200,7 +207,7 @@ private fun NovelDownloadList(
         items(entries, key = { it.targetId }) { entry ->
             Box {
                 NovelCard(
-                    novel = entry.toDownloadNovelCard(),
+                    novel = entry.toDownloadNovelCard(context),
                     onClick = { onOpen(entry) },
                     onOpenReader = { onOpen(entry) },
                     onOpenAuthor = {},
@@ -231,7 +238,7 @@ private fun DeleteOverlay(
     ) {
         Icon(
             imageVector = Icons.Filled.Close,
-            contentDescription = "删除",
+            contentDescription = stringResource(R.string.cd_delete),
             tint = Color.White,
             modifier = Modifier.size(14.dp),
         )
@@ -248,9 +255,9 @@ private fun DownloadEntryEntity.toDownloadIllust(): Illust = Illust(
     height = height,
 )
 
-private fun DownloadEntryEntity.toDownloadNovelCard(): NovelCardData = NovelCardData(
+private fun DownloadEntryEntity.toDownloadNovelCard(context: Context): NovelCardData = NovelCardData(
     id = targetId,
-    title = title ?: "无标题",
+    title = title ?: context.getString(R.string.untitled),
     coverUrl = coverUrl,
     authorId = 0,
     authorName = "",
@@ -264,10 +271,4 @@ private fun DownloadEntryEntity.toDownloadNovelCard(): NovelCardData = NovelCard
 private fun isLocalFile(entry: DownloadEntryEntity): Boolean {
     val ext = entry.localPath?.substringAfterLast('.', "")?.lowercase() ?: return false
     return ext == "txt" || ext == "epub"
-}
-
-private fun DownloadFilter.label(): String = when (this) {
-    DownloadFilter.ILLUST -> "插画"
-    DownloadFilter.NOVEL -> "小说"
-    DownloadFilter.OFFLINE -> "离线"
 }

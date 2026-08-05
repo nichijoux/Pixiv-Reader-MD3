@@ -35,8 +35,8 @@ class HeaderInterceptor(
         if (token.isNotEmpty()) {
             addHeader(PixivConstants.HEADER_AUTH, token)
         }
-        return addHeader("accept-language", "zh-CN")
-            .addHeader("app-accept-language", "zh-CN")
+        return addHeader("accept-language", PixivLang.code)
+            .addHeader("app-accept-language", PixivLang.code)
             .addHeader("app-os", "ios")
             .addHeader("app-os-version", PixivConstants.APP_OS_VERSION)
             .addHeader("app-version", PixivConstants.APP_VERSION)
@@ -57,9 +57,17 @@ class WebHeaderInterceptor(
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request().newBuilder()
+        val original = chain.request()
+        // 网页接口的 lang 查询参数按当前应用语言重写（仅当 URL 已含 lang 参数，避免误加）
+        val finalUrl = if (original.url.queryParameter("lang") != null) {
+            original.url.newBuilder().setQueryParameter("lang", PixivLang.code).build()
+        } else {
+            original.url
+        }
+        val request = original.newBuilder()
+            .url(finalUrl)
             .addHeader("Host", "www.pixiv.net")
-            .addHeader("accept-language", "zh-CN")
+            .addHeader("accept-language", PixivLang.code)
             .addHeader("Cookie", cookieProvider())
             .addHeader("Referer", "https://www.pixiv.net/")
             .addHeader("User-Agent", PixivConstants.WEB_USER_AGENT)

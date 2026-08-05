@@ -1,6 +1,7 @@
 package com.pixiv.reader.feature.user
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -22,7 +23,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** 下载管理分类（插画 / 小说 / 离线）。 */
-enum class DownloadFilter { ILLUST, NOVEL, OFFLINE }
+enum class DownloadFilter(@StringRes val labelRes: Int) {
+    ILLUST(R.string.downloads_filter_illust),
+    NOVEL(R.string.downloads_filter_novel),
+    OFFLINE(R.string.downloads_filter_offline),
+}
 
 /**
  * 下载管理 ViewModel：观察下载索引（Room），支持按类型分类与删除。
@@ -81,7 +86,7 @@ class DownloadsViewModel @Inject constructor(
                 }
             }
             if (doc != null) {
-                LocalReaderStore.set(doc, entry.title ?: "本地小说")
+                LocalReaderStore.set(doc, entry.title ?: context.getString(R.string.downloads_local_novel))
                 onReady()
             }
         }

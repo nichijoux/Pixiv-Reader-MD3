@@ -25,9 +25,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.pixivapi.model.SearchGenreOption
+import com.pixiv.reader.feature.discover.R
 
 /**
  * 高级筛选底部面板：
@@ -48,22 +50,23 @@ internal fun FilterBottomSheet(
     onApply: (SearchFilters) -> Unit,
 ) {
     var draft by remember { mutableStateOf(filters) }
-    val title = when {
-        type == SearchType.USER -> "筛选 · 用户"
-        detailed && type == SearchType.ILLUST -> "高级筛选 · 插画"
-        detailed && type == SearchType.NOVEL -> "高级筛选 · 小说"
-        else -> "高级筛选"
+    val genreUnknown = stringResource(R.string.filter_genre_unknown)
+    val titleRes = when {
+        type == SearchType.USER -> R.string.filter_title_user
+        detailed && type == SearchType.ILLUST -> R.string.filter_title_illust
+        detailed && type == SearchType.NOVEL -> R.string.filter_title_novel
+        else -> R.string.filter_title_default
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp),
         ) {
-            Text(text = title, style = MaterialTheme.typography.titleLarge)
+            Text(text = stringResource(titleRes), style = MaterialTheme.typography.titleLarge)
 
             if (type == SearchType.USER) {
                 Text(
-                    text = "用户搜索仅支持关键词匹配，暂无高级筛选条件。",
+                    text = stringResource(R.string.filter_user_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),
@@ -72,10 +75,10 @@ internal fun FilterBottomSheet(
                 // 通用区
                 SectionSpacer()
                 FilterChipRow(
-                    label = "模式",
+                    label = stringResource(R.string.filter_mode),
                     options = listOf(
-                        SearchMode.LATEST.name to "最新",
-                        SearchMode.HOT.name to "热门",
+                        SearchMode.LATEST.name to stringResource(R.string.filter_latest),
+                        SearchMode.HOT.name to stringResource(R.string.filter_hot),
                     ),
                     selected = draft.mode.name,
                     onSelect = {
@@ -85,75 +88,79 @@ internal fun FilterBottomSheet(
                     },
                 )
                 FilterChipRow(
-                    label = "排序",
+                    label = stringResource(R.string.filter_sort),
                     options = listOf(
-                        "date_desc" to "最新",
-                        "date_asc" to "最旧",
-                        "popular_desc" to "收藏多",
+                        "date_desc" to stringResource(R.string.filter_latest),
+                        "date_asc" to stringResource(R.string.filter_oldest),
+                        "popular_desc" to stringResource(R.string.filter_popular),
                     ),
                     selected = draft.sort,
                     onSelect = { draft = draft.copy(sort = it) },
                 )
                 FilterChipRow(
-                    label = "匹配方式",
+                    label = stringResource(R.string.filter_match),
                     options = listOf(
-                        "partial_match_for_tags" to "标签部分一致",
-                        "exact_match_for_tags" to "标签完全一致",
-                        "title_and_caption" to "标题简介",
+                        "partial_match_for_tags" to stringResource(R.string.filter_match_partial),
+                        "exact_match_for_tags" to stringResource(R.string.filter_match_exact),
+                        "title_and_caption" to stringResource(R.string.filter_match_title),
                     ),
                     selected = draft.searchTarget,
                     onSelect = { draft = draft.copy(searchTarget = it) },
                 )
                 RangeInputRow(
-                    label = "时间范围",
+                    label = stringResource(R.string.filter_date_range),
                     startValue = draft.startDate,
                     endValue = draft.endDate,
-                    startPlaceholder = "2026-01-01",
-                    endPlaceholder = "2026-08-01",
+                    startPlaceholder = stringResource(R.string.filter_date_start_hint),
+                    endPlaceholder = stringResource(R.string.filter_date_end_hint),
                     keyboardType = KeyboardType.Text,
                     onStart = { draft = draft.copy(startDate = it.ifBlank { null }) },
                     onEnd = { draft = draft.copy(endDate = it.ifBlank { null }) },
                 )
                 SingleInputRow(
-                    label = "最低收藏",
+                    label = stringResource(R.string.filter_bookmark_min),
                     value = draft.bookmarkNumMin?.toString().orEmpty(),
-                    placeholder = "不限",
+                    placeholder = stringResource(R.string.filter_unlimited),
                     onValue = { draft = draft.copy(bookmarkNumMin = it.toIntOrNull()) },
                 )
                 FilterChipRow(
-                    label = "AI 作品",
-                    options = listOf("0" to "全部", "1" to "仅人绘", "2" to "仅 AI"),
+                    label = stringResource(R.string.filter_ai),
+                    options = listOf(
+                        "0" to stringResource(R.string.filter_all),
+                        "1" to stringResource(R.string.filter_ai_human),
+                        "2" to stringResource(R.string.filter_ai_only),
+                    ),
                     selected = draft.aiType.toString(),
                     onSelect = { draft = draft.copy(aiType = it.toInt()) },
                 )
 
                 // 插画专属（搜索结果时展示）
                 if (detailed && type == SearchType.ILLUST) {
-                    SectionTitle("插画专属")
+                    SectionTitle(stringResource(R.string.filter_illust_section))
                     FilterChipRow(
-                        label = "比例",
+                        label = stringResource(R.string.filter_ratio),
                         options = listOf(
-                            "" to "全部",
-                            "square" to "正方",
-                            "wide" to "横长",
-                            "tall" to "竖长",
+                            "" to stringResource(R.string.filter_all),
+                            "square" to stringResource(R.string.filter_ratio_square),
+                            "wide" to stringResource(R.string.filter_ratio_wide),
+                            "tall" to stringResource(R.string.filter_ratio_tall),
                         ),
                         selected = draft.ratioPattern.orEmpty(),
                         onSelect = { draft = draft.copy(ratioPattern = it.ifBlank { null }) },
                     )
                     FilterChipRow(
-                        label = "内容类型",
+                        label = stringResource(R.string.filter_content_type),
                         options = listOf(
-                            "" to "全部",
-                            "illust" to "插画",
-                            "manga" to "漫画",
-                            "ugoira" to "动图",
+                            "" to stringResource(R.string.filter_all),
+                            "illust" to stringResource(R.string.filter_content_illust),
+                            "manga" to stringResource(R.string.filter_content_manga),
+                            "ugoira" to stringResource(R.string.filter_content_ugoira),
                         ),
                         selected = draft.contentType.orEmpty(),
                         onSelect = { draft = draft.copy(contentType = it.ifBlank { null }) },
                     )
                     if (toolOptions.isNotEmpty()) {
-                        SectionTitle("绘制工具")
+                        SectionTitle(stringResource(R.string.filter_tool_section))
                         LazyScrollChips(
                             options = toolOptions.map { it to it },
                             selected = draft.tool,
@@ -161,20 +168,20 @@ internal fun FilterBottomSheet(
                         )
                     }
                     RangeInputRow(
-                        label = "宽度",
+                        label = stringResource(R.string.filter_width),
                         startValue = draft.widthMin?.toString().orEmpty(),
                         endValue = draft.widthMax?.toString().orEmpty(),
-                        startPlaceholder = "最小 px",
-                        endPlaceholder = "最大 px",
+                        startPlaceholder = stringResource(R.string.filter_px_min),
+                        endPlaceholder = stringResource(R.string.filter_px_max),
                         onStart = { draft = draft.copy(widthMin = it.toIntOrNull()) },
                         onEnd = { draft = draft.copy(widthMax = it.toIntOrNull()) },
                     )
                     RangeInputRow(
-                        label = "高度",
+                        label = stringResource(R.string.filter_height),
                         startValue = draft.heightMin?.toString().orEmpty(),
                         endValue = draft.heightMax?.toString().orEmpty(),
-                        startPlaceholder = "最小 px",
-                        endPlaceholder = "最大 px",
+                        startPlaceholder = stringResource(R.string.filter_px_min),
+                        endPlaceholder = stringResource(R.string.filter_px_max),
                         onStart = { draft = draft.copy(heightMin = it.toIntOrNull()) },
                         onEnd = { draft = draft.copy(heightMax = it.toIntOrNull()) },
                     )
@@ -182,41 +189,41 @@ internal fun FilterBottomSheet(
 
                 // 小说专属（搜索结果时展示）
                 if (detailed && type == SearchType.NOVEL) {
-                    SectionTitle("小说专属")
+                    SectionTitle(stringResource(R.string.filter_novel_section))
                     if (genreOptions.isNotEmpty()) {
-                        SectionTitle("题材")
+                        SectionTitle(stringResource(R.string.filter_genre_section))
                         LazyScrollChips(
-                            options = genreOptions.map { it.id.toString() to (it.label ?: "未知") },
+                            options = genreOptions.map { it.id.toString() to (it.label ?: genreUnknown) },
                             selected = draft.genre?.toString(),
                             onSelect = { draft = draft.copy(genre = it?.toIntOrNull()) },
                         )
                     }
-                    SwitchRow("仅原创", draft.isOriginalOnly == true) { draft = draft.copy(isOriginalOnly = it) }
-                    SwitchRow("仅可转载", draft.isReplaceableOnly == true) { draft = draft.copy(isReplaceableOnly = it) }
+                    SwitchRow(stringResource(R.string.filter_original_only), draft.isOriginalOnly == true) { draft = draft.copy(isOriginalOnly = it) }
+                    SwitchRow(stringResource(R.string.filter_replaceable_only), draft.isReplaceableOnly == true) { draft = draft.copy(isReplaceableOnly = it) }
                     RangeInputRow(
-                        label = "正文文字数",
+                        label = stringResource(R.string.filter_text_length),
                         startValue = draft.textLengthMin?.toString().orEmpty(),
                         endValue = draft.textLengthMax?.toString().orEmpty(),
-                        startPlaceholder = "最小",
-                        endPlaceholder = "最大",
+                        startPlaceholder = stringResource(R.string.filter_min),
+                        endPlaceholder = stringResource(R.string.filter_max),
                         onStart = { draft = draft.copy(textLengthMin = it.toIntOrNull()) },
                         onEnd = { draft = draft.copy(textLengthMax = it.toIntOrNull()) },
                     )
                     RangeInputRow(
-                        label = "字数",
+                        label = stringResource(R.string.filter_word_count),
                         startValue = draft.wordCountMin?.toString().orEmpty(),
                         endValue = draft.wordCountMax?.toString().orEmpty(),
-                        startPlaceholder = "最小",
-                        endPlaceholder = "最大",
+                        startPlaceholder = stringResource(R.string.filter_min),
+                        endPlaceholder = stringResource(R.string.filter_max),
                         onStart = { draft = draft.copy(wordCountMin = it.toIntOrNull()) },
                         onEnd = { draft = draft.copy(wordCountMax = it.toIntOrNull()) },
                     )
                     RangeInputRow(
-                        label = "阅读时长",
+                        label = stringResource(R.string.filter_reading_time),
                         startValue = draft.readingTimeMin?.toString().orEmpty(),
                         endValue = draft.readingTimeMax?.toString().orEmpty(),
-                        startPlaceholder = "最小 分钟",
-                        endPlaceholder = "最大",
+                        startPlaceholder = stringResource(R.string.filter_reading_time_min),
+                        endPlaceholder = stringResource(R.string.filter_max),
                         onStart = { draft = draft.copy(readingTimeMin = it.toIntOrNull()) },
                         onEnd = { draft = draft.copy(readingTimeMax = it.toIntOrNull()) },
                     )
@@ -231,13 +238,13 @@ internal fun FilterBottomSheet(
                         onClick = { draft = SearchFilters() },
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) {
-                        Text("重置")
+                        Text(stringResource(R.string.filter_reset))
                     }
                     Button(
                         onClick = { onApply(draft) },
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) {
-                        Text("应用筛选")
+                        Text(stringResource(R.string.filter_apply))
                     }
                 }
             }
@@ -304,7 +311,7 @@ private fun LazyScrollChips(
             FilterChip(
                 selected = selected == null,
                 onClick = { onSelect(null) },
-                label = { Text("不限") },
+                label = { Text(stringResource(R.string.filter_unlimited)) },
             )
         }
         items(options, key = { it.first }) { (value, text) ->

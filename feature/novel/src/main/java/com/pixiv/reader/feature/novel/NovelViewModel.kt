@@ -13,6 +13,7 @@ import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.google.gson.Gson
@@ -58,8 +59,8 @@ class NovelViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _error = MutableStateFlow<UiMessage?>(null)
+    val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
     private val _progress = MutableStateFlow<ReadingProgressEntity?>(null)
     val progress: StateFlow<ReadingProgressEntity?> = _progress.asStateFlow()
@@ -76,7 +77,7 @@ class NovelViewModel @Inject constructor(
     private val _isWatchlisting = MutableStateFlow(false)
     val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     /** 下载/导出进行中 */
@@ -106,7 +107,8 @@ class NovelViewModel @Inject constructor(
                     loadComments()
                 }
                 .onFailure {
-                    _error.value = it.message ?: "加载失败"
+                    _error.value = it.message?.let { m -> UiMessage(R.string.novel_error_load_failed_reason, listOf(m)) }
+                        ?: UiMessage(R.string.novel_error_load_failed)
                 }
             _isLoading.value = false
         }
@@ -191,10 +193,10 @@ class NovelViewModel @Inject constructor(
             runCatching { pixivRepository.api.postNovelComment(novelId, text) }
                 .onSuccess {
                     _commentDraft.value = ""
-                    _message.send("评论已发布")
+                    _message.send(UiMessage(R.string.novel_msg_comment_published))
                     loadComments()
                 }
-                .onFailure { _message.send("评论失败：${it.message}") }
+                .onFailure { _message.send(UiMessage(R.string.novel_msg_comment_failed, listOf(it.message ?: ""))) }
         }
     }
 
@@ -208,9 +210,9 @@ class NovelViewModel @Inject constructor(
                 else pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
             }.onSuccess {
                 _isBookmarked.value = !current
-                _message.send(if (!current) "已收藏" else "已取消收藏")
+                _message.send(if (!current) UiMessage(R.string.novel_msg_bookmarked) else UiMessage(R.string.novel_msg_unbookmarked))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
             }
             _isBookmarking.value = false
         }
@@ -227,9 +229,9 @@ class NovelViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                _message.send(if (!current) "已加入追更" else "已取消追更")
+                _message.send(if (!current) UiMessage(R.string.novel_msg_watching_added) else UiMessage(R.string.novel_msg_watching_removed))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
             }
             _isWatchlisting.value = false
         }
@@ -243,11 +245,11 @@ class NovelViewModel @Inject constructor(
         if (_downloading.value) return
         viewModelScope.launch {
             _downloading.value = true
-            _downloadProgress.value = "正在下载…"
+            _downloadProgress.value = context.getString(R.string.novel_msg_downloading)
             // exportNovel 内部已 runCatching，返回 Result<File>
             novelExporter.exportNovel(detail, format)
-                .onSuccess { file -> _message.send("已导出：${file.name}") }
-                .onFailure { _message.send("导出失败：${it.message}") }
+                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name))) }
+                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""))) }
             _downloading.value = false
             _downloadProgress.value = null
         }
@@ -258,13 +260,13 @@ class NovelViewModel @Inject constructor(
         val detail = _novel.value ?: return
         if (_downloading.value) return
         viewModelScope.launch {
-            _downloading.value = true
-            _downloadProgress.value = "准备中…"
+_downloading.value = true
+            _downloadProgress.value = context.getString(R.string.novel_msg_preparing)
             novelExporter.exportSeries(detail, format) { index, total ->
-                _downloadProgress.value = "正在下载第 $index/$total 章…"
+                _downloadProgress.value = context.getString(R.string.novel_msg_downloading_chapter, index, total)
             }
-                .onSuccess { file -> _message.send("已导出：${file.name}") }
-                .onFailure { _message.send("导出失败：${it.message}") }
+                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name))) }
+                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""))) }
             _downloading.value = false
             _downloadProgress.value = null
         }
@@ -279,7 +281,7 @@ class NovelViewModel @Inject constructor(
             .setInputData(workDataOf(NovelOfflineDownloadWorker.KEY_NOVEL_ID to detail.id))
             .build()
         WorkManager.getInstance(context).enqueue(request)
-        _message.trySend("已加入下载队列")
+        _message.trySend(UiMessage(R.string.novel_msg_queued))
     }
 
     /** 下载整个系列到应用（后台队列，失败自动重试）。 */
@@ -295,6 +297,6 @@ class NovelViewModel @Inject constructor(
             )
             .build()
         WorkManager.getInstance(context).enqueue(request)
-        _message.trySend("已加入下载队列（后台）")
+        _message.trySend(UiMessage(R.string.novel_msg_queued_background))
     }
 }

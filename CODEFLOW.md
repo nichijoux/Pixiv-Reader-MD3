@@ -40,7 +40,7 @@ app ──▶ feature/* ──▶ core/ui ──┐
 :core:common :core:model :core:network :core:database :core:datastore :core:ui :core:novel
 :feature:auth :feature:home :feature:discover :feature:illust :feature:viewer
 :feature:novel :feature:reader :feature:user :feature:bookmark :feature:watchlist
-:feature:download :feature:settings
+:feature:manga :feature:download :feature:settings
 ```
 
 ---
@@ -203,8 +203,10 @@ Migration：`MIGRATION_1_2`（建 search_history）、`MIGRATION_2_3`（download
 - `initialQuery` —— 由 `MainShell.pendingSearch` 单次消费传入（跨 Tab 搜索通道，见 §8.2）。
 - 副作用：收藏/关注由组件回调 `toggleIllustFavorite`/`toggleNovelFavorite`/`toggleFollow`（`nowFavorite`/`nowFollowed` 为目标态）。
 
-### 7.3 排行（feature:discover/RankingViewModel）
-`RankingMode`（day/week/.../day_female）→ `api.getRanking(mode.value)` + `PagedState`。切模式重新拉首页。
+### 7.3 漫画 Tab + 排行榜（feature:manga）
+- **MangaRoute（漫画 Tab，底部第 3 位）**：TopBar「漫画」+ 排行榜入口 banner（纯 tertiaryContainer，点击进漫画排行榜）+ 推荐漫画瀑布流（`api.getRecommendedManga` → `PagedState<Illust>` + `IllustWaterfallGrid`）。
+- **MangaRankingRoute（全屏页 `manga_ranking`）**：复用通用 `core:ui RankingList<T>`——`ScrollableTabRow` + `HorizontalPager` 左右滑动切段，点 Tab `animateScrollToPage`；5 段（日 `day_manga` / 周 `week` / 月 `month` / 新人 `week_rookie` / R18 `day_r18`）由 `MangaRankingViewModel.modes`（`RankingModeInfo(@StringRes, value)`）配置；每段 `api.getRanking(mode)` + `PagedState` 分页，行渲染 `RankingRow`（排名徽标 1金/2橙/3灰 + 封面 + 标题/作者/收藏）。
+- 说明：pixiv 漫画专属榜仅 `day_manga`；周/月/新人/R18 为通用 mode（会混入插画）。未来小说/插画排行榜复用 `RankingList` + 各自 `RankingModeInfo` 列表与 itemContent。
 
 ### 7.4 插画详情（feature:illust）
 ```
@@ -321,14 +323,14 @@ TabRow 三类（插画/小说/本地文件）+ 右上角删除 overlay。`Downlo
 - 追更（`feature:watchlist`）：`api.getWatchlistNovel` + `PagedState<WatchlistSeries>`。
 - 收藏（`feature:bookmark`）：`bookmarks?type={type}&tag={tag}`，`api.getBookmarks`。
 - 收藏标签（`feature:user/TagsRoute`）：本地枚举类型（避免跨 feature 依赖）→ 点击跳 `bookmarks?type=&tag=`。
-- 设置（`feature:settings`）：`SettingsViewModel` 读写 `UserPreferences` + 缓存清理（`filesDir/offline` + `novel_debug` + `cacheDir` + Coil diskCache，并删 `downloadEntryDao.deleteByType("novel_offline")`）+ 版本/关于。
+- 设置（`feature:user` MeRoute 内嵌，无独立设置页）：外观（主题模式/动态取色/语言，MeViewModel 读写 `UserPreferences`）+ 系统（自动更新开关、缓存清理 `filesDir/offline` + `novel_debug` + `cacheDir` + Coil diskCache 并删 `downloadEntryDao.deleteByType("novel_offline")`）+ 关于（版本/描述/检查更新占位/开源链接）。`feature:settings` 为空壳模块（同 `feature:download`，未使用）。
 
 ---
 
 ## 8. 导航约定（易踩坑）
 
 ### 8.1 两级 NavHost
-- **顶层** `PixivNavGraph`（`app/.../navigation/PixivNavGraph.kt`）：`auth` / `main?search=` / `illust` / `viewer` / `novel` / `reader` / `user` / `history` / `bookmarks?type=&tag=` / `watchlist` / `blocked` / `downloads` / `local_reader` / `tags` / `settings`。
+- **顶层** `PixivNavGraph`（`app/.../navigation/PixivNavGraph.kt`）：`auth` / `main?search=` / `illust` / `viewer` / `novel` / `reader` / `user` / `history` / `bookmarks?type=&tag=` / `watchlist` / `blocked` / `downloads` / `local_reader` / `tags` / `manga_ranking`。
 - **内层** `MainShell`：`home_tab` / `discover_tab` / `ranking_tab` / `novel_tab` / `me_tab`，自适应导航（手机底部 NavigationBar / 平板 NavigationRail，由 `WindowSizeClass.useRail()` 决定）。
 
 ### 8.2 内层 Tab 无法直达顶层路由

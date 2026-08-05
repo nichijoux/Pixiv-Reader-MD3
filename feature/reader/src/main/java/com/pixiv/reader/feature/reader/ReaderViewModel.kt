@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.Novel
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
@@ -74,8 +75,8 @@ class ReaderViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _error = MutableStateFlow<UiMessage?>(null)
+    val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
     /** 当前阅读是否为离线缓存（下载到应用后断网可读）。 */
     private val _isOffline = MutableStateFlow(false)
@@ -160,7 +161,7 @@ class ReaderViewModel @Inject constructor(
     private val _isWatchlisted = MutableStateFlow(false)
     val isWatchlisted: StateFlow<Boolean> = _isWatchlisted.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     private var saveJob: Job? = null
@@ -265,11 +266,12 @@ class ReaderViewModel @Inject constructor(
                     loadServerState()
                 }.onFailure {
                     Log.w(TAG, "load novel failed", it)
-                    _error.value = it.message ?: "加载失败"
+                    _error.value = it.message?.let { m -> UiMessage(R.string.reader_error_load_failed_reason, listOf(m)) }
+                        ?: UiMessage(R.string.reader_error_load_failed)
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "load unexpected", e)
-                _error.value = "加载失败：${e.message}"
+                _error.value = UiMessage(R.string.reader_error_load_failed_reason, listOf(e.message ?: ""))
             } finally {
                 _isLoading.value = false
             }
@@ -492,13 +494,15 @@ class ReaderViewModel @Inject constructor(
         val series = detail?.series
         if (series == null) {
             // 非系列：目录只显示本小说
-            _toc.value = listOf(ReaderTocItem(detail?.title ?: "本小说", detail?.id ?: 0L, 0))
+            _toc.value = listOf(
+                ReaderTocItem(detail?.title ?: context.getString(R.string.reader_toc_current_novel), detail?.id ?: 0L, 0),
+            )
             return
         }
         _tocLoading.value = true
         try {
             val novels = fetchSeriesNovels(series.id)
-            _toc.value = novels.map { ReaderTocItem(it.title ?: "无标题", it.id, 0) }
+            _toc.value = novels.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
         } catch (e: Exception) {
             Log.w(TAG, "buildToc series failed", e)
             _toc.value = emptyList()
@@ -576,10 +580,10 @@ class ReaderViewModel @Inject constructor(
             path.onSuccess { p ->
                 _customFontPath.value = p
                 runCatching { userPreferences.setReaderCustomFontPath(p) }
-                _message.send("自定义字体已设置")
+                _message.send(UiMessage(R.string.reader_msg_font_set))
             }.onFailure {
                 Log.w(TAG, "importCustomFont failed", it)
-                _message.send("字体导入失败：${it.message}")
+                _message.send(UiMessage(R.string.reader_msg_font_import_failed, listOf(it.message ?: "")))
             }
         }
     }
@@ -587,7 +591,7 @@ class ReaderViewModel @Inject constructor(
     fun clearCustomFont() {
         _customFontPath.value = ""
         viewModelScope.launch { runCatching { userPreferences.setReaderCustomFontPath("") } }
-        _message.trySend("已清除自定义字体")
+        _message.trySend(UiMessage(R.string.reader_msg_font_cleared))
     }
 
     fun onFollowSystemChange(value: Boolean) {
@@ -615,9 +619,9 @@ class ReaderViewModel @Inject constructor(
                 }
             }.onSuccess {
                 _isMarked.value = !current
-                _message.send(if (!current) "已添加阅读书签" else "已移除阅读书签")
+                _message.send(if (!current) UiMessage(R.string.reader_msg_mark_added) else UiMessage(R.string.reader_msg_mark_removed))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
             }
         }
     }
@@ -630,16 +634,16 @@ class ReaderViewModel @Inject constructor(
                 else pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
             }.onSuccess {
                 _isBookmarked.value = !current
-                _message.send(if (!current) "已收藏" else "已取消收藏")
+                _message.send(if (!current) UiMessage(R.string.reader_msg_bookmarked) else UiMessage(R.string.reader_msg_unbookmarked))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
             }
         }
     }
 
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: run {
-            _message.trySend("该作品不属于系列")
+            _message.trySend(UiMessage(R.string.reader_msg_not_in_series))
             return
         }
         viewModelScope.launch {
@@ -649,9 +653,9 @@ class ReaderViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                _message.send(if (!current) "已加入追更" else "已取消追更")
+                _message.send(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(R.string.reader_msg_watching_removed))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
             }
         }
     }

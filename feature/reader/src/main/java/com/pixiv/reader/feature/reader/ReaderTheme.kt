@@ -45,7 +45,21 @@ fun readerThemeColors(theme: Int): ReaderThemeColors = when (theme) {
     )
 }
 
-val READER_THEME_NAMES = listOf("日间", "纸张", "夜间", "深黑")
-val READER_PAGE_MODE_NAMES = listOf("滑动", "翻页", "仿真")
-val READER_FONT_FAMILY_NAMES = listOf("衬线", "无衬线", "等宽", "自定义")
+val READER_THEME_NAME_RES = intArrayOf(
+    R.string.reader_theme_day,
+    R.string.reader_theme_paper,
+    R.string.reader_theme_night,
+    R.string.reader_theme_deep_black,
+)
+val READER_PAGE_MODE_NAME_RES = intArrayOf(
+    R.string.reader_page_mode_scroll,
+    R.string.reader_page_mode_paginate,
+    R.string.reader_page_mode_simulation,
+)
+val READER_FONT_FAMILY_NAME_RES = intArrayOf(
+    R.string.reader_font_family_serif,
+    R.string.reader_font_family_sans,
+    R.string.reader_font_family_mono,
+    R.string.reader_font_family_custom,
+)
 val READER_FONT_FAMILY_KEYS = listOf("serif", "sans", "mono", "custom")

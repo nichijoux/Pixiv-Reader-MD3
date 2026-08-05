@@ -1,0 +1,11 @@
+<resources>
+    <string name="auth_tagline">浏览插画与小说，享受舒适阅读</string>
+    <string name="auth_got_it">知道了</string>
+    <string name="auth_login_button">使用 Pixiv 账号登录</string>
+    <string name="auth_register_button">注册临时账号</string>
+    <string name="auth_terms_hint">登录即代表同意 Pixiv 服务条款。\n若无法打开登录页，请检查网络连接。</string>
+    <string name="auth_error_missing_code">缺少授权码，请重试</string>
+    <string name="auth_error_missing_verifier">登录状态已过期，请重新登录</string>
+    <string name="auth_error_server_rejected">登录被服务器拒绝（%1$d）：%2$s</string>
+    <string name="auth_error_network">网络错误，请检查网络连接</string>
+</resources>

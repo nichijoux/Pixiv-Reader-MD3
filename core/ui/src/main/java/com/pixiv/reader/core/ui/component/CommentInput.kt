@@ -12,7 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.R
 
 /**
  * 评论输入框（插画/小说详情评论区共用）。
@@ -42,11 +44,11 @@ fun CommentInput(
             value = draft,
             onValueChange = onDraftChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("说点什么…") },
+            placeholder = { Text(stringResource(R.string.comment_placeholder)) },
             singleLine = true,
         )
         IconButton(onClick = onPost) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "发布", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.comment_send), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

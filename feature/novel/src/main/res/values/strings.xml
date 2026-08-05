@@ -1,0 +1,66 @@
+<resources>
+    <!-- 小说 Tab 推荐流 -->
+    <string name="novel_title">小说</string>
+    <string name="novel_cd_refresh">刷新</string>
+    <string name="novel_feed_empty">暂时没有推荐小说</string>
+    <string name="novel_load_more">上滑加载更多</string>
+
+    <!-- 小说详情 -->
+    <string name="novel_not_found">没有找到该小说</string>
+    <string name="novel_cd_back">返回</string>
+    <string name="novel_series_section">系列分册（%1$d）</string>
+    <string name="novel_comments_section">评论（%1$d）</string>
+    <string name="novel_comments_loading">评论加载中…</string>
+    <string name="novel_comments_empty">暂无评论</string>
+    <string name="novel_comments_retry">点击重试</string>
+    <string name="novel_anonymous_user">匿名用户</string>
+    <string name="novel_reply_prefix">回复 @%1$s：</string>
+    <string name="novel_stat_word">字数</string>
+    <string name="novel_stat_bookmark">收藏</string>
+    <string name="novel_stat_view">浏览</string>
+    <string name="novel_chapter_word">字数 %1$s</string>
+    <string name="novel_chapter_bookmark">收藏 %1$s</string>
+    <string name="novel_chapter_current">当前</string>
+    <string name="novel_continue_reading">继续阅读 %1$d%%</string>
+    <string name="novel_start_reading">开始阅读</string>
+    <string name="novel_bookmarked">已收藏</string>
+    <string name="novel_bookmark">收藏</string>
+    <string name="novel_watchlisted">已追更</string>
+    <string name="novel_watch">追更</string>
+    <string name="novel_download">下载</string>
+
+    <!-- 下载对话框 -->
+    <string name="novel_download_title">下载小说</string>
+    <string name="novel_download_group_export">导出文件</string>
+    <string name="novel_download_group_offline">离线阅读</string>
+    <string name="novel_download_txt_current">本文（TXT）</string>
+    <string name="novel_download_txt_current_desc">纯文本，不包含插图</string>
+    <string name="novel_download_epub_current">本文（EPUB）</string>
+    <string name="novel_download_epub_current_desc">标准电子书，内嵌插图</string>
+    <string name="novel_download_txt_series">整个系列（TXT）</string>
+    <string name="novel_download_txt_series_desc">合并所有分册为纯文本</string>
+    <string name="novel_download_epub_series">整个系列（EPUB）</string>
+    <string name="novel_download_epub_series_desc">合并所有分册为电子书</string>
+    <string name="novel_download_offline_current">下载到应用（离线阅读）</string>
+    <string name="novel_download_offline_current_desc">断网可读本文</string>
+    <string name="novel_download_offline_series">下载整个系列（离线阅读）</string>
+    <string name="novel_download_offline_series_desc">断网可读全部分册</string>
+
+    <!-- ViewModel 消息 / 错误 -->
+    <string name="novel_error_load_failed">加载失败</string>
+    <string name="novel_error_load_failed_reason">加载失败：%1$s</string>
+    <string name="novel_msg_comment_published">评论已发布</string>
+    <string name="novel_msg_comment_failed">评论失败：%1$s</string>
+    <string name="novel_msg_bookmarked">已收藏</string>
+    <string name="novel_msg_unbookmarked">已取消收藏</string>
+    <string name="novel_msg_action_failed">操作失败：%1$s</string>
+    <string name="novel_msg_watching_added">已加入追更</string>
+    <string name="novel_msg_watching_removed">已取消追更</string>
+    <string name="novel_msg_downloading">正在下载…</string>
+    <string name="novel_msg_preparing">准备中…</string>
+    <string name="novel_msg_downloading_chapter">正在下载第 %1$d/%2$d 章…</string>
+    <string name="novel_msg_exported">已导出：%1$s</string>
+    <string name="novel_msg_export_failed">导出失败：%1$s</string>
+    <string name="novel_msg_queued">已加入下载队列</string>
+    <string name="novel_msg_queued_background">已加入下载队列（后台）</string>
+</resources>

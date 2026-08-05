@@ -271,6 +271,14 @@ URL 为 null 时用**首字母圆**兜底（`UserAvatar` 组件）。
 | AdaptiveNavScaffold | AdaptiveScaffold.kt | 自适应导航壳 |
 | LoadingBox/ErrorBox/EmptyBox | StatusViews.kt | 三态占位 |
 | ZoomableImage | ZoomableImage.kt | 可缩放图片（查看器用） |
+| RankingList | RankingList.kt | 通用排行榜（ScrollableTabRow + HorizontalPager 滑动切段 + 三态 + 触底加载，`itemContent(T, rank)`） |
+| RankingRow | RankingRow.kt | 排名行（徽标 1金/2橙/3灰 + 封面 + 标题/作者/收藏） |
+
+### 15.1 排行榜设计（漫画 Tab 已用，未来小说/插画复用）
+- **入口**：漫画 Tab 顶部 banner（`tertiaryContainer` 纯色卡 + 奖杯图标块 + 标题/副文案 + 箭头），整卡点击进全屏页；TopBar 另有奖杯图标快捷入口。
+- **分段**：`ScrollableTabRow`（label 走 `RankingModeInfo.labelRes`）+ `HorizontalPager` 左右滑动切换；点 Tab 平滑滑动；滑段后回调 `onModeSelect` 重载数据。
+- **排名行**：徽标 28dp 斜体加粗（1 `#E8A33D` / 2 `#B45309` / 3 `#6B7280`，其余 `onSurfaceVariant`）+ 64dp 圆角封面 + 标题 2 行 + 作者 + 收藏（`ranking_bookmarks` 资源）。
+- **配色**：全部 `MaterialTheme.colorScheme` 纯色，无渐变。
 
 ---
 

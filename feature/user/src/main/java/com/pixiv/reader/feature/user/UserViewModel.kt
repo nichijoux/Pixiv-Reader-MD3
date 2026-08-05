@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.user
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +9,7 @@ import com.example.pixivapi.model.Illust
 import com.example.pixivapi.model.Novel
 import com.example.pixivapi.model.Profile
 import com.example.pixivapi.model.User
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.paging.PagedState
@@ -22,7 +24,11 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** 用户主页作品分区。 */
-enum class UserSection { ILLUST, MANGA, NOVEL }
+enum class UserSection(@StringRes val labelRes: Int) {
+    ILLUST(R.string.user_section_illust),
+    MANGA(R.string.user_section_manga),
+    NOVEL(R.string.user_section_novel),
+}
 
 /**
  * 用户主页 ViewModel：用户详情（统计 / 关注态）+ 分区作品列表（插画 / 漫画 / 小说）+ 关注 / 取关。
@@ -45,8 +51,8 @@ class UserViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _error = MutableStateFlow<UiMessage?>(null)
+    val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
     private val _isFollowed = MutableStateFlow(false)
     val isFollowed: StateFlow<Boolean> = _isFollowed.asStateFlow()
@@ -64,7 +70,7 @@ class UserViewModel @Inject constructor(
     private val _isBlocking = MutableStateFlow(false)
     val isBlocking: StateFlow<Boolean> = _isBlocking.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     val illustPaged = PagedState<Illust>()
@@ -89,7 +95,7 @@ class UserViewModel @Inject constructor(
                     loadBlockState()
                 }
                 .onFailure {
-                    _error.value = it.message ?: "加载失败"
+                    _error.value = UiMessage(R.string.user_load_failed, listOf(it.message ?: ""))
                 }
             _isLoading.value = false
         }
@@ -176,9 +182,9 @@ class UserViewModel @Inject constructor(
                 else pixivRepository.api.followUser(userId, "public")
             }.onSuccess {
                 _isFollowed.value = !current
-                _message.send(if (!current) "已关注" else "已取消关注")
+                _message.send(UiMessage(if (!current) R.string.user_followed else R.string.user_unfollowed))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.operation_failed, listOf(it.message ?: "")))
             }
             _isFollowing.value = false
         }
@@ -191,7 +197,7 @@ class UserViewModel @Inject constructor(
             _isBlocking.value = true
             val token = csrfToken()
             if (token.isNullOrBlank()) {
-                _message.send("无法获取 CSRF Token，拉黑暂不可用")
+                _message.send(UiMessage(R.string.user_csrf_unavailable))
                 _isBlocking.value = false
                 return@launch
             }
@@ -206,9 +212,9 @@ class UserViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _isBlocked.value = !current
-                _message.send(if (!current) "已拉黑" else "已取消拉黑")
+                _message.send(UiMessage(if (!current) R.string.user_blocked else R.string.user_unblocked_user))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.operation_failed, listOf(it.message ?: "")))
             }
             _isBlocking.value = false
         }

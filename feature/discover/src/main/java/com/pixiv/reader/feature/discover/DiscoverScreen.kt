@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +67,7 @@ import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.feature.discover.R
 import kotlinx.coroutines.launch
 
 /**
@@ -172,15 +174,15 @@ private fun SearchField(
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("搜索作品、画师、标签") },
+            placeholder = { Text(stringResource(R.string.search_placeholder)) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (query.isNotBlank()) {
                         IconButton(onClick = onClear) {
-                            Icon(Icons.Filled.Close, contentDescription = "清除")
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.search_clear))
                         }
-                        TextButton(onClick = onSearch) { Text("搜索") }
+                        TextButton(onClick = onSearch) { Text(stringResource(R.string.search_action)) }
                     }
                 }
             },
@@ -200,7 +202,7 @@ private fun SearchField(
         ) {
             Icon(
                 Icons.Filled.FilterList,
-                contentDescription = "筛选",
+                contentDescription = stringResource(R.string.search_filter),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )
         }
@@ -228,12 +230,12 @@ private fun IdlePanel(
                 ) {
                     Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     Text(
-                        text = "搜索历史",
+                        text = stringResource(R.string.search_history_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 6.dp).weight(1f),
                     )
-                    TextButton(onClick = viewModel::clearHistory) { Text("清空", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = viewModel::clearHistory) { Text(stringResource(R.string.search_history_clear), color = MaterialTheme.colorScheme.error) }
                 }
             }
             // 历史胶囊：点击搜索、长按删除单条
@@ -255,12 +257,12 @@ private fun IdlePanel(
             item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp)) }
         }
         item(key = "hot_title") {
-            Text(
-                text = "热门搜索",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-            )
+Text(
+            text = stringResource(R.string.search_hot_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
         }
         items(hotTags.take(6).withIndex().toList(), key = { it.index }) { (index, tag) ->
             Row(
@@ -322,7 +324,7 @@ private fun SuggestionList(
         if (suggestions.isEmpty()) {
             item {
                 Text(
-                    text = "输入关键词以搜索",
+                    text = stringResource(R.string.search_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(20.dp),
@@ -383,7 +385,7 @@ private fun SearchResultPager(
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = { Text(t.label) },
+                    text = { Text(stringResource(t.labelRes)) },
                 )
             }
         }
@@ -412,7 +414,7 @@ private fun SearchResultPager(
 private fun HotIllustGrid(viewModel: DiscoverViewModel, onOpenIllust: (Long) -> Unit) {
     val popular by viewModel.popularIllusts.collectAsStateWithLifecycle()
     if (popular.isEmpty()) {
-        EmptyBox("暂无热门作品")
+        EmptyBox(stringResource(R.string.search_no_hot))
         return
     }
     IllustWaterfallGrid(
@@ -433,7 +435,7 @@ private fun HotNovelList(
 ) {
     val popular by viewModel.popularNovels.collectAsStateWithLifecycle()
     if (popular.isEmpty()) {
-        EmptyBox("暂无热门作品")
+        EmptyBox(stringResource(R.string.search_no_hot))
         return
     }
     LazyColumn(

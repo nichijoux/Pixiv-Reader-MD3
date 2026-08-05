@@ -40,6 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,17 +90,20 @@ fun UserRoute(
     val section by viewModel.section.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg ->
+            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(user?.name ?: "用户主页", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(user?.name ?: stringResource(R.string.user_title_default), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -112,8 +117,10 @@ fun UserRoute(
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             when {
                 isLoading && user == null -> LoadingBox()
-                error != null && user == null -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
-                user == null -> EmptyBox("没有找到该用户")
+                error != null && user == null -> error!!.let { msg ->
+                    ErrorBox(message = stringResource(msg.res, *msg.args.toTypedArray()), onRetry = viewModel::load)
+                }
+                user == null -> EmptyBox(stringResource(R.string.user_not_found))
                 else -> Column(modifier = Modifier.fillMaxSize()) {
                     val detail = checkNotNull(user)
                     UserHeader(
@@ -135,7 +142,7 @@ fun UserRoute(
                             FilterChip(
                                 selected = section == sec,
                                 onClick = { viewModel.selectSection(sec) },
-                                label = { Text(sec.label()) },
+                                label = { Text(stringResource(sec.labelRes)) },
                             )
                         }
                     }
@@ -209,18 +216,18 @@ private fun UserHeader(
                 onClick = onToggleFollow,
                 enabled = !isFollowing,
             ) {
-                Text(if (isFollowed) "已关注" else "关注")
+                Text(if (isFollowed) stringResource(R.string.user_following) else stringResource(R.string.user_follow))
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.cd_more))
                 }
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text(if (isBlocked) "取消拉黑" else "拉黑") },
+                        text = { Text(if (isBlocked) stringResource(R.string.user_unblock) else stringResource(R.string.user_block)) },
                         onClick = {
                             menuExpanded = false
                             onToggleBlock()
@@ -244,10 +251,10 @@ private fun UserHeader(
             modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            StatItem("插画", profile?.total_illusts)
-            StatItem("小说", profile?.total_novels)
-            StatItem("收藏", profile?.total_bookmarks_public)
-            StatItem("关注", profile?.total_follow_users)
+            StatItem(stringResource(R.string.user_stat_illust), profile?.total_illusts)
+            StatItem(stringResource(R.string.user_stat_novel), profile?.total_novels)
+            StatItem(stringResource(R.string.user_stat_bookmark), profile?.total_bookmarks_public)
+            StatItem(stringResource(R.string.user_stat_follow), profile?.total_follow_users)
         }
     }
 }
@@ -284,7 +291,7 @@ private fun SectionIllust(
     when {
         isLoading && items.isEmpty() -> LoadingBox()
         error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onRetry)
-        items.isEmpty() -> EmptyBox("暂无作品")
+        items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_illust))
         else -> IllustWaterfallGrid(
             illusts = items,
             onItemClick = onOpenIllust,
@@ -316,7 +323,7 @@ private fun SectionNovel(
     when {
         isLoading && items.isEmpty() -> LoadingBox()
         error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onRetry)
-        items.isEmpty() -> EmptyBox("暂无小说")
+        items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_novel))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
@@ -363,10 +370,4 @@ private fun SectionNovel(
             }
         }
     }
-}
-
-private fun UserSection.label(): String = when (this) {
-    UserSection.ILLUST -> "插画"
-    UserSection.MANGA -> "漫画"
-    UserSection.NOVEL -> "小说"
 }

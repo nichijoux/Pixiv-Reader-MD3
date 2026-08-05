@@ -1,0 +1,70 @@
+<resources>
+    <!-- Search type tabs -->
+    <string name="search_type_illust">Illustrations</string>
+    <string name="search_type_novel">Novels</string>
+    <string name="search_type_user">Users</string>
+
+    <!-- Search field / idle / suggestions -->
+    <string name="search_placeholder">Search works, artists, tags</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_action">Search</string>
+    <string name="search_filter">Filter</string>
+    <string name="search_history_title">Search history</string>
+    <string name="search_history_clear">Clear all</string>
+    <string name="search_hot_title">Trending searches</string>
+    <string name="search_hint">Enter a keyword to search</string>
+    <string name="search_no_hot">No trending works</string>
+
+    <!-- Filter sheet -->
+    <string name="filter_title_user">Filters · Users</string>
+    <string name="filter_title_illust">Advanced filters · Illustrations</string>
+    <string name="filter_title_novel">Advanced filters · Novels</string>
+    <string name="filter_title_default">Advanced filters</string>
+    <string name="filter_user_hint">User search only supports keyword matching; no advanced filters available.</string>
+    <string name="filter_mode">Mode</string>
+    <string name="filter_latest">Latest</string>
+    <string name="filter_hot">Popular</string>
+    <string name="filter_sort">Sort</string>
+    <string name="filter_oldest">Oldest</string>
+    <string name="filter_popular">Most bookmarked</string>
+    <string name="filter_match">Match</string>
+    <string name="filter_match_partial">Partial tag match</string>
+    <string name="filter_match_exact">Exact tag match</string>
+    <string name="filter_match_title">Title &amp; caption</string>
+    <string name="filter_date_range">Date range</string>
+    <string name="filter_date_start_hint">2026-01-01</string>
+    <string name="filter_date_end_hint">2026-08-01</string>
+    <string name="filter_bookmark_min">Min bookmarks</string>
+    <string name="filter_unlimited">Any</string>
+    <string name="filter_ai">AI works</string>
+    <string name="filter_all">All</string>
+    <string name="filter_ai_human">Human only</string>
+    <string name="filter_ai_only">AI only</string>
+    <string name="filter_illust_section">Illustration specific</string>
+    <string name="filter_ratio">Aspect ratio</string>
+    <string name="filter_ratio_square">Square</string>
+    <string name="filter_ratio_wide">Wide</string>
+    <string name="filter_ratio_tall">Tall</string>
+    <string name="filter_content_type">Content type</string>
+    <string name="filter_content_illust">Illustration</string>
+    <string name="filter_content_manga">Manga</string>
+    <string name="filter_content_ugoira">Ugoira</string>
+    <string name="filter_tool_section">Tools</string>
+    <string name="filter_width">Width</string>
+    <string name="filter_height">Height</string>
+    <string name="filter_px_min">Min px</string>
+    <string name="filter_px_max">Max px</string>
+    <string name="filter_novel_section">Novel specific</string>
+    <string name="filter_genre_section">Genre</string>
+    <string name="filter_genre_unknown">Unknown</string>
+    <string name="filter_original_only">Original only</string>
+    <string name="filter_replaceable_only">Replaceable only</string>
+    <string name="filter_text_length">Text length</string>
+    <string name="filter_word_count">Word count</string>
+    <string name="filter_reading_time">Reading time</string>
+    <string name="filter_min">Min</string>
+    <string name="filter_max">Max</string>
+    <string name="filter_reading_time_min">Min minutes</string>
+    <string name="filter_reset">Reset</string>
+    <string name="filter_apply">Apply</string>
+</resources>

@@ -13,9 +13,9 @@ import com.pixiv.reader.core.novel.LocalReaderStore
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
+import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
 import com.pixiv.reader.feature.reader.ReaderRoute
-import com.pixiv.reader.feature.settings.SettingsRoute
 import com.pixiv.reader.feature.user.BlockedRoute
 import com.pixiv.reader.feature.user.DownloadsRoute
 import com.pixiv.reader.feature.user.HistoryRoute
@@ -53,8 +53,8 @@ const val ROUTE_BLOCKED = "blocked"
 const val ROUTE_DOWNLOADS = "downloads"
 /** 收藏标签管理（点击标签跳收藏列表）。 */
 const val ROUTE_TAGS = "tags"
-/** 设置。 */
-const val ROUTE_SETTINGS = "settings"
+/** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
+const val ROUTE_MANGA_RANKING = "manga_ranking"
 /**
  * 本地文件阅读（TXT / EPUB 解析后直接渲染，跳过网络）。
  * novelId 对应 LocalReaderStore 的存储键，正文经 `LocalReaderStore.consume()` 单次取走。
@@ -134,8 +134,8 @@ fun PixivNavGraph(
                 onOpenTags = {
                     navController.navigate(ROUTE_TAGS)
                 },
-                onOpenSettings = {
-                    navController.navigate(ROUTE_SETTINGS)
+                onOpenMangaRanking = {
+                    navController.navigate(ROUTE_MANGA_RANKING)
                 },
                 initialSearch = initialSearch,
             )
@@ -342,10 +342,13 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 设置（主题/账号等）
-        composable(ROUTE_SETTINGS) {
-            SettingsRoute(
+        // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情
+        composable(ROUTE_MANGA_RANKING) {
+            MangaRankingRoute(
                 onBack = { navController.popBackStack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
             )
         }
     }

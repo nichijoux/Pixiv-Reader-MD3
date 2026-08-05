@@ -507,11 +507,48 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - **壁纸权限修复（补充）**：设置壁纸报 "Access denied ... must have permission android.permission.SET_WALLPAPER" → `AndroidManifest.xml` 声明 `<uses-permission android:name="android.permission.SET_WALLPAPER" />`（normal 权限，安装即授予，无需运行时请求）
   - 验证：`compileDebugKotlin` + 全部相关模块测试通过
 - 测试：`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1 + `NovelDocumentCodecTest` 4，core:novel 共 24 用例；feature:novel `NovelExporterTest` 6 用例
+
+### i18n 国际化（第四十八轮，全量）
+- **决策**：默认中文（`values/`）+ 英文（`values-en/`）；应用内语言切换（DataStore `appLanguage` system/zh/en）+ 跟随系统；lib:pixivapi 网络语言（`accept-language`/`lang`）随应用语言动态化。
+- **基础设施**：
+  - `core:common`：`AppLanguage` 常量/`localeFor`/`pixivLanguageCode`；`UiMessage(@StringRes, args)`；`NumberFormat` 改 locale-aware（zh 万/亿，en K/M/B，`formatCountForNovel` 与 `formatCount` 统一并修复去尾零"1.0万"），`NumberFormatTest` 增 en 用例。
+  - `core:datastore`：`UserPreferences.appLanguage` + `readAppLanguageSync`（runBlocking 同步读，供 attachBaseContext）。
+  - `app MainActivity.attachBaseContext`：同步读语言 → `createConfigurationContext` 覆盖 + `Locale.setDefault` + `PixivLang.code`。
+  - `lib:pixivapi`：`PixivLang` holder + `HeaderInterceptor`/`WebHeaderInterceptor` 读它（accept-language 动态 + webApi `lang` 查询参数重写）。
+  - `core:ui ErrorBox(message: String?)` 空白时回退 `R.string.load_failed`；`core:network PagedState.error` 存原始 message（null 由 UI 兜底）。
+- **文案迁移**：全部模块新建 `res/values/strings.xml` + `values-en/strings.xml`（app/core:ui + 11 个 feature，共 13 组、~400 key，中英 key 完全一致）；硬编码中文 → `stringResource`；VM Snackbar/error → `UiMessage`；枚举显示名（RankingMode/SearchType/HomeTab/HistoryFilter/DownloadFilter/BookmarkType/ReaderTheme/PageMode/FontFamily）→ `@StringRes`。
+- **语言切换 UI**：我的页外观设置内嵌语言卡（跟随系统/中文/English），切换 `activity.recreate()` 生效（无独立设置页）。
+- **已知取舍**：`@ApplicationContext.getString` 不跟随应用内语言覆盖（应用上下文未重建），VM 持续展示型文案（如下载进度）仅在应用内切换语言后偶发不一致——可接受；`NovelExporter` 导出文件内嵌标签（作者：/目录/插图等）暂保持中文（TODO，未动测试）。
+- 验证：`:app:compileDebugKotlin` + 六模块单测全过 + `assembleDebug` 产出 `app-debug.apk`（21.0 MB）。
+
+### 设置并入我的页（第四十八轮补充）
+- 用户反馈：系统设置不要独立页面 → 删除 `feature:settings` 源码（SettingsRoute/SettingsViewModel + res），模块变空壳（同 feature:download）；`ROUTE_SETTINGS`/PixivNavGraph composable/MainShell `onOpenSettings` 回调链全部移除。
+- **MeRoute 内嵌**：外观卡（主题模式 + 动态取色 + **语言** FilterChip 三选，切换 `activity.recreate()`）；系统设置卡（自动更新 Switch + 存储清理：缓存占用 + 清除按钮）；关于卡（版本/描述/开源链接 + 检查更新占位）。
+- **MeViewModel** 承接设置逻辑：`appLanguage`/`autoUpdate`/`cacheSize`/`setAppLanguage`/`setAutoUpdate`/`checkUpdate`/`clearCache`/`refreshCacheSize`（注入 `DownloadEntryDao`，`:core:database` 已有依赖）；`message` 改 `Channel<UiMessage>`；新增 `me_` 前缀字符串 key（语言/自动更新/存储/检查更新等，中英齐）。
+- **语言切换竞态修复（补充）**：原"点击 → setAppLanguage（异步写 DataStore）→ 立即 recreate"存在 bug——recreate 销毁旧 ViewModel 会取消写协程，导致语言未落盘而 `attachBaseContext` 读到旧值（"点了中文却显示英文"）。修复：`setAppLanguage(value, onDone)` **落盘完成后**才回调 `recreate()`；MeRoute 加 `switchingLanguage` 防抖（切换期间忽略重复点击）+ 已选语言不重复触发。
+- **我的页卡片化（补充）**：用户要求设置区不用 `HorizontalDivider` 分隔——外观设置拆为三张独立卡片（主题模式 / 动态取色 / 语言），系统设置拆为两张独立卡片（自动更新 / 存储），每项一个 Card + 8dp 间距，与"用户内容管理"的 SettingsCard 风格一致；移除 MeRoute 中 `HorizontalDivider` import。
+- 验证：`:app:compileDebugKotlin` + 单测 + `assembleDebug` 产出 `app-debug.apk`（21.0 MB，20:41）。
 - **全项目注释补充（第四十八轮，纯注释无逻辑变更）**：
   - 目标：为代码补齐 KDoc（参数含义 + 函数含义 + UI 设计方式），分批推进
   - 第一批（core:ui + core 数据层）：`IllustCard`/`NovelCard`+`NovelCardData`/`SettingsCard`+`SettingsCardItem`/`ProfileHeader`/`UserAvatar`/`CreatorProfileCard`/`CommentInput`/`IllustWaterfallGrid`/`AdaptiveScaffold`/`StatusViews`/`PixivImage` 全部通用组件（每处含 UI 设计方式 + @param）；`NovelParser.parse`/`NovelDocumentCodec.encode`；`BrowseHistoryDao`/`SearchHistoryDao`/`DownloadEntryDao`/`ReadingProgressDao`（含"先删旧再 upsert 去重置顶"语义）；`OfflineNovelRepository` 方法注释
   - 第二批：`DiscoverViewModel` 类级 KDoc（职责/状态）+ 全部方法注释（联想防抖/热门缓存 24h TTL/搜索历史去重置顶/屏蔽标签过滤等）
   - 第三批：`PixivNavGraph` 14 个路由常量逐个 KDoc + 各 composable 块注释（深链 scheme `pixiv://`、登录清栈、`main?search` 跨 Tab、全屏路由、`local_reader` 单次消费、系列分册跳转语义）；补 `IllustViewModel`/`HomeViewModel`/`AuthViewModel`/`RankingViewModel`/`ViewerViewModel` 类级注释（含枚举与状态/事件注释）
   - 第四批：`PagedState` 方法注释（游标语义/失败处理/防重入）；`MainShell` TABS 注释 + 类级注释补 `pendingSearch` 跨 Tab 搜索机制；`PixivRepository` 类级增强（api/webApi/imageClient 分工 + Referer 防 403）；`SessionRepository` 补 isOAuthCallback/logout
-  - 每批验证：`:app:compileDebugKotlin` BUILD SUCCESSFUL
-  - 备注：feature Route 文件注释多为各开发轮次自带；`lib:pixivapi` vendor 副本只读未动；agent.md 本文件即为会话记忆与轮次记录（后续会话先读本文件 + AGENTS.md）
+- 每批验证：`:app:compileDebugKotlin` BUILD SUCCESSFUL
+- 备注：feature Route 文件注释多为各开发轮次自带；`lib:pixivapi` vendor 副本只读未动；agent.md 本文件即为会话记忆与轮次记录（后续会话先读本文件 + AGENTS.md）
+
+### 漫画 Tab + 通用排行榜（第四十九轮）
+- **HTML 原型**：`design/manga-ui.html`（可交互：漫画 Tab 排行榜入口 banner + 推荐瀑布流 + 排行榜全屏页左右滑动切段；纯 M3 色无渐变——用户要求去掉渐变、排行榜点击按钮改为滑动切换）。
+- **通用排行榜组件**（为未来小说/插画复用）：
+  - `core:common RankingModeInfo(@StringRes labelRes, value)`（分段配置数据）
+  - `core:ui RankingList<T>`：ScrollableTabRow + HorizontalPager 滑动切段（点 Tab animateScrollToPage、滑动后回调 onModeSelect）+ 每页三态（复用 StatusViews）+ 触底加载；`itemContent(T, rank)` slot 由调用方提供
+  - `core:ui RankingRow(rank, illust, onClick)`：徽标 1金 #E8A33D / 2 #B45309 / 3 #6B7280 / 其余 onSurfaceVariant（titleMedium bold 斜体）+ 64dp 封面 + 标题/作者/收藏（新增 `ranking_bookmarks` 资源）
+- **feature:manga（新模块）**：`MangaViewModel`（推荐流 `getRecommendedManga` 分页 + 收藏）、`MangaRoute`（TopBar「漫画」+ 排行榜 banner 纯 tertiaryContainer + IllustWaterfallGrid）、`MangaRankingViewModel`（5 段 modes：日 day_manga / 周 week / 月 month / 新人 week_rookie / R18 day_r18，`getRanking(mode)` 分页）、`MangaRankingRoute`（全屏页复用 RankingList + RankingRow）；中英 strings 双份。
+- **app 接线**：底部第 3 Tab「排行」→「漫画」（icon `Collections`，`main_tab_manga`）；新增顶层路由 `ROUTE_MANGA_RANKING = "manga_ranking"`（`MainShell.onOpenMangaRanking` 回调链 + PixivNavGraph composable，点击排名行开插画详情）；`settings.gradle`/`app build.gradle` 加 `:feature:manga`。
+- **删除**：`feature:discover` 的 `RankingScreen.kt`/`RankingViewModel.kt`（原 `RankingMode` 7 模式）与 discover strings 的 `ranking_*` key（中英）。
+- **API 取舍**：pixiv 漫画专属榜仅 `day_manga`；周/月/新人/R18 用通用 mode（会混入插画），用户已确认接受。
+- **滑动切换突兀优化（方案 A，补充）**：原 RankingList 的 HorizontalPager 每页共享同一 `items`，滑动到邻页时邻页复用当前内容造成"内容跟手滑动后又闪换"。修复：新增 `dataKey`（数据就绪标识，VM `loadInitial` 完成后递增）→ RankingList 内部按 mode 缓存每页数据快照（`mutableStateMapOf`），每页只渲染自己 mode 的快照（已加载段即时显示、未加载段 LoadingBox 占位），数据就绪后 `AnimatedContent` 淡入 + 上移过渡；`MangaRankingViewModel` 新增 `dataVersion`，`MangaRankingRoute` 传 `dataKey=dataVersion`。
+- **排行榜配色统一（补充）**：用户反馈排行榜颜色突兀 → **修正理解**：排名徽标保持 1金 `#E8A33D`/2橙 `#B45309`/3灰 `#6B7280`（设计如此，不随主题改）；突兀的是**漫画 Tab 顶部排行榜入口 banner 的紫色**——由 tertiaryContainer 紫色改为 primaryContainer 主色系（图标块 onPrimaryContainer 底 + onPrimary 白图标，文字 onPrimaryContainer/primary）；HTML 原型同步。
+- **排行榜封面与文本尺寸（补充）**：用户反馈 item 图片太小 → `RankingRow` 封面 64dp → 88dp（HTML 同步 60px→88px）；随后用户反馈"其他字体和图片大小不够匹配" → 文本规格同步调大：标题 `bodyLarge`→`titleMedium`（16sp Medium）、作者间距 4→6dp、收藏 `labelSmall`→`labelMedium`（12sp）、间距 2→4dp。
+- **排行榜行配色层级（补充）**：用户反馈标题/收藏/作者全黑 → 拉开层次：标题 `onSurface`；作者 `onSurfaceVariant`；**收藏数改为 secondaryContainer 胶囊 + primary 蓝字 + Favorite 心形图标**（对齐 HTML 原型 `.rtt .n` 样式）。
+- 验证：`:app:compileDebugKotlin` + 六模块单测 + `assembleDebug` 产出 `app-debug.apk`（21.1 MB，8/5 08:26）。

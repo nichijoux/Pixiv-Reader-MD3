@@ -1,0 +1,12 @@
+<resources>
+    <string name="load_failed">加载失败</string>
+    <string name="retry">重试</string>
+    <string name="comment_placeholder">说点什么…</string>
+    <string name="comment_send">发布</string>
+    <string name="not_logged_in">未登录</string>
+    <string name="follow">关注</string>
+    <string name="following">已关注</string>
+    <string name="favorite">收藏</string>
+    <string name="unfavorite">取消收藏</string>
+    <string name="ranking_bookmarks">%1$s 收藏</string>
+</resources>

@@ -1,0 +1,16 @@
+<resources>
+    <string name="manga_title">漫画</string>
+    <string name="manga_cd_ranking">漫画排行榜</string>
+    <string name="manga_ranking_banner">漫画排行榜</string>
+    <string name="manga_ranking_banner_desc">每日更新 · 日榜 / 周榜 / 月榜 / 新人 / R18</string>
+    <string name="manga_ranking_title">漫画排行榜</string>
+    <string name="manga_ranking_day">日榜</string>
+    <string name="manga_ranking_week">周榜</string>
+    <string name="manga_ranking_month">月榜</string>
+    <string name="manga_ranking_rookie">新人</string>
+    <string name="manga_ranking_r18">R18</string>
+    <string name="manga_empty">暂无漫画推荐</string>
+    <string name="manga_ranking_empty">暂无榜单数据</string>
+    <string name="manga_cd_back">返回</string>
+    <string name="manga_cd_more">更多</string>
+</resources>

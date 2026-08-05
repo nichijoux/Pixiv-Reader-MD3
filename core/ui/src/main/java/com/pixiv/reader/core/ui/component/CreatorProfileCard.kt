@@ -29,10 +29,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.pixiv.reader.core.ui.R
 
 /** 创作者档案数据（用户搜索 / 浏览历史用户类共用）。 */
 data class CreatorProfile(
@@ -141,7 +143,7 @@ fun CreatorProfileCard(
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.height(40.dp),
             ) {
-                Text(if (followed) "已关注" else "关注")
+                Text(if (followed) stringResource(R.string.following) else stringResource(R.string.follow))
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.pixivapi.model.BlockSaveRequest
 import com.example.pixivapi.model.MuteTag
 import com.example.pixivapi.model.MuteUser
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,7 +43,7 @@ class BlockedViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _message = Channel<String>(Channel.BUFFERED)
+    private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     init {
@@ -57,7 +58,7 @@ class BlockedViewModel @Inject constructor(
                     _mutedUsers.value = history.mute_users.orEmpty()
                     _mutedTags.value = history.mute_tags.orEmpty()
                 }
-                .onFailure { _message.send("加载失败：${it.message}") }
+                .onFailure { _message.send(UiMessage(R.string.blocked_load_failed, listOf(it.message ?: ""))) }
             _isLoading.value = false
         }
     }
@@ -92,7 +93,7 @@ class BlockedViewModel @Inject constructor(
         viewModelScope.launch {
             val token = csrfToken()
             if (token.isNullOrBlank()) {
-                _message.send("无法获取 CSRF Token，操作不可用")
+                _message.send(UiMessage(R.string.blocked_csrf_unavailable))
                 return@launch
             }
             runCatching {
@@ -102,9 +103,9 @@ class BlockedViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _mutedUsers.value = _mutedUsers.value.filterNot { it.user?.id == uid }
-                _message.send("已取消屏蔽")
+                _message.send(UiMessage(R.string.blocked_unblocked))
             }.onFailure {
-                _message.send("操作失败：${it.message}")
+                _message.send(UiMessage(R.string.operation_failed, listOf(it.message ?: "")))
             }
         }
     }

@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,9 +81,10 @@ fun ViewerRoute(
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
 
     Box(
@@ -131,7 +134,7 @@ fun ViewerRoute(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
+                Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.viewer_cd_back), tint = Color.White)
             }
             Text(
                 text = viewModel.illust.value?.title.orEmpty(),
@@ -143,14 +146,14 @@ fun ViewerRoute(
             // 更多菜单：收藏 / 下载 / 举报
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "更多", tint = Color.White)
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.viewer_cd_more), tint = Color.White)
                 }
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text(if (isBookmarked) "取消收藏" else "收藏") },
+                        text = { Text(stringResource(if (isBookmarked) R.string.viewer_menu_unbookmark else R.string.viewer_menu_bookmark)) },
                         leadingIcon = {
                             Icon(
                                 imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -160,7 +163,7 @@ fun ViewerRoute(
                         onClick = { menuExpanded = false; viewModel.toggleBookmark() },
                     )
                     DropdownMenuItem(
-                        text = { Text("下载原图") },
+                        text = { Text(stringResource(R.string.viewer_menu_download_original)) },
                         leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
                         onClick = {
                             menuExpanded = false
@@ -172,7 +175,7 @@ fun ViewerRoute(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("举报") },
+                        text = { Text(stringResource(R.string.viewer_menu_report)) },
                         leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
                         onClick = { menuExpanded = false; viewModel.report() },
                     )
@@ -258,24 +261,24 @@ private fun ViewerActionBar(
     ) {
         ViewerActionButton(
             icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = if (isBookmarked) "取消收藏" else "收藏",
+            contentDescription = stringResource(if (isBookmarked) R.string.viewer_cd_unbookmark else R.string.viewer_cd_bookmark),
             tint = if (isBookmarked) Color(0xFFFF5252) else Color.White,
             onClick = onBookmark,
         )
         ViewerActionButton(
             icon = Icons.Filled.Download,
-            contentDescription = "下载原图",
+            contentDescription = stringResource(R.string.viewer_cd_download_original),
             onClick = onDownload,
         )
         ViewerActionButton(
             icon = Icons.Filled.Wallpaper,
-            contentDescription = "设为壁纸",
+            contentDescription = stringResource(R.string.viewer_cd_set_wallpaper),
             enabled = !isGif,
             onClick = onWallpaper,
         )
         ViewerActionButton(
             icon = Icons.Filled.HighQuality,
-            contentDescription = "查看原图",
+            contentDescription = stringResource(R.string.viewer_cd_view_original),
             enabled = !isGif,
             selected = isOriginal,
             onClick = onOriginal,

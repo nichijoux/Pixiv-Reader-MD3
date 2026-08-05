@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,6 +35,7 @@ import com.example.pixivapi.model.TrendingTag
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.feature.home.R
 
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
@@ -57,17 +59,17 @@ fun HomeRoute(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = if (tab == HomeTab.RECOMMEND) "推荐" else "关注",
+                            text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(R.string.home_follow),
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = { /* 通知（P7） */ }) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "通知")
+                        Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.home_notifications))
                     }
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = "搜索")
+                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_search))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -91,14 +93,14 @@ fun HomeRoute(
                     FilterChip(
                         selected = tab == HomeTab.RECOMMEND,
                         onClick = { viewModel.selectTab(HomeTab.RECOMMEND) },
-                        label = { Text("为你推荐") },
+                        label = { Text(stringResource(R.string.home_for_you)) },
                     )
                 }
                 item {
                     FilterChip(
                         selected = tab == HomeTab.FOLLOW,
                         onClick = { viewModel.selectTab(HomeTab.FOLLOW) },
-                        label = { Text("关注") },
+                        label = { Text(stringResource(R.string.home_follow)) },
                     )
                 }
                 items(trendingTags, key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->

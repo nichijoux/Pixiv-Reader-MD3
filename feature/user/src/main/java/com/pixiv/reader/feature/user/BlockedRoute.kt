@@ -47,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,23 +78,26 @@ fun BlockedRoute(
     var draft by remember { mutableStateOf("") }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg ->
+            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("屏蔽管理") },
+                title = { Text(stringResource(R.string.blocked_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
                     if (localTags.isNotEmpty()) {
                         TextButton(onClick = viewModel::clearLocalTags) {
-                            Text("清空", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.blocked_clear), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 },
@@ -122,12 +127,12 @@ fun BlockedRoute(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "本地过滤标签",
+                                    text = stringResource(R.string.blocked_local_tags_title),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(
-                                    text = "在推荐与搜索中过滤的标签",
+                                    text = stringResource(R.string.blocked_local_tags_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 2.dp),
@@ -142,7 +147,7 @@ fun BlockedRoute(
                                         value = draft,
                                         onValueChange = { draft = it },
                                         modifier = Modifier.weight(1f),
-                                        placeholder = { Text("输入标签后添加") },
+                                        placeholder = { Text(stringResource(R.string.blocked_local_tags_input_hint)) },
                                         singleLine = true,
                                     )
                                     FilledIconButton(
@@ -154,14 +159,14 @@ fun BlockedRoute(
                                             containerColor = MaterialTheme.colorScheme.primary,
                                         ),
                                     ) {
-                                        Icon(Icons.Filled.Add, contentDescription = "添加")
+                                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cd_add))
                                     }
                                 }
                                 // 标签列表
                                 Spacer(Modifier.height(12.dp))
                                 if (localTags.isEmpty()) {
                                     Text(
-                                        text = "暂无本地过滤标签，可在上方添加",
+                                        text = stringResource(R.string.blocked_local_tags_empty),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -189,19 +194,19 @@ fun BlockedRoute(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "服务端屏蔽",
+                                    text = stringResource(R.string.blocked_server_title),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(
-                                    text = "pixiv 账号级屏蔽",
+                                    text = stringResource(R.string.blocked_server_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 2.dp),
                                 )
                                 if (mutedTags.isEmpty() && mutedUsers.isEmpty()) {
                                     Text(
-                                        text = "暂无服务端屏蔽",
+                                        text = stringResource(R.string.blocked_server_empty),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(top = 12.dp),
@@ -248,7 +253,7 @@ fun BlockedRoute(
                                                         .weight(1f),
                                                 )
                                                 TextButton(onClick = { viewModel.unblockUser(muted) }) {
-                                                    Text("取消屏蔽", color = MaterialTheme.colorScheme.error)
+                                                    Text(stringResource(R.string.blocked_unblock), color = MaterialTheme.colorScheme.error)
                                                 }
                                             }
                                             HorizontalDivider(
@@ -291,7 +296,7 @@ private fun TagPill(
             Spacer(Modifier.size(4.dp))
             Icon(
                 imageVector = Icons.Filled.Close,
-                contentDescription = "删除 $text",
+                contentDescription = stringResource(R.string.cd_delete_tag, text),
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.size(14.dp),
             )

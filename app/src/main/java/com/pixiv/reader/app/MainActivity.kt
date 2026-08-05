@@ -1,6 +1,7 @@
 package com.pixiv.reader.app
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -18,13 +19,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.pixivapi.network.PixivLang
+import com.pixiv.reader.app.R
 import com.pixiv.reader.app.navigation.PixivNavGraph
+import com.pixiv.reader.core.common.localeFor
+import com.pixiv.reader.core.common.pixivLanguageCode
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.datastore.readAppLanguageSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -44,6 +52,26 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var networkMonitor: NetworkMonitor
+
+    /**
+     * 应用 i18n：在 Hilt 装配前同步读取应用语言设置，按需用 createConfigurationContext 覆盖资源配置；
+     * 同时设置 [Locale.setDefault]（供纯函数格式化读取）与网络语言 holder [PixivLang]。
+     * 跟随系统时不覆盖，沿用系统配置。
+     */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val lang = readAppLanguageSync(newBase)
+        val locale = localeFor(lang)
+        val effectiveLocale = locale ?: Locale.getDefault()
+        Locale.setDefault(effectiveLocale)
+        PixivLang.code = pixivLanguageCode(effectiveLocale)
+        val wrapped = if (locale != null) {
+            val config = Configuration(newBase.resources.configuration)
+            config.setLocale(locale)
+            config.setLayoutDirection(locale)
+            newBase.createConfigurationContext(config)
+        } else newBase
+        super.attachBaseContext(wrapped)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 系统导航栏透明（无 scrim）：底部导航背景延伸覆盖导航栏，实现沉浸式。
@@ -69,10 +97,11 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
             val snackbarHostState = remember { SnackbarHostState() }
+            val context = LocalContext.current
             LaunchedEffect(isOnline) {
                 if (!isOnline) {
                     snackbarHostState.showSnackbar(
-                        message = "网络连接已断开",
+                        message = context.getString(R.string.network_disconnected),
                         duration = SnackbarDuration.Short,
                     )
                 }

@@ -56,6 +56,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -111,16 +113,16 @@ fun NovelRoute(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("小说", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.novel_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = viewModel::refresh) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                    Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.novel_cd_refresh))
                 }
             }
             when {
                 isLoading && items.isEmpty() -> LoadingBox()
                 error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::refresh)
-                items.isEmpty() -> EmptyBox("暂时没有推荐小说")
+                items.isEmpty() -> EmptyBox(stringResource(R.string.novel_feed_empty))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -162,7 +164,7 @@ fun NovelRoute(
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                 } else {
                                     Text(
-                                        text = "上滑加载更多",
+                                        text = stringResource(R.string.novel_load_more),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier
@@ -211,8 +213,9 @@ fun NovelDetailRoute(
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        viewModel.message.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
 
     Box(
@@ -222,8 +225,11 @@ fun NovelDetailRoute(
     ) {
         when {
             isLoading && novel == null -> LoadingBox()
-            error != null && novel == null -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
-            novel == null -> EmptyBox("没有找到该小说")
+            error != null && novel == null -> ErrorBox(
+                message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
+                onRetry = viewModel::load,
+            )
+            novel == null -> EmptyBox(stringResource(R.string.novel_not_found))
             else -> {
                 val detail = checkNotNull(novel)
                 NovelDetailContent(
@@ -392,7 +398,7 @@ private fun NovelDetailContent(
                 item(key = "series_title") {
                     NovelCenteredBox {
                         Text(
-                            text = "系列分册（${seriesNovels.size}）",
+                            text = stringResource(R.string.novel_series_section, seriesNovels.size),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -440,7 +446,7 @@ private fun NovelDetailContent(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "返回",
+                    contentDescription = stringResource(R.string.novel_cd_back),
                     tint = Color.White,
                 )
             }
@@ -480,14 +486,14 @@ private fun CommentsSection(
     // 若直接 emit 多个并列 composable（标题 + 各评论行）会全部重叠。
     Column {
         Text(
-            text = "评论（${comments.size}）",
+            text = stringResource(R.string.novel_comments_section, comments.size),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
         when {
             loading && comments.isEmpty() -> Text(
-                text = "评论加载中…",
+                text = stringResource(R.string.novel_comments_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(20.dp),
@@ -495,12 +501,12 @@ private fun CommentsSection(
 
             comments.isEmpty() -> Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "暂无评论",
+                    text = stringResource(R.string.novel_comments_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "点击重试",
+                    text = stringResource(R.string.novel_comments_retry),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -545,7 +551,7 @@ private fun CommentRow(comment: Comment) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = comment.user?.name ?: "匿名用户",
+                    text = comment.user?.name ?: stringResource(R.string.novel_anonymous_user),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
@@ -602,7 +608,7 @@ private fun ReplyRow(reply: Comment) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = reply.user?.name ?: "匿名用户",
+                    text = reply.user?.name ?: stringResource(R.string.novel_anonymous_user),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Medium,
                 )
@@ -613,12 +619,15 @@ private fun ReplyRow(reply: Comment) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            val parentName = reply.parent_comment?.user?.name
+            val prefix = if (!parentName.isNullOrBlank()) {
+                stringResource(R.string.novel_reply_prefix, parentName)
+            } else {
+                null
+            }
             Text(
                 text = buildString {
-                    val parentName = reply.parent_comment?.user?.name
-                    if (!parentName.isNullOrBlank()) {
-                        append("回复 @$parentName：")
-                    }
+                    if (prefix != null) append(prefix)
                     append(reply.comment.orEmpty())
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -662,9 +671,9 @@ private fun NovelHeader(
             modifier = Modifier.padding(top = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            NovelStatText("字数", formatCountForNovel(novel.text_length ?: 0))
-            NovelStatText("收藏", formatCount((novel.total_bookmarks ?: 0).toLong()))
-            NovelStatText("浏览", formatCount((novel.total_view ?: 0).toLong()))
+            NovelStatText(stringResource(R.string.novel_stat_word), formatCountForNovel(novel.text_length ?: 0))
+            NovelStatText(stringResource(R.string.novel_stat_bookmark), formatCount((novel.total_bookmarks ?: 0).toLong()))
+            NovelStatText(stringResource(R.string.novel_stat_view), formatCount((novel.total_view ?: 0).toLong()))
         }
         val tags = novel.tags.orEmpty().take(8)
         if (tags.isNotEmpty()) {
@@ -724,9 +733,9 @@ private fun NovelActions(
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
         val readLabel = if (progress != null && (progress.percentage ?: 0) > 0) {
-            "继续阅读 ${progress.percentage}%"
+            stringResource(R.string.novel_continue_reading, progress.percentage)
         } else {
-            "开始阅读"
+            stringResource(R.string.novel_start_reading)
         }
         Button(onClick = onRead, modifier = Modifier.fillMaxWidth().height(44.dp)) {
             Text(readLabel)
@@ -745,7 +754,7 @@ private fun NovelActions(
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )
-                Text(if (isBookmarked) "已收藏" else "收藏", modifier = Modifier.padding(start = 4.dp))
+                Text(if (isBookmarked) stringResource(R.string.novel_bookmarked) else stringResource(R.string.novel_bookmark), modifier = Modifier.padding(start = 4.dp))
             }
             OutlinedButton(
                 onClick = onWatchlist,
@@ -757,7 +766,7 @@ private fun NovelActions(
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )
-                Text(if (isWatchlisted) "已追更" else "追更", modifier = Modifier.padding(start = 4.dp))
+                Text(if (isWatchlisted) stringResource(R.string.novel_watchlisted) else stringResource(R.string.novel_watch), modifier = Modifier.padding(start = 4.dp))
             }
             OutlinedButton(
                 onClick = onDownload,
@@ -769,7 +778,7 @@ private fun NovelActions(
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )
-                Text("下载", modifier = Modifier.padding(start = 4.dp))
+                Text(stringResource(R.string.novel_download), modifier = Modifier.padding(start = 4.dp))
             }
         }
         if (downloading && !downloadProgress.isNullOrBlank()) {
@@ -810,12 +819,12 @@ private fun ChapterRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "字数 ${formatCountForNovel(novel.text_length ?: 0)}",
+                    text = stringResource(R.string.novel_chapter_word, formatCountForNovel(novel.text_length ?: 0)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "收藏 ${formatCount((novel.total_bookmarks ?: 0).toLong())}",
+                    text = stringResource(R.string.novel_chapter_bookmark, formatCount((novel.total_bookmarks ?: 0).toLong())),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -823,7 +832,7 @@ private fun ChapterRow(
         }
         if (isCurrent) {
             Text(
-                text = "当前",
+                text = stringResource(R.string.novel_chapter_current),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -846,20 +855,44 @@ private fun DownloadDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("下载小说") },
+        title = { Text(stringResource(R.string.novel_download_title)) },
         text = {
             Column {
-                DialogGroupTitle("导出文件")
-                DownloadOption("本文（TXT）", "纯文本，不包含插图", onTxtCurrent)
-                DownloadOption("本文（EPUB）", "标准电子书，内嵌插图", onEpubCurrent)
+                DialogGroupTitle(stringResource(R.string.novel_download_group_export))
+                DownloadOption(
+                    title = stringResource(R.string.novel_download_txt_current),
+                    subtitle = stringResource(R.string.novel_download_txt_current_desc),
+                    onClick = onTxtCurrent,
+                )
+                DownloadOption(
+                    title = stringResource(R.string.novel_download_epub_current),
+                    subtitle = stringResource(R.string.novel_download_epub_current_desc),
+                    onClick = onEpubCurrent,
+                )
                 if (hasSeries) {
-                    DownloadOption("整个系列（TXT）", "合并所有分册为纯文本", onTxtSeries)
-                    DownloadOption("整个系列（EPUB）", "合并所有分册为电子书", onEpubSeries)
+                    DownloadOption(
+                        title = stringResource(R.string.novel_download_txt_series),
+                        subtitle = stringResource(R.string.novel_download_txt_series_desc),
+                        onClick = onTxtSeries,
+                    )
+                    DownloadOption(
+                        title = stringResource(R.string.novel_download_epub_series),
+                        subtitle = stringResource(R.string.novel_download_epub_series_desc),
+                        onClick = onEpubSeries,
+                    )
                 }
-                DialogGroupTitle("离线阅读")
-                DownloadOption("下载到应用（离线阅读）", "断网可读本文", onOfflineCurrent)
+                DialogGroupTitle(stringResource(R.string.novel_download_group_offline))
+                DownloadOption(
+                    title = stringResource(R.string.novel_download_offline_current),
+                    subtitle = stringResource(R.string.novel_download_offline_current_desc),
+                    onClick = onOfflineCurrent,
+                )
                 if (hasSeries) {
-                    DownloadOption("下载整个系列（离线阅读）", "断网可读全部分册", onOfflineSeries)
+                    DownloadOption(
+                        title = stringResource(R.string.novel_download_offline_series),
+                        subtitle = stringResource(R.string.novel_download_offline_series_desc),
+                        onClick = onOfflineSeries,
+                    )
                 }
             }
         },

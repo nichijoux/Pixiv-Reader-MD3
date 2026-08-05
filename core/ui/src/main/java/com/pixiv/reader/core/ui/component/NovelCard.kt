@@ -37,11 +37,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.pixiv.reader.core.common.formatCountForNovel
+import com.pixiv.reader.core.ui.R
 
 /**
  * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
@@ -161,14 +164,14 @@ fun NovelCard(
                                 modifier = Modifier.size(12.dp),
                             )
                             Text(
-                                text = formatCompact(novel.favoriteCount),
+                                text = formatCountForNovel(novel.favoriteCount),
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(start = 3.dp),
                             )
                         }
                         Text(
-                            text = formatCompact(novel.wordCount),
+                            text = formatCountForNovel(novel.wordCount),
                             color = Color.White,
                             fontSize = 11.sp,
                         )
@@ -202,7 +205,7 @@ fun NovelCard(
                     ) {
                         Icon(
                             imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = if (favorite) "取消收藏" else "收藏",
+                            contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
                             tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp),
                         )
@@ -287,10 +290,4 @@ private fun NovelTagChip(
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 3.dp),
     )
-}
-
-/** 计数紧凑格式化：≥1 万显示 "x.x万"。 */
-private fun formatCompact(count: Int): String = when {
-    count >= 10000 -> String.format(java.util.Locale.US, "%.1f万", count / 10000f)
-    else -> count.toString()
 }

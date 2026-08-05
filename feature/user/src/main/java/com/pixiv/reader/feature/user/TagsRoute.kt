@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,10 +59,10 @@ fun TagsRoute(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("收藏标签") },
+                title = { Text(stringResource(R.string.tags_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -81,13 +82,13 @@ fun TagsRoute(
                         FilterChip(
                             selected = type == t,
                             onClick = { viewModel.selectType(t) },
-                            label = { Text(if (t == TagType.ILLUST) "插画" else "小说") },
+                            label = { Text(if (t == TagType.ILLUST) stringResource(R.string.tags_type_illust) else stringResource(R.string.tags_type_novel)) },
                         )
                     }
                 }
                 when {
                     isLoading -> LoadingBox()
-                    tags.isEmpty() -> EmptyBox("暂无收藏标签")
+                    tags.isEmpty() -> EmptyBox(stringResource(R.string.tags_empty))
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),

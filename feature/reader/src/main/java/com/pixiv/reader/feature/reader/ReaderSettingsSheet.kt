@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -60,12 +61,12 @@ fun ReaderSettingsSheet(
                 .padding(bottom = 28.dp),
         ) {
             Text(
-                "阅读设置",
+                stringResource(R.string.reader_settings_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             SettingsSlider(
-                "字号",
+                stringResource(R.string.reader_settings_font_size),
                 "${fontSize.roundToInt()}sp",
                 14f,
                 24f,
@@ -73,7 +74,7 @@ fun ReaderSettingsSheet(
                 onFontSizeChange
             )
             SettingsSlider(
-                "行距",
+                stringResource(R.string.reader_settings_line_spacing),
                 String.format("%.1f", lineHeight),
                 1.4f,
                 2.6f,
@@ -81,7 +82,7 @@ fun ReaderSettingsSheet(
                 onLineHeightChange
             )
             SettingsSlider(
-                "亮度",
+                stringResource(R.string.reader_settings_brightness),
                 "${(brightness * 100).roundToInt()}%",
                 0.3f,
                 1f,
@@ -89,7 +90,7 @@ fun ReaderSettingsSheet(
                 onBrightnessChange
             )
 
-            SectionLabel("字体")
+            SectionLabel(stringResource(R.string.reader_settings_section_font))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 READER_FONT_FAMILY_KEYS.forEachIndexed { index, key ->
                     SegmentedButton(
@@ -99,7 +100,7 @@ fun ReaderSettingsSheet(
                             index = index,
                             count = READER_FONT_FAMILY_KEYS.size
                         ),
-                    ) { Text(READER_FONT_FAMILY_NAMES[index]) }
+                    ) { Text(stringResource(READER_FONT_FAMILY_NAME_RES[index])) }
                 }
             }
             // 自定义字体：导入 / 清除
@@ -109,27 +110,27 @@ fun ReaderSettingsSheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 OutlinedButton(onClick = onImportFont, modifier = Modifier.weight(1f)) {
-                    Text(if (hasCustomFont) "更换自定义字体" else "导入自定义字体")
+                    Text(if (hasCustomFont) stringResource(R.string.reader_settings_change_custom_font) else stringResource(R.string.reader_settings_import_custom_font))
                 }
                 if (hasCustomFont) {
                     OutlinedButton(onClick = onClearFont, modifier = Modifier.weight(1f)) {
-                        Text("清除")
+                        Text(stringResource(R.string.reader_settings_clear))
                     }
                 }
             }
 
-            SectionLabel("主题")
+            SectionLabel(stringResource(R.string.reader_settings_section_theme))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                READER_THEME_NAMES.forEachIndexed { index, name ->
+                READER_THEME_NAME_RES.forEachIndexed { index, res ->
                     SegmentedButton(
                         selected = theme == index,
                         onClick = { onThemeChange(index) },
                         enabled = !followSystem,
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
-                            count = READER_THEME_NAMES.size
+                            count = READER_THEME_NAME_RES.size
                         ),
-                    ) { Text(name) }
+                    ) { Text(stringResource(res)) }
                 }
             }
             // 跟随系统深色模式
@@ -138,9 +139,9 @@ fun ReaderSettingsSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("跟随系统", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.reader_settings_follow_system), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "按系统深色模式自动切换夜间/纸张",
+                        stringResource(R.string.reader_settings_follow_system_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -148,17 +149,17 @@ fun ReaderSettingsSheet(
                 Switch(checked = followSystem, onCheckedChange = onFollowSystemChange)
             }
 
-            SectionLabel("翻页模式")
+            SectionLabel(stringResource(R.string.reader_settings_section_page_mode))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                READER_PAGE_MODE_NAMES.forEachIndexed { index, name ->
+                READER_PAGE_MODE_NAME_RES.forEachIndexed { index, res ->
                     SegmentedButton(
                         selected = pageMode == index,
                         onClick = { onPageModeChange(index) },
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
-                            count = READER_PAGE_MODE_NAMES.size
+                            count = READER_PAGE_MODE_NAME_RES.size
                         ),
-                    ) { Text(name) }
+                    ) { Text(stringResource(res)) }
                 }
             }
         }

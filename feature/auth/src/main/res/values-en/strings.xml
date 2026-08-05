@@ -1,0 +1,11 @@
+<resources>
+    <string name="auth_tagline">Browse illustrations and novels, enjoy comfortable reading</string>
+    <string name="auth_got_it">Got it</string>
+    <string name="auth_login_button">Sign in with Pixiv account</string>
+    <string name="auth_register_button">Register temporary account</string>
+    <string name="auth_terms_hint">By signing in you agree to Pixiv\'s Terms of Service.\nIf the login page doesn\'t open, check your network connection.</string>
+    <string name="auth_error_missing_code">Missing authorization code, please retry</string>
+    <string name="auth_error_missing_verifier">Login session expired, please sign in again</string>
+    <string name="auth_error_server_rejected">Login rejected by server (%1$d): %2$s</string>
+    <string name="auth_error_network">Network error, please check your connection</string>
+</resources>

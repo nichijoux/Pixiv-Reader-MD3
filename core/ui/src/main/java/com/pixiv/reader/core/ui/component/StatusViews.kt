@@ -15,8 +15,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.R
 
 /**
  * 加载中占位：全屏居中 `CircularProgressIndicator`。
@@ -45,24 +47,26 @@ fun LoadingBox(modifier: Modifier = Modifier) {
  */
 @Composable
 fun ErrorBox(
-    message: String,
+    message: String?,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // message 为空/空白时回退到本地化兜底文案（i18n）
+    val text = message.takeUnless { it.isNullOrBlank() } ?: stringResource(R.string.load_failed)
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = message,
+            text = text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
         )
         Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
             Icon(Icons.Filled.Refresh, contentDescription = null)
-            Text("重试", modifier = Modifier.padding(start = 6.dp))
+            Text(stringResource(R.string.retry), modifier = Modifier.padding(start = 6.dp))
         }
     }
 }

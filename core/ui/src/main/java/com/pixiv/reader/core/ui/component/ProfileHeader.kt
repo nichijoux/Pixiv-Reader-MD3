@@ -13,10 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pixivapi.model.User
+import com.pixiv.reader.core.ui.R
 
 /** 个人中心数据（可复用：我的页 / 用户主页头部）。 */
 data class ProfileHeaderData(
@@ -63,7 +65,7 @@ fun ProfileHeader(
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = profile.name.ifBlank { "未登录" },
+                text = profile.name.ifBlank { stringResource(R.string.not_logged_in) },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,

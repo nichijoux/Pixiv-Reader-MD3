@@ -1,0 +1,16 @@
+<resources>
+    <string name="manga_title">Manga</string>
+    <string name="manga_cd_ranking">Manga ranking</string>
+    <string name="manga_ranking_banner">Manga ranking</string>
+    <string name="manga_ranking_banner_desc">Updated daily · Daily / Weekly / Monthly / Rookie / R18</string>
+    <string name="manga_ranking_title">Manga ranking</string>
+    <string name="manga_ranking_day">Daily</string>
+    <string name="manga_ranking_week">Weekly</string>
+    <string name="manga_ranking_month">Monthly</string>
+    <string name="manga_ranking_rookie">Rookie</string>
+    <string name="manga_ranking_r18">R18</string>
+    <string name="manga_empty">No manga recommendations yet</string>
+    <string name="manga_ranking_empty">No ranking data</string>
+    <string name="manga_cd_back">Back</string>
+    <string name="manga_cd_more">More</string>
+</resources>

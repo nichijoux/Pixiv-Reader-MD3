@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.user
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +27,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,6 +67,7 @@ fun HistoryRoute(
     val filter by viewModel.filterFlow.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(pageCount = { HistoryFilter.entries.size })
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // 滑动切页 → 同步筛选
     LaunchedEffect(pagerState.currentPage) {
@@ -76,17 +80,17 @@ fun HistoryRoute(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("阅读历史") },
+                title = { Text(stringResource(R.string.history_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
                     if (history.isNotEmpty()) {
                         IconButton(onClick = viewModel::clearAll) {
                             Text(
-                                text = "清空",
+                                text = stringResource(R.string.history_clear),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.error,
                             )
@@ -111,7 +115,7 @@ fun HistoryRoute(
                         Tab(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(f.label()) },
+                            text = { Text(stringResource(f.labelRes)) },
                         )
                     }
                 }
@@ -128,11 +132,13 @@ fun HistoryRoute(
                             viewModel = viewModel,
                             onOpenNovel = onOpenNovel,
                             onOpenUser = onOpenUser,
+                            context = context,
                         )
                         HistoryFilter.USER -> UserHistoryList(
                             entries = history,
                             viewModel = viewModel,
                             onOpenUser = onOpenUser,
+                            context = context,
                         )
                         null -> {}
                     }
@@ -142,8 +148,6 @@ fun HistoryRoute(
     }
 }
 
-// ── 插画：IllustCard 瀑布流（与首页一致，含收藏） ───────────────────────────
-
 @Composable
 private fun IllustHistoryList(
     entries: List<BrowseHistoryEntity>,
@@ -152,7 +156,7 @@ private fun IllustHistoryList(
 ) {
     val illusts = entries.map { it.toIllust() }
     if (illusts.isEmpty()) {
-        EmptyBox("暂无插画浏览记录")
+        EmptyBox(stringResource(R.string.history_empty_illust))
         return
     }
     IllustWaterfallGrid(
@@ -173,9 +177,10 @@ private fun NovelHistoryList(
     viewModel: HistoryViewModel,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    context: Context,
 ) {
     if (entries.isEmpty()) {
-        EmptyBox("暂无小说浏览记录")
+        EmptyBox(stringResource(R.string.history_empty_novel))
         return
     }
     LazyColumn(
@@ -184,7 +189,7 @@ private fun NovelHistoryList(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(entries, key = { it.id }) { entry ->
-            val card = entry.toNovelCardData()
+            val card = entry.toNovelCardData(context)
             NovelCard(
                 novel = card,
                 onClick = { onOpenNovel(entry.targetId) },
@@ -204,10 +209,11 @@ private fun UserHistoryList(
     entries: List<BrowseHistoryEntity>,
     viewModel: HistoryViewModel,
     onOpenUser: (Long) -> Unit,
+    context: Context,
 ) {
     val users = entries
     if (users.isEmpty()) {
-        EmptyBox("暂无用户浏览记录")
+        EmptyBox(stringResource(R.string.history_empty_user))
         return
     }
     LazyColumn(
@@ -217,7 +223,7 @@ private fun UserHistoryList(
     ) {
         items(users, key = { it.id }) { entry ->
             CreatorProfileCard(
-                profile = entry.toCreatorProfile(),
+                profile = entry.toCreatorProfile(context),
                 onToggleFollow = {},
                 onClick = { onOpenUser(entry.targetId) },
             )
@@ -247,7 +253,7 @@ private fun BrowseHistoryEntity.toIllust(): Illust {
     return Illust(id = targetId, title = title, image_urls = ImageUrls(medium = coverUrl))
 }
 
-private fun BrowseHistoryEntity.toNovelCardData(): NovelCardData {
+private fun BrowseHistoryEntity.toNovelCardData(context: Context): NovelCardData {
     // 优先解析完整 payloadJson（新记录）；旧记录/失败回退最小数据
     val parsed = payloadJson?.let {
         runCatching { Gson().fromJson(it, NovelCardData::class.java) }.getOrNull()
@@ -255,7 +261,7 @@ private fun BrowseHistoryEntity.toNovelCardData(): NovelCardData {
     if (parsed != null) return parsed
     return NovelCardData(
         id = targetId,
-        title = title ?: "无标题",
+        title = title ?: context.getString(R.string.untitled),
         coverUrl = coverUrl,
         authorId = 0,
         authorName = "",
@@ -267,14 +273,8 @@ private fun BrowseHistoryEntity.toNovelCardData(): NovelCardData {
     )
 }
 
-private fun BrowseHistoryEntity.toCreatorProfile(): CreatorProfile = CreatorProfile(
+private fun BrowseHistoryEntity.toCreatorProfile(context: Context): CreatorProfile = CreatorProfile(
     id = targetId,
-    name = title ?: "未知用户",
+    name = title ?: context.getString(R.string.unknown_user),
     avatarUrl = coverUrl,
 )
-
-private fun HistoryFilter.label(): String = when (this) {
-    HistoryFilter.ILLUST -> "插画"
-    HistoryFilter.NOVEL -> "小说"
-    HistoryFilter.USER -> "用户"
-}
