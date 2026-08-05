@@ -1,10 +1,10 @@
 package com.pixiv.reader.core.network.session
 
 import android.net.Uri
-import com.example.pixivapi.PixivApi
-import com.example.pixivapi.auth.PixivAuthResult
-import com.example.pixivapi.auth.SessionManager
-import com.example.pixivapi.model.AccountResponse
+import com.pixiv.api.PixivApi
+import com.pixiv.api.auth.PixivAuthResult
+import com.pixiv.api.auth.SessionManager
+import com.pixiv.api.model.AccountResponse
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow

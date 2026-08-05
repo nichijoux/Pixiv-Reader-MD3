@@ -2,8 +2,8 @@ package com.pixiv.reader.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.Illust
-import com.example.pixivapi.model.TrendingTag
+import com.pixiv.api.model.Illust
+import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

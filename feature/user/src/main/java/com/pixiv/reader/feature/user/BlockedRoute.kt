@@ -32,8 +32,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -56,7 +54,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 /**
  * 屏蔽管理：卡片分组 + pill 标签——
@@ -77,11 +77,11 @@ fun BlockedRoute(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf("") }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
         }
     }
 
@@ -106,7 +106,7 @@ fun BlockedRoute(
                 ),
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { NotificationHost(notificationHostState) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {

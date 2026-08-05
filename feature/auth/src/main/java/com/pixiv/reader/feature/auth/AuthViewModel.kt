@@ -3,7 +3,7 @@ package com.pixiv.reader.feature.auth
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.auth.PixivAuthResult
+import com.pixiv.api.auth.PixivAuthResult
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.session.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

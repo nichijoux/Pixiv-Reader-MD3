@@ -3,7 +3,10 @@ package com.pixiv.reader.feature.user
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -14,10 +17,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Download
@@ -28,12 +31,9 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -54,10 +55,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.AppLanguage
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ProfileHeader
 import com.pixiv.reader.core.ui.component.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.SettingsCard
 import com.pixiv.reader.core.ui.component.SettingsCardItem
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 /** 开源仓库地址。 */
 private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Material"
@@ -86,7 +89,7 @@ fun MeRoute(
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     val activity = context as? Activity
     // 语言切换防抖：落盘期间忽略重复点击，避免连点导致 DataStore 并发写竞态
@@ -94,12 +97,12 @@ fun MeRoute(
 
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { NotificationHost(notificationHostState) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
@@ -140,18 +143,6 @@ fun MeRoute(
                     SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), onClick = onOpenBlocked),
                 )
 
-                // ── 账户管理 ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_account))
-                SettingsCard(
-                    SettingsCardItem(
-                        icon = Icons.AutoMirrored.Filled.Logout,
-                        title = stringResource(R.string.me_logout),
-                        trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        onClick = onLogout,
-                    ),
-                )
-
                 // ── 外观设置（每项独立卡片：主题模式 / 动态取色 / 语言） ──
                 SectionSpacer()
                 SectionTitle(stringResource(R.string.me_section_appearance))
@@ -177,10 +168,11 @@ fun MeRoute(
                                 1 to R.string.me_theme_light,
                                 2 to R.string.me_theme_dark,
                             ).forEach { (mode, labelRes) ->
-                                FilterChip(
+                                PillSelectButton(
                                     selected = themeMode == mode,
                                     onClick = { viewModel.setThemeMode(mode) },
-                                    label = { Text(stringResource(labelRes)) },
+                                    text = stringResource(labelRes),
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
                         }
@@ -238,7 +230,7 @@ fun MeRoute(
                                 AppLanguage.ZH to R.string.me_language_chinese,
                                 AppLanguage.EN to R.string.me_language_english,
                             ).forEach { (value, labelRes) ->
-                                FilterChip(
+                                PillSelectButton(
                                     selected = appLanguage == value,
                                     enabled = !switchingLanguage,
                                     onClick = {
@@ -251,7 +243,8 @@ fun MeRoute(
                                             }
                                         }
                                     },
-                                    label = { Text(stringResource(labelRes)) },
+                                    text = stringResource(labelRes),
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
                         }
@@ -415,5 +408,46 @@ private fun SettingSwitchRow(
             )
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * 胶囊选择按钮（主题模式 / 语言用）：全圆胶囊 + 44dp 高，文字绝对居中。
+ * 选中态用主题主色 12% 透明度浅底（更浅更通透），未选中用 `surfaceContainerHigh` 弱化。
+ */
+@Composable
+private fun PillSelectButton(
+    selected: Boolean,
+    onClick: () -> Unit,
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val container = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val content = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(50))
+            .background(container)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = content,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
     }
 }

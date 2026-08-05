@@ -6,7 +6,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.Novel
+import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity

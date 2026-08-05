@@ -4,9 +4,9 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.BookmarkTag
-import com.example.pixivapi.model.Illust
-import com.example.pixivapi.model.Novel
+import com.pixiv.api.model.BookmarkTag
+import com.pixiv.api.model.Illust
+import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository

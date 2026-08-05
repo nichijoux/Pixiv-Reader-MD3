@@ -1,7 +1,7 @@
-package com.example.pixivapi.network
+package com.pixiv.api.network
 
-import com.example.pixivapi.auth.AuthRefresher
-import com.example.pixivapi.auth.SessionManager
+import com.pixiv.api.auth.AuthRefresher
+import com.pixiv.api.auth.SessionManager
 import okhttp3.Interceptor
 import okhttp3.Response
 import java.io.IOException
@@ -63,7 +63,7 @@ class ImageInterceptor : Interceptor {
         if (original.url.host == "i.pximg.net") {
             val builder = original.newBuilder()
                 .header("Referer", "https://app-api.pixiv.net/")
-                .header("User-Agent", com.example.pixivapi.PixivConstants.APP_USER_AGENT)
+                .header("User-Agent", com.pixiv.api.PixivConstants.APP_USER_AGENT)
             return chain.proceed(builder.build())
         }
         return chain.proceed(original)

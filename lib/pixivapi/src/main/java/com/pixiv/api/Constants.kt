@@ -1,4 +1,4 @@
-package com.example.pixivapi
+package com.pixiv.api
 
 /**
  * Pixiv API 常量定义

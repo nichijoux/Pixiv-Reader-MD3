@@ -1,12 +1,12 @@
-package com.example.pixivapi.util
+package com.pixiv.api.util
 
-import com.example.pixivapi.Pageable
-import com.example.pixivapi.api.AppApi
-import com.example.pixivapi.model.Illust
-import com.example.pixivapi.model.IllustResponse
-import com.example.pixivapi.model.Novel
-import com.example.pixivapi.model.NovelResponse
-import com.example.pixivapi.model.UserPreviewResponse
+import com.pixiv.api.Pageable
+import com.pixiv.api.network.AppApi
+import com.pixiv.api.model.Illust
+import com.pixiv.api.model.IllustResponse
+import com.pixiv.api.model.Novel
+import com.pixiv.api.model.NovelResponse
+import com.pixiv.api.model.UserPreviewResponse
 
 /**
  * 通用分页加载器
@@ -105,16 +105,16 @@ class UserPagedLoader(
     private val initial: suspend () -> UserPreviewResponse,
 ) {
     private var nextUrl: String? = null
-    private var current: List<com.example.pixivapi.model.UserPreview> = emptyList()
+    private var current: List<com.pixiv.api.model.UserPreview> = emptyList()
 
-    suspend fun loadInitial(): List<com.example.pixivapi.model.UserPreview> {
+    suspend fun loadInitial(): List<com.pixiv.api.model.UserPreview> {
         val resp = initial()
         current = resp.user_previews
         nextUrl = resp.next_url
         return current
     }
 
-    suspend fun loadMore(): List<com.example.pixivapi.model.UserPreview>? {
+    suspend fun loadMore(): List<com.pixiv.api.model.UserPreview>? {
         val url = nextUrl ?: return null
         val resp = api.getNextUsers(url)
         current = current + resp.user_previews
@@ -123,5 +123,5 @@ class UserPagedLoader(
     }
 
     val hasMore: Boolean get() = nextUrl != null
-    val allItems: List<com.example.pixivapi.model.UserPreview> get() = current
+    val allItems: List<com.pixiv.api.model.UserPreview> get() = current
 }

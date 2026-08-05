@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.novel
 
 import android.content.Context
-import com.example.pixivapi.model.Novel
+import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.novel.NovelBlock

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pixivapi"
+    namespace = "com.pixiv.api"
     compileSdk = 36
 
     defaultConfig {

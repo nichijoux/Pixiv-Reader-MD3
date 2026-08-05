@@ -7,8 +7,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.example.pixivapi.model.Comment
-import com.example.pixivapi.model.Novel
+import com.pixiv.api.model.Comment
+import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity

@@ -44,8 +44,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.pixivapi.model.ImageUrls
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.ImageUrls
+import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox

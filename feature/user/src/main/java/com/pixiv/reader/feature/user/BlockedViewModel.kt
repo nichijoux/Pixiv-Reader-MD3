@@ -2,9 +2,9 @@ package com.pixiv.reader.feature.user
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.BlockSaveRequest
-import com.example.pixivapi.model.MuteTag
-import com.example.pixivapi.model.MuteUser
+import com.pixiv.api.model.BlockSaveRequest
+import com.pixiv.api.model.MuteTag
+import com.pixiv.api.model.MuteUser
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.PixivRepository

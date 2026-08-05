@@ -4,11 +4,11 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.BlockSaveRequest
-import com.example.pixivapi.model.Illust
-import com.example.pixivapi.model.Novel
-import com.example.pixivapi.model.Profile
-import com.example.pixivapi.model.User
+import com.pixiv.api.model.BlockSaveRequest
+import com.pixiv.api.model.Illust
+import com.pixiv.api.model.Novel
+import com.pixiv.api.model.Profile
+import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity

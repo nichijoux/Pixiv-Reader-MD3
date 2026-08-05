@@ -1,6 +1,6 @@
-package com.example.pixivapi.auth
+package com.pixiv.api.auth
 
-import com.example.pixivapi.model.AccountResponse
+import com.pixiv.api.model.AccountResponse
 
 /**
  * 会话管理抽象接口

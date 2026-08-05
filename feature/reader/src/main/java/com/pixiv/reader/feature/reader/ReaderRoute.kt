@@ -56,8 +56,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -107,7 +105,9 @@ import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 import kotlinx.coroutines.launch
 
 private val PAGE_H_PADDING = 24.dp
@@ -172,7 +172,7 @@ fun ReaderRoute(
     val isDark = isSystemInDarkTheme()
     val effectiveTheme = if (followSystem) (if (isDark) 2 else 1) else readerTheme
     val themeColors = remember(effectiveTheme) { readerThemeColors(effectiveTheme) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     var settingsOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -198,7 +198,7 @@ fun ReaderRoute(
     ) { uri -> uri?.let(viewModel::importCustomFont) }
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
+        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.flushProgress() }
@@ -481,8 +481,8 @@ fun ReaderRoute(
         }
 
         // 消息提示
-        SnackbarHost(
-            hostState = snackbarHostState,
+        NotificationHost(
+            state = notificationHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 8.dp),

@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.pixivapi.model.Novel
+import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.network.offline.OfflineNovelRepository

@@ -6,7 +6,7 @@ import android.graphics.BitmapFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity

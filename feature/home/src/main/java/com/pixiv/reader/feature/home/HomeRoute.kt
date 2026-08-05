@@ -31,7 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.pixivapi.model.TrendingTag
+import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox

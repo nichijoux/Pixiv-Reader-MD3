@@ -48,8 +48,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -73,8 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.example.pixivapi.model.Comment
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.Comment
+import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.WindowSizeClass
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.model.IllustPageInfo
@@ -82,9 +80,11 @@ import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.CommentInput
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.currentWindowSizeClass
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,11 +104,11 @@ fun IllustDetailRoute(
 
     var currentPage by remember { mutableStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
+        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
 
     Scaffold(
@@ -179,7 +179,7 @@ fun IllustDetailRoute(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { NotificationHost(notificationHostState) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         val size = currentWindowSizeClass()

@@ -58,10 +58,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.pixivapi.model.AutocompleteTag
-import com.example.pixivapi.model.Illust
-import com.example.pixivapi.model.Novel
-import com.example.pixivapi.model.TrendingTag
+import com.pixiv.api.model.AutocompleteTag
+import com.pixiv.api.model.Illust
+import com.pixiv.api.model.Novel
+import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid

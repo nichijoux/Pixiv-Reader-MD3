@@ -14,17 +14,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.RankingList
 import com.pixiv.reader.core.ui.component.RankingRow
 
 /**
  * 漫画排行榜全屏页：分段 Tab + 左右滑动切换（复用通用 [RankingList]），排名列表行点击打开作品详情。
+ *
+ * 每段数据由 ViewModel 内独立 PagedState 承载（RankingList 按段 collect），滑动切回已加载段
+ * 不重复请求、无过渡动画。
  *
  * @param onBack 返回
  * @param onOpenIllust 点击排名行打开插画/漫画详情
@@ -36,13 +37,6 @@ fun MangaRankingRoute(
     onOpenIllust: (Long) -> Unit,
     viewModel: MangaRankingViewModel = hiltViewModel(),
 ) {
-    val selectedValue by viewModel.selectedValue.collectAsStateWithLifecycle()
-    val dataVersion by viewModel.dataVersion.collectAsStateWithLifecycle()
-    val items by viewModel.paged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.paged.error.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -75,18 +69,12 @@ fun MangaRankingRoute(
     ) { padding ->
         RankingList(
             modes = viewModel.modes,
-            selectedValue = selectedValue,
-            onModeSelect = viewModel::selectMode,
-            items = items,
-            isLoading = isLoading,
-            isLoadingMore = isLoadingMore,
-            hasMore = hasMore,
-            error = error,
+            onModeSelect = viewModel::onPageSelected,
+            stateFor = viewModel::stateFor,
             onRetry = viewModel::retry,
             onLoadMore = viewModel::loadMore,
             modifier = Modifier.padding(padding),
             emptyText = stringResource(R.string.manga_ranking_empty),
-            dataKey = dataVersion,
         ) { item, rank ->
             RankingRow(
                 rank = rank,

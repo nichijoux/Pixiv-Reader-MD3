@@ -1,6 +1,6 @@
 package com.pixiv.reader.core.network.paging
 
-import com.example.pixivapi.Pageable
+import com.pixiv.api.Pageable
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

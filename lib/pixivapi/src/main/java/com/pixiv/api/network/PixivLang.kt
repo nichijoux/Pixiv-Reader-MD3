@@ -1,4 +1,4 @@
-package com.example.pixivapi.network
+package com.pixiv.api.network
 
 /**
  * pixiv 接口语言代码 holder（accept-language 头 / lang 查询参数）。

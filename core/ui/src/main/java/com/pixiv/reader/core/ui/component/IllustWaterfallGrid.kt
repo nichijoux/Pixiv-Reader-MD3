@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.Illust
 
 /** 瀑布流封面高度循环（模拟不同纵横比，仅用于无宽高数据时的回退）。 */
 private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)

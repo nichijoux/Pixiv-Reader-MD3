@@ -30,7 +30,6 @@
     <!-- Me -->
     <string name="me_logout">Sign out</string>
     <string name="me_section_content">Content</string>
-    <string name="me_section_account">Account</string>
     <string name="me_section_appearance">Appearance</string>
     <string name="me_section_system">System</string>
     <string name="me_section_about">About</string>

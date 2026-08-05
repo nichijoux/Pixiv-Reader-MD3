@@ -1,7 +1,7 @@
-package com.example.pixivapi.network
+package com.pixiv.api.network
 
-import com.example.pixivapi.PixivConstants
-import com.example.pixivapi.auth.SessionManager
+import com.pixiv.api.PixivConstants
+import com.pixiv.api.auth.SessionManager
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response

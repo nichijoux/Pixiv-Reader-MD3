@@ -1,13 +1,13 @@
-package com.example.pixivapi.network
+package com.pixiv.api.network
 
 import ceui.pixiv.login.PixivOAuthClient
 import ceui.pixiv.login.PixivOAuthConfig
 import ceui.pixiv.login.VerifierStore
-import com.example.pixivapi.PixivConstants
-import com.example.pixivapi.api.AppApi
-import com.example.pixivapi.api.PixivWebApi
-import com.example.pixivapi.auth.AuthRefresher
-import com.example.pixivapi.auth.SessionManager
+import com.pixiv.api.PixivConstants
+import com.pixiv.api.network.AppApi
+import com.pixiv.api.network.PixivWebApi
+import com.pixiv.api.auth.AuthRefresher
+import com.pixiv.api.auth.SessionManager
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.logging.HttpLoggingInterceptor

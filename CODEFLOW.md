@@ -31,7 +31,7 @@ app ──▶ feature/* ──▶ core/ui ──┐
 
 - `feature/*` 之间 **禁止互相依赖**。共享逻辑下沉到 core。
 - `lib:pixivapi` 是 `pixiv-api-kotlin/` 的 vendor 副本，**只读勿改 feature 需要的 API**；要加 API 只在 `lib/pixivapi/` 改。
-- 所有 `com.example.pixivapi.*` 的 import 解析到 `lib/pixivapi` 副本。
+- 所有 `com.pixiv.api.*` 的 import 解析到 `lib/pixivapi` 副本（`namespace = com.pixiv.api`，Retrofit 接口在 `com.pixiv.api.network`）。
 - `feature/download` 是空壳（未使用），下载管理实际在 `feature:user`。
 
 模块清单（`settings.gradle.kts`）：
@@ -59,7 +59,7 @@ MainActivity（@AndroidEntryPoint）
   │   ├─ handleIntent(intent)  ← OAuth 深链冷启动转发
   │   └─ setContent：
   │        ├─ 收集 userPreferences.themeMode（0跟随/1浅/2深）+ dynamicColor → isDark
-  │        ├─ 收集 networkMonitor.isOnline → 离线 Snackbar
+  │        ├─ 收集 networkMonitor.isOnline → 离线通知
   │        ├─ PixivReaderTheme(darkTheme, dynamicColor) { ... }  ← core:ui/theme
   │        └─ Scaffold（contentWindowInsets=0）{ PixivNavGraph(...) }
   ├─ onNewIntent：handleIntent → 转发热启动 OAuth 回调
@@ -205,7 +205,7 @@ Migration：`MIGRATION_1_2`（建 search_history）、`MIGRATION_2_3`（download
 
 ### 7.3 漫画 Tab + 排行榜（feature:manga）
 - **MangaRoute（漫画 Tab，底部第 3 位）**：TopBar「漫画」+ 排行榜入口 banner（纯 tertiaryContainer，点击进漫画排行榜）+ 推荐漫画瀑布流（`api.getRecommendedManga` → `PagedState<Illust>` + `IllustWaterfallGrid`）。
-- **MangaRankingRoute（全屏页 `manga_ranking`）**：复用通用 `core:ui RankingList<T>`——`ScrollableTabRow` + `HorizontalPager` 左右滑动切段，点 Tab `animateScrollToPage`；5 段（日 `day_manga` / 周 `week` / 月 `month` / 新人 `week_rookie` / R18 `day_r18`）由 `MangaRankingViewModel.modes`（`RankingModeInfo(@StringRes, value)`）配置；每段 `api.getRanking(mode)` + `PagedState` 分页，行渲染 `RankingRow`（排名徽标 1金/2橙/3灰 + 封面 + 标题/作者/收藏）。
+- **MangaRankingRoute（全屏页 `manga_ranking`）**：复用通用 `core:ui RankingList<T>`——`ScrollableTabRow` + `HorizontalPager` 左右滑动切段，点 Tab `animateScrollToPage`；5 段（日 `day_manga` / 周 `week` / 月 `month` / 新人 `week_rookie` / R18 `day_r18`）由 `MangaRankingViewModel.modes`（`RankingModeInfo(@StringRes, value)`）配置；每段**独立** `PagedState`（VM `pages.getOrPut` 缓存、数据驻留 VM，仅段首次进入加载，滑动切回不重复请求），行渲染 `RankingRow`（排名徽标 1金/2橙/3灰 + 封面 + 标题/作者/收藏）。
 - 说明：pixiv 漫画专属榜仅 `day_manga`；周/月/新人/R18 为通用 mode（会混入插画）。未来小说/插画排行榜复用 `RankingList` + 各自 `RankingModeInfo` 列表与 itemContent。
 
 ### 7.4 插画详情（feature:illust）

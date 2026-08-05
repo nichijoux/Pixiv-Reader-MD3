@@ -1,9 +1,9 @@
 package com.pixiv.reader.core.model
 
-import com.example.pixivapi.model.Illust
-import com.example.pixivapi.model.ImageUrls
-import com.example.pixivapi.model.MetaPage
-import com.example.pixivapi.model.MetaSinglePage
+import com.pixiv.api.model.Illust
+import com.pixiv.api.model.ImageUrls
+import com.pixiv.api.model.MetaPage
+import com.pixiv.api.model.MetaSinglePage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

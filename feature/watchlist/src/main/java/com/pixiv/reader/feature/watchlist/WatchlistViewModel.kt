@@ -2,7 +2,7 @@ package com.pixiv.reader.feature.watchlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.WatchlistSeries
+import com.pixiv.api.model.WatchlistSeries
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository

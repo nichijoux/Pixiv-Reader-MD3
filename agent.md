@@ -552,3 +552,58 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **排行榜封面与文本尺寸（补充）**：用户反馈 item 图片太小 → `RankingRow` 封面 64dp → 88dp（HTML 同步 60px→88px）；随后用户反馈"其他字体和图片大小不够匹配" → 文本规格同步调大：标题 `bodyLarge`→`titleMedium`（16sp Medium）、作者间距 4→6dp、收藏 `labelSmall`→`labelMedium`（12sp）、间距 2→4dp。
 - **排行榜行配色层级（补充）**：用户反馈标题/收藏/作者全黑 → 拉开层次：标题 `onSurface`；作者 `onSurfaceVariant`；**收藏数改为 secondaryContainer 胶囊 + primary 蓝字 + Favorite 心形图标**（对齐 HTML 原型 `.rtt .n` 样式）。
 - 验证：`:app:compileDebugKotlin` + 六模块单测 + `assembleDebug` 产出 `app-debug.apk`（21.1 MB，8/5 08:26）。
+
+### 排行榜滑动跳变修复 + 每段独立分页重构（第五十轮）
+- **Bug**：漫画排行榜从其他列滑动到已有列时整页"向上跳一下"——原 RankingList 的 `AnimatedContent(targetState=dataKey)` 用**全局**递增 dataKey，任意段加载完成 dataKey 变化，滑回已就绪页时重播 `fadeIn + slideInVertically{it/10}`（从下方 1/10 高度上滑）。
+- **第一版修复（readyKey 快照）**：快照改 `RankSnapshot(items, readyKey)`（首次就绪的 dataKey 固定），AnimatedContent targetState 用该页 readyKey——首次到位淡入、切回已就绪页不重播。但"切回已加载段仍会重新拉取该段数据（浪费 1 次请求）"，且快照在组合层（remember，旋转丢）。
+- **最终重构（每段独立分页，用户确认）**：
+  - `MangaRankingViewModel`：移除单例 `paged`/`dataVersion`/`selectedValue`；新增 `pages: Map<mode, PagedState>`（`stateFor(mode)` 惰性 `getOrPut`、数据驻留 VM、旋转不丢）+ `initialized` 集合（段首次进入才加载，`onPageSelected` 幂等）；`retry(mode)`/`loadMore(mode)` 按段；loadInitial 的 fetch 用**局部捕获的 mode**（避免快速切段时 `_selectedValue` 竞态）。
+  - `RankingList<T>`：参数改为 `onModeSelect`/`stateFor: (String) -> PagedState<T>`/`onRetry(String)`/`onLoadMore(String)`，移除 `selectedValue`/`items`/`isLoading`/`hasMore`/`error`/`dataKey` 与内部快照 `RankSnapshot`；每页 `remember(mode.value) { stateFor(mode.value) }` 独立 collect，`AnimatedContent(targetState = 该页内容三态 Loading/Error/Content)`——首次到位淡入、已就绪页切回不重播；错误/触底均作用于**该页自己的** PagedState（无状态错配）。
+  - `MangaRankingRoute`：只传 `modes`/`onPageSelected`/`stateFor`/`retry`/`loadMore`/`emptyText` + itemContent。
+  - `core:ui/build.gradle.kts` 新增 `api(project(":core:network"))`（RankingList 依赖 PagedState）。
+- **骨架屏加载占位（补充）**：用户要求排行榜刷新用骨架占位而非跳动动效 → `RankingList` 新增私有 `RankingSkeleton`（仿 `RankingRow` 布局：28dp 序号位 + 88dp 封面 + 标题/作者/收藏文本条 × 9 行，`surfaceVariant` 呼吸 alpha 0.35↔0.75 脉冲）；加载态由全屏转圈 `LoadingBox` 改为骨架；`AnimatedContent` 过渡由 `fadeIn + slideInVertically` 改为**纯 `fadeIn`/`fadeOut`**（无位移跳动）。
+- **发现页搜索骨架（补充）**：`feature/discover/DiscoverResults.kt` 三个搜索结果加载态由 `LoadingBox`（全屏转圈）改为骨架：`IllustSearchSkeleton`（`LazyVerticalStaggeredGrid` + `Adaptive(140.dp)` 2 列瀑布流，8 张占位卡仿 `IllustCard`：交替高度封面块 + 标题 2 行 + 20dp 圆头像作者行）、`NovelSearchSkeleton`（`LazyColumn` 6 张仿 `NovelCard`：104dp 3/4 封面块 + 标题/作者条）、`UserSearchSkeleton`（`LazyColumn` 5 张仿 `CreatorProfileCard`：120dp 三封面横排 + 64dp 圆头像重叠 + 关注按钮块）；共享 `skeletonPulseColor`（呼吸 alpha）+ `SkeletonBlock`（占位块）。验证 `:app:compileDebugKotlin` 通过。
+
+## 第五十一轮：自定义通知组件替代 Snackbar（P7 补充）
+
+- **需求**：用户要求自定义一个符合 Material Design 的通知组件，替换现在的 Material `Snackbar`。
+- **实现**：`core/ui/.../component/Notification.kt` 新增自研 `NotificationHost` + `NotificationHostState` + `rememberNotificationHostState()` + `NotificationType(Info/Success/Error)`：
+  - 视觉遵循 MD3 规范并定制：`inverseSurface` 深底胶囊 + `inverseOnSurface` 文字（圆角 14dp）+ 类型图标徽标（语义色 200 系浅色调在深底高对比：蓝 #90CAF9 / 绿 #A5D6A7 / 红 #EF9A9A，22% alpha 圆底）+ 关闭按钮。
+  - 行为：新消息**顶替当前**并重置计时、2.6s 自动消失（`LaunchedEffect(notification)` + delay）、整卡/关闭按钮点击 dismiss；进入 `slideInVertically{it/2} + fadeIn`，退出反向（280ms/220ms）；`AnimatedVisibility` content 用 `last?.let` 记住最近非空通知，保证退出动画期间仍渲染旧卡片。
+  - 退出动画期间 notification 已为 null 的处理：`NotificationHost` 内 `var last by remember` + `notification?.let { last = it }`。
+- **替换（10 文件 13 处）**：`MainActivity`（顶层 Scaffold + 离线 `show(type = Error)`）、`ReaderRoute`/`NovelRoute`/`ViewerRoute`（Box 内 `align(BottomCenter)`，Viewer 保留 bottom=100dp 避开操作条）、`IllustDetailRoute`/`WatchlistRoute`/`BookmarkRoute`/`UserRoute`/`MeRoute`/`BlockedRoute`（Scaffold `snackbarHost` slot）；调用 `snackbarHostState.showSnackbar(ctx.getString(...))` → `notificationHostState.show(ctx.getString(...))`；`UiMessage` 机制不变。
+- 踩坑：`last` 经 `by remember` 委托后编译器不窄化 → `NotificationCard(notification = last)` 类型不匹配，改 `last?.let { NotificationCard(it) }`。
+- 文档：AGENTS.md「通用组件」新增 NotificationHost 说明 + i18n 段改「通知/error 发 UiMessage」；CODEFLOW.md「离线 Snackbar」→「离线通知」。
+- 验证：`:app:compileDebugKotlin` 通过；grep 确认无 `SnackbarHostState/showSnackbar/SnackbarHost(` 残留。
+
+### 第五十一轮补充（通知组件样式迭代 + 测试按钮）
+- 用户反馈三点：① 通知太宽 ② 黑色不匹配 app 配色 ③ 我的页加一组测试按钮。
+- `Notification.kt`：卡片宽度由 `fillMaxWidth` 改为**自适应内容 + `widthIn(max = 420.dp)`**（短文案显示紧凑胶囊）；容器 `inverseSurface` 深底 → **`surfaceContainerHigh` + `shadowElevation = 4.dp`**（跟随主题明暗）、文字 `inverseOnSurface` → `onSurface`、关闭 `inverseOnSurface` → `onSurfaceVariant`；类型色改为主题感知：Info=`colorScheme.primary`、Success=`Color(0xFF4CAF50)`（固定绿）、Error=`colorScheme.error`，徽标底 15% alpha（`notificationTypeColor` 改 @Composable）。
+- `MeRoute.kt`：在「关于信息」前新增「通知测试」Card——Info/Success/Error 三个 `Button`（weight 均分）触发 `notificationHostState.show(...)`；**踩坑**：`stringResource` 不能在 onClick 内调用，需先提到 Composable 作用域存变量。
+- strings：feature/user 新增 `me_test_notification_*` 8 个 key（zh + en）。
+- **宽度上限设备区分（补充）**：用户反馈 420dp 上限对手机无效（手机屏宽 < 420dp → 卡片撑满屏）→ `NotificationHost` 由 `Box` 改 `BoxWithConstraints`，`cardMaxWidth = if (maxWidth >= 600.dp) 420.dp else maxWidth * 0.88f`，`NotificationCard` 增 `modifier` 参数接收 `widthIn(max = cardMaxWidth)`——手机留白约 12%、平板封顶 420dp。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第五十一轮补充 2（主题/语言选择器：胶囊按钮 + 删通知测试）
+- 用户要求：① 主题模式/语言下的三选一改成更圆的按钮（颜色适配 app）且撑满父级 ② 删除通知测试按钮。
+- 第一次用 `FilterChip` + `shape = RoundedCornerShape(50)` + `weight(1f)` + `filterChipColors(selectedContainerColor = primaryContainer)`；用户反馈：文字不居中（选中时 FilterChip 自带勾选 leadingIcon 导致偏移）+ 太扁（默认 32dp）。
+- 改用**自定义 `PillSelectButton`**（MeRoute 私有）：`Box` + `height(44.dp)` + `clip(RoundedCornerShape(50))` + `background(container)` + `clickable(enabled)`，`contentAlignment = Center` 文字**绝对居中**；选中 `primaryContainer`/`onPrimaryContainer` + SemiBold，未选中 `surfaceContainerHighest`/`onSurfaceVariant`；三按钮 `weight(1f)` 均分撑满。
+- 删除「通知测试」卡片 + `me_test_notification_*` strings（zh/en）+ `Button`/`NotificationType`/`FilterChip`/`FilterChipDefaults` imports；新增 `background`/`clickable`/`clip`/`Box` imports。
+- 踩坑：清理 import 时误删 `Icon`/`MaterialTheme`/`Scaffold`/`Switch`/`Text`（仍在用），已恢复；`Box` 未导入导致 `Unresolved reference`，已补。
+- **选中色改浅（补充）**：用户反馈 `primaryContainer`/`surfaceContainerHighest` 太深 → `PillSelectButton` 选中容器改为 `primary.copy(alpha = 0.12f)` 浅色半透明底 + `primary` 文字，未选中降为 `surfaceContainerHigh`。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第五十二轮：lib:pixivapi 包名迁移 `com.example.pixivapi` → `com.pixiv.api`
+- **需求**：用户不接受 `com.example` 前缀包名；选择新包名 `com.pixiv.api`。
+- **优雅方案**：不仅字符串替换，还把 `api` 子包并入 `network` 子包，消除 `com.pixiv.api.api` 自我重复（Retrofit 接口与 OkHttp 客户端同属网络层）。
+- **目录迁移**（git mv）：`lib/pixivapi/src/main/java/com/example/pixivapi/` → `com/pixiv/api/`；其下 `api/` → `network/`（AppApi/PixivWebApi 直接进 network 根，不要 `network/api`）。踩坑：git mv 前需先建目标父目录 `com/pixiv`；首次 mv 目录后再单独移 AppApi/PixivWebApi 到 `network/` 根。
+- **内容替换**（UTF-8 无 BOM，PowerShell `Replace` 双 pass）：先 `com.example.pixivapi.api` → `com.pixiv.api.network`（package/import 都覆盖），再 `com.example.pixivapi` → `com.pixiv.api`。lib 内 13 文件 + app/core/feature 引用方 47 文件。
+- **配置**：`build.gradle.kts` `namespace = "com.pixiv.api"`；`consumer-rules.pro` `-keep class com.pixiv.api.model.**` + `com.pixiv.api.network.**`（原 keep api.** 需改为 network.** 覆盖迁入接口）。
+- **最终结构**：根包 `com.pixiv.api`（PixivApi/Constants+Pageable）+ 子包 `network`（AppApi/PixivWebApi/PixivClient/Interceptors/TokenInterceptor/PixivLang）、`auth`、`model`、`util`。
+- **不动**：上游 `pixiv-api-kotlin/`（只读，仍保持 com.example 52 处）、模块名 `:lib:pixivapi`、`applicationId`。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:network/:core:model/:feature:novel` 单测通过；全库 grep `com.example.pixivapi` 0 残留（排除 build 与上游）。AGENTS.md/CODEFLOW.md 同步改 `com.pixiv.api.*`。
+
+### 第五十二轮补充（删除「账户管理-退出登录」）
+- 用户要求删除「我的页-账户管理」分组下的退出登录项（该分组仅此一项）→ 整个分组删除（`SectionSpacer + SectionTitle(me_section_account) + SettingsCard(Logout)`），并清理 `Icons.AutoMirrored.Filled.Logout` import 与 `me_section_account` string（zh/en）。
+- **保留**：头部 `ProfileHeader` 的 `actionLabel`（`me_logout`）退出登录快捷按钮仍在，`me_logout` string 保留。
+- 验证：`:app:compileDebugKotlin` 通过。

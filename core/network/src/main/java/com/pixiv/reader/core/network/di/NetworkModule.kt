@@ -3,10 +3,10 @@ package com.pixiv.reader.core.network.di
 import android.content.Context
 import ceui.pixiv.login.PixivOAuthConfig
 import ceui.pixiv.login.VerifierStore
-import com.example.pixivapi.PixivApi
-import com.example.pixivapi.auth.SessionManager
-import com.example.pixivapi.auth.SessionStore
-import com.example.pixivapi.auth.SimpleSessionManager
+import com.pixiv.api.PixivApi
+import com.pixiv.api.auth.SessionManager
+import com.pixiv.api.auth.SessionStore
+import com.pixiv.api.auth.SimpleSessionManager
 import com.pixiv.reader.core.network.session.MmkvSessionStore
 import com.pixiv.reader.core.network.session.MmkvVerifierStore
 import com.tencent.mmkv.MMKV

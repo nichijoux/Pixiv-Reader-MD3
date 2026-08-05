@@ -22,8 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -41,12 +39,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.pixivapi.model.WatchlistSeries
+import com.pixiv.api.model.WatchlistSeries
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 /**
  * 追更（P5）：已追更的小说系列列表。
@@ -67,11 +67,11 @@ fun WatchlistRoute(
     val hasMore by viewModel.watchlistPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.watchlistPaged.error.collectAsStateWithLifecycle()
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
         }
     }
 
@@ -89,7 +89,7 @@ fun WatchlistRoute(
                 ),
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { NotificationHost(notificationHostState) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {

@@ -1,4 +1,4 @@
-package com.example.pixivapi.model
+package com.pixiv.api.model
 
 import com.google.gson.annotations.SerializedName
 import java.io.Serializable

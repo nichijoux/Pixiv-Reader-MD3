@@ -2,7 +2,7 @@ package com.pixiv.reader.feature.user
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.BookmarkTag
+import com.pixiv.api.model.BookmarkTag
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

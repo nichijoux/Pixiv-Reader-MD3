@@ -1,6 +1,6 @@
-package com.example.pixivapi.api
+package com.pixiv.api.network
 
-import com.example.pixivapi.model.*
+import com.pixiv.api.model.*
 import retrofit2.http.*
 
 /**
@@ -8,7 +8,7 @@ import retrofit2.http.*
  *
  * 来源：Pixiv-Shaft `ceui/loxia/PixivWebApi.kt` + `ceui/lisa/http/WebApi.java`。
  *
- * 鉴权：依赖 Cookie（PHPSESSID / cf_clearance 等），由 [com.example.pixivapi.network.WebHeaderInterceptor] 注入。
+ * 鉴权：依赖 Cookie（PHPSESSID / cf_clearance 等），由 [com.pixiv.api.network.WebHeaderInterceptor] 注入。
  * 写操作（block/save、street/main）需要 `x-csrf-token` 头。
  */
 interface PixivWebApi {

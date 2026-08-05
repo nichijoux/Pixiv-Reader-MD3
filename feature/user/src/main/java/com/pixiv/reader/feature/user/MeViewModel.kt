@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
-import com.example.pixivapi.model.User
+import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.datastore.UserPreferences

@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixivapi.model.Comment
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.Comment
+import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity

@@ -1,6 +1,6 @@
 package com.pixiv.reader.core.network.paging
 
-import com.example.pixivapi.Pageable
+import com.pixiv.api.Pageable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.ui.R
 

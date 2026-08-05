@@ -1,10 +1,10 @@
 package com.pixiv.reader.core.network.offline
 
 import android.content.Context
-import com.example.pixivapi.model.ImageUrls
-import com.example.pixivapi.model.Novel
-import com.example.pixivapi.model.Series
-import com.example.pixivapi.model.User
+import com.pixiv.api.model.ImageUrls
+import com.pixiv.api.model.Novel
+import com.pixiv.api.model.Series
+import com.pixiv.api.model.User
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.NovelDocumentCodec
 import dagger.hilt.android.qualifiers.ApplicationContext

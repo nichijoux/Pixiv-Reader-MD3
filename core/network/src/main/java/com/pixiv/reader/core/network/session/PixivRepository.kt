@@ -1,8 +1,8 @@
 package com.pixiv.reader.core.network.session
 
-import com.example.pixivapi.PixivApi
-import com.example.pixivapi.api.AppApi
-import com.example.pixivapi.api.PixivWebApi
+import com.pixiv.api.PixivApi
+import com.pixiv.api.network.AppApi
+import com.pixiv.api.network.PixivWebApi
 import javax.inject.Inject
 import javax.inject.Singleton
 import okhttp3.OkHttpClient

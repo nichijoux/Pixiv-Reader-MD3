@@ -1,9 +1,9 @@
-package com.example.pixivapi.auth
+package com.pixiv.api.auth
 
 import android.net.Uri
 import ceui.pixiv.login.PixivOAuthClient
 import ceui.pixiv.login.PixivOAuthResult
-import com.example.pixivapi.model.AccountResponse
+import com.pixiv.api.model.AccountResponse
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking

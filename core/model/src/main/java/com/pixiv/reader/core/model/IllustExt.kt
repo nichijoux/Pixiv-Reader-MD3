@@ -1,6 +1,6 @@
 package com.pixiv.reader.core.model
 
-import com.example.pixivapi.model.Illust
+import com.pixiv.api.model.Illust
 
 /** 作品单页信息（展示/原图 URL + 真实宽高） */
 data class IllustPageInfo(

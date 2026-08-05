@@ -28,8 +28,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +46,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ZoomableImage
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 /**
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
@@ -80,11 +80,11 @@ fun ViewerRoute(
     }
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray())) }
+        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray())) }
     }
 
     Box(
@@ -224,8 +224,8 @@ fun ViewerRoute(
             onOriginal = viewModel::toggleOriginal,
         )
 
-        SnackbarHost(
-            hostState = snackbarHostState,
+        NotificationHost(
+            state = notificationHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(start = 24.dp, end = 24.dp, bottom = 100.dp),

@@ -21,8 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -45,8 +43,10 @@ import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 /**
  * 我的收藏（P5）：插画/小说收藏 + 标签筛选 + 分页。
@@ -70,11 +70,11 @@ fun BookmarkRoute(
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val selectedTag by viewModel.selectedTag.collectAsStateWithLifecycle()
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            snackbarHostState.showSnackbar(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
         }
     }
 
@@ -92,7 +92,7 @@ fun BookmarkRoute(
                 ),
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { NotificationHost(notificationHostState) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
@@ -158,7 +158,7 @@ fun BookmarkRoute(
 
 @Composable
 private fun BookmarkIllustList(
-    paged: PagedState<com.example.pixivapi.model.Illust>,
+    paged: PagedState<com.pixiv.api.model.Illust>,
     onOpenIllust: (Long) -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -185,7 +185,7 @@ private fun BookmarkIllustList(
 
 @Composable
 private fun BookmarkNovelList(
-    paged: PagedState<com.example.pixivapi.model.Novel>,
+    paged: PagedState<com.pixiv.api.model.Novel>,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,

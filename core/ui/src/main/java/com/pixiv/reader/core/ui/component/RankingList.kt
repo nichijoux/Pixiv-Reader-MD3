@@ -1,21 +1,31 @@
 package com.pixiv.reader.core.ui.component
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -24,14 +34,17 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.RankingModeInfo
+import com.pixiv.reader.core.network.paging.PagedState
 import kotlinx.coroutines.launch
 
 /**
@@ -39,24 +52,30 @@ import kotlinx.coroutines.launch
  *
  * ## 交互
  * 顶部 `ScrollableTabRow` 分段（[modes] 任意数量）+ `HorizontalPager` 左右滑动切换；
- * 点 Tab `animateScrollToPage` 平滑滑动，滑动切页后回调 [onModeSelect]（触发调用方按新 mode 重载数据）。
+ * 点 Tab `animateScrollToPage` 平滑滑动，滑动切页后回调 [onModeSelect]（触发调用方加载该段）。
  *
- * ## 每页独立数据快照（消除滑动突兀）
- * [dataKey] 为"数据就绪标识"（调用方在 `loadInitial` 完成后递增）：变化时把当前 [items]
- * 按 [selectedValue] 缓存进内部快照；HorizontalPager 每页只渲染**自己 mode** 的快照——
- * 已加载过的段滑动即时显示自己的榜单，未加载段显示加载占位，滑到位加载完成后以
- * [AnimatedContent] 淡入，避免"邻页复用当前内容造成滑动闪换"。
+ * ## 每段独立分页（消除滑动突兀与状态错配）
+ * 各 mode 由调用方提供**独立**的 [PagedState]（[stateFor] 按 mode 值取，实例在 ViewModel 层
+ * 缓存、数据驻留 VM，滑动切回/旋转不丢）；HorizontalPager 每页只 collect **自己 mode** 的
+ * PagedState——已加载过的段滑动即时显示自己的榜单，未加载段显示加载占位，滑到位加载完成后
+ * 以 [AnimatedContent] 淡入，避免"邻页复用当前内容造成滑动闪换"。
+ *
+ * [AnimatedContent] 的 targetState 使用**该页自身的内容状态**（加载/错误/内容）：首次数据到位
+ * （加载→内容）**纯淡入**（骨架占位淡出 + 内容淡入，无位移跳动）；之后滑动离开再切回
+ * **已就绪页状态不变 → 不重播过渡**（直接静态显示该页数据），避免"每次切回已有列整页
+ * 从下方上滑跳一下"。
  *
  * ## 状态
- * 三态（加载/错误/空）复用 `core:ui` StatusViews；错误与触底加载仅作用于当前 mode 页；
- * [hasMore] 时列表尾部自动触发 [onLoadMore]。
+ * 加载态用**骨架占位** [RankingSkeleton]（仿行布局的灰色占位块 + 呼吸脉冲），错误/空复用
+ * `core:ui` StatusViews；错误与触底加载均作用于**该页自己的** PagedState；
+ * [PagedState.hasMore] 为 true 时列表尾部自动触发 [onLoadMore]。
  *
  * @param T 榜单条目类型（漫画/插画为 `Illust`，小说为 `Novel`，行渲染由 [itemContent] 决定）
  * @param modes 分段配置（label 资源 + mode 值）
- * @param selectedValue 当前选中的 mode 值（由调用方状态驱动）
- * @param onModeSelect 滑动/点 Tab 切到某 mode 时回调
- * @param items 当前榜单列表（按 [selectedValue] 对应的数据）
- * @param dataKey 数据就绪标识：每次 `loadInitial` 完成后递增，触发快照缓存与淡入过渡
+ * @param onModeSelect 滑动/点 Tab 切到某 mode 时回调（调用方在此按需加载该段）
+ * @param stateFor 按 mode 值返回该段独立的 [PagedState]（每次需返回同一实例，如 `pages.getOrPut`）
+ * @param onRetry 某段加载失败重试（参数为该段 mode 值）
+ * @param onLoadMore 某段触底加载下一页（参数为该段 mode 值）
  * @param emptyText 空态文案（调用方传入本地化文案）
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；插画/漫画可用 [RankingRow]
  */
@@ -64,34 +83,21 @@ import kotlinx.coroutines.launch
 @Composable
 fun <T> RankingList(
     modes: List<RankingModeInfo>,
-    selectedValue: String,
     onModeSelect: (String) -> Unit,
-    items: List<T>,
-    isLoading: Boolean,
-    isLoadingMore: Boolean,
-    hasMore: Boolean,
-    error: String?,
-    onRetry: () -> Unit,
-    onLoadMore: () -> Unit,
+    stateFor: (String) -> PagedState<T>,
+    onRetry: (String) -> Unit,
+    onLoadMore: (String) -> Unit,
     modifier: Modifier = Modifier,
     emptyText: String,
-    dataKey: Any = Unit,
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val initialIndex = modes.indexOfFirst { it.value == selectedValue }.coerceAtLeast(0)
     val pagerState = rememberPagerState(
-        initialPage = initialIndex,
+        initialPage = 0,
         pageCount = { modes.size.coerceAtLeast(1) },
     )
 
-    // 每段数据快照：dataKey 变化（数据就绪）时把当前 items 缓存到对应段，供各页独立渲染
-    val snapshots = remember { mutableStateMapOf<String, List<T>>() }
-    LaunchedEffect(dataKey) {
-        snapshots[selectedValue] = items
-    }
-
-    // 滑动切页 → 同步模式（切换后由调用方重载对应榜单）
+    // 滑动切页 → 同步模式（切换后由调用方按需加载该段榜单）
     LaunchedEffect(pagerState.currentPage) {
         val page = pagerState.currentPage
         if (page in modes.indices) {
@@ -118,31 +124,121 @@ fun <T> RankingList(
             modifier = Modifier.weight(1f),
         ) { page ->
             val mode = modes.getOrNull(page)
-            val snapshot = mode?.let { snapshots[it.value] }
-            if (mode == null || snapshot == null) {
-                // 该段尚未加载过：加载占位（滑动到位后 onModeSelect 触发加载）
+            if (mode == null) {
                 LoadingBox()
             } else {
-                val isCurrent = mode.value == selectedValue
+                // 该页独立的 PagedState（实例由 ViewModel 缓存，数据驻留 VM）
+                val paged = remember(mode.value) { stateFor(mode.value) }
+                val items by paged.items.collectAsStateWithLifecycle()
+                val isLoading by paged.isLoading.collectAsStateWithLifecycle()
+                val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
+                val hasMore by paged.hasMore.collectAsStateWithLifecycle()
+                val error by paged.error.collectAsStateWithLifecycle()
+                val contentState = when {
+                    error != null && items.isEmpty() -> RankContentState.Error
+                    items.isNotEmpty() -> RankContentState.Content
+                    else -> RankContentState.Loading
+                }
                 AnimatedContent(
-                    targetState = dataKey,
+                    // 用"该页自身内容状态"：已就绪页切回时状态不变 → 不重播过渡；
+                    // 首次数据到位（Loading→Content）只淡入（骨架占位淡出 + 内容淡入），无跳动位移
+                    targetState = contentState,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(240)) +
-                            slideInVertically(animationSpec = tween(240)) { it / 10 })
+                        fadeIn(animationSpec = tween(240))
                             .togetherWith(fadeOut(animationSpec = tween(160)))
                     },
                     label = "rankPage",
-                ) {
-                    RankingPage(
-                        items = snapshot,
-                        isLoading = isLoading && isCurrent,
-                        isLoadingMore = isLoadingMore,
-                        hasMore = hasMore && isCurrent,
-                        error = if (isCurrent) error else null,
-                        onRetry = onRetry,
-                        onLoadMore = onLoadMore,
-                        emptyText = emptyText,
-                        itemContent = itemContent,
+                ) { state ->
+                    when (state) {
+                        RankContentState.Content -> RankingPage(
+                            modeValue = mode.value,
+                            items = items,
+                            isLoading = isLoading,
+                            isLoadingMore = isLoadingMore,
+                            hasMore = hasMore,
+                            error = error,
+                            onRetry = onRetry,
+                            onLoadMore = onLoadMore,
+                            emptyText = emptyText,
+                            itemContent = itemContent,
+                        )
+                        RankContentState.Error -> ErrorBox(
+                            message = error,
+                            onRetry = { onRetry(mode.value) },
+                        )
+                        RankContentState.Loading -> RankingSkeleton()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 排行榜页内容三态：加载占位 / 错误 / 有数据。作为 [AnimatedContent] 的 targetState。 */
+private enum class RankContentState { Loading, Error, Content }
+
+/**
+ * 排行榜加载骨架占位：仿 [RankingRow] 布局（28dp 序号位 + 88dp 封面 + 标题/作者/收藏文本条）
+ * 渲染 9 行灰色圆角占位块，呼吸 alpha 脉冲，替代全屏转圈——数据到位后淡入真实列表。
+ */
+@Composable
+private fun RankingSkeleton() {
+    val transition = rememberInfiniteTransition(label = "rankingSkeleton")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "rankingSkeletonAlpha",
+    )
+    val color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        repeat(9) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(color),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(color),
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.65f)
+                            .height(16.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(color),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .fillMaxWidth(0.4f)
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(color),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .width(64.dp)
+                            .height(18.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(color),
                     )
                 }
             }
@@ -152,19 +248,20 @@ fun <T> RankingList(
 
 @Composable
 private fun <T> RankingPage(
+    modeValue: String,
     items: List<T>,
     isLoading: Boolean,
     isLoadingMore: Boolean,
     hasMore: Boolean,
     error: String?,
-    onRetry: () -> Unit,
-    onLoadMore: () -> Unit,
+    onRetry: (String) -> Unit,
+    onLoadMore: (String) -> Unit,
     emptyText: String,
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     when {
         isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error, onRetry = onRetry)
+        error != null && items.isEmpty() -> ErrorBox(message = error, onRetry = { onRetry(modeValue) })
         items.isEmpty() -> EmptyBox(emptyText)
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -175,7 +272,7 @@ private fun <T> RankingPage(
             }
             if (hasMore) {
                 item(key = "load_more") {
-                    LaunchedEffect(Unit) { onLoadMore() }
+                    LaunchedEffect(Unit) { onLoadMore(modeValue) }
                     Box(
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         contentAlignment = Alignment.Center,

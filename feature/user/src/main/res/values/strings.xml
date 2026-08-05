@@ -30,7 +30,6 @@
     <!-- 我的页 MeRoute -->
     <string name="me_logout">退出登录</string>
     <string name="me_section_content">用户内容管理</string>
-    <string name="me_section_account">账户管理</string>
     <string name="me_section_appearance">外观设置</string>
     <string name="me_section_system">系统设置</string>
     <string name="me_section_about">关于信息</string>

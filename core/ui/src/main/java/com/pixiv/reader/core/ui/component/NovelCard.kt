@@ -48,7 +48,7 @@ import com.pixiv.reader.core.ui.R
 
 /**
  * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
- * 由 API 的 [com.example.pixivapi.model.Novel] 映射，或由历史/下载快照恢复。
+ * 由 API 的 [com.pixiv.api.model.Novel] 映射，或由历史/下载快照恢复。
  *
  * @param id 小说 ID（点击跳转 / 收藏 API 用）
  * @param title 小说标题

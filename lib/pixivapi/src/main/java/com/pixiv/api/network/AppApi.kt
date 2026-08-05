@@ -1,6 +1,6 @@
-package com.example.pixivapi.api
+package com.pixiv.api.network
 
-import com.example.pixivapi.model.*
+import com.pixiv.api.model.*
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 import retrofit2.http.*

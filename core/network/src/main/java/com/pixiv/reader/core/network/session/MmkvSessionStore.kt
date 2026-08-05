@@ -1,7 +1,7 @@
 package com.pixiv.reader.core.network.session
 
-import com.example.pixivapi.auth.SessionStore
-import com.example.pixivapi.model.AccountResponse
+import com.pixiv.api.auth.SessionStore
+import com.pixiv.api.model.AccountResponse
 import com.google.gson.Gson
 import com.tencent.mmkv.MMKV
 
