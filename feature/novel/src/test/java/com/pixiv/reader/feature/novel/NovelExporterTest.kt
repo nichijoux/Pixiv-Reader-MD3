@@ -3,6 +3,14 @@ package com.pixiv.reader.feature.novel
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.feature.novel.data.EpubImage
+import com.pixiv.reader.feature.novel.data.buildDocx
+import com.pixiv.reader.feature.novel.data.buildEpub
+import com.pixiv.reader.feature.novel.data.buildMarkdown
+import com.pixiv.reader.feature.novel.data.buildTxt
+import com.pixiv.reader.feature.novel.data.docxHeading
+import com.pixiv.reader.feature.novel.data.escapeXml
+import com.pixiv.reader.feature.novel.data.sanitizeFileName
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 import org.junit.Assert.assertEquals

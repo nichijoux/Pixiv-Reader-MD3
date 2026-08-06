@@ -27,7 +27,7 @@ import com.pixiv.reader.core.ui.component.AdaptiveNavScaffold
 import com.pixiv.reader.feature.discover.DiscoverRoute
 import com.pixiv.reader.feature.home.HomeRoute
 import com.pixiv.reader.feature.manga.MangaRoute
-import com.pixiv.reader.feature.novel.NovelRoute
+import com.pixiv.reader.feature.novel.ui.NovelRoute
 import com.pixiv.reader.feature.user.MeRoute
 
 /** 底部导航五项：首页 / 发现 / 漫画 / 小说 / 我的。 */

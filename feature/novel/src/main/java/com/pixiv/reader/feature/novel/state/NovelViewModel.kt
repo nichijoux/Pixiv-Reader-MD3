@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.novel.state
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
@@ -18,6 +18,9 @@ import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.google.gson.Gson
+import com.pixiv.reader.feature.novel.R
+import com.pixiv.reader.feature.novel.data.NovelExportFormat
+import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.novel.state
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +8,7 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.feature.novel.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel

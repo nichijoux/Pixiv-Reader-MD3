@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.novel.ui
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,6 +26,8 @@ import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.RankingList
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.feature.novel.R
+import com.pixiv.reader.feature.novel.state.NovelRankingViewModel
 
 /**
  * 小说排行榜全屏页：分段 Tab + 左右滑动切换（复用通用 [RankingList]）。

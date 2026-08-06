@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.novel.data
 
 import android.content.Context
 import android.util.Log

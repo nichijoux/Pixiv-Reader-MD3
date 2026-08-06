@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.novel.data
 
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.novel.NovelBlock

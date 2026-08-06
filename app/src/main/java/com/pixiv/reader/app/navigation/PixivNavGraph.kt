@@ -28,11 +28,11 @@ import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.illust.IllustDownloadWorker
 import com.pixiv.reader.feature.manga.MangaRankingRoute
-import com.pixiv.reader.feature.novel.NovelDetailRoute
-import com.pixiv.reader.feature.novel.NovelExportFormat
-import com.pixiv.reader.feature.novel.NovelExportWorker
-import com.pixiv.reader.feature.novel.NovelRankingRoute
-import com.pixiv.reader.feature.novel.NovelSeriesRoute
+import com.pixiv.reader.feature.novel.data.NovelExportFormat
+import com.pixiv.reader.feature.novel.data.NovelExportWorker
+import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
+import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
+import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
 import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.BlockedRoute
 import com.pixiv.reader.feature.user.DownloadsRoute

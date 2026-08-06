@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.novel.state
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
