@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -108,6 +107,8 @@ private val NOVEL_BANNER_HEIGHT = 280.dp
 private val NOVEL_BANNER_TABLET_HEIGHT = 360.dp
 /** banner 底部渐变高度。 */
 private val NOVEL_BANNER_GRADIENT_HEIGHT = 110.dp
+/** banner 顶部 scrim 高度（保证悬浮白色返回按钮在浅色封面上可见）。 */
+private val NOVEL_BANNER_SCRIM_HEIGHT = 96.dp
 /** 平板判断阈值（screenWidthDp ≥ 该值走双栏布局）。 */
 private const val TABLET_WIDTH_DP = 600
 /** 手机端系列目录滚动区最大高度（占屏高比例，避免随分册数量增高）。 */
@@ -491,6 +492,21 @@ private fun NovelBanner(detail: Novel, height: Dp) {
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
+        // 顶部 scrim：悬浮白色返回按钮无圆底，需顶部渐变保证浅色封面上可见
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(NOVEL_BANNER_SCRIM_HEIGHT)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to Color.Black.copy(alpha = 0.30f),
+                            1f to Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
         // 底部渐变过渡到正文背景
         Box(
             modifier = Modifier
@@ -509,7 +525,7 @@ private fun NovelBanner(detail: Novel, height: Dp) {
     }
 }
 
-/** 悬浮返回按钮（沉浸式：半透明圆底；手机左上 / 平板右上由调用方 modifier 决定）。 */
+/** 悬浮返回按钮（沉浸式：与普通 TopAppBar 返回箭头一致的样式，白图标靠 banner 顶部 scrim 保证可见）。 */
 @Composable
 private fun FloatingBackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(
@@ -517,9 +533,7 @@ private fun FloatingBackButton(onBack: () -> Unit, modifier: Modifier = Modifier
         modifier = modifier
             .statusBarsPadding()
             .padding(4.dp)
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.35f)),
+            .size(40.dp),
     ) {
         Icon(
             Icons.AutoMirrored.Filled.ArrowBack,
@@ -543,49 +557,57 @@ private fun NovelHeader(
             text = novel.title.orEmpty(),
             style = novelTitleStyle(),
         )
-        // 作者行：头像 + 昵称 + chevron ›
+        // 作者 + 发布时间同行：头像/昵称 › 撑左（点击进用户主页），发布时间靠右
+        val publishDate = novel.create_date?.take(10)
         Row(
             modifier = Modifier
-                .padding(top = Spacing.md)
-                .clickable { novel.user?.id?.let(onOpenUser) },
+                .fillMaxWidth()
+                .padding(top = Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            UserAvatar(
-                name = novel.user?.name,
-                avatarUrl = novel.user?.profile_image_urls?.best(),
-                modifier = Modifier.size(36.dp),
-            )
-            Text(
-                text = novel.user?.name.orEmpty(),
-                style = novelAuthorStyle(),
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        // 发布时间
-        val publishDate = novel.create_date?.take(10)
-        if (!publishDate.isNullOrBlank()) {
             Row(
-                modifier = Modifier.padding(top = Spacing.md),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { novel.user?.id?.let(onOpenUser) },
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Filled.DateRange,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                UserAvatar(
+                    name = novel.user?.name,
+                    avatarUrl = novel.user?.profile_image_urls?.best(),
+                    modifier = Modifier.size(36.dp),
                 )
                 Text(
-                    text = stringResource(R.string.novel_publish_date, publishDate),
-                    style = novelMetaStyle(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp),
+                    text = novel.user?.name.orEmpty(),
+                    style = novelAuthorStyle(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // 发布时间：同行靠右（不可点击）
+            if (!publishDate.isNullOrBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.novel_publish_date, publishDate),
+                        style = novelMetaStyle(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
             }
         }
         // 统计：三块均分撑满整行（icon + 值 15sp Bold + 标签 11sp）
@@ -667,7 +689,7 @@ private fun NovelHeader(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 统计块：图标 + 数值 + 标签（weight(1f) 均分整行）。 */
+/** 统计块：图标 + 数值 + 标签（weight(1f) 均分整行，块内水平居中保证左右边距对称）。 */
 @Composable
 private fun NovelStatBlock(
     icon: ImageVector,
@@ -675,7 +697,10 @@ private fun NovelStatBlock(
     label: String,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,

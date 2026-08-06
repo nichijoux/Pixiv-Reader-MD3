@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -53,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +64,8 @@ import com.pixiv.api.model.AutocompleteTag
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.TrendingTag
+import com.pixiv.reader.core.common.PixivLinkType
+import com.pixiv.reader.core.common.PixivUrlParser
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.ConfirmDialog
@@ -99,11 +103,33 @@ fun DiscoverRoute(
 
     var showFilter by remember { mutableStateOf(false) }
 
-    // 跨 Tab 标签搜索：从别处带关键词进入则自动搜索
+    /**
+     * 统一搜索提交入口：若输入是 pixiv 链接（如 novel/show.php?id=…）则直接跳对应详情页，
+     * 否则走普通搜索。URL 跳转不写搜索历史、不发搜索请求。
+     */
+    val submitSearch: () -> Unit = {
+        val link = PixivUrlParser.parse(query)
+        when (link?.type) {
+            PixivLinkType.NOVEL -> onOpenNovel(link.id)
+            PixivLinkType.SERIES -> onOpenSeries(link.id)
+            PixivLinkType.ILLUST -> onOpenIllust(link.id)
+            PixivLinkType.USER -> onOpenUser(link.id)
+            null -> viewModel.search()
+        }
+    }
+
+    // 跨 Tab 标签搜索：从别处带关键词进入则自动搜索；携带 pixiv 链接则直接跳详情
     LaunchedEffect(initialQuery) {
         if (!initialQuery.isNullOrBlank()) {
             viewModel.onQueryChange(initialQuery)
-            viewModel.search()
+            val link = PixivUrlParser.parse(initialQuery)
+            when (link?.type) {
+                PixivLinkType.NOVEL -> onOpenNovel(link.id)
+                PixivLinkType.SERIES -> onOpenSeries(link.id)
+                PixivLinkType.ILLUST -> onOpenIllust(link.id)
+                PixivLinkType.USER -> onOpenUser(link.id)
+                null -> viewModel.search()
+            }
         }
     }
 
@@ -116,7 +142,7 @@ fun DiscoverRoute(
             SearchField(
                 query = query,
                 onQueryChange = viewModel::onQueryChange,
-                onSearch = viewModel::search,
+                onSearch = submitSearch,
                 onClear = viewModel::clearSearch,
                 onOpenFilter = { showFilter = true },
             )
@@ -195,7 +221,11 @@ private fun SearchField(
             },
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Search,
+            ),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

@@ -1,5 +1,7 @@
 package com.pixiv.reader.app
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
@@ -12,15 +14,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.pixiv.api.network.PixivLang
 import com.pixiv.reader.app.R
 import com.pixiv.reader.app.navigation.PixivNavGraph
+import com.pixiv.reader.core.common.PixivLinkType
+import com.pixiv.reader.core.common.PixivUrlParser
 import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.core.common.localeFor
 import com.pixiv.reader.core.common.pixivLanguageCode
@@ -29,6 +42,7 @@ import com.pixiv.reader.core.datastore.readAppLanguageSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.ui.component.NotificationHost
+import com.pixiv.reader.core.ui.component.NotificationHostState
 import com.pixiv.reader.core.ui.component.NotificationType
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
@@ -107,6 +121,20 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+            // 剪贴板 pixiv 链接检测：回前台（ON_RESUME）且已登录时，读取剪贴板解析
+            // pixiv URL → 弹「打开」提示，点击后才导航（避免复制旧链接被劫持）。
+            val navController = rememberNavController()
+            val lastPromptedClip = remember { mutableStateOf<String?>(null) }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner, isLoggedIn) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME && isLoggedIn) {
+                        checkClipboardLink(context, navController, notificationHostState, lastPromptedClip)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
             PixivReaderTheme(
                 darkTheme = isDark,
                 dynamicColor = dynamicColor,
@@ -121,6 +149,7 @@ class MainActivity : ComponentActivity() {
                         PixivNavGraph(
                             isLoggedIn = isLoggedIn,
                             onLogout = { sessionRepository.logout() },
+                            navController = navController,
                         )
                     }
                 }
@@ -141,6 +170,40 @@ class MainActivity : ComponentActivity() {
             sessionRepository.onOAuthCallback(uri)
         }
     }
+}
+
+/**
+ * 读取剪贴板并解析 pixiv 链接 → 弹「打开」提示，点击后才导航到对应详情页。
+ *
+ * @param lastPromptedClip 记录已提示过的剪贴板文本，内容未变不重复提示
+ *   （用户未点开时切走再回来，不会反复弹同一链接；重新复制即重新触发）。
+ */
+private fun checkClipboardLink(
+    context: Context,
+    navController: NavHostController,
+    notificationState: NotificationHostState,
+    lastPromptedClip: MutableState<String?>,
+) {
+    val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager) ?: return
+    val text = clip.primaryClip
+        ?.takeIf { it.itemCount > 0 }
+        ?.getItemAt(0)?.text?.toString()
+        ?: return
+    if (text == lastPromptedClip.value) return // 剪贴板未变化，不重复提示
+    val link = PixivUrlParser.parse(text) ?: return
+    lastPromptedClip.value = text
+    val (messageRes, route) = when (link.type) {
+        PixivLinkType.NOVEL -> R.string.clipboard_link_novel to "novel/${link.id}"
+        PixivLinkType.SERIES -> R.string.clipboard_link_series to "novel_series/${link.id}"
+        PixivLinkType.ILLUST -> R.string.clipboard_link_illust to "illust/${link.id}"
+        PixivLinkType.USER -> R.string.clipboard_link_user to "user/${link.id}"
+    }
+    notificationState.show(
+        text = context.getString(messageRes),
+        type = NotificationType.Info,
+        actionText = context.getString(R.string.clipboard_link_open),
+        onAction = { navController.navigate(route) },
+    )
 }
 
 

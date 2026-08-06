@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,12 +50,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.time.Duration.Companion.milliseconds
 
 /** 通知类型：决定图标与强调色。 */
 enum class NotificationType { Info, Success, Error }
 
 /** 一条待展示的通知数据。 */
-data class NotificationData(val text: String, val type: NotificationType)
+data class NotificationData(
+    val text: String,
+    val type: NotificationType,
+    val actionText: String? = null,
+    val onAction: (() -> Unit)? = null,
+)
 
 /**
  * 自定义 Material3 风格通知宿主状态（替代 Material `Snackbar`）。
@@ -80,9 +87,15 @@ class NotificationHostState internal constructor() {
     /** 当前应展示的通知（null = 无，用于驱动显隐动画）。 */
     val queue: StateFlow<NotificationData?> = _queue.asStateFlow()
 
-    /** 展示一条通知；若已有展示中的通知则直接顶替并重置计时。 */
-    fun show(text: String, type: NotificationType = NotificationType.Info) {
-        _queue.value = NotificationData(text, type)
+    /** 展示一条通知；若已有展示中的通知则直接顶替并重置计时。
+     *  @param actionText 非空时展示操作按钮（点击执行 [onAction] 后自动关闭通知） */
+    fun show(
+        text: String,
+        type: NotificationType = NotificationType.Info,
+        actionText: String? = null,
+        onAction: (() -> Unit)? = null,
+    ) {
+        _queue.value = NotificationData(text, type, actionText, onAction)
     }
 
     /** 立即关闭当前通知（触发退出动画）。 */
@@ -147,7 +160,7 @@ private fun NotificationCard(
 ) {
     // 自动消失：消息变化时重启计时（新消息顶替旧消息）
     LaunchedEffect(notification) {
-        delay(Durations.NOTIFICATION_TIMEOUT)
+        delay(Durations.NOTIFICATION_TIMEOUT.milliseconds)
         onDismiss()
     }
     Surface(
@@ -185,6 +198,23 @@ private fun NotificationCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // 操作按钮（可选）：点击执行动作并关闭通知；卡片其余区域点击仍为关闭
+            if (notification.actionText != null && notification.onAction != null) {
+                Spacer(Modifier.width(Spacing.sm))
+                Text(
+                    text = notification.actionText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
+                            notification.onAction.invoke()
+                            onDismiss()
+                        }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
             Spacer(Modifier.width(Spacing.sm))
             Icon(
                 imageVector = Icons.Filled.Close,
