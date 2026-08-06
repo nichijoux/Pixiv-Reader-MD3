@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 设置导航卡片数据（数据驱动 UI：图标 + 标题 + 描述 + 尾随动作）。
@@ -62,7 +63,7 @@ fun SettingsCard(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(

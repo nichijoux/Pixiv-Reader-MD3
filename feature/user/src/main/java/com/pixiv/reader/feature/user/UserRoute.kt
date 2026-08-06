@@ -69,6 +69,8 @@ import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.SeriesBookCover
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Durations
 import kotlinx.coroutines.launch
 
 /**
@@ -618,7 +620,7 @@ private fun SeriesStatusBadge(
         style = MaterialTheme.typography.labelMedium,
         color = content,
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(AppShapes.pill)
             .background(container)
             .padding(horizontal = 10.dp, vertical = 3.dp),
     )
@@ -632,7 +634,7 @@ private fun UserProfileSkeleton() {
         initialValue = 0.35f,
         targetValue = 0.75f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700),
+            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "userSkeletonAlpha",

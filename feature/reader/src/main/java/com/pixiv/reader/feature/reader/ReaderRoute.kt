@@ -101,6 +101,8 @@ import kotlin.math.atan2
 import kotlin.math.sqrt
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.core.common.ReaderPageMode
+import com.pixiv.reader.core.common.ReaderThemeMode
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
@@ -170,7 +172,11 @@ fun ReaderRoute(
 
     // 主题跟随系统：开启后按系统深色模式选「夜间/纸张」
     val isDark = isSystemInDarkTheme()
-    val effectiveTheme = if (followSystem) (if (isDark) 2 else 1) else readerTheme
+    val effectiveTheme = if (followSystem) {
+        if (isDark) ReaderThemeMode.NIGHT else ReaderThemeMode.PAPER
+    } else {
+        readerTheme
+    }
     val themeColors = remember(effectiveTheme) { readerThemeColors(effectiveTheme) }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
@@ -222,9 +228,9 @@ fun ReaderRoute(
                     // 中间 1/3 点击切换工具栏由内容上方的透明覆盖层处理；
                     // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）；
                     // 隐藏时：翻页模式左右边缘翻页；仿真模式左右边缘由内部处理
-                    if (pageMode == 2) return@pointerInput
+                    if (pageMode == ReaderPageMode.SIMULATION) return@pointerInput
                     detectTapGestures(onTap = { offset ->
-                        if (pageMode != 1) return@detectTapGestures
+                        if (pageMode != ReaderPageMode.PAGINATE) return@detectTapGestures
                         val w = size.width.toFloat()
                         val third = w / 3f
                         val edge = offset.x < third || offset.x > w - third
@@ -263,7 +269,7 @@ fun ReaderRoute(
                                 val imageHeight = readerImageHeight(contentWidth)
                                 val restoreOffset = if (progressRestored) charOffset else 0
 
-                                if (pageMode == 0) {
+                                if (pageMode == ReaderPageMode.SCROLL) {
                                     ScrollReaderContent(
                                         document = doc,
                                         baseStyle = baseStyle,
@@ -283,7 +289,7 @@ fun ReaderRoute(
                                         contentWidthDp = contentWidth,
                                         pageHeightDp = pageHeight,
                                     )
-                                    if (pageMode == 2) {
+                                    if (pageMode == ReaderPageMode.SIMULATION) {
                                         // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
                                         SimulationPageContent(
                                             pages = pages,
@@ -330,7 +336,7 @@ fun ReaderRoute(
                                 // 中间 1/3 透明覆盖层：点击切换工具栏（不消费拖动，滑动翻页不受影响）。
                                 // 放在内容之上，确保在子层手势消费指针事件后仍能收到轻点。
                                 // 滑动模式不叠加覆盖层（避免滚动时误触工具栏），工具栏由顶部窄条触发。
-                                if (pageMode != 0) {
+                                if (pageMode != ReaderPageMode.SCROLL) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxHeight()

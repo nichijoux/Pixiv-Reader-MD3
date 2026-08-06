@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.common.ReaderPageMode
+import com.pixiv.reader.core.common.ReaderThemeMode
 import kotlin.math.roundToInt
 
 /**
@@ -36,16 +38,16 @@ fun ReaderSettingsSheet(
     fontSize: Float,
     lineHeight: Float,
     fontFamilyKey: String,
-    theme: Int,
-    pageMode: Int,
+    theme: ReaderThemeMode,
+    pageMode: ReaderPageMode,
     brightness: Float,
     followSystem: Boolean,
     hasCustomFont: Boolean,
     onFontSizeChange: (Float) -> Unit,
     onLineHeightChange: (Float) -> Unit,
     onFontFamilyChange: (String) -> Unit,
-    onThemeChange: (Int) -> Unit,
-    onPageModeChange: (Int) -> Unit,
+    onThemeChange: (ReaderThemeMode) -> Unit,
+    onPageModeChange: (ReaderPageMode) -> Unit,
     onBrightnessChange: (Float) -> Unit,
     onFollowSystemChange: (Boolean) -> Unit,
     onImportFont: () -> Unit,
@@ -122,9 +124,10 @@ fun ReaderSettingsSheet(
             SectionLabel(stringResource(R.string.reader_settings_section_theme))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 READER_THEME_NAME_RES.forEachIndexed { index, res ->
+                    val mode = ReaderThemeMode.entries.getOrNull(index) ?: ReaderThemeMode.PAPER
                     SegmentedButton(
-                        selected = theme == index,
-                        onClick = { onThemeChange(index) },
+                        selected = theme == mode,
+                        onClick = { onThemeChange(mode) },
                         enabled = !followSystem,
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
@@ -152,9 +155,10 @@ fun ReaderSettingsSheet(
             SectionLabel(stringResource(R.string.reader_settings_section_page_mode))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 READER_PAGE_MODE_NAME_RES.forEachIndexed { index, res ->
+                    val mode = ReaderPageMode.entries.getOrNull(index) ?: ReaderPageMode.SCROLL
                     SegmentedButton(
-                        selected = pageMode == index,
-                        onClick = { onPageModeChange(index) },
+                        selected = pageMode == mode,
+                        onClick = { onPageModeChange(mode) },
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
                             count = READER_PAGE_MODE_NAME_RES.size

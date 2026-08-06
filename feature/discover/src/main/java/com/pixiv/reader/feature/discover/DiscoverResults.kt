@@ -56,6 +56,7 @@ import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.ui.theme.Durations
 
 @Composable
 internal fun IllustSearchResults(
@@ -237,7 +238,7 @@ private fun skeletonPulseColor(): Color {
         initialValue = 0.35f,
         targetValue = 0.75f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700),
+            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "searchSkeletonAlpha",

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -54,6 +53,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.AppLanguage
+import com.pixiv.reader.core.common.NovelDefaultTab
+import com.pixiv.reader.core.common.ThemeMode
+import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ProfileHeader
@@ -61,6 +63,7 @@ import com.pixiv.reader.core.ui.component.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.SettingsCard
 import com.pixiv.reader.core.ui.component.SettingsCardItem
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.theme.AppShapes
 
 /** 开源仓库地址。 */
 private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Material"
@@ -166,9 +169,9 @@ fun MeRoute(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             listOf(
-                                0 to R.string.me_theme_follow_system,
-                                1 to R.string.me_theme_light,
-                                2 to R.string.me_theme_dark,
+                                ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
+                                ThemeMode.LIGHT to R.string.me_theme_light,
+                                ThemeMode.DARK to R.string.me_theme_dark,
                             ).forEach { (mode, labelRes) ->
                                 PillSelectButton(
                                     selected = themeMode == mode,
@@ -274,8 +277,8 @@ fun MeRoute(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             listOf(
-                                0 to R.string.me_novel_default_recommend,
-                                1 to R.string.me_novel_default_follow,
+                                NovelDefaultTab.RECOMMEND to R.string.me_novel_default_recommend,
+                                NovelDefaultTab.FOLLOW to R.string.me_novel_default_follow,
                             ).forEach { (value, labelRes) ->
                                 PillSelectButton(
                                     selected = novelDefaultTab == value,
@@ -306,9 +309,9 @@ fun MeRoute(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             listOf(
-                                0 to R.string.me_viewer_orientation_horizontal,
-                                1 to R.string.me_viewer_orientation_vertical,
-                                2 to R.string.me_viewer_orientation_seamless,
+                                ViewerOrientation.HORIZONTAL to R.string.me_viewer_orientation_horizontal,
+                                ViewerOrientation.VERTICAL to R.string.me_viewer_orientation_vertical,
+                                ViewerOrientation.SEAMLESS to R.string.me_viewer_orientation_seamless,
                             ).forEach { (value, labelRes) ->
                                 PillSelectButton(
                                     selected = viewerOrientation == value,
@@ -506,7 +509,7 @@ private fun PillSelectButton(
     Box(
         modifier = modifier
             .height(44.dp)
-            .clip(RoundedCornerShape(50))
+            .clip(AppShapes.pill)
             .background(container)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,

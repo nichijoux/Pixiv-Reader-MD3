@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.ViewerScrim
 
 /**
  * 全屏图片查看（URL 直入）：黑底 + 捏合缩放 + 顶部渐变返回栏。
@@ -39,7 +40,7 @@ fun FullscreenImageRoute(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0A)),
+            .background(ViewerScrim),
     ) {
         if (!url.isNullOrBlank()) {
             ZoomableImage(

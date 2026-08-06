@@ -1,10 +1,32 @@
 package com.pixiv.reader.feature.reader
 
 import androidx.compose.ui.graphics.Color
+import com.pixiv.reader.core.common.ReaderThemeMode
+import com.pixiv.reader.core.ui.theme.ReaderDayBackground
+import com.pixiv.reader.core.ui.theme.ReaderDayDivider
+import com.pixiv.reader.core.ui.theme.ReaderDaySecondary
+import com.pixiv.reader.core.ui.theme.ReaderDayText
+import com.pixiv.reader.core.ui.theme.ReaderDayTopBar
+import com.pixiv.reader.core.ui.theme.ReaderDeepBlackBackground
+import com.pixiv.reader.core.ui.theme.ReaderDeepBlackDivider
+import com.pixiv.reader.core.ui.theme.ReaderDeepBlackSecondary
+import com.pixiv.reader.core.ui.theme.ReaderDeepBlackText
+import com.pixiv.reader.core.ui.theme.ReaderDeepBlackTopBar
+import com.pixiv.reader.core.ui.theme.ReaderNightBackground
+import com.pixiv.reader.core.ui.theme.ReaderNightDivider
+import com.pixiv.reader.core.ui.theme.ReaderNightSecondary
+import com.pixiv.reader.core.ui.theme.ReaderNightText
+import com.pixiv.reader.core.ui.theme.ReaderNightTopBar
+import com.pixiv.reader.core.ui.theme.ReaderPaperBackground
+import com.pixiv.reader.core.ui.theme.ReaderPaperDivider
+import com.pixiv.reader.core.ui.theme.ReaderPaperSecondary
+import com.pixiv.reader.core.ui.theme.ReaderPaperText
+import com.pixiv.reader.core.ui.theme.ReaderPaperTopBar
 
 /**
  * 阅读器主题配色（4 套）：
- * 0 日间 / 1 纸张 / 2 夜间 / 3 深黑
+ * [ReaderThemeMode.DAY] / [ReaderThemeMode.PAPER] / [ReaderThemeMode.NIGHT] / [ReaderThemeMode.DEEP_BLACK]
+ * 色值统一来自 core:ui/theme/Color.kt（禁止在此写裸色值）。
  */
 data class ReaderThemeColors(
     val background: Color,
@@ -14,34 +36,34 @@ data class ReaderThemeColors(
     val topBar: Color,
 )
 
-fun readerThemeColors(theme: Int): ReaderThemeColors = when (theme) {
-    0 -> ReaderThemeColors(
-        background = Color(0xFFFFFFFF),
-        text = Color(0xFF1A1A1A),
-        secondary = Color(0xFF8A8A8A),
-        divider = Color(0xFFE5E5E5),
-        topBar = Color(0xFFFAFAFA),
+fun readerThemeColors(theme: ReaderThemeMode): ReaderThemeColors = when (theme) {
+    ReaderThemeMode.DAY -> ReaderThemeColors(
+        background = ReaderDayBackground,
+        text = ReaderDayText,
+        secondary = ReaderDaySecondary,
+        divider = ReaderDayDivider,
+        topBar = ReaderDayTopBar,
     )
-    1 -> ReaderThemeColors(
-        background = Color(0xFFF5EFE0),
-        text = Color(0xFF3A3126),
-        secondary = Color(0xFF8A7A60),
-        divider = Color(0xFFE2D9C4),
-        topBar = Color(0xFFEDE4CF),
+    ReaderThemeMode.PAPER -> ReaderThemeColors(
+        background = ReaderPaperBackground,
+        text = ReaderPaperText,
+        secondary = ReaderPaperSecondary,
+        divider = ReaderPaperDivider,
+        topBar = ReaderPaperTopBar,
     )
-    2 -> ReaderThemeColors(
-        background = Color(0xFF212121),
-        text = Color(0xFFCFCFCF),
-        secondary = Color(0xFF8A8A8A),
-        divider = Color(0xFF3A3A3A),
-        topBar = Color(0xFF1C1C1C),
+    ReaderThemeMode.NIGHT -> ReaderThemeColors(
+        background = ReaderNightBackground,
+        text = ReaderNightText,
+        secondary = ReaderNightSecondary,
+        divider = ReaderNightDivider,
+        topBar = ReaderNightTopBar,
     )
-    else -> ReaderThemeColors(
-        background = Color(0xFF000000),
-        text = Color(0xFF9E9E9E),
-        secondary = Color(0xFF555555),
-        divider = Color(0xFF202020),
-        topBar = Color(0xFF000000),
+    ReaderThemeMode.DEEP_BLACK -> ReaderThemeColors(
+        background = ReaderDeepBlackBackground,
+        text = ReaderDeepBlackText,
+        secondary = ReaderDeepBlackSecondary,
+        divider = ReaderDeepBlackDivider,
+        topBar = ReaderDeepBlackTopBar,
     )
 }
 

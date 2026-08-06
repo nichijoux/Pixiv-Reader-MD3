@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.novel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.paging.PagedState
@@ -46,9 +47,9 @@ class NovelFeedViewModel @Inject constructor(
     private val _isFollowRefreshing = MutableStateFlow(false)
     val isFollowRefreshing: StateFlow<Boolean> = _isFollowRefreshing.asStateFlow()
 
-    /** 小说 Tab 默认页偏好（我的页-浏览设置）：0 推荐 / 1 关注。 */
-    val novelDefaultTab: StateFlow<Int> = userPreferences.novelDefaultTab
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    /** 小说 Tab 默认页偏好（我的页-浏览设置）：推荐 / 关注。 */
+    val novelDefaultTab: StateFlow<NovelDefaultTab> = userPreferences.novelDefaultTab
+        .stateIn(viewModelScope, SharingStarted.Eagerly, NovelDefaultTab.RECOMMEND)
 
     /** 操作通知（收藏等）：UI 侧 collect 显示 NotificationHost。 */
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
@@ -134,7 +135,7 @@ class NovelFeedViewModel @Inject constructor(
     }
 
     /** 读取小说 Tab 默认页（首帧定位用，取真实落盘值而非 stateIn 占位）。 */
-    suspend fun loadDefaultTab(): Int = userPreferences.novelDefaultTab.first()
+    suspend fun loadDefaultTab(): NovelDefaultTab = userPreferences.novelDefaultTab.first()
 
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调），成功/失败发通知。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {

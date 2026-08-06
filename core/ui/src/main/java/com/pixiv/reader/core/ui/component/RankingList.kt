@@ -38,6 +38,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Durations
+import com.pixiv.reader.core.ui.theme.Spacing
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -131,7 +134,7 @@ fun <T> RankingList(
                 } else {
                     ScrollableTabRow(
                         selectedTabIndex = selectedIndex,
-                        edgePadding = 8.dp,
+                        edgePadding = Spacing.sm,
                         containerColor = MaterialTheme.colorScheme.surface,
                     ) {
                         for (index in modes.indices) {
@@ -214,32 +217,32 @@ private fun RankingSkeleton() {
         initialValue = 0.35f,
         targetValue = 0.75f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700),
+            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "rankingSkeletonAlpha",
     )
     val color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         repeat(9) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 Box(
                     modifier = Modifier
                         .size(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(AppShapes.small)
                         .background(color),
                 )
                 Box(
                     modifier = Modifier
                         .size(88.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(AppShapes.card)
                         .background(color),
                 )
                 Column(modifier = Modifier.weight(1f)) {
@@ -252,15 +255,15 @@ private fun RankingSkeleton() {
                     )
                     Box(
                         modifier = Modifier
-                            .padding(top = 8.dp)
-                            .fillMaxWidth(0.4f)
-                            .height(12.dp)
+                            .padding(top = Spacing.sm)
+                            .fillMaxWidth(0.65f)
+                            .height(16.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(color),
                     )
                     Box(
                         modifier = Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = Spacing.sm)
                             .width(64.dp)
                             .height(18.dp)
                             .clip(RoundedCornerShape(10.dp))
@@ -291,7 +294,7 @@ private fun <T> RankingPage(
         items.isEmpty() -> EmptyBox(emptyText)
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
         ) {
             itemsIndexed(items) { index, item ->
                 itemContent(item, index + 1)

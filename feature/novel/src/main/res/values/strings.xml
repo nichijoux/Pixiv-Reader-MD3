@@ -25,6 +25,10 @@
     <string name="novel_not_found">没有找到该小说</string>
     <string name="novel_cd_back">返回</string>
     <string name="novel_series_section">系列分册（%1$d）</string>
+    <string name="novel_publish_date">发布于 %1$s</string>
+    <string name="novel_toc_section">系列目录（%1$d）</string>
+    <string name="novel_series_view_all">查看完整系列</string>
+    <string name="novel_comment_button">评论</string>
 
     <!-- 小说系列详情页 -->
     <string name="novel_series_title">系列</string>
@@ -49,6 +53,8 @@
     <string name="novel_chapter_word">字数 %1$s</string>
     <string name="novel_chapter_bookmark">收藏 %1$s</string>
     <string name="novel_chapter_current">当前</string>
+    <string name="novel_reply">回复</string>
+    <string name="novel_reply_cancel">取消回复</string>
     <string name="novel_continue_reading">继续阅读 %1$d%%</string>
     <string name="novel_start_reading">开始阅读</string>
     <string name="novel_bookmarked">已收藏</string>

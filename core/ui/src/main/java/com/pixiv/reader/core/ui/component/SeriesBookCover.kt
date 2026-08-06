@@ -3,7 +3,6 @@ package com.pixiv.reader.core.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.Icon
@@ -14,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.theme.AppShapes
 
 /**
  * 系列图标容器（MD3 Filled tonal icon container 语义）。
@@ -23,13 +23,13 @@ import androidx.compose.ui.unit.dp
  *
  * @param modifier 外部传入的 Modifier（建议指定尺寸，如 `size(48.dp)` / `size(64.dp)`）
  * @param iconSize 图标尺寸（默认 28dp）
- * @param shape 容器圆角（默认 12dp）
+ * @param shape 容器圆角（默认 [AppShapes.card]）
  */
 @Composable
 fun SeriesBookCover(
     modifier: Modifier = Modifier,
     iconSize: Dp = 28.dp,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp),
+    shape: androidx.compose.ui.graphics.Shape = AppShapes.card,
 ) {
     Box(
         modifier = modifier

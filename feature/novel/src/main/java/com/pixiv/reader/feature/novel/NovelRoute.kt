@@ -1,21 +1,26 @@
 package com.pixiv.reader.feature.novel
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,12 +34,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,15 +78,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.api.model.Comment
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.formatCount
@@ -85,7 +97,6 @@ import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.novel.htmlToPlainText
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
-import com.pixiv.reader.core.ui.component.CommentInput
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
@@ -95,6 +106,8 @@ import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 /**
@@ -134,7 +147,7 @@ fun NovelRoute(
     LaunchedEffect(Unit) {
         if (!defaultTabApplied) {
             defaultTabApplied = true
-            pagerState.scrollToPage(viewModel.loadDefaultTab().coerceIn(0, 1))
+            pagerState.scrollToPage(viewModel.loadDefaultTab().value.coerceIn(0, 1))
         }
     }
 
@@ -462,8 +475,9 @@ private fun NovelRankingBanner(
 }
 
 /**
- * 小说详情（P4）：沉浸式封面 banner（视差）+ 标题 / 作者 / 统计 / 标签 / 简介 +
- * 阅读入口 / 收藏 / 追更 + 系列分册（点击跳对应详情）+ 评论区。
+ * 小说详情（P4 / 第六十四轮重构）：沉浸式封面 banner（视差）+ 标题 / 作者 / 发布时间 / 统计 / 标签 / 简介 +
+ * 阅读 / 收藏 / 追更 / 下载 / 评论 + 系列目录（手机限高滚动 / 平板左栏卡片，等高）。
+ * 评论区已拆到独立页 [NovelCommentsRoute]（详情页不再加载评论）。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -473,13 +487,12 @@ fun NovelDetailRoute(
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    onOpenComments: (Long) -> Unit,
     viewModel: NovelViewModel = hiltViewModel(),
 ) {
     val novel by viewModel.novel.collectAsStateWithLifecycle()
     val seriesNovels by viewModel.seriesNovels.collectAsStateWithLifecycle()
-    val comments by viewModel.comments.collectAsStateWithLifecycle()
-    val commentsLoading by viewModel.commentsLoading.collectAsStateWithLifecycle()
-    val commentDraft by viewModel.commentDraft.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
@@ -521,19 +534,15 @@ fun NovelDetailRoute(
                     isWatchlisting = isWatchlisting,
                     downloading = downloading,
                     downloadProgress = downloadProgress,
-                    comments = comments,
-                    commentsLoading = commentsLoading,
                     onBack = onBack,
                     onOpenNovel = onOpenNovel,
                     onOpenReader = onOpenReader,
                     onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
+                    onOpenComments = onOpenComments,
                     onBookmark = viewModel::toggleBookmark,
                     onWatchlist = viewModel::toggleWatchlist,
                     onDownload = { showDownloadDialog = true },
-                    onRetryComments = viewModel::loadComments,
-                    commentDraft = commentDraft,
-                    onCommentDraftChange = viewModel::onCommentDraftChange,
-                    onPostComment = viewModel::postComment,
                 )
             }
         }
@@ -579,8 +588,14 @@ fun NovelDetailRoute(
 private val NOVEL_BANNER_HEIGHT = 280.dp
 /** banner 图片比容器高出的量（视差平移余量，需大于最大位移 280×0.45≈126dp）。 */
 private val NOVEL_BANNER_PARALLAX = 160.dp
+/** 平板判断阈值（screenWidthDp ≥ 该值走双栏布局）。 */
+private const val TABLET_WIDTH_DP = 600
+/** 手机端系列目录滚动区最大高度（占屏高比例，避免随分册数量增高）。 */
+private const val NOVEL_TOC_MAX_HEIGHT_FRACTION = 0.4f
+/** 平板左栏系列目录卡片宽度。 */
+private val NOVEL_TOC_PANEL_WIDTH = 264.dp
 
-/** 详情内容：沉浸式封面 banner（视差）+ 正文 + 系列 + 评论。 */
+/** 详情内容：沉浸式封面 banner（视差）+ 标题信息 / 操作 / 系列目录（手机限高滚动、平板左栏等高）。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NovelDetailContent(
@@ -593,29 +608,28 @@ private fun NovelDetailContent(
     isWatchlisting: Boolean,
     downloading: Boolean,
     downloadProgress: String?,
-    comments: List<Comment>,
-    commentsLoading: Boolean,
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    onOpenComments: (Long) -> Unit,
     onBookmark: () -> Unit,
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
-    onRetryComments: () -> Unit,
-    commentDraft: String,
-    onCommentDraftChange: (String) -> Unit,
-    onPostComment: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     // 视差：banner 被滚过的像素，驱动封面图相对位移
     val scrollOffset by remember {
         derivedStateOf { listState.firstVisibleItemScrollOffset }
     }
+    val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
+    val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
+    val seriesId = detail.series?.id
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            // 沉浸式封面 banner（延伸到状态栏，上滑视差）
+            // 沉浸式封面 banner（延伸到状态栏，上滑视差）——仅作背景，非完整展示
             item(key = "banner") {
                 Box(
                     modifier = Modifier
@@ -652,58 +666,76 @@ private fun NovelDetailContent(
                     )
                 }
             }
-            item(key = "header") {
-                NovelCenteredBox { NovelHeader(detail, onOpenUser = onOpenUser) }
-            }
-            item(key = "actions") {
+            // 标题信息 + 操作；平板且有系列时左侧并排目录卡片（等高）
+            item(key = "info_actions") {
                 NovelCenteredBox {
-                    NovelActions(
-                        novel = detail,
-                        progress = progress,
-                        isBookmarked = isBookmarked,
-                        isBookmarking = isBookmarking,
-                        isWatchlisted = isWatchlisted,
-                        isWatchlisting = isWatchlisting,
-                        downloading = downloading,
-                        downloadProgress = downloadProgress,
-                        onBookmark = onBookmark,
-                        onWatchlist = onWatchlist,
-                        onDownload = onDownload,
-                        onRead = { onOpenReader(detail.id) },
-                    )
-                }
-            }
-            if (seriesNovels.isNotEmpty()) {
-                item(key = "series_title") {
-                    NovelCenteredBox {
-                        Text(
-                            text = stringResource(R.string.novel_series_section, seriesNovels.size),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
+                    if (isTablet && seriesNovels.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.height(IntrinsicSize.Max),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                        ) {
+                            NovelTocPanel(
+                                seriesNovels = seriesNovels,
+                                currentId = detail.id,
+                                seriesId = seriesId,
+                                onOpenNovel = onOpenNovel,
+                                onOpenSeries = onOpenSeries,
+                                modifier = Modifier.width(NOVEL_TOC_PANEL_WIDTH),
+                            )
+                            Column(Modifier.weight(1f)) {
+                                NovelHeader(detail, onOpenUser = onOpenUser)
+                                NovelActions(
+                                    novel = detail,
+                                    progress = progress,
+                                    isBookmarked = isBookmarked,
+                                    isBookmarking = isBookmarking,
+                                    isWatchlisted = isWatchlisted,
+                                    isWatchlisting = isWatchlisting,
+                                    downloading = downloading,
+                                    downloadProgress = downloadProgress,
+                                    onBookmark = onBookmark,
+                                    onWatchlist = onWatchlist,
+                                    onDownload = onDownload,
+                                    onRead = { onOpenReader(detail.id) },
+                                    onComments = { onOpenComments(detail.id) },
+                                )
+                            }
+                        }
+                    } else {
+                        Column {
+                            NovelHeader(detail, onOpenUser = onOpenUser)
+                            NovelActions(
+                                novel = detail,
+                                progress = progress,
+                                isBookmarked = isBookmarked,
+                                isBookmarking = isBookmarking,
+                                isWatchlisted = isWatchlisted,
+                                isWatchlisting = isWatchlisting,
+                                downloading = downloading,
+                                downloadProgress = downloadProgress,
+                                onBookmark = onBookmark,
+                                onWatchlist = onWatchlist,
+                                onDownload = onDownload,
+                                onRead = { onOpenReader(detail.id) },
+                                onComments = { onOpenComments(detail.id) },
+                            )
+                        }
                     }
                 }
-                items(seriesNovels, key = { it.id }) { chapter ->
+            }
+            // 手机端：系列目录单列（限高内部滚动，不随分册数量增高）
+            if (!isTablet && seriesNovels.isNotEmpty()) {
+                item(key = "series_toc") {
                     NovelCenteredBox {
-                        ChapterRow(
-                            novel = chapter,
-                            isCurrent = chapter.id == detail.id,
-                            onClick = { onOpenNovel(chapter.id) },
+                        NovelTocScroll(
+                            seriesNovels = seriesNovels,
+                            currentId = detail.id,
+                            seriesId = seriesId,
+                            onOpenNovel = onOpenNovel,
+                            onOpenSeries = onOpenSeries,
+                            maxHeight = tocMaxHeight,
                         )
                     }
-                }
-            }
-            item(key = "comments_section") {
-                NovelCenteredBox {
-                    CommentsSection(
-                        comments = comments,
-                        loading = commentsLoading,
-                        draft = commentDraft,
-                        onDraftChange = onCommentDraftChange,
-                        onPost = onPostComment,
-                        onRetry = onRetryComments,
-                    )
                 }
             }
             item(key = "bottom_space") { Spacer(Modifier.height(24.dp)) }
@@ -750,183 +782,13 @@ private fun NovelCenteredBox(content: @Composable () -> Unit) {
     }
 }
 
-/** 评论区（第一页主评论）+ 评论输入框。 */
-@Composable
-private fun CommentsSection(
-    comments: List<Comment>,
-    loading: Boolean,
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    onPost: () -> Unit,
-    onRetry: () -> Unit,
-) {
-    // 注意：必须有统一根容器（Column）。
-    // CommentsSection 被包在 NovelCenteredBox 的 Box 里，Box 子项默认堆叠，
-    // 若直接 emit 多个并列 composable（标题 + 各评论行）会全部重叠。
-    Column {
-        Text(
-            text = stringResource(R.string.novel_comments_section, comments.size),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        )
-        when {
-            loading && comments.isEmpty() -> Text(
-                text = stringResource(R.string.novel_comments_loading),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(20.dp),
-            )
-
-            comments.isEmpty() -> Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = stringResource(R.string.novel_comments_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource(R.string.novel_comments_retry),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onRetry)
-                        .padding(4.dp),
-                )
-            }
-
-            else -> comments.forEach { comment ->
-                CommentRow(comment)
-                Spacer(Modifier.height(8.dp))
-            }
-        }
-        CommentInput(
-            draft = draft,
-            onDraftChange = onDraftChange,
-            onPost = onPost,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        )
-    }
-}
-
-@Composable
-private fun CommentRow(comment: Comment) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        UserAvatar(
-            name = comment.user?.name,
-            avatarUrl = comment.user?.profile_image_urls?.best(),
-            modifier = Modifier.size(36.dp),
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = comment.user?.name ?: stringResource(R.string.novel_anonymous_user),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = formatCommentDate(comment.date),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = comment.comment ?: "",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            // 树形对话：父评论下方直接渲染子回复（浅色块 + 缩进，区分父子层）。
-            val replies = comment.replies.orEmpty()
-            if (replies.isNotEmpty()) {
-                val visibleReplies = replies.take(20)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    visibleReplies.forEachIndexed { index, reply ->
-                        ReplyRow(reply)
-                        if (index != visibleReplies.lastIndex) {
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、无分隔线）。 */
-@Composable
-private fun ReplyRow(reply: Comment) {
-    Row(verticalAlignment = Alignment.Top) {
-        UserAvatar(
-            name = reply.user?.name,
-            avatarUrl = reply.user?.profile_image_urls?.best(),
-            modifier = Modifier.size(28.dp),
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = reply.user?.name ?: stringResource(R.string.novel_anonymous_user),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = formatCommentDate(reply.date),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            val parentName = reply.parent_comment?.user?.name
-            val prefix = if (!parentName.isNullOrBlank()) {
-                stringResource(R.string.novel_reply_prefix, parentName)
-            } else {
-                null
-            }
-            Text(
-                text = buildString {
-                    if (prefix != null) append(prefix)
-                    append(reply.comment.orEmpty())
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-    }
-}
-
-/** pixiv 评论时间为 ISO 格式，取日期部分 yyyy-MM-dd。 */
-private fun formatCommentDate(date: String?): String = date?.take(10) ?: ""
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NovelHeader(
     novel: Novel,
     onOpenUser: (Long) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = Modifier.padding(Spacing.lg)) {
         Text(
             text = novel.title.orEmpty(),
             style = MaterialTheme.typography.titleLarge,
@@ -934,7 +796,7 @@ private fun NovelHeader(
         )
         Row(
             modifier = Modifier
-                .padding(top = 12.dp)
+                .padding(top = Spacing.md)
                 .clickable { novel.user?.id?.let(onOpenUser) },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -946,18 +808,57 @@ private fun NovelHeader(
             )
             Text(novel.user?.name.orEmpty(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         }
+        // 发布时间
+        val publishDate = novel.create_date?.take(10)
+        if (!publishDate.isNullOrBlank()) {
+            Row(
+                modifier = Modifier.padding(top = Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.novel_publish_date, publishDate),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
+        }
+        // 统计：三块均分撑满整行（字数 / 收藏 / 浏览）
         Row(
-            modifier = Modifier.padding(top = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            NovelStatText(stringResource(R.string.novel_stat_word), formatCountForNovel(novel.text_length ?: 0))
-            NovelStatText(stringResource(R.string.novel_stat_bookmark), formatCount((novel.total_bookmarks ?: 0).toLong()))
-            NovelStatText(stringResource(R.string.novel_stat_view), formatCount((novel.total_view ?: 0).toLong()))
+            NovelStatText(
+                icon = Icons.Filled.MenuBook,
+                label = stringResource(R.string.novel_stat_word),
+                value = formatCountForNovel(novel.text_length ?: 0),
+                modifier = Modifier.weight(1f),
+            )
+            NovelStatText(
+                icon = Icons.Filled.FavoriteBorder,
+                label = stringResource(R.string.novel_stat_bookmark),
+                value = formatCount((novel.total_bookmarks ?: 0).toLong()),
+                modifier = Modifier.weight(1f),
+            )
+            NovelStatText(
+                icon = Icons.Filled.Visibility,
+                label = stringResource(R.string.novel_stat_view),
+                value = formatCount((novel.total_view ?: 0).toLong()),
+                modifier = Modifier.weight(1f),
+            )
         }
         val tags = novel.tags.orEmpty().take(8)
         if (tags.isNotEmpty()) {
             FlowRow(
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(top = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -967,7 +868,7 @@ private fun NovelHeader(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(AppShapes.pill)
                             .background(MaterialTheme.colorScheme.secondaryContainer)
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
@@ -987,11 +888,34 @@ private fun NovelHeader(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
+/** 统计块：图标 + 数值 + 标签（横向均分整行）。 */
 @Composable
-private fun NovelStatText(label: String, value: String) {
-    Column {
-        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun NovelStatText(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -1009,6 +933,7 @@ private fun NovelActions(
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
     onRead: () -> Unit,
+    onComments: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
         val readLabel = if (progress != null && (progress.percentage ?: 0) > 0) {
@@ -1059,6 +984,17 @@ private fun NovelActions(
                 )
                 Text(stringResource(R.string.novel_download), modifier = Modifier.padding(start = 4.dp))
             }
+            OutlinedButton(
+                onClick = onComments,
+                modifier = Modifier.weight(1f).height(40.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ModeComment,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(stringResource(R.string.novel_comment_button), modifier = Modifier.padding(start = 4.dp))
+            }
         }
         if (downloading && !downloadProgress.isNullOrBlank()) {
             Text(
@@ -1071,9 +1007,11 @@ private fun NovelActions(
     }
 }
 
+/** 系列目录行：序号徽标 + 标题 + 字数/收藏 + 当前章徽标。 */
 @Composable
 private fun ChapterRow(
     novel: Novel,
+    index: Int,
     isCurrent: Boolean,
     onClick: () -> Unit,
 ) {
@@ -1081,10 +1019,33 @@ private fun ChapterRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        // 序号徽标
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(
+                    if (isCurrent) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.secondaryContainer,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = (index + 1).toString().padStart(2, '0'),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (isCurrent) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp),
+        ) {
             Text(
                 text = novel.title.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
@@ -1113,11 +1074,118 @@ private fun ChapterRow(
             Text(
                 text = stringResource(R.string.novel_chapter_current),
                 style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(AppShapes.pill)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             )
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** 系列目录（手机端单列）：标题 + 限高内部滚动列表 + 查看完整系列（不随分册数量增高）。 */
+@Composable
+private fun NovelTocScroll(
+    seriesNovels: List<Novel>,
+    currentId: Long,
+    seriesId: Long?,
+    onOpenNovel: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    maxHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = stringResource(R.string.novel_toc_section, seriesNovels.size),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxHeight)
+                .clip(AppShapes.card)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            seriesNovels.forEachIndexed { index, chapter ->
+                ChapterRow(
+                    novel = chapter,
+                    index = index,
+                    isCurrent = chapter.id == currentId,
+                    onClick = { onOpenNovel(chapter.id) },
+                )
+            }
+        }
+        SeriesMoreRow(seriesId, onOpenSeries)
+    }
+}
+
+/** 系列目录（平板左栏卡片）：与右侧信息等高（外层 Row `IntrinsicSize.Max`），列表内部滚动。 */
+@Composable
+private fun NovelTocPanel(
+    seriesNovels: List<Novel>,
+    currentId: Long,
+    seriesId: Long?,
+    onOpenNovel: (Long) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(AppShapes.card)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.novel_toc_section, seriesNovels.size),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            seriesNovels.forEachIndexed { index, chapter ->
+                ChapterRow(
+                    novel = chapter,
+                    index = index,
+                    isCurrent = chapter.id == currentId,
+                    onClick = { onOpenNovel(chapter.id) },
+                )
+            }
+        }
+        SeriesMoreRow(seriesId, onOpenSeries)
+    }
+}
+
+/** 「查看完整系列 ›」行（无系列 id 时不渲染）。 */
+@Composable
+private fun SeriesMoreRow(
+    seriesId: Long?,
+    onOpenSeries: (Long) -> Unit,
+) {
+    if (seriesId == null) return
+    Text(
+        text = stringResource(R.string.novel_series_view_all),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenSeries(seriesId) }
+            .padding(vertical = 12.dp),
+        textAlign = TextAlign.Center,
+    )
 }
 
 /** 下载选择对话框：导出文件（TXT/EPUB）+ 离线阅读（缓存到应用）。 */

@@ -52,6 +52,7 @@ import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.SeriesBookCover
 import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.ui.theme.AppShapes
 
 /**
  * 小说系列详情页：系列信息头（标题/简介/篇数/连载态/作者）+ 分册 NovelCard 列表。
@@ -323,7 +324,7 @@ private fun SeriesMetaChip(
         style = MaterialTheme.typography.labelMedium,
         color = content,
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(AppShapes.pill)
             .background(container)
             .padding(horizontal = 12.dp, vertical = 5.dp),
     )

@@ -42,6 +42,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.ui.theme.Durations
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.SuccessGreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -144,7 +147,7 @@ private fun NotificationCard(
 ) {
     // 自动消失：消息变化时重启计时（新消息顶替旧消息）
     LaunchedEffect(notification) {
-        delay(2600)
+        delay(Durations.NOTIFICATION_TIMEOUT)
         onDismiss()
     }
     Surface(
@@ -154,7 +157,7 @@ private fun NotificationCard(
         shadowElevation = 4.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 类型图标徽标：语义色 15% alpha 圆底 + 实色图标
@@ -182,7 +185,7 @@ private fun NotificationCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Spacing.sm))
             Icon(
                 imageVector = Icons.Filled.Close,
                 contentDescription = null,
@@ -199,7 +202,7 @@ private fun NotificationCard(
 @Composable
 private fun notificationTypeColor(type: NotificationType): Color = when (type) {
     NotificationType.Info -> MaterialTheme.colorScheme.primary
-    NotificationType.Success -> Color(0xFF4CAF50)
+    NotificationType.Success -> SuccessGreen
     NotificationType.Error -> MaterialTheme.colorScheme.error
 }
 

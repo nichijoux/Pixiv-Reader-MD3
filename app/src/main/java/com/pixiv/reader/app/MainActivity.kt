@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.network.PixivLang
 import com.pixiv.reader.app.R
 import com.pixiv.reader.app.navigation.PixivNavGraph
+import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.core.common.localeFor
 import com.pixiv.reader.core.common.pixivLanguageCode
 import com.pixiv.reader.core.datastore.UserPreferences
@@ -86,14 +87,14 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             val isLoggedIn by sessionRepository.isLoggedIn.collectAsStateWithLifecycle()
-            val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = 0)
+            val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.FOLLOW_SYSTEM)
             val dynamicColor by userPreferences.dynamicColor.collectAsStateWithLifecycle(
                 initialValue = true
             )
             val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
             val isDark = when (themeMode) {
-                1 -> false
-                2 -> true
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
                 else -> isSystemInDarkTheme()
             }
             val notificationHostState = rememberNotificationHostState()

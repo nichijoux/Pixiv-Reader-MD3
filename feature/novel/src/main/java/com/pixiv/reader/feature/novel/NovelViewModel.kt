@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.pixiv.api.model.Comment
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
@@ -29,6 +28,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更。
+ * 评论已独立到 [NovelCommentsViewModel]（详情页不再加载评论）。
  */
 @HiltViewModel
 class NovelViewModel @Inject constructor(
@@ -48,13 +48,6 @@ class NovelViewModel @Inject constructor(
     /** 系列详情（含章节列表） */
     private val _seriesNovels = MutableStateFlow<List<Novel>>(emptyList())
     val seriesNovels: StateFlow<List<Novel>> = _seriesNovels.asStateFlow()
-
-    /** 评论（第一页） */
-    private val _comments = MutableStateFlow<List<Comment>>(emptyList())
-    val comments: StateFlow<List<Comment>> = _comments.asStateFlow()
-
-    private val _commentsLoading = MutableStateFlow(false)
-    val commentsLoading: StateFlow<Boolean> = _commentsLoading.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -104,7 +97,6 @@ class NovelViewModel @Inject constructor(
                     recordHistory(detail)
                     loadProgress()
                     loadSeries(detail)
-                    loadComments()
                 }
                 .onFailure {
                     _error.value = it.message?.let { m -> UiMessage(R.string.novel_error_load_failed_reason, listOf(m)) }
@@ -162,42 +154,6 @@ class NovelViewModel @Inject constructor(
                     _seriesNovels.value = resp.novels.orEmpty()
                     _isWatchlisted.value = resp.novel_series_detail?.watchlist_added == true
                 }
-        }
-    }
-
-    /** 加载评论区（第一页主评论）。 */
-    fun loadComments() {
-        if (_commentsLoading.value) return
-        viewModelScope.launch {
-            _commentsLoading.value = true
-            runCatching { pixivRepository.api.getNovelComments(novelId) }
-                .onSuccess { resp -> _comments.value = resp.comments }
-                .onFailure { _comments.value = emptyList() }
-            _commentsLoading.value = false
-        }
-    }
-
-    // ── 评论区输入 / 发布 ────────────────────────────────────────────────────
-
-    private val _commentDraft = MutableStateFlow("")
-    val commentDraft: StateFlow<String> = _commentDraft.asStateFlow()
-
-    fun onCommentDraftChange(value: String) {
-        _commentDraft.value = value
-    }
-
-    /** 发布评论（成功后清空并刷新评论区）。 */
-    fun postComment() {
-        val text = _commentDraft.value.trim()
-        if (text.isEmpty()) return
-        viewModelScope.launch {
-            runCatching { pixivRepository.api.postNovelComment(novelId, text) }
-                .onSuccess {
-                    _commentDraft.value = ""
-                    _message.send(UiMessage(R.string.novel_msg_comment_published))
-                    loadComments()
-                }
-                .onFailure { _message.send(UiMessage(R.string.novel_msg_comment_failed, listOf(it.message ?: ""))) }
         }
     }
 

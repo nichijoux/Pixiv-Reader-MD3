@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 加载中占位：全屏居中 `CircularProgressIndicator`。
@@ -54,7 +55,7 @@ fun ErrorBox(
     // message 为空/空白时回退到本地化兜底文案（i18n）
     val text = message.takeUnless { it.isNullOrBlank() } ?: stringResource(R.string.load_failed)
     Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
+        modifier = modifier.fillMaxSize().padding(Spacing.xl),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -64,7 +65,7 @@ fun ErrorBox(
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
         )
-        Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
+        Button(onClick = onRetry, modifier = Modifier.padding(top = Spacing.lg)) {
             Icon(Icons.Filled.Refresh, contentDescription = null)
             Text(stringResource(R.string.retry), modifier = Modifier.padding(start = 6.dp))
         }
@@ -82,7 +83,7 @@ fun ErrorBox(
  */
 @Composable
 fun EmptyBox(text: String, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.fillMaxSize().padding(Spacing.xl), contentAlignment = Alignment.Center) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,

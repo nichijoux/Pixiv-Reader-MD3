@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 排名徽标配色：1 金 / 2 橙 / 3 灰，其余用主题次级色（[NovelCard] 排名徽标复用）。 */
 internal fun rankColor(rank: Int): Color? = when (rank) {
@@ -57,11 +59,11 @@ fun RankingRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.card)
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.xs, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Text(
             text = "$rank",
@@ -74,7 +76,7 @@ fun RankingRow(
         PixivImage(
             url = illust.image_urls?.square_medium ?: illust.image_urls?.medium,
             contentDescription = illust.title,
-            modifier = Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)),
+            modifier = Modifier.size(88.dp).clip(AppShapes.card),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(

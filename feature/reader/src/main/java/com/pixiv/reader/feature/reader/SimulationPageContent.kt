@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.PixivImage
 import kotlinx.coroutines.launch
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -359,7 +360,7 @@ fun SimulationPageContent(
             val dis = hypot(cx - curl.control1.x, curl.control2.y - cy).coerceAtLeast(1e-4f)
             val f8 = (cx - curl.control1.x) / dis
             val f9 = (curl.control2.y - cy) / dis
-            val axisAngle = atan2(f9, f8) * 180f / 3.14159265f
+            val axisAngle = atan2(f9, f8) * 180f / PI.toFloat()
             Box(
                 modifier = Modifier
                     .fillMaxSize()

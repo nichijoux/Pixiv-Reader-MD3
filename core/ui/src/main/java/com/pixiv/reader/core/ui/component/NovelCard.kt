@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
@@ -146,7 +148,7 @@ fun NovelCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = AppShapes.large,
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             // ── 上部分：左右布局（左封面 | 右信息） ──
@@ -158,7 +160,7 @@ fun NovelCard(
                     modifier = Modifier
                         .width(104.dp)
                         .aspectRatio(3f / 4f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(AppShapes.card)
                         .clickable(enabled = !novel.coverUrl.isNullOrBlank(), onClick = onOpenCover)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 ) {
@@ -174,9 +176,9 @@ fun NovelCard(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .padding(6.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(AppShapes.small)
                                 .background(Color.Black.copy(alpha = 0.45f))
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                                .padding(horizontal = Spacing.sm, vertical = 3.dp),
                         ) {
                             Text(
                                 text = "$rank",
@@ -192,14 +194,14 @@ fun NovelCard(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = Spacing.sm),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Filled.Favorite,
                                 contentDescription = null,
-                                tint = Color(0xFFE53935),
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(14.dp),
                             )
                             Text(
@@ -280,7 +282,7 @@ fun NovelCard(
                     // 作者 + 时间（一行抵底：头像 + 作者名 + 右侧时间）
                     Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(AppShapes.small)
                             .clickable(onClick = onOpenAuthor),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -296,7 +298,7 @@ fun NovelCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
-                                .padding(start = 8.dp)
+                                .padding(start = Spacing.sm)
                                 .weight(1f),
                         )
                         if (!novel.publishDate.isNullOrBlank()) {
@@ -342,9 +344,9 @@ private fun NovelTagChip(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(AppShapes.small)
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = Spacing.sm, vertical = 3.dp),
     )
 }

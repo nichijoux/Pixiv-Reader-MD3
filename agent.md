@@ -796,3 +796,44 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
   - 初始定位：新增 `LaunchedEffect(pages.size){ if (initialPage>0) listState.scrollToItem(target) }`（与 pagerState 同逻辑）。
 - **我的页**（feature:user）：插画查看方向卡片由 2 个胶囊改 3 个（横向滑动/竖向翻页/无缝竖向）；**竖向文案「竖向滑动」→「竖向翻页」**避免与无缝竖向混淆（key 不变）；新增 `me_viewer_orientation_seamless`（无缝竖向 / Seamless vertical），中英双语。
 - 验证：`:app:compileDebugKotlin` 通过；`:feature:user`/`:feature:viewer`/`:core:datastore`/`:core:ui` 单测通过。**未提交**（第六十二轮全部改动）。
+
+### 第六十三轮：Magic Number 抽象与统一（Token 化 + 模式枚举化）
+- **需求**：分析全仓魔法数字并统一；用户决策：① 尺寸建 token + 替换通用组件/高频点（长尾保留字面量）② 阅读器色合并进 core:ui theme ③ 5 个裸 int 模式值全部枚举化。
+- **新增 Token**（core/ui/theme）：
+  - `Dimens.kt` `object Spacing`：xs=4 / sm=8 / md=12 / lg=16 / xl=24 / pagePadding=16
+  - `Shapes.kt` `object AppShapes`：small=8 / card=12 / large=16 / pill=percent50 / circle；**统一「全圆」口径消灭 `999.dp` 与 `RoundedCornerShape(50)` 双写法**（原 3 处：NovelSeriesRoute:326 / UserRoute:621 / MeRoute:509）
+  - `Durations.kt` `object Durations`：NOTIFICATION_TIMEOUT=2600 / PAGE_SWITCH_ANIM_MS=700 / READER_BAR_HIDE_MS=3000 / READER_UI_DELAY_MS=800
+- **颜色**（core/ui/theme/Color.kt）：新增 `ViewerScrim(0xFF0A0A0A)` / `FavoriteRed(0xFFFF5252)` / `SuccessGreen(0xFF4CAF50)` / `PixivBlue(0xFF0096FA)` + 阅读器 4 主题完整调色板（`ReaderDay/Paper/Night/DeepBlack` × bg/text/secondary/divider/topBar，**取 ReaderTheme.kt 实际渲染色值**）；**删除 7 个无人引用的旧 `Reader*` 常量**（0xFFF6F1E7/0xFF2E3B32/0xFF121212 等，与真实渲染色不一致的死代码）。业务替换：ViewerRoute/FullscreenImageRoute 黑底、ViewerRoute/IllustCard 收藏红、Notification 成功绿、LoginScreen Pixiv 蓝、NovelCard 红心改 `MaterialTheme.colorScheme.error`。
+- **阅读器色合并**：feature/reader `ReaderTheme.kt` 的 `readerThemeColors()` 改为引用 core:ui 调色板常量，参数改 `ReaderThemeMode`；`ReaderThemeColors` 数据类 + `READER_*_NAME_RES` 数组留 feature（依赖 R.string）。
+- **数值常量**：`ZoomableImage` 顶加 `MAX_SCALE=6f`/`DOUBLE_TAP_SCALE=2.5f`；`SimulationPageContent:362` 手写 `3.14159265f` → `kotlin.math.PI`；`SeamlessViewer` 兜底 `0.75f` → `FALLBACK_ASPECT_RATIO`。
+- **模式枚举化**（core/common `AppModes.kt`，仿 AppLanguage 风格）：`ThemeMode(0/1/2)` `ViewerOrientation(0/1/2)` `NovelDefaultTab(0/1)` `ReaderPageMode(0/1/2)` `ReaderThemeMode(0/1/2/3)`，各带 `value: Int` + `from(Int)` 兜底；**存储 key/value 均不变 → 零迁移**。
+  - core:datastore `UserPreferences`：5 个 Flow 改 `Flow<枚举>`（`map { X.from(...) }`），setter 收枚举存 `.value`
+  - app `MainActivity`：`themeMode` when → `ThemeMode.LIGHT/DARK/else`
+  - feature:user `MeViewModel`/`MeRoute`：三处 `listOf(0/1/2 to R.string...)` → 枚举 entries 映射
+  - feature:viewer `ViewerViewModel`/`ViewerRoute`：`orientation == 1/2` → `ViewerOrientation.VERTICAL/SEAMLESS`
+  - feature:novel `NovelFeedViewModel`/`NovelRoute`：`loadDefaultTab(): NovelDefaultTab` + `.value.coerceIn`
+  - feature:reader `ReaderViewModel`（StateFlow<枚举> + setter）、`ReaderRoute`（pageMode 判断、`effectiveTheme` 枚举化 `if(isDark) NIGHT else PAPER`）、`ReaderSettingsSheet`（`theme: ReaderThemeMode`/`pageMode: ReaderPageMode`，SegmentedButton `entries.getOrNull(index)` 与 `READER_*_NAME_RES` 数组 ordinal 对齐）
+- **尺寸替换（Spacing/AppShapes）**：core:ui 通用组件全量语义替换——IllustCard（角标/收藏浮层/作者行）、NovelCard（封面/角标/标签 chip）、IllustWaterfallGrid（内容边距/间距）、RankingList（TabRow edgePadding/骨架/列表边距）、RankingRow（卡片角/间距）、Notification（卡片内边距/关闭钮）、SettingsCard、StatusViews（24→xl/16→lg）、SeriesBookCover（默认角=card）、CreatorProfileCard（16→large/12→md）；卡片角统一走 `AppShapes.small/card/large`，**6/10/14 等组件特异口径保留字面量**。
+- **坑**：editor 微改 import 换行可能把两行 import 粘成一行（MeRoute/NovelSeriesRoute 曾报 "Expecting a top level declaration"），改 import 后需肉眼复查相邻行；`Shapes.kt` 用 `dp` 记得 import `androidx.compose.ui.unit.dp`。
+- 验证：`:app:compileDebugKotlin` 通过；`:core:ui`/`:core:datastore`/`:feature:user`/`:feature:viewer`/`:feature:novel`/`:feature:reader`/`:feature:auth` 单测通过。**未提交**（第六十二~六十三轮全部改动）。
+
+### 第六十三轮补充：无缝竖向单图居中修复
+- **Bug**：无缝竖向模式只有 1 张图时图片置顶；期望单图垂直居中。
+- **根因**：`SeamlessViewer` 的 `LazyColumn` 未指定 `verticalArrangement`，默认 `Arrangement.Top`，单图（图高 < 屏高）时内容从视口顶部排布。
+- **修复**（feature:viewer/ViewerRoute.kt `SeamlessViewer`）：`verticalArrangement = if (pages.size == 1) Arrangement.Center else Arrangement.Top`——利用 LazyColumn 语义「内容总高小于视口时居中整组、超过时 arrangement 不生效仍从顶排布可滚动」；单图超一屏仍贴顶可滚动（合理），多图行为不变；缩放锁定/顶栏/页码指示不受影响。
+- 验证：`:app:compileDebugKotlin` 通过；`:feature:viewer` 单测通过。**未提交**。
+
+### 第六十四轮：小说详情页重构（依据 design/novel-detail-ui.html 原型）
+- **背景**：用户先要求 HTML 原型（design/novel-detail-ui.html，手机+平板双画框、详情/评论双视图、SVG 图标、M3 色板）确认后进入实现。原型迭代要点：统计行撑满整行均分；平板目录放左侧且与信息等高（先等高→矮→再等高，最终确定等高+sticky 视觉）。
+- **详情页（feature:novel/NovelRoute.kt）**：
+  - 移除内嵌评论区（CommentsSection/CommentRow/ReplyRow/formatCommentDate 迁至 NovelCommentsRoute.kt，同包复用）；
+  - NovelActions 加「评论」按钮成 4 钮行（收藏/追更/下载/评论，ModeComment 图标）→ `onOpenComments`；
+  - 系列目录重构：手机端 `NovelTocScroll`（标题 + Column(heightIn(max=屏高×0.4f).verticalScroll) + SeriesMoreRow「查看完整系列」），平板端 `NovelTocPanel`（Row height(IntrinsicSize.Max) 双栏：左 264dp 卡片 fillMaxHeight 与右侧信息等高 + 内部滚动 + SeriesMoreRow）；`isTablet = screenWidthDp >= 600`；
+  - ChapterRow 加序号徽标（28dp 圆角 9、当前章主色/其余 secondaryContainer、padStart(2,'0')）；
+  - NovelHeader 加发布时间行（create_date.take(10) + DateRange 图标 + `novel_publish_date`）；统计行改 icon+值+标签（MenuBook/FavoriteBorder/Visibility）三块 weight(1f) 均分撑满整行；标签胶囊改 AppShapes.pill；
+  - NovelDetailRoute 增 onOpenSeries/onOpenComments 参数；删除评论 collect/透传。
+- **评论独立页**：新增 NovelCommentsRoute.kt + NovelCommentsViewModel.kt（@HiltViewModel、SavedStateHandle novelId）：PagedState<Comment> 分页（getNovelComments + getNextComments，镜像 IllustViewModel 模式）、触底加载更多（derivedStateOf lastIndex>=size-3）、replyTarget + postComment(parentCommentId)、回复条（primaryContainer 底 + Close 取消、输入框预填 @昵称）、CommentInput 底部固定、作者行点进 onOpenUser、ErrorBox/LoadingBox/EmptyBox 三态。
+- **NovelViewModel**：移除评论职责（comments/commentsLoading/commentDraft/loadComments/onCommentDraftChange/postComment 及 load() 内调用）——详情页不再加载评论，职责分离。
+- **导航**：PixivNavGraph 新增 `ROUTE_NOVEL_COMMENTS = "novel_comments/{novelId}"` + composable 注册；ROUTE_NOVEL 接线 onOpenSeries（→novel_series/{id}）与 onOpenComments（→novel_comments/{id}）。
+- **strings**：新增 6 项双语（novel_publish_date/novel_toc_section/novel_series_view_all/novel_comment_button/novel_reply/novel_reply_cancel）；评论页标题复用 novel_comments_section。
+- 验证：`:app:compileDebugKotlin` + `:feature:novel:testDebugUnitTest` 通过。**未提交**（第六十二~六十四轮全部改动待提交）。

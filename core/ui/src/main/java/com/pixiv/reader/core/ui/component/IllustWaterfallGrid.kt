@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 瀑布流封面高度循环（模拟不同纵横比，仅用于无宽高数据时的回退）。 */
 private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
@@ -51,7 +52,7 @@ fun IllustWaterfallGrid(
     hasMore: Boolean,
     isLoadingMore: Boolean,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+    contentPadding: PaddingValues = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = 96.dp),
     minColumnWidth: Dp = 140.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
     onOpenUser: ((Long) -> Unit)? = null,
@@ -61,8 +62,8 @@ fun IllustWaterfallGrid(
         columns = StaggeredGridCells.Adaptive(minColumnWidth),
         modifier = modifier.fillMaxSize(),
         contentPadding = contentPadding,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalItemSpacing = 8.dp,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalItemSpacing = Spacing.sm,
     ) {
         if (header != null) {
             item(span = StaggeredGridItemSpan.FullLine, key = "grid_header") {

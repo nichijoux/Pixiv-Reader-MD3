@@ -7,6 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.ReaderPageMode
+import com.pixiv.reader.core.common.ReaderThemeMode
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
@@ -109,11 +111,11 @@ class ReaderViewModel @Inject constructor(
     private val _fontFamily = MutableStateFlow("serif")
     val fontFamily: StateFlow<String> = _fontFamily.asStateFlow()
 
-    private val _readerTheme = MutableStateFlow(1)
-    val readerTheme: StateFlow<Int> = _readerTheme.asStateFlow()
+    private val _readerTheme = MutableStateFlow(ReaderThemeMode.PAPER)
+    val readerTheme: StateFlow<ReaderThemeMode> = _readerTheme.asStateFlow()
 
-    private val _pageMode = MutableStateFlow(0)
-    val pageMode: StateFlow<Int> = _pageMode.asStateFlow()
+    private val _pageMode = MutableStateFlow(ReaderPageMode.SCROLL)
+    val pageMode: StateFlow<ReaderPageMode> = _pageMode.asStateFlow()
 
     private val _brightness = MutableStateFlow(1f)
     val brightness: StateFlow<Float> = _brightness.asStateFlow()
@@ -468,12 +470,12 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { runCatching { userPreferences.setReaderFontFamily(value) } }
     }
 
-    fun onReaderThemeChange(value: Int) {
+    fun onReaderThemeChange(value: ReaderThemeMode) {
         _readerTheme.value = value
         viewModelScope.launch { runCatching { userPreferences.setReaderTheme(value) } }
     }
 
-    fun onPageModeChange(value: Int) {
+    fun onPageModeChange(value: ReaderPageMode) {
         _pageMode.value = value
         viewModelScope.launch { runCatching { userPreferences.setReaderPageMode(value) } }
     }

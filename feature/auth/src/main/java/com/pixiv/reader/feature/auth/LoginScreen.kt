@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.auth.R
+import com.pixiv.reader.core.ui.theme.PixivBlue
 
 @Composable
 fun LoginScreen(
@@ -45,7 +46,7 @@ fun LoginScreen(
             modifier = Modifier
                 .size(96.dp)
                 .background(
-                    color = Color(0xFF0096FA),
+                    color = PixivBlue,
                     shape = RoundedCornerShape(28.dp),
                 ),
             contentAlignment = Alignment.Center,

@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 创作者档案数据（用户搜索 / 浏览历史用户类共用）。 */
 data class CreatorProfile(
@@ -77,7 +79,7 @@ fun CreatorProfileCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(AppShapes.large)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick),
     ) {
@@ -124,7 +126,7 @@ fun CreatorProfileCard(
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.md))
             Text(
                 text = profile.name,
                 style = MaterialTheme.typography.titleMedium,

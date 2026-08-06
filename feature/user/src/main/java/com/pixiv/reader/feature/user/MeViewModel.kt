@@ -5,7 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import com.pixiv.api.model.User
+import com.pixiv.reader.core.common.NovelDefaultTab
+import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.SessionRepository
@@ -51,9 +54,9 @@ class MeViewModel @Inject constructor(
     val mutedTags: StateFlow<List<String>> =
         userPreferences.mutedTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** 主题模式：0 跟随系统 / 1 浅色 / 2 深色。 */
-    val themeMode: StateFlow<Int> =
-        userPreferences.themeMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    /** 主题模式：跟随系统 / 浅色 / 深色。 */
+    val themeMode: StateFlow<ThemeMode> =
+        userPreferences.themeMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.FOLLOW_SYSTEM)
 
     /** 动态取色。 */
     val dynamicColor: StateFlow<Boolean> =
@@ -67,13 +70,13 @@ class MeViewModel @Inject constructor(
     val autoUpdate: StateFlow<Boolean> =
         userPreferences.autoUpdate.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    /** 小说 Tab 默认页：0 推荐 / 1 关注。 */
-    val novelDefaultTab: StateFlow<Int> =
-        userPreferences.novelDefaultTab.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    /** 小说 Tab 默认页：推荐 / 关注。 */
+    val novelDefaultTab: StateFlow<NovelDefaultTab> =
+        userPreferences.novelDefaultTab.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NovelDefaultTab.RECOMMEND)
 
-    /** 插画查看器翻页方向：0 横向翻页 / 1 竖向翻页 / 2 无缝竖向。 */
-    val viewerOrientation: StateFlow<Int> =
-        userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    /** 插画查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向。 */
+    val viewerOrientation: StateFlow<ViewerOrientation> =
+        userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerOrientation.HORIZONTAL)
 
     /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
@@ -86,7 +89,7 @@ class MeViewModel @Inject constructor(
         refreshCacheSize()
     }
 
-    fun setThemeMode(value: Int) {
+    fun setThemeMode(value: ThemeMode) {
         viewModelScope.launch { userPreferences.setThemeMode(value) }
     }
 
@@ -111,13 +114,13 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setAutoUpdate(value) }
     }
 
-    /** 设置小说 Tab 默认页（0 推荐 / 1 关注）。 */
-    fun setNovelDefaultTab(value: Int) {
+    /** 设置小说 Tab 默认页（推荐 / 关注）。 */
+    fun setNovelDefaultTab(value: NovelDefaultTab) {
         viewModelScope.launch { userPreferences.setNovelDefaultTab(value) }
     }
 
-    /** 设置插画查看器翻页方向（0 横向翻页 / 1 竖向翻页 / 2 无缝竖向）。 */
-    fun setViewerOrientation(value: Int) {
+    /** 设置插画查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */
+    fun setViewerOrientation(value: ViewerOrientation) {
         viewModelScope.launch { userPreferences.setViewerOrientation(value) }
     }
 

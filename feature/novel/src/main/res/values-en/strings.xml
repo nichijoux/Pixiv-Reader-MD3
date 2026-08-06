@@ -25,6 +25,10 @@
     <string name="novel_not_found">Novel not found</string>
     <string name="novel_cd_back">Back</string>
     <string name="novel_series_section">Series volumes (%1$d)</string>
+    <string name="novel_publish_date">Published %1$s</string>
+    <string name="novel_toc_section">Contents (%1$d)</string>
+    <string name="novel_series_view_all">View full series</string>
+    <string name="novel_comment_button">Comments</string>
 
     <!-- Novel series detail page -->
     <string name="novel_series_title">Series</string>
@@ -49,6 +53,8 @@
     <string name="novel_chapter_word">Words %1$s</string>
     <string name="novel_chapter_bookmark">Bookmarks %1$s</string>
     <string name="novel_chapter_current">Current</string>
+    <string name="novel_reply">Reply</string>
+    <string name="novel_reply_cancel">Cancel reply</string>
     <string name="novel_continue_reading">Continue %1$d%%</string>
     <string name="novel_start_reading">Start reading</string>
     <string name="novel_bookmarked">Bookmarked</string>

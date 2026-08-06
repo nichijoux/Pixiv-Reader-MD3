@@ -52,10 +52,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ZoomableImage
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.ViewerScrim
 
 /**
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
@@ -97,7 +100,7 @@ fun ViewerRoute(
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     // 当前页：无缝竖向按首可见项，其余按 pager 当前页（页码指示 / 下载 / 壁纸共用）
-    val currentIndex = if (orientation == 2) {
+    val currentIndex = if (orientation == ViewerOrientation.SEAMLESS) {
         listState.firstVisibleItemIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     } else {
         pagerState.currentPage
@@ -112,7 +115,7 @@ fun ViewerRoute(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0A)),
+            .background(ViewerScrim),
     ) {
         if (isGif) {
             UgoiraPlayer(
@@ -138,20 +141,20 @@ fun ViewerRoute(
             }
             when (orientation) {
                 // 无缝竖向：按自然宽高比连续堆叠，上下滚动（我的页-浏览设置可切）
-                2 -> SeamlessViewer(
+                ViewerOrientation.SEAMLESS -> SeamlessViewer(
                     pages = pages,
                     state = listState,
                     userScrollEnabled = !anyZoomed,
                     content = pageContent,
                 )
                 // 竖向翻页：整页上下滑动切换
-                1 -> VerticalPager(
+                ViewerOrientation.VERTICAL -> VerticalPager(
                     state = pagerState,
                     userScrollEnabled = !anyZoomed,
                     modifier = Modifier.fillMaxSize(),
                 ) { index -> pageContent(index) }
                 // 横向翻页（默认）
-                else -> HorizontalPager(
+                ViewerOrientation.HORIZONTAL -> HorizontalPager(
                     state = pagerState,
                     userScrollEnabled = !anyZoomed,
                     modifier = Modifier.fillMaxSize(),
@@ -275,6 +278,9 @@ fun ViewerRoute(
 
 // ── 无缝竖向滚动（webtoon 连续堆叠） ───────────────────────────────────────────
 
+/** 无缝模式宽高缺失时兜底 3:4 竖图比例（loadRealSizes 补齐前/失败时） */
+private const val FALLBACK_ASPECT_RATIO = 0.75f
+
 /**
  * 无缝竖向模式：每 P 按真实宽高比撑满屏宽连续堆叠（无间距），
  * 单指上下连续滚动；缩放时由 [LazyColumn.userScrollEnabled] 锁定滚动（与翻页模式一致）。
@@ -290,13 +296,14 @@ private fun SeamlessViewer(
         state = state,
         userScrollEnabled = userScrollEnabled,
         modifier = Modifier.fillMaxSize(),
+        // 单图且图高不足一屏时垂直居中；多图/超一屏时从顶部排布可滚动
+        verticalArrangement = if (pages.size == 1) Arrangement.Center else Arrangement.Top,
     ) {
         itemsIndexed(pages) { index, page ->
-            // 宽高缺失时兜底 3:4 竖图比例（loadRealSizes 补齐前/失败时）
             val ratio = if (page.width > 0 && page.height > 0) {
                 page.width.toFloat() / page.height.toFloat()
             } else {
-                0.75f
+                FALLBACK_ASPECT_RATIO
             }
             Box(
                 modifier = Modifier
@@ -338,7 +345,7 @@ private fun ViewerActionBar(
         ViewerActionButton(
             icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
             contentDescription = stringResource(if (isBookmarked) R.string.viewer_cd_unbookmark else R.string.viewer_cd_bookmark),
-            tint = if (isBookmarked) Color(0xFFFF5252) else Color.White,
+            tint = if (isBookmarked) FavoriteRed else Color.White,
             onClick = onBookmark,
         )
         ViewerActionButton(

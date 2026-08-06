@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
@@ -70,12 +71,12 @@ class ViewerViewModel @Inject constructor(
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
-    /** 查看器翻页方向：0 横向翻页 / 1 竖向翻页 / 2 无缝竖向（我的页-浏览设置控制）。 */
-    val viewerOrientation: StateFlow<Int> =
-        userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    /** 查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向（我的页-浏览设置控制）。 */
+    val viewerOrientation: StateFlow<ViewerOrientation> =
+        userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerOrientation.HORIZONTAL)
 
     /** 设置查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */
-    fun setViewerOrientation(value: Int) {
+    fun setViewerOrientation(value: ViewerOrientation) {
         viewModelScope.launch { userPreferences.setViewerOrientation(value) }
     }
 

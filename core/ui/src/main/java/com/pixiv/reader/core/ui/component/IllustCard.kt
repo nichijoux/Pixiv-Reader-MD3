@@ -39,6 +39,9 @@ import com.pixiv.api.model.Illust
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 插画瀑布流卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史共用）。
@@ -105,18 +108,18 @@ fun IllustCard(
             )
             // 左上角：AI 标识 + 页码（多 P），中性黑底白字（与收藏角标统一，不鲜艳）
             Row(
-                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (illust.isAi()) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.45f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = AppShapes.small,
                     ) {
                         Text(
                             text = "AI",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
@@ -125,11 +128,11 @@ fun IllustCard(
                 if (illust.page_count > 1) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.45f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = AppShapes.small,
                     ) {
                         Text(
                             text = "${illust.page_count}P",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
@@ -141,7 +144,7 @@ fun IllustCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp)
+                        .padding(Spacing.sm)
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.35f))
@@ -154,7 +157,7 @@ fun IllustCard(
                     Icon(
                         imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
-                        tint = if (favorite) Color(0xFFFF5252) else Color.White,
+                        tint = if (favorite) FavoriteRed else Color.White,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -165,10 +168,10 @@ fun IllustCard(
                 Surface(
                     modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                     color = Color.Black.copy(alpha = 0.45f),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = AppShapes.small,
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
@@ -200,7 +203,7 @@ fun IllustCard(
                 Row(
                     modifier = Modifier
                         .padding(top = 6.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(AppShapes.small)
                         .clickable(onClick = onOpenAuthor)
                         .padding(end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,

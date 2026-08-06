@@ -33,11 +33,42 @@ val SurfaceContainerLow = Color(0xFFF7F9FB)
 val SurfaceContainer = Color(0xFFF0F4F8)
 val SurfaceContainerHigh = Color(0xFFE4EAF0)
 
-// 小说阅读器专用纸张色
-val ReaderPaperBackground = Color(0xFFF6F1E7)
-val ReaderPaperOnBackground = Color(0xFF3B3328)
-val ReaderPaperSecondary = Color(0xFF8A7F6C)
-val ReaderNightBackground = Color(0xFF2E3B32)
-val ReaderNightOnBackground = Color(0xFFCFE3D2)
-val ReaderDeepBlackBackground = Color(0xFF121212)
-val ReaderDeepBlackOnBackground = Color(0xFFAAAAAA)
+// ── 语义色（跨模块统一，禁止在业务代码写裸色值） ──
+
+/** 全屏查看器 / 图片查看黑底 */
+val ViewerScrim = Color(0xFF0A0A0A)
+
+/** 收藏/爱心选中红 */
+val FavoriteRed = Color(0xFFFF5252)
+
+/** 成功通知绿 */
+val SuccessGreen = Color(0xFF4CAF50)
+
+/** Pixiv 品牌蓝（登录等） */
+val PixivBlue = Color(0xFF0096FA)
+
+// ── 小说阅读器 4 主题调色板（源：feature/reader ReaderTheme.kt 实际渲染色值） ──
+
+val ReaderDayBackground = Color(0xFFFFFFFF)
+val ReaderDayText = Color(0xFF1A1A1A)
+val ReaderDaySecondary = Color(0xFF8A8A8A)
+val ReaderDayDivider = Color(0xFFE5E5E5)
+val ReaderDayTopBar = Color(0xFFFAFAFA)
+
+val ReaderPaperBackground = Color(0xFFF5EFE0)
+val ReaderPaperText = Color(0xFF3A3126)
+val ReaderPaperSecondary = Color(0xFF8A7A60)
+val ReaderPaperDivider = Color(0xFFE2D9C4)
+val ReaderPaperTopBar = Color(0xFFEDE4CF)
+
+val ReaderNightBackground = Color(0xFF212121)
+val ReaderNightText = Color(0xFFCFCFCF)
+val ReaderNightSecondary = Color(0xFF8A8A8A)
+val ReaderNightDivider = Color(0xFF3A3A3A)
+val ReaderNightTopBar = Color(0xFF1C1C1C)
+
+val ReaderDeepBlackBackground = Color(0xFF000000)
+val ReaderDeepBlackText = Color(0xFF9E9E9E)
+val ReaderDeepBlackSecondary = Color(0xFF555555)
+val ReaderDeepBlackDivider = Color(0xFF202020)
+val ReaderDeepBlackTopBar = Color(0xFF000000)

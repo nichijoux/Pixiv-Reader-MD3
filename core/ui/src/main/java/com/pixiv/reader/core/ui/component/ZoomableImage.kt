@@ -20,11 +20,17 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import coil.compose.AsyncImage
 
+/** 最大缩放倍数 */
+private const val MAX_SCALE = 6f
+
+/** 双击放大倍数 */
+private const val DOUBLE_TAP_SCALE = 2.5f
+
 /**
  * 可缩放图片（自研，零依赖）。
  * - 单指：平移（仅缩放 > 1 时启用，避免与 Pager 滑动冲突）
- * - 双指：捏合缩放（1x ~ 6x）
- * - 双击：放大 2.5x / 恢复 1x
+ * - 双指：捏合缩放（1x ~ [MAX_SCALE]）
+ * - 双击：放大 [DOUBLE_TAP_SCALE] / 恢复 1x
  * - 单击：onClick（可选）
  *
  * @param onZoomChanged 缩放状态变化回调（>1 时 Pager 应禁用滑动）
@@ -52,7 +58,7 @@ fun ZoomableImage(
     }
 
     val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
-        val newScale = (scale * zoomChange).coerceIn(1f, 6f)
+        val newScale = (scale * zoomChange).coerceIn(1f, MAX_SCALE)
         val factor = newScale / scale
         offset = clamp(offset * factor)
         scale = newScale
@@ -75,7 +81,7 @@ fun ZoomableImage(
                             offset = Offset.Zero
                             onZoomChanged?.invoke(false)
                         } else {
-                            scale = 2.5f
+                            scale = DOUBLE_TAP_SCALE
                             // 朝点击点方向缩放（近似）
                             offset = clamp(
                                 Offset(
