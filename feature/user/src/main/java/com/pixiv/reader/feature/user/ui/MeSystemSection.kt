@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.user.ui
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.user.R
+
+/**
+ * SAF 初始定位 URI：内置存储 Download 文件夹。
+ * 传给 [ActivityResultContracts.OpenDocumentTree] 的 EXTRA_INITIAL_URI，打开选择器时
+ * 直接定位到 Download（而非存储根——Android 11+ 禁止授权存储卷根目录，会弹隐私提示）。
+ */
+private val DOWNLOAD_DOCUMENT_URI = Uri.parse(
+    "content://com.android.externalstorage.documents/document/primary%3ADownload",
+)
 
 /** 我的页「系统设置」：自动更新 / 下载位置（SAF）/ 清除缓存。 */
 @Composable
@@ -83,7 +93,8 @@ internal fun MeSystemSection(
             }
         }
         OutlinedButton(
-            onClick = { exportDirLauncher.launch(null) },
+            // 初始定位到 Download：避免用户从存储根进入时被系统「保护隐私」限制拦截
+            onClick = { exportDirLauncher.launch(DOWNLOAD_DOCUMENT_URI) },
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
         ) {
             Icon(

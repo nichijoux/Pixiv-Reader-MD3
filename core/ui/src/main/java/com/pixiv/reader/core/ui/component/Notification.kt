@@ -117,11 +117,15 @@ fun rememberNotificationHostState(): NotificationHostState = remember { Notifica
  *
  * @param state 通知状态（[rememberNotificationHostState]）
  * @param modifier 外部定位/边距 Modifier（内部已 `fillMaxWidth` + 底部居中）
+ * @param contentModifier 仅作用于通知卡片内容的 Modifier（如 `navigationBarsPadding()` 避让系统导航栏）。
+ *   注意：必须作用于卡片而不是宿主——若加在 [modifier] 上，即使没有通知（内容收起）宿主也会占位
+ *   非零高度，在 Scaffold snackbar 槽中会残留底部空白。
  */
 @Composable
 fun NotificationHost(
     state: NotificationHostState,
     modifier: Modifier = Modifier,
+    contentModifier: Modifier = Modifier,
 ) {
     val notification by state.queue.collectAsStateWithLifecycle()
     BoxWithConstraints(
@@ -140,12 +144,19 @@ fun NotificationHost(
             exit = slideOutVertically(targetOffsetY = { it / 2 }, animationSpec = tween(220)) +
                 fadeOut(animationSpec = tween(220)),
         ) {
-            last?.let { n ->
-                NotificationCard(
-                    notification = n,
-                    onDismiss = state::dismiss,
-                    modifier = Modifier.widthIn(max = cardMaxWidth),
-                )
+            // 卡片外包一层：contentModifier 只随卡片存在/消失而占位，空闲时宿主高度为 0，
+            // 避免在沉浸式外层 Scaffold（contentWindowInsets=0）的 snackbar 槽残留底部空白
+            Box(
+                modifier = contentModifier,
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                last?.let { n ->
+                    NotificationCard(
+                        notification = n,
+                        onDismiss = state::dismiss,
+                        modifier = Modifier.widthIn(max = cardMaxWidth),
+                    )
+                }
             }
         }
     }

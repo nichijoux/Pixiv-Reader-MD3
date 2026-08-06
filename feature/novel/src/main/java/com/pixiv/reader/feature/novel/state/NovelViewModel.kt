@@ -77,6 +77,14 @@ class NovelViewModel @Inject constructor(
     private val _isWatchlisting = MutableStateFlow(false)
     val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
 
+    /** 作者是否已关注（详情页作者名旁关注按钮）。 */
+    private val _isAuthorFollowed = MutableStateFlow(false)
+    val isAuthorFollowed: StateFlow<Boolean> = _isAuthorFollowed.asStateFlow()
+
+    /** 作者关注操作进行中（防连点）。 */
+    private val _isAuthorFollowing = MutableStateFlow(false)
+    val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
+
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
@@ -101,6 +109,9 @@ class NovelViewModel @Inject constructor(
                     val detail = resp.novel ?: return@onSuccess
                     _novel.value = detail
                     _isBookmarked.value = detail.is_bookmarked == true
+                    // 详情内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
+                    _isAuthorFollowed.value = detail.user?.is_followed == true
+                    detail.user?.id?.let { loadAuthorFollowState(it) }
                     recordHistory(detail)
                     loadProgress()
                     loadSeries(detail)
@@ -198,6 +209,38 @@ class NovelViewModel @Inject constructor(
                 _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
             }
             _isWatchlisting.value = false
+        }
+    }
+
+    // ── 关注作者 ─────────────────────────────────────────────────────────────
+
+    /** 用 user/detail 权威刷新作者关注态（best-effort，失败保留内嵌值）。 */
+    private fun loadAuthorFollowState(userId: Long) {
+        viewModelScope.launch {
+            runCatching { pixivRepository.api.getUserDetail(userId) }
+                .onSuccess { resp ->
+                    resp.user?.is_followed?.let { _isAuthorFollowed.value = it }
+                }
+        }
+    }
+
+    /** 关注 / 取关作者（详情页作者名旁按钮，乐观翻转 + 防连点）。 */
+    fun toggleFollowAuthor() {
+        if (_isAuthorFollowing.value) return
+        val userId = _novel.value?.user?.id ?: return
+        viewModelScope.launch {
+            _isAuthorFollowing.value = true
+            val current = _isAuthorFollowed.value
+            runCatching {
+                if (current) pixivRepository.api.unfollowUser(userId)
+                else pixivRepository.api.followUser(userId, "public")
+            }.onSuccess {
+                _isAuthorFollowed.value = !current
+                _message.send(if (!current) UiMessage(R.string.novel_msg_followed) else UiMessage(R.string.novel_msg_unfollowed))
+            }.onFailure {
+                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+            }
+            _isAuthorFollowing.value = false
         }
     }
 

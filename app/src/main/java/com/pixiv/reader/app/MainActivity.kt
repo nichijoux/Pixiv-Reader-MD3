@@ -13,6 +13,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -143,7 +146,16 @@ class MainActivity : ComponentActivity() {
                 // 保证 MainShell 底部导航延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
                 Scaffold(
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    snackbarHost = { NotificationHost(notificationHostState) },
+                    // 外层 Scaffold 不处理系统栏 insets（沉浸式）：剪贴板链接提示等全局通知
+                    // 需自行避让系统导航栏，否则会贴底被手势条遮挡。
+                    // 避让 padding 放 contentModifier（仅卡片展示时占位）：若放宿主根节点，
+                    // 无通知时空宿主也会占非零高度，导致 bottom bar 上方残留空白
+                    snackbarHost = {
+                        NotificationHost(
+                            notificationHostState,
+                            contentModifier = Modifier.navigationBarsPadding().padding(bottom = 8.dp),
+                        )
+                    },
                 ) { _ ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         PixivNavGraph(

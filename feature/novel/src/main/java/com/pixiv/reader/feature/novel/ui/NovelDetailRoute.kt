@@ -68,6 +68,8 @@ fun NovelDetailRoute(
     val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
     val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
     val isWatchlisting by viewModel.isWatchlisting.collectAsStateWithLifecycle()
+    val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
+    val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
@@ -103,6 +105,8 @@ fun NovelDetailRoute(
                     isBookmarking = isBookmarking,
                     isWatchlisted = isWatchlisted,
                     isWatchlisting = isWatchlisting,
+                    isAuthorFollowed = isAuthorFollowed,
+                    isAuthorFollowing = isAuthorFollowing,
                     downloading = downloading,
                     downloadProgress = downloadProgress,
                     onBack = onBack,
@@ -113,6 +117,7 @@ fun NovelDetailRoute(
                     onOpenComments = onOpenComments,
                     onBookmark = viewModel::toggleBookmark,
                     onWatchlist = viewModel::toggleWatchlist,
+                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
                     onDownload = { showDownloadDialog = true },
                 )
             }
@@ -149,6 +154,8 @@ private fun NovelDetailContent(
     isBookmarking: Boolean,
     isWatchlisted: Boolean,
     isWatchlisting: Boolean,
+    isAuthorFollowed: Boolean,
+    isAuthorFollowing: Boolean,
     downloading: Boolean,
     downloadProgress: String?,
     onBack: () -> Unit,
@@ -159,6 +166,7 @@ private fun NovelDetailContent(
     onOpenComments: (Long) -> Unit,
     onBookmark: () -> Unit,
     onWatchlist: () -> Unit,
+    onToggleFollowAuthor: () -> Unit,
     onDownload: () -> Unit,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
@@ -178,7 +186,14 @@ private fun NovelDetailContent(
                             .padding(start = NOVEL_TOC_PANEL_WIDTH + Spacing.lg),
                     ) {
                         Column(Modifier.fillMaxWidth()) {
-                            NovelHeader(detail, onOpenUser = onOpenUser, expandableIntro = false)
+                            NovelHeader(
+                                detail,
+                                onOpenUser = onOpenUser,
+                                expandableIntro = false,
+                                isAuthorFollowed = isAuthorFollowed,
+                                isAuthorFollowing = isAuthorFollowing,
+                                onToggleFollowAuthor = onToggleFollowAuthor,
+                            )
                             NovelActions(
                                 novel = detail,
                                 progress = progress,
@@ -228,6 +243,8 @@ private fun NovelDetailContent(
             isBookmarking = isBookmarking,
             isWatchlisted = isWatchlisted,
             isWatchlisting = isWatchlisting,
+            isAuthorFollowed = isAuthorFollowed,
+            isAuthorFollowing = isAuthorFollowing,
             downloading = downloading,
             downloadProgress = downloadProgress,
             onBack = onBack,
@@ -238,6 +255,7 @@ private fun NovelDetailContent(
             onOpenComments = onOpenComments,
             onBookmark = onBookmark,
             onWatchlist = onWatchlist,
+            onToggleFollowAuthor = onToggleFollowAuthor,
             onDownload = onDownload,
         )
     }
@@ -253,6 +271,8 @@ private fun PhoneNovelDetail(
     isBookmarking: Boolean,
     isWatchlisted: Boolean,
     isWatchlisting: Boolean,
+    isAuthorFollowed: Boolean,
+    isAuthorFollowing: Boolean,
     downloading: Boolean,
     downloadProgress: String?,
     onBack: () -> Unit,
@@ -263,6 +283,7 @@ private fun PhoneNovelDetail(
     onOpenComments: (Long) -> Unit,
     onBookmark: () -> Unit,
     onWatchlist: () -> Unit,
+    onToggleFollowAuthor: () -> Unit,
     onDownload: () -> Unit,
 ) {
     val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
@@ -276,7 +297,14 @@ private fun PhoneNovelDetail(
             item(key = "info_actions") {
                 NovelCenteredBox {
                     Column {
-                        NovelHeader(detail, onOpenUser = onOpenUser, expandableIntro = true)
+                        NovelHeader(
+                            detail,
+                            onOpenUser = onOpenUser,
+                            expandableIntro = true,
+                            isAuthorFollowed = isAuthorFollowed,
+                            isAuthorFollowing = isAuthorFollowing,
+                            onToggleFollowAuthor = onToggleFollowAuthor,
+                        )
                         NovelActions(
                             novel = detail,
                             progress = progress,

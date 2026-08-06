@@ -50,6 +50,10 @@
     <string name="novel_chapter_current">Current</string>
     <string name="novel_continue_reading">Continue %1$d%%</string>
     <string name="novel_start_reading">Start reading</string>
+    <string name="novel_follow">Follow</string>
+    <string name="novel_following">Following</string>
+    <string name="novel_msg_followed">Followed the author</string>
+    <string name="novel_msg_unfollowed">Unfollowed</string>
     <string name="novel_bookmarked">Bookmarked</string>
     <string name="novel_bookmark">Bookmark</string>
     <string name="novel_watchlisted">Watching</string>
@@ -61,15 +65,15 @@
     <string name="novel_download_scope_single">Single file</string>
     <string name="novel_download_scope_series">Entire series</string>
     <string name="novel_download_group_export">Export file</string>
-    <string name="novel_download_txt_current">This volume (TXT)</string>
+    <string name="novel_download_txt_current">TXT</string>
     <string name="novel_download_txt_current_desc">Plain text, without images</string>
-    <string name="novel_download_epub_current">This volume (EPUB)</string>
+    <string name="novel_download_epub_current">EPUB</string>
     <string name="novel_download_epub_current_desc">Standard e-book, with embedded images</string>
-    <string name="novel_download_pdf_current">This volume (PDF)</string>
+    <string name="novel_download_pdf_current">PDF</string>
     <string name="novel_download_pdf_current_desc">Portable document, great for sharing</string>
-    <string name="novel_download_markdown_current">This volume (Markdown)</string>
+    <string name="novel_download_markdown_current">Markdown</string>
     <string name="novel_download_markdown_current_desc">Plain text, keeps heading levels</string>
-    <string name="novel_download_docx_current">This volume (Word)</string>
+    <string name="novel_download_docx_current">Word</string>
     <string name="novel_download_docx_current_desc">Office document, editable</string>
 
     <!-- ViewModel messages / errors -->

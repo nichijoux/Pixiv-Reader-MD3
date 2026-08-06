@@ -3,6 +3,7 @@ package com.pixiv.reader.core.ui.component
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,7 +91,15 @@ fun AdaptiveNavScaffold(
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        Row(modifier = Modifier.fillMaxSize()) {
+        // 壳层已通过 bottomBar（NavigationBar）处理底部系统导航栏 inset：
+        // 在此消费 innerPadding，避免嵌套的子 Scaffold（各 Tab 页面）再用默认
+        // contentWindowInsets（systemBars）重复加一次底部 inset padding，
+        // 否则页面内容会被整体抬高，底栏上方留出背景色空白带。
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .consumeWindowInsets(padding),
+        ) {
             if (useRail) {
                 NavigationRail(
                     modifier = Modifier.width(84.dp).fillMaxHeight().statusBarsPadding(),

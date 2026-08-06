@@ -50,6 +50,10 @@
     <string name="novel_chapter_current">当前</string>
     <string name="novel_continue_reading">继续阅读 %1$d%%</string>
     <string name="novel_start_reading">开始阅读</string>
+    <string name="novel_follow">关注</string>
+    <string name="novel_following">已关注</string>
+    <string name="novel_msg_followed">已关注作者</string>
+    <string name="novel_msg_unfollowed">已取消关注</string>
     <string name="novel_bookmarked">已收藏</string>
     <string name="novel_bookmark">收藏</string>
     <string name="novel_watchlisted">已追更</string>
@@ -61,15 +65,15 @@
     <string name="novel_download_scope_single">单个文件</string>
     <string name="novel_download_scope_series">整个系列</string>
     <string name="novel_download_group_export">导出文件</string>
-    <string name="novel_download_txt_current">本文（TXT）</string>
+    <string name="novel_download_txt_current">TXT</string>
     <string name="novel_download_txt_current_desc">纯文本，不包含插图</string>
-    <string name="novel_download_epub_current">本文（EPUB）</string>
+    <string name="novel_download_epub_current">EPUB</string>
     <string name="novel_download_epub_current_desc">标准电子书，内嵌插图</string>
-    <string name="novel_download_pdf_current">本文（PDF）</string>
+    <string name="novel_download_pdf_current">PDF</string>
     <string name="novel_download_pdf_current_desc">便携文档，适合打印分享</string>
-    <string name="novel_download_markdown_current">本文（Markdown）</string>
+    <string name="novel_download_markdown_current">Markdown</string>
     <string name="novel_download_markdown_current_desc">纯文本，保留标题层级</string>
-    <string name="novel_download_docx_current">本文（Word）</string>
+    <string name="novel_download_docx_current">Word</string>
     <string name="novel_download_docx_current_desc">Office 文档，可编辑排版</string>
 
     <!-- ViewModel 消息 / 错误 -->
