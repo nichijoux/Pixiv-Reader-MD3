@@ -344,7 +344,7 @@ fun ReaderRoute(
                 isBookmarked = isBookmarked,
                 isMarked = isMarked,
                 isWatchlisted = isWatchlisted,
-                canWatch = novel?.series?.id != null,
+                canWatch = novel?.series?.id?.let { it > 0L } == true,
                 onBack = onBack,
                 onToggleBookmark = viewModel::toggleBookmark,
                 onToggleMark = viewModel::toggleMark,

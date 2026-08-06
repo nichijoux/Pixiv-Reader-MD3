@@ -120,7 +120,8 @@ fun NovelDetailRoute(
         val dialogNovel = novel
         if (showDownloadDialog && dialogNovel != null) {
             DownloadSheet(
-                hasSeries = dialogNovel.series?.id != null,
+                // 真实系列 id 必为正：过滤 pixiv 空对象（Series(id=0)）误判，无系列时整行隐藏
+                hasSeries = dialogNovel.series?.id?.let { it > 0L } == true,
                 onFormat = { format: NovelExportFormat, series: Boolean ->
                     viewModel.export(format, series)
                     showDownloadDialog = false

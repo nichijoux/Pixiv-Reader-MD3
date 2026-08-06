@@ -78,6 +78,8 @@ import kotlinx.coroutines.launch
  * @param onRetry 某段加载失败重试（参数为该段 mode 值）
  * @param onLoadMore 某段触底加载下一页（参数为该段 mode 值）
  * @param emptyText 空态文案（调用方传入本地化文案）
+ * @param skeleton 加载骨架占位（默认仿 [RankingRow] 布局；小说榜等条目为竖版卡片的调用方可自定义，
+ *                 如 `NovelFeedSkeleton`，保证骨架与真实条目布局一致）
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；插画/漫画可用 [RankingRow]
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,6 +92,7 @@ fun <T> RankingList(
     onLoadMore: (String) -> Unit,
     modifier: Modifier = Modifier,
     emptyText: String,
+    skeleton: @Composable () -> Unit = { RankingSkeleton() },
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -189,7 +192,7 @@ fun <T> RankingList(
                                 message = error,
                                 onRetry = { onRetry(mode.value) },
                             )
-                            RankContentState.Loading -> RankingSkeleton()
+                            RankContentState.Loading -> skeleton()
                         }
                     }
                 }

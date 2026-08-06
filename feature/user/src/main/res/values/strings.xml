@@ -98,6 +98,11 @@
     <string name="downloads_downloading">下载中 %1$d%%</string>
     <string name="downloads_failed">下载失败</string>
     <string name="downloads_retry">重试</string>
+    <string name="downloads_format_txt">TXT</string>
+    <string name="downloads_format_epub">EPUB</string>
+    <string name="downloads_format_pdf">PDF</string>
+    <string name="downloads_format_markdown">Markdown</string>
+    <string name="downloads_format_docx">Word</string>
 
     <!-- BlockedRoute -->
     <string name="blocked_title">屏蔽管理</string>

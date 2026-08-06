@@ -26,5 +26,17 @@ data class DownloadEntryEntity(
     val seriesId: Long? = null,
     /** 导出格式（小说 "TXT"/"EPUB"/"PDF"/"MARKDOWN"/"DOCX"；插画等为空串）。主键列，不可为 null。 */
     val format: String = "",
+    /** 小说作者名（下载时从详情快照，下载管理卡片展示；空=未知）。 */
+    val authorName: String? = null,
+    /** 小说作者头像 URL（下载时快照，卡片作者行展示）。 */
+    val authorAvatarUrl: String? = null,
+    /** 小说字数（下载时快照，卡片封面角标展示）。 */
+    val wordCount: Int = 0,
+    /** 小说收藏数（下载时快照；下载卡片暂不展示，保留数据）。 */
+    val favoriteCount: Int = 0,
+    /** 小说发布日期（ISO，下载时快照，卡片作者行展示）。 */
+    val publishDate: String? = null,
+    /** 小说所属系列标题（下载时快照，卡片系列行展示）。 */
+    val seriesTitle: String? = null,
     val updatedAt: Long = System.currentTimeMillis(),
 )

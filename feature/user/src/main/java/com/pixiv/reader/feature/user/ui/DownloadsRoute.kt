@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,9 +23,15 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -66,6 +74,7 @@ import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.IllustCard
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.theme.AppShapes
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -257,6 +266,9 @@ private fun NovelDownloadList(
                         onOpenAuthor = {},
                         onToggleFavorite = {},
                         onTagClick = {},
+                        // 下载卡片：隐藏封面角标收藏数（字数保留），封面右上角展示下载类型胶囊
+                        showFavoriteCount = false,
+                        coverBadge = { DownloadFormatBadge(entry.format) },
                     )
                     if (entry.status == "failed") {
                         RetryOverlay(
@@ -365,13 +377,56 @@ private fun DownloadEntryEntity.toDownloadNovelCard(context: Context): NovelCard
     title = title ?: context.getString(R.string.untitled),
     coverUrl = coverUrl,
     authorId = 0,
-    authorName = "",
-    authorAvatarUrl = null,
-    publishDate = null,
-    seriesTitle = null,
-    favoriteCount = 0,
-    wordCount = 0,
+    authorName = authorName ?: "",
+    authorAvatarUrl = authorAvatarUrl,
+    publishDate = publishDate,
+    seriesTitle = seriesTitle,
+    seriesId = seriesId,
+    favoriteCount = favoriteCount,
+    wordCount = wordCount,
 )
+
+/** 下载类型胶囊（封面右上角浮层）：图标 + 格式文字，深色半透明底 + 白色内容（浅色封面上可读）。 */
+@Composable
+private fun DownloadFormatBadge(format: String) {
+    val info = formatInfo(format) ?: return
+    Row(
+        modifier = Modifier
+            .clip(AppShapes.small)
+            .background(Color.Black.copy(alpha = 0.45f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = info.icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = stringResource(info.labelRes),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            color = Color.White,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+    }
+}
+
+/** 导出格式 → 图标 + 文字（与详情页下载弹窗一致）。 */
+private data class FormatInfo(
+    val icon: ImageVector,
+    val labelRes: Int,
+)
+
+private fun formatInfo(format: String): FormatInfo? = when (format) {
+    "TXT" -> FormatInfo(Icons.Filled.Description, R.string.downloads_format_txt)
+    "EPUB" -> FormatInfo(Icons.Filled.MenuBook, R.string.downloads_format_epub)
+    "PDF" -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
+    "MARKDOWN" -> FormatInfo(Icons.Filled.Notes, R.string.downloads_format_markdown)
+    "DOCX" -> FormatInfo(Icons.Filled.Article, R.string.downloads_format_docx)
+    else -> null
+}
 
 /** 应用内可解析阅读的本地文件扩展名（txt/epub/md）。 */
 private fun isParsableLocalFile(entry: DownloadEntryEntity): Boolean {

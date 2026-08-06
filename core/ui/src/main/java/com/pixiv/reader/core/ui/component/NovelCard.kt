@@ -112,6 +112,9 @@ data class NovelCardData(
  * @param onSeriesClick 系列标题点击（打开系列详情页；seriesId 为 null 时系列标题不可点）
  * @param onTagClick 标签点击（触发标签搜索）
  * @param rank 排名序号（排行榜用，非 null 时封面左上角显示排名徽标：1金/2橙/3灰，其余白色）
+ * @param showFavoriteCount 是否显示封面角标的「红心+收藏数」行（默认 true；下载管理等场景传 false，
+ *                          仅隐藏收藏数行，字数行保留）
+ * @param coverBadge 封面右上角浮层内容（如下载管理页的格式类型胶囊）；null 时不渲染
  * @param modifier 外部传入的 Modifier
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -125,6 +128,8 @@ fun NovelCard(
     onTagClick: (String) -> Unit,
     onSeriesClick: (Long) -> Unit = {},
     rank: Int? = null,
+    showFavoriteCount: Boolean = true,
+    coverBadge: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // 收藏态：初始化为数据模型中的 isFavorite，点击切换并回调外部执行 API
@@ -189,6 +194,16 @@ fun NovelCard(
                             )
                         }
                     }
+                    // 封面右上角浮层：如下载管理页的格式类型胶囊（不占行，与左上角 rank 徽标对称）
+                    if (coverBadge != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp),
+                        ) {
+                            coverBadge()
+                        }
+                    }
                     // 底部居中角标：红心 + 收藏数 / 字数（无背景，字体加粗）
                     Column(
                         modifier = Modifier
@@ -197,18 +212,20 @@ fun NovelCard(
                             .padding(vertical = Spacing.sm),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Favorite,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Text(
-                                text = formatCountForNovel(novel.favoriteCount),
-                                style = badgeStyle,
-                                modifier = Modifier.padding(start = 3.dp),
-                            )
+                        if (showFavoriteCount) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Favorite,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Text(
+                                    text = formatCountForNovel(novel.favoriteCount),
+                                    style = badgeStyle,
+                                    modifier = Modifier.padding(start = 3.dp),
+                                )
+                            }
                         }
                         Text(
                             text = formatCountForNovel(novel.wordCount),

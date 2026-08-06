@@ -31,6 +31,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDFont
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
+import androidx.core.net.toUri
 
 /**
  * 小说导出引擎：把小说（单本或整个系列）导出为 TXT / EPUB / PDF / MARKDOWN / DOCX 文件。
@@ -135,7 +136,7 @@ class NovelExporter @Inject constructor(
         seriesId: Long?,
     ): Pair<List<Pair<Novel, NovelDocument>>, Novel> {
         val cache = cacheDir(novelId, format)
-        val chapters = if (seriesId != null && seriesId > 0L) {
+        val chapters = if ((seriesId != null) && (seriesId > 0L)) {
             val novels = fetchSeriesNovels(seriesId)
             if (novels.isEmpty()) error("系列中没有可下载的分册")
             novels.mapIndexed { index, chapter ->
@@ -225,6 +226,13 @@ class NovelExporter @Inject constructor(
             status = "done",
             progress = 100,
             chapterCount = chapterCount,
+            // 下载管理卡片元数据快照（作者/字数/收藏/发布/系列标题）
+            authorName = coverNovel.user?.name,
+            authorAvatarUrl = coverNovel.user?.profile_image_urls?.best(),
+            wordCount = coverNovel.text_length ?: 0,
+            favoriteCount = coverNovel.total_bookmarks ?: 0,
+            publishDate = coverNovel.create_date,
+            seriesTitle = coverNovel.series?.title,
         )
     }
 
@@ -267,6 +275,12 @@ class NovelExporter @Inject constructor(
         status: String,
         progress: Int,
         chapterCount: Int,
+        authorName: String? = null,
+        authorAvatarUrl: String? = null,
+        wordCount: Int = 0,
+        favoriteCount: Int = 0,
+        publishDate: String? = null,
+        seriesTitle: String? = null,
     ) {
         runCatching {
             downloadEntryDao.upsert(
@@ -281,6 +295,12 @@ class NovelExporter @Inject constructor(
                     pageCount = chapterCount,
                     seriesId = seriesId,
                     format = format.name,
+                    authorName = authorName,
+                    authorAvatarUrl = authorAvatarUrl,
+                    wordCount = wordCount,
+                    favoriteCount = favoriteCount,
+                    publishDate = publishDate,
+                    seriesTitle = seriesTitle,
                 ),
             )
         }
@@ -388,7 +408,7 @@ class NovelExporter @Inject constructor(
             file.writeBytes(bytes)
             return file.path
         }
-        val tree = DocumentFile.fromTreeUri(context, Uri.parse(dirUri)) ?: error("导出目录不可用")
+        val tree = DocumentFile.fromTreeUri(context, dirUri.toUri()) ?: error("导出目录不可用")
         tree.findFile(fileName)?.delete()
         val doc = tree.createFile(mime, fileName) ?: error("无法创建导出文件")
         context.contentResolver.openOutputStream(doc.uri)?.use { it.write(bytes) }
@@ -412,7 +432,7 @@ class NovelExporter @Inject constructor(
      */
     private fun buildPdf(text: String): ByteArray {
         val doc = PDDocument()
-        try {
+        doc.use { doc ->
             val font = loadCjkFont(doc)
             if (font == null) {
                 // 无可用中日文字体：退化为 Helvetica（纯 ASCII，中文不显示，避免崩溃）
@@ -423,8 +443,6 @@ class NovelExporter @Inject constructor(
             val out = ByteArrayOutputStream()
             doc.save(out)
             return out.toByteArray()
-        } finally {
-            doc.close()
         }
     }
 
@@ -548,7 +566,7 @@ class NovelExporter @Inject constructor(
     }
 
     /** 下载图片字节（带 Referer 的 imageClient；失败返回 null）。 */
-    private suspend fun downloadImage(url: String): ByteArray? {
+    private fun downloadImage(url: String): ByteArray? {
         return runCatching {
             val request = Request.Builder().url(url).build()
             pixivRepository.imageClient.newCall(request).execute().use { resp ->

@@ -84,7 +84,7 @@ internal fun NovelActions(
                 icon = if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
                 label = if (isWatchlisted) stringResource(R.string.novel_watchlisted) else stringResource(R.string.novel_watch),
                 active = isWatchlisted,
-                enabled = !isWatchlisting && novel.series?.id != null,
+                enabled = !isWatchlisting && novel.series?.id?.let { it > 0L } == true,
                 onClick = onWatchlist,
                 modifier = Modifier.weight(1f),
             )

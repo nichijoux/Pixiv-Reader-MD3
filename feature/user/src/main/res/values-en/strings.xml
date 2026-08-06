@@ -98,6 +98,11 @@
     <string name="downloads_downloading">Downloading %1$d%%</string>
     <string name="downloads_failed">Download failed</string>
     <string name="downloads_retry">Retry</string>
+    <string name="downloads_format_txt">TXT</string>
+    <string name="downloads_format_epub">EPUB</string>
+    <string name="downloads_format_pdf">PDF</string>
+    <string name="downloads_format_markdown">Markdown</string>
+    <string name="downloads_format_docx">Word</string>
 
     <!-- Blocked -->
     <string name="blocked_title">Blocked</string>

@@ -92,6 +92,8 @@ fun NovelRankingRoute(
             onLoadMore = viewModel::loadMore,
             modifier = Modifier.padding(padding),
             emptyText = stringResource(R.string.novel_ranking_empty),
+            // 加载骨架与小说页一致（仿 NovelCard 竖版卡片），而非默认仿 RankingRow 行布局
+            skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
         ) { item, rank ->
             NovelCard(
                 novel = NovelCardData(

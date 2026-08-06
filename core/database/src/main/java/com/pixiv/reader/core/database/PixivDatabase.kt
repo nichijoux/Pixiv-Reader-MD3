@@ -85,6 +85,18 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/** v6→v7：download_entry 新增小说元数据快照列（作者/字数/收藏/发布/系列标题，下载管理卡片展示用）。 */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `authorName` TEXT")
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `authorAvatarUrl` TEXT")
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `wordCount` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `favoriteCount` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `publishDate` TEXT")
+        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `seriesTitle` TEXT")
+    }
+}
+
 @Database(
     entities = [
         ReadingProgressEntity::class,
@@ -92,7 +104,7 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         DownloadEntryEntity::class,
         SearchHistoryEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {
