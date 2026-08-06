@@ -12,4 +12,6 @@
     <string name="fullscreen_image_cd_back">返回</string>
     <string name="common_cancel">取消</string>
     <string name="common_delete">删除</string>
+    <string name="download_progress">%1$d%%</string>
+    <string name="download_failed">下载失败</string>
 </resources>

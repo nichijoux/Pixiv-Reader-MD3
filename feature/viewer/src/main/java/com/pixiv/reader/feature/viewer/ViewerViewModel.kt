@@ -233,8 +233,8 @@ class ViewerViewModel @Inject constructor(
                         status = status,
                         progress = progress,
                         pageCount = _pages.value.size,
-                        width = w,
-                        height = h,
+                        width = if (w > 0) w else (_illust.value?.width ?: 0),
+                        height = if (h > 0) h else (_illust.value?.height ?: 0),
                     ),
                 )
             }

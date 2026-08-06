@@ -68,7 +68,8 @@ class NovelOfflineDownloadWorker(
         }
     }
 
-    /** 下载单本：downloading（章进度）→ 保存 → done；返回 Novel 供标题取用。 */
+    /** 下载单本：downloading（章进度）→ 保存 → done；返回 Novel 供标题取用。
+     * 断点重下：已缓存章节直接跳过（仅推进进度），中断重跑只补缺失章节。 */
     private suspend fun downloadOne(
         novelContentLoader: NovelContentLoader,
         offlineNovelRepository: OfflineNovelRepository,
@@ -77,6 +78,15 @@ class NovelOfflineDownloadWorker(
         index: Int,
         total: Int,
     ): Novel? {
+        // 已缓存章节（上次完成）→ 跳过，不重复下载
+        if (offlineNovelRepository.exists(id)) {
+            upsert(
+                downloadEntryDao, id,
+                status = if (index == total - 1) "done" else "downloading",
+                progress = if (total > 1) ((index + 1) * 100) / total else 100,
+            )
+            return null
+        }
         upsert(downloadEntryDao, id, status = "downloading", progress = if (total > 1) (index * 100) / total else 0)
         val (novel, doc) = novelContentLoader.load(id).getOrThrow()
         offlineNovelRepository.save(novel, doc)

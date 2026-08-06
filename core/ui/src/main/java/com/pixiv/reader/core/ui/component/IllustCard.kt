@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,6 +43,7 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
+import kotlin.math.roundToInt
 
 /**
  * 插画瀑布流卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史共用）。
@@ -68,6 +70,8 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * @param coverHeight 无宽高数据时的回退封面高度
  * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
  * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
+ * @param progress 下载进度 0~1；非 null 时信息区标题栏显示进度条代替标题（下载管理用）
+ * @param failed 下载失败标记（配合 [progress]：进度条与文案变红色）
  */
 @Composable
 fun IllustCard(
@@ -77,6 +81,8 @@ fun IllustCard(
     coverHeight: Dp = 150.dp,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
     onOpenAuthor: () -> Unit = {},
+    progress: Float? = null,
+    failed: Boolean = false,
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
@@ -191,13 +197,34 @@ fun IllustCard(
             }
         }
         Column(modifier = Modifier.padding(10.dp)) {
-            Text(
-                text = illust.title.orEmpty(),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // 下载中 / 下载失败：标题栏替换为进度条 + 状态文案（下载管理用）
+            if (progress != null) {
+                val color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = color,
+                    )
+                    Text(
+                        text = if (failed) {
+                            stringResource(R.string.download_failed)
+                        } else {
+                            stringResource(R.string.download_progress, (progress * 100).roundToInt())
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = color,
+                    )
+                }
+            } else {
+                Text(
+                    text = illust.title.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             val user: User? = illust.user
             if (user != null) {
                 Row(

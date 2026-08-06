@@ -63,7 +63,6 @@ fun MainShell(
     onOpenWatchlist: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
-    onOpenTags: () -> Unit,
     onOpenMangaRanking: () -> Unit,
     onOpenNovelRanking: () -> Unit,
     initialSearch: String? = null,
@@ -156,7 +155,6 @@ fun MainShell(
                     onOpenWatchlist = onOpenWatchlist,
                     onOpenBlocked = onOpenBlocked,
                     onOpenDownloads = onOpenDownloads,
-                    onOpenTags = onOpenTags,
                     onOpenUser = onOpenUser,
                 )
             }

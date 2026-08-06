@@ -42,7 +42,6 @@ class NovelViewModel @Inject constructor(
     private val readingProgressDao: ReadingProgressDao,
     private val browseHistoryDao: BrowseHistoryDao,
     private val downloadEntryDao: DownloadEntryDao,
-    private val novelExporter: NovelExporter,
 ) : ViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
@@ -201,38 +200,63 @@ class NovelViewModel @Inject constructor(
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
-    /** 导出当前单本小说为指定格式文件。 */
+    /** 导出当前单本小说为指定格式文件（后台队列，支持断点续传）。 */
     fun exportNovel(format: NovelExportFormat) {
         val detail = _novel.value ?: return
         if (_downloading.value) return
-        viewModelScope.launch {
-            _downloading.value = true
-            _downloadProgress.value = context.getString(R.string.novel_msg_downloading)
-            _message.send(UiMessage(R.string.novel_msg_downloading))
-            // exportNovel 内部已 runCatching，返回 Result<File>
-            novelExporter.exportNovel(detail, format)
-                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name), type = MessageType.SUCCESS)) }
-                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""), type = MessageType.ERROR)) }
-            _downloading.value = false
-            _downloadProgress.value = null
-        }
+        val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
+            .setInputData(
+                workDataOf(
+                    NovelExportWorker.KEY_NOVEL_ID to detail.id,
+                    NovelExportWorker.KEY_FORMAT to format.name,
+                ),
+            )
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+        _downloading.value = true
+        _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
+        _message.trySend(UiMessage(R.string.novel_msg_export_queued))
+        observeExportCompletion(detail.id)
     }
 
-    /** 导出整个系列为指定格式文件（逐章下载）。 */
+    /** 导出整个系列为指定格式文件（后台队列，支持断点续传）。 */
     fun exportSeries(format: NovelExportFormat) {
         val detail = _novel.value ?: return
+        val seriesId = detail.series?.id ?: return
         if (_downloading.value) return
+        val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
+            .setInputData(
+                workDataOf(
+                    NovelExportWorker.KEY_NOVEL_ID to detail.id,
+                    NovelExportWorker.KEY_SERIES_ID to seriesId,
+                    NovelExportWorker.KEY_FORMAT to format.name,
+                ),
+            )
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+        _downloading.value = true
+        _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
+        _message.trySend(UiMessage(R.string.novel_msg_export_queued))
+        observeExportCompletion(detail.id)
+    }
+
+    /** 观察导出完成：等 downloading 出现后，再等 done/failed，复位导出中状态并发应用内完成/失败通知。 */
+    private fun observeExportCompletion(id: Long) {
         viewModelScope.launch {
-            _downloading.value = true
-            _downloadProgress.value = context.getString(R.string.novel_msg_preparing)
-            _message.send(UiMessage(R.string.novel_msg_downloading))
-            novelExporter.exportSeries(detail, format) { index, total ->
-                _downloadProgress.value = context.getString(R.string.novel_msg_downloading_chapter, index, total)
+            downloadEntryDao.observeAll().first { entries ->
+                entries.any { it.targetId == id && it.targetType == "novel" && it.status == "downloading" }
             }
-                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name), type = MessageType.SUCCESS)) }
-                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""), type = MessageType.ERROR)) }
+            val done = downloadEntryDao.observeAll()
+                .first { entries ->
+                    entries.any { it.targetId == id && it.targetType == "novel" && (it.status == "done" || it.status == "failed") }
+                }
+                .firstOrNull { it.targetId == id && it.targetType == "novel" }
             _downloading.value = false
             _downloadProgress.value = null
+            when (done?.status) {
+                "done" -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(done.title ?: ""), type = MessageType.SUCCESS))
+                "failed" -> _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(""), type = MessageType.ERROR))
+            }
         }
     }
 

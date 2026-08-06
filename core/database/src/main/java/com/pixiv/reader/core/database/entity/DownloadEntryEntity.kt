@@ -18,5 +18,9 @@ data class DownloadEntryEntity(
     /** 插画真实宽高（下载后解析，供历史/下载列表完整显示）。 */
     val width: Int = 0,
     val height: Int = 0,
+    /** 所属系列 ID（小说系列导出/离线；>0 时重试需重建系列任务）。 */
+    val seriesId: Long? = null,
+    /** 导出格式（小说导出 "TXT"/"EPUB"；供重试重建任务）。 */
+    val format: String? = null,
     val updatedAt: Long = System.currentTimeMillis(),
 )

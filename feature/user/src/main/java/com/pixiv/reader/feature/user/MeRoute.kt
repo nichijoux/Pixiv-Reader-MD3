@@ -85,7 +85,6 @@ fun MeRoute(
     onOpenWatchlist: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
-    onOpenTags: () -> Unit,
     onOpenUser: (Long) -> Unit,
     viewModel: MeViewModel = hiltViewModel(),
 ) {
@@ -145,10 +144,6 @@ fun MeRoute(
                 CardSpacer()
                 SettingsCard(
                     SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), onClick = onOpenDownloads),
-                )
-                CardSpacer()
-                SettingsCard(
-                    SettingsCardItem(Icons.Filled.Label, stringResource(R.string.me_tags_title), stringResource(R.string.me_tags_desc), onClick = onOpenTags),
                 )
                 CardSpacer()
                 SettingsCard(

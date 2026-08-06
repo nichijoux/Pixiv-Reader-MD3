@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,6 +82,7 @@ fun DownloadsRoute(
     onOpenCover: (String) -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenLocalReader: (Long) -> Unit,
+    onRetry: (DownloadEntryEntity) -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
@@ -134,6 +136,7 @@ fun DownloadsRoute(
                         DownloadFilter.ILLUST -> IllustDownloadList(
                             entries = entries.filter { it.targetType == "illust" },
                             onOpenIllust = onOpenIllust,
+                            onRetry = onRetry,
                             onDelete = { pendingDelete = it },
                         )
                         DownloadFilter.NOVEL -> NovelDownloadList(
@@ -147,6 +150,7 @@ fun DownloadsRoute(
                                     onOpenNovel(entry.targetId)
                                 }
                             },
+                            onRetry = onRetry,
                             onDelete = { pendingDelete = it },
                         )
                         DownloadFilter.OFFLINE -> NovelDownloadList(
@@ -154,6 +158,7 @@ fun DownloadsRoute(
                             context = context,
                             onOpenCover = onOpenCover,
                             onOpen = { entry -> onOpenReader(entry.targetId) },
+                            onRetry = onRetry,
                             onDelete = { pendingDelete = it },
                         )
                         null -> {}
@@ -184,6 +189,7 @@ fun DownloadsRoute(
 private fun IllustDownloadList(
     entries: List<DownloadEntryEntity>,
     onOpenIllust: (Long) -> Unit,
+    onRetry: (DownloadEntryEntity) -> Unit,
     onDelete: (DownloadEntryEntity) -> Unit,
 ) {
     if (entries.isEmpty()) {
@@ -198,19 +204,24 @@ private fun IllustDownloadList(
         verticalItemSpacing = 8.dp,
     ) {
         items(entries, key = { it.targetId }) { entry ->
-            Column {
-                Box {
-                    IllustCard(
-                        illust = entry.toDownloadIllust(),
-                        onClick = { onOpenIllust(entry.targetId) },
-                    )
-                    DeleteOverlay(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
-                        onDelete = { onDelete(entry) },
+            Box {
+                IllustCard(
+                    illust = entry.toDownloadIllust(),
+                    onClick = { onOpenIllust(entry.targetId) },
+                    // 下载中/失败：标题栏显示进度条（failed 停住最后进度 + 红色标记）；done 恢复标题
+                    progress = if (entry.status == "done") null else entry.progress.coerceIn(0, 100) / 100f,
+                    failed = entry.status == "failed",
+                )
+                if (entry.status == "failed") {
+                    RetryOverlay(
+                        modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+                        onRetry = { onRetry(entry) },
                     )
                 }
-                // 下载中 / 失败状态行（done 不显示）
-                DownloadStatusRow(entry)
+                DeleteOverlay(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                    onDelete = { onDelete(entry) },
+                )
             }
         }
     }
@@ -224,6 +235,7 @@ private fun NovelDownloadList(
     context: Context,
     onOpenCover: (String) -> Unit,
     onOpen: (DownloadEntryEntity) -> Unit,
+    onRetry: (DownloadEntryEntity) -> Unit,
     onDelete: (DownloadEntryEntity) -> Unit,
 ) {
     if (entries.isEmpty()) {
@@ -247,6 +259,12 @@ private fun NovelDownloadList(
                         onToggleFavorite = {},
                         onTagClick = {},
                     )
+                    if (entry.status == "failed") {
+                        RetryOverlay(
+                            modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+                            onRetry = { onRetry(entry) },
+                        )
+                    }
                     DeleteOverlay(
                         modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
                         onDelete = { onDelete(entry) },
@@ -305,6 +323,28 @@ private fun DeleteOverlay(
         Icon(
             imageVector = Icons.Filled.Close,
             contentDescription = stringResource(R.string.cd_delete),
+            tint = Color.White,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+/** 右上角圆形重试按钮（failed 条目点击重新触发下载，断点续传）。 */
+@Composable
+private fun RetryOverlay(
+    modifier: Modifier = Modifier,
+    onRetry: () -> Unit,
+) {
+    IconButton(
+        onClick = onRetry,
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.45f)),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Refresh,
+            contentDescription = stringResource(R.string.downloads_retry),
             tint = Color.White,
             modifier = Modifier.size(14.dp),
         )

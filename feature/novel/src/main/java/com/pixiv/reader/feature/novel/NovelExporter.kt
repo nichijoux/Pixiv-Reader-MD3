@@ -1,11 +1,15 @@
 package com.pixiv.reader.feature.novel
 
 import android.content.Context
+import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Novel
+import com.pixiv.api.model.Series
+import com.pixiv.api.model.User
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.core.novel.NovelDocumentCodec
 import com.pixiv.reader.core.novel.htmlToPlainText
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -19,6 +23,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import org.json.JSONObject
 
 /** 导出格式：TXT（纯文本跳过插图） / EPUB（标准电子书内嵌插图）。 */
 enum class NovelExportFormat { TXT, EPUB }
@@ -46,94 +51,175 @@ class NovelExporter @Inject constructor(
     private val exportDir: File
         get() = File(context.filesDir, "Downloads/novels").apply { mkdirs() }
 
-    /** 导出当前单本小说，返回导出的文件（成功时写入下载索引）。 */
-    suspend fun exportNovel(
-        novel: Novel,
+    /** 导出目录缓存子目录（断点重下：章节文档临时缓存，导出成功后清理）。 */
+    private fun cacheDir(novelId: Long, format: NovelExportFormat): File =
+        File(context.filesDir, "Downloads/novels/.export_${novelId}_${format.name}").apply { mkdirs() }
+
+    /**
+     * 断点续传导出：单本或整个系列导出为 TXT/EPUB 文件。
+     *
+     * 每章下载成功后缓存到临时目录（[cacheDir]）；中断重跑（WorkManager 自动重试 /
+     * 下载管理页手动重试）时已缓存章节直接读盘，只补缺失章节，实现断点重下。
+     *
+     * @param novelId 小说 ID（同时是下载索引 targetId）
+     * @param format 导出格式
+     * @param seriesId 所属系列 ID；>0 时导出整个系列，否则单本
+     * @return 导出的文件
+     */
+    suspend fun exportResumable(
+        novelId: Long,
         format: NovelExportFormat,
+        seriesId: Long? = null,
     ): Result<File> = withContext(Dispatchers.IO) {
-        // 开始：写 downloading 中间态（下载管理可见）
-        markDownloading(novel, format, progress = 0)
+        markDownloading(novelId, format, seriesId)
         runCatching {
-            val loaded = contentLoader.load(novel.id).getOrThrow()
-            when (format) {
-                NovelExportFormat.TXT -> buildTxtFile(listOf(loaded), seriesTitle = null)
-                NovelExportFormat.EPUB -> buildEpubFile(listOf(loaded), seriesTitle = null, coverNovel = novel)
+            val (chapters, coverNovel) = loadChaptersWithCache(novelId, format, seriesId)
+            if (chapters.isEmpty()) error("没有可导出的章节")
+            val file = when (format) {
+                NovelExportFormat.TXT -> buildTxtFile(chapters, seriesTitle = coverNovel.series?.title)
+                NovelExportFormat.EPUB -> buildEpubFile(chapters, seriesTitle = coverNovel.series?.title, coverNovel = coverNovel)
             }
-        }.onSuccess { file ->
-            recordDownload(novel, file, format, chapterCount = 1, progress = 100)
-        }.onFailure { markFailed(novel, format) }
+            ExportResult(file, coverNovel, chapters.size)
+        }.onSuccess { result ->
+            recordDownload(novelId, format, seriesId, result.coverNovel, result.file, result.chapterCount)
+            // 导出成功清理临时缓存
+            cacheDir(novelId, format).deleteRecursively()
+        }.onFailure { markFailed(novelId, format, seriesId) }
+            .map { it.file }
     }
 
-    /** 导出整个系列（循环分页拉全部章节，逐章抓取串行下载），返回导出的文件。 */
-    suspend fun exportSeries(
-        novel: Novel,
+    /** 加载章节（断点）：已缓存章节读盘，缺失章节网络下载并写缓存；按章推进进度。 */
+    private suspend fun loadChaptersWithCache(
+        novelId: Long,
         format: NovelExportFormat,
-        onProgress: (index: Int, total: Int) -> Unit = { _, _ -> },
-    ): Result<File> = withContext(Dispatchers.IO) {
-        // 开始：写 downloading 中间态
-        markDownloading(novel, format, progress = 0)
-        runCatching {
-            val seriesId = novel.series?.id ?: error("该小说不属于任何系列")
+        seriesId: Long?,
+    ): Pair<List<Pair<Novel, NovelDocument>>, Novel> {
+        val cache = cacheDir(novelId, format)
+        val chapters = if (seriesId != null && seriesId > 0L) {
             val novels = fetchSeriesNovels(seriesId)
             if (novels.isEmpty()) error("系列中没有可下载的分册")
-            val chapters = mutableListOf<Pair<Novel, NovelDocument>>()
-            novels.forEachIndexed { index, chapter ->
-                onProgress(index + 1, novels.size)
-                updateProgress(novel, format, ((index + 1) * 100) / novels.size)
-                chapters.add(contentLoader.load(chapter.id).getOrThrow())
+            novels.mapIndexed { index, chapter ->
+                val pair = loadChapterCached(cache, chapter.id, index, novelId, format)
+                updateProgress(novelId, format, seriesId, ((index + 1) * 100) / novels.size)
+                pair
             }
-            val file = when (format) {
-                NovelExportFormat.TXT -> buildTxtFile(chapters, seriesTitle = novel.series?.title)
-                NovelExportFormat.EPUB -> buildEpubFile(chapters, seriesTitle = novel.series?.title, coverNovel = novel)
-            }
-            file to novels.size
-        }.onSuccess { (file, chapterCount) ->
-            recordDownload(novel, file, format, chapterCount, progress = 100)
-        }.onFailure { markFailed(novel, format) }
-            .map { it.first }
+        } else {
+            listOf(
+                loadChapterCached(cache, novelId, 0, novelId, format).also {
+                    updateProgress(novelId, format, seriesId, 100)
+                },
+            )
+        }
+        if (chapters.isEmpty()) error("没有可导出的章节")
+        return chapters to chapters.first().first
     }
+
+    /** 单章加载：`chapter_{index}_{id}.json` 缓存命中直接读盘，否则网络加载并写缓存。 */
+    private suspend fun loadChapterCached(
+        cache: File,
+        chapterId: Long,
+        index: Int,
+        rootId: Long,
+        format: NovelExportFormat,
+    ): Pair<Novel, NovelDocument> {
+        val cacheFile = File(cache, "chapter_${index}_$chapterId.json")
+        if (cacheFile.exists()) {
+            decodeChapterCache(cacheFile.readText(Charsets.UTF_8))?.let { return it }
+        }
+        val loaded = contentLoader.load(chapterId).getOrThrow()
+        runCatching { cacheFile.writeText(encodeChapterCache(loaded.first, loaded.second)) }
+        return loaded
+    }
+
+    /** 章节缓存编码：Novel 元数据 + NovelDocument（org.json）。 */
+    private fun encodeChapterCache(novel: Novel, document: NovelDocument): String {
+        val obj = JSONObject()
+        obj.put("id", novel.id)
+        obj.put("title", novel.title.orEmpty())
+        obj.put("caption", novel.caption.orEmpty())
+        novel.series?.let {
+            obj.put("seriesId", it.id)
+            obj.put("seriesTitle", it.title.orEmpty())
+        }
+        novel.user?.let { obj.put("userName", it.name.orEmpty()) }
+        novel.image_urls?.medium?.let { obj.put("cover", it) }
+        obj.put("document", NovelDocumentCodec.encode(document))
+        return obj.toString()
+    }
+
+    /** 章节缓存解码（损坏/缺失返回 null）。 */
+    private fun decodeChapterCache(json: String): Pair<Novel, NovelDocument>? = runCatching {
+        val obj = JSONObject(json)
+        val id = obj.optLong("id")
+        val doc = NovelDocumentCodec.decode(obj.optString("document")) ?: return@runCatching null
+        val novel = Novel(
+            id = id,
+            title = obj.optString("title"),
+            caption = obj.optString("caption").ifEmpty { null },
+            image_urls = ImageUrls(medium = obj.optString("cover").ifEmpty { null }),
+            series = if (obj.has("seriesId")) Series(obj.optLong("seriesId"), obj.optString("seriesTitle")) else null,
+            user = if (obj.has("userName")) User(id, obj.optString("userName")) else null,
+        )
+        novel to doc
+    }.getOrNull()
 
     /** 写入下载索引（targetType=novel，localPath=导出文件）。 */
     private suspend fun recordDownload(
-        novel: Novel,
-        file: File,
+        novelId: Long,
         format: NovelExportFormat,
+        seriesId: Long?,
+        coverNovel: Novel,
+        file: File,
         chapterCount: Int,
-        progress: Int = 100,
     ) {
-        upsertIndex(novel, format, localPath = file.path, status = "done", progress = progress, chapterCount = chapterCount)
+        upsertIndex(
+            novelId = novelId,
+            title = coverNovel.title,
+            format = format,
+            seriesId = seriesId,
+            coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium,
+            localPath = file.path,
+            status = "done",
+            progress = 100,
+            chapterCount = chapterCount,
+        )
     }
 
     /** 标记开始下载（downloading 中间态，进度 0）。 */
-    private suspend fun markDownloading(novel: Novel, format: NovelExportFormat, progress: Int) {
-        upsertIndex(novel, format, localPath = null, status = "downloading", progress = progress, chapterCount = 0)
+    private suspend fun markDownloading(novelId: Long, format: NovelExportFormat, seriesId: Long?) {
+        upsertIndex(
+            novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
+            localPath = null, status = "downloading", progress = 0, chapterCount = 0,
+        )
     }
 
     /** 更新下载进度（第 x/y 章 → 百分比）。 */
-    private suspend fun updateProgress(novel: Novel, format: NovelExportFormat, progress: Int) {
-        runCatching {
-            downloadEntryDao.upsert(
-                DownloadEntryEntity(
-                    targetId = novel.id,
-                    targetType = "novel",
-                    title = "${novel.title.orEmpty()}（${format.name}）",
-                    coverUrl = novel.image_urls?.medium ?: novel.image_urls?.square_medium,
-                    localPath = null,
-                    status = "downloading",
-                    progress = progress,
-                ),
-            )
-        }
+    private suspend fun updateProgress(
+        novelId: Long,
+        format: NovelExportFormat,
+        seriesId: Long?,
+        progress: Int,
+    ) {
+        upsertIndex(
+            novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
+            localPath = null, status = "downloading", progress = progress, chapterCount = 0,
+        )
     }
 
-    /** 标记下载失败（failed 状态，供下载管理页标记）。 */
-    private suspend fun markFailed(novel: Novel, format: NovelExportFormat) {
-        upsertIndex(novel, format, localPath = null, status = "failed", progress = 0, chapterCount = 0)
+    /** 标记下载失败（failed 状态，供下载管理页标记/重试）。 */
+    private suspend fun markFailed(novelId: Long, format: NovelExportFormat, seriesId: Long?) {
+        upsertIndex(
+            novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
+            localPath = null, status = "failed", progress = 0, chapterCount = 0,
+        )
     }
 
     private suspend fun upsertIndex(
-        novel: Novel,
+        novelId: Long,
+        title: String?,
         format: NovelExportFormat,
+        seriesId: Long?,
+        coverUrl: String?,
         localPath: String?,
         status: String,
         progress: Int,
@@ -142,18 +228,23 @@ class NovelExporter @Inject constructor(
         runCatching {
             downloadEntryDao.upsert(
                 DownloadEntryEntity(
-                    targetId = novel.id,
+                    targetId = novelId,
                     targetType = "novel",
-                    title = "${novel.title.orEmpty()}（${format.name}）",
-                    coverUrl = novel.image_urls?.medium ?: novel.image_urls?.square_medium,
+                    title = title?.let { "$it（${format.name}）" },
+                    coverUrl = coverUrl,
                     localPath = localPath,
                     status = status,
                     progress = progress,
                     pageCount = chapterCount,
+                    seriesId = seriesId,
+                    format = format.name,
                 ),
             )
         }
     }
+
+    /** 导出结果（文件 + 封面小说 + 章节数）。 */
+    private data class ExportResult(val file: File, val coverNovel: Novel, val chapterCount: Int)
 
     // ── TXT ──────────────────────────────────────────────────────────────────
 

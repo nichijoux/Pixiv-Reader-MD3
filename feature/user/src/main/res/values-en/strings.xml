@@ -24,10 +24,6 @@
     <string name="user_section_novel">Novels</string>
     <string name="user_section_series">Series</string>
 
-    <!-- Tag types -->
-    <string name="tags_type_illust">Illustrations</string>
-    <string name="tags_type_novel">Novels</string>
-
     <!-- Me -->
     <string name="me_logout">Sign out</string>
     <string name="me_logout_confirm_title">Sign out?</string>
@@ -50,8 +46,6 @@
     <string name="me_history_desc">Works you\'ve viewed</string>
     <string name="me_downloads_title">Downloads</string>
     <string name="me_downloads_desc">Downloaded content</string>
-    <string name="me_tags_title">Bookmark tags</string>
-    <string name="me_tags_desc">Browse bookmarks by tag</string>
     <string name="me_blocked_title">Mute management</string>
     <string name="me_blocked_desc">Muted users and tags</string>
     <string name="me_theme_mode">Theme mode</string>
@@ -99,6 +93,7 @@
     <string name="downloads_delete_message">This will delete "%1$s". This action cannot be undone.</string>
     <string name="downloads_downloading">Downloading %1$d%%</string>
     <string name="downloads_failed">Download failed</string>
+    <string name="downloads_retry">Retry</string>
 
     <!-- Blocked -->
     <string name="blocked_title">Blocked</string>
@@ -115,10 +110,6 @@
     <string name="blocked_server_desc">pixiv account-level mutes</string>
     <string name="blocked_server_empty">No server-side mutes</string>
     <string name="blocked_unblock">Unmute</string>
-
-    <!-- Tags -->
-    <string name="tags_title">Bookmark tags</string>
-    <string name="tags_empty">No bookmark tags yet</string>
 
     <!-- User -->
     <string name="user_title_default">User profile</string>

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,6 +22,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -28,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,6 +52,7 @@ import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.toNotificationType
+import kotlinx.coroutines.launch
 
 /**
  * 我的收藏（P5）：插画/小说收藏 + 标签筛选 + 分页。
@@ -99,24 +104,36 @@ fun BookmarkRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型 Tab
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                // 类型 TabBar + 滑动分页（HorizontalPager）：点击 Tab / 左右滑动均可切换
+                val pagerState = rememberPagerState(
+                    initialPage = BookmarkType.entries.indexOf(type).coerceAtLeast(0),
+                    pageCount = { BookmarkType.entries.size },
+                )
+                val scope = rememberCoroutineScope()
+                // 滑动切页 → 同步当前类型（VM 内部负责重置标签 / 加载对应列表）
+                LaunchedEffect(pagerState.currentPage) {
+                    val page = pagerState.currentPage
+                    if (page in BookmarkType.entries.indices) {
+                        viewModel.selectType(BookmarkType.entries[page])
+                    }
+                }
+                TabRow(
+                    selectedTabIndex = pagerState.currentPage.coerceIn(0, BookmarkType.entries.size - 1),
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ) {
-                    BookmarkType.entries.forEach { t ->
-                        FilterChip(
-                            selected = type == t,
-                            onClick = { viewModel.selectType(t) },
-                            label = { Text(stringResource(t.labelRes)) },
+                    BookmarkType.entries.forEachIndexed { index, t ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(stringResource(t.labelRes)) },
                         )
                     }
                 }
-                // 标签筛选
+                // 标签筛选（当前类型的标签）
                 if (tags.isNotEmpty()) {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     ) {
                         item(key = "all") {
                             FilterChip(
@@ -134,9 +151,9 @@ fun BookmarkRoute(
                         }
                     }
                 }
-                // 列表
-                Box(modifier = Modifier.weight(1f)) {
-                    when (type) {
+                // 内容分页：每页对应一个类型（各自独立分页数据，滑动不重复请求）
+                HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
+                    when (BookmarkType.entries.getOrNull(page)) {
                         BookmarkType.ILLUST -> BookmarkIllustList(
                             paged = viewModel.illustPaged,
                             onOpenIllust = onOpenIllust,
@@ -153,6 +170,7 @@ fun BookmarkRoute(
                             onTagClick = onSearchTag,
                             onLoadMore = viewModel::loadMore,
                         )
+                        null -> {}
                     }
                 }
             }

@@ -1,6 +1,7 @@
 package com.pixiv.reader.app.navigation
 
 import android.app.Activity
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -15,21 +16,28 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.novel.LocalReaderStore
 import com.pixiv.reader.core.ui.component.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.comments.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
+import com.pixiv.reader.feature.illust.IllustDownloadWorker
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
+import com.pixiv.reader.feature.novel.NovelExportFormat
+import com.pixiv.reader.feature.novel.NovelExportWorker
+import com.pixiv.reader.feature.novel.NovelOfflineDownloadWorker
 import com.pixiv.reader.feature.novel.NovelRankingRoute
 import com.pixiv.reader.feature.novel.NovelSeriesRoute
 import com.pixiv.reader.feature.reader.ReaderRoute
 import com.pixiv.reader.feature.user.BlockedRoute
 import com.pixiv.reader.feature.user.DownloadsRoute
 import com.pixiv.reader.feature.user.HistoryRoute
-import com.pixiv.reader.feature.user.TagsRoute
 import com.pixiv.reader.feature.user.UserBookmarksRoute
 import com.pixiv.reader.feature.user.UserFollowingRoute
 import com.pixiv.reader.feature.user.UserRoute
@@ -71,8 +79,6 @@ const val ROUTE_WATCHLIST = "watchlist"
 const val ROUTE_BLOCKED = "blocked"
 /** 下载管理（图片 / 小说 / 本地文件三类，支持删除）。 */
 const val ROUTE_DOWNLOADS = "downloads"
-/** 收藏标签管理（点击标签跳收藏列表）。 */
-const val ROUTE_TAGS = "tags"
 /** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
 /** 小说排行榜（全屏页，从小说 Tab 推荐页顶部入口进入）。 */
@@ -168,9 +174,6 @@ fun PixivNavGraph(
                 },
                 onOpenDownloads = {
                     navController.navigate(ROUTE_DOWNLOADS)
-                },
-                onOpenTags = {
-                    navController.navigate(ROUTE_TAGS)
                 },
                 onOpenMangaRanking = {
                     navController.navigate(ROUTE_MANGA_RANKING)
@@ -456,6 +459,7 @@ fun PixivNavGraph(
         }
         // 下载管理：三类（图片/小说/本地文件）；本地文件走 local_reader 路由
         composable(ROUTE_DOWNLOADS) {
+            val context = LocalContext.current
             DownloadsRoute(
                 onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
@@ -473,6 +477,7 @@ fun PixivNavGraph(
                 onOpenLocalReader = { novelId ->
                     navController.navigate("local_reader/$novelId")
                 },
+                onRetry = { entry -> retryDownload(context, entry) },
             )
         }
         // 本地文件阅读：正文经 LocalReaderStore.consume() 单次取走（仅一次，避免重复消费）
@@ -490,17 +495,6 @@ fun PixivNavGraph(
                 },
                 localDocument = local?.first,
                 localTitle = local?.second,
-            )
-        }
-        // 收藏标签管理：点击标签带 type+tag 跳收藏列表
-        composable(ROUTE_TAGS) {
-            TagsRoute(
-                onBack = { navController.safeBack() },
-                onOpenTag = { type, tag ->
-                    navController.navigate(
-                        "bookmarks?type=$type&tag=${Uri.encode(tag)}",
-                    )
-                },
             )
         }
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情
@@ -549,5 +543,44 @@ private fun NavHostController.safeBack() {
         navigateUp()
     } else {
         Log.d("PixivNavGraph", "safeBack: 栈底忽略（穿透/误触/越界返回），避免空栈")
+    }
+}
+
+/**
+ * 重试下载（下载管理页 failed 条目）：按 targetType 重建对应后台任务。
+ * 断点续传：已下载部分（插画 `.part` 文件 / 小说导出章节缓存 / 离线已缓存章）由
+ * 各 Worker 自动复用，只补缺失部分。
+ */
+private fun retryDownload(context: Context, entry: DownloadEntryEntity) {
+    when (entry.targetType) {
+        "illust" -> WorkManager.getInstance(context).enqueue(
+            OneTimeWorkRequestBuilder<IllustDownloadWorker>()
+                .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to entry.targetId))
+                .build(),
+        )
+        "novel_offline" -> {
+            val data = mutableListOf<Pair<String, Any?>>()
+            data += NovelOfflineDownloadWorker.KEY_NOVEL_ID to entry.targetId
+            entry.seriesId?.let { data += NovelOfflineDownloadWorker.KEY_SERIES_ID to it }
+            WorkManager.getInstance(context).enqueue(
+                OneTimeWorkRequestBuilder<NovelOfflineDownloadWorker>()
+                    .setInputData(workDataOf(*data.toTypedArray()))
+                    .build(),
+            )
+        }
+        "novel" -> {
+            val format = runCatching { NovelExportFormat.valueOf(entry.format ?: "TXT") }
+                .getOrDefault(NovelExportFormat.TXT)
+            val data = mutableListOf<Pair<String, Any?>>()
+            data += NovelExportWorker.KEY_NOVEL_ID to entry.targetId
+            entry.seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
+            data += NovelExportWorker.KEY_FORMAT to format.name
+            WorkManager.getInstance(context).enqueue(
+                OneTimeWorkRequestBuilder<NovelExportWorker>()
+                    .setInputData(workDataOf(*data.toTypedArray()))
+                    .build(),
+            )
+        }
+        // ugoira / 其他类型暂不支持重试
     }
 }

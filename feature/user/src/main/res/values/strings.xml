@@ -24,10 +24,6 @@
     <string name="user_section_novel">小说</string>
     <string name="user_section_series">系列</string>
 
-    <!-- 收藏标签类型 -->
-    <string name="tags_type_illust">插画</string>
-    <string name="tags_type_novel">小说</string>
-
     <!-- 我的页 MeRoute -->
     <string name="me_logout">退出登录</string>
     <string name="me_logout_confirm_title">退出登录？</string>
@@ -50,8 +46,6 @@
     <string name="me_history_desc">浏览过的作品</string>
     <string name="me_downloads_title">下载管理</string>
     <string name="me_downloads_desc">已下载的内容</string>
-    <string name="me_tags_title">收藏标签</string>
-    <string name="me_tags_desc">按标签浏览收藏</string>
     <string name="me_blocked_title">屏蔽管理</string>
     <string name="me_blocked_desc">已屏蔽的用户与标签</string>
     <string name="me_theme_mode">主题模式</string>
@@ -99,6 +93,7 @@
     <string name="downloads_delete_message">将删除「%1$s」，此操作不可撤销。</string>
     <string name="downloads_downloading">下载中 %1$d%%</string>
     <string name="downloads_failed">下载失败</string>
+    <string name="downloads_retry">重试</string>
 
     <!-- BlockedRoute -->
     <string name="blocked_title">屏蔽管理</string>
@@ -115,10 +110,6 @@
     <string name="blocked_server_desc">pixiv 账号级屏蔽</string>
     <string name="blocked_server_empty">暂无服务端屏蔽</string>
     <string name="blocked_unblock">取消屏蔽</string>
-
-    <!-- TagsRoute -->
-    <string name="tags_title">收藏标签</string>
-    <string name="tags_empty">暂无收藏标签</string>
 
     <!-- UserRoute -->
     <string name="user_title_default">用户主页</string>
