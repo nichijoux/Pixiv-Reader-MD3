@@ -25,6 +25,7 @@ import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.RankingList
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 
 /**
  * 小说排行榜全屏页：分段 Tab + 左右滑动切换（复用通用 [RankingList]）。
@@ -54,7 +55,7 @@ fun NovelRankingRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 

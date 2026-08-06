@@ -104,12 +104,14 @@ import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.common.ReaderPageMode
 import com.pixiv.reader.core.common.ReaderThemeMode
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.ConfirmDialog
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 import kotlinx.coroutines.launch
 
 private val PAGE_H_PADDING = 24.dp
@@ -180,9 +182,11 @@ fun ReaderRoute(
     val themeColors = remember(effectiveTheme) { readerThemeColors(effectiveTheme) }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
-    var settingsOpen by remember { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
-    var pageInfo by remember { mutableStateOf(0 to 0) }
+var settingsOpen by remember { mutableStateOf(false) }
+var menuOpen by remember { mutableStateOf(false) }
+var pageInfo by remember { mutableStateOf(0 to 0) }
+    // 清除自定义字体确认
+    var showClearFontConfirm by remember { mutableStateOf(false) }
     // 沉浸式阅读：默认只显示正文，点击正文切换工具栏显隐
     var barsVisible by remember { mutableStateOf(false) }
     // 目录 / 搜索跳转目标（全文字符偏移），由各内容组件响应
@@ -204,7 +208,7 @@ fun ReaderRoute(
     ) { uri -> uri?.let(viewModel::importCustomFont) }
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray())) }
+        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType()) }
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.flushProgress() }
@@ -491,6 +495,7 @@ fun ReaderRoute(
             state = notificationHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 8.dp),
         )
     }
@@ -513,8 +518,22 @@ fun ReaderRoute(
             onBrightnessChange = viewModel::onBrightnessChange,
             onFollowSystemChange = viewModel::onFollowSystemChange,
             onImportFont = { fontPicker.launch(arrayOf("font/ttf", "font/otf", "application/octet-stream")) },
-            onClearFont = viewModel::clearCustomFont,
+            onClearFont = { showClearFontConfirm = true },
             onDismiss = { settingsOpen = false },
+        )
+    }
+
+    // 清除自定义字体确认（删除字体文件并恢复默认）
+    if (showClearFontConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.reader_settings_clear_font_title),
+            message = stringResource(R.string.reader_settings_clear_font_message),
+            confirmText = stringResource(R.string.reader_settings_clear),
+            onConfirm = {
+                viewModel.clearCustomFont()
+                showClearFontConfirm = false
+            },
+            onDismiss = { showClearFontConfirm = false },
         )
     }
 

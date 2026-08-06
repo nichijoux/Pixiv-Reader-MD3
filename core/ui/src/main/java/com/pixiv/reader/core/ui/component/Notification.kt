@@ -212,3 +212,10 @@ private fun notificationTypeIcon(type: NotificationType): ImageVector = when (ty
     NotificationType.Success -> Icons.Filled.CheckCircle
     NotificationType.Error -> Icons.Filled.ErrorOutline
 }
+
+/** core:common [MessageType] → 通知类型映射（ViewModel 一次性事件统一走此转换）。 */
+fun com.pixiv.reader.core.common.MessageType.toNotificationType(): NotificationType = when (this) {
+    com.pixiv.reader.core.common.MessageType.INFO -> NotificationType.Info
+    com.pixiv.reader.core.common.MessageType.SUCCESS -> NotificationType.Success
+    com.pixiv.reader.core.common.MessageType.ERROR -> NotificationType.Error
+}

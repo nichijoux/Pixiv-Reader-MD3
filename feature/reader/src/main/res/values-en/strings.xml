@@ -21,6 +21,8 @@
     <string name="reader_settings_change_custom_font">Change custom font</string>
     <string name="reader_settings_import_custom_font">Import custom font</string>
     <string name="reader_settings_clear">Clear</string>
+    <string name="reader_settings_clear_font_title">Clear custom font?</string>
+    <string name="reader_settings_clear_font_message">This will delete the imported custom font file and restore the default font.</string>
     <string name="reader_settings_section_theme">Theme</string>
     <string name="reader_settings_follow_system">Follow system</string>
     <string name="reader_settings_follow_system_desc">Switch night/paper automatically with system dark mode</string>

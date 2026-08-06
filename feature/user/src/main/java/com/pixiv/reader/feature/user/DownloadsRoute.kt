@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -34,7 +36,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +53,7 @@ import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.ConfirmDialog
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.IllustCard
 import com.pixiv.reader.core.ui.component.NovelCard
@@ -82,6 +88,8 @@ fun DownloadsRoute(
     val pagerState = rememberPagerState(pageCount = { DownloadFilter.entries.size })
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // 待删除确认的下载条目（非 null 时弹出确认框）
+    var pendingDelete by remember { mutableStateOf<DownloadEntryEntity?>(null) }
 
     // 滑动切页 → 同步筛选
     LaunchedEffect(pagerState.currentPage) {
@@ -126,7 +134,7 @@ fun DownloadsRoute(
                         DownloadFilter.ILLUST -> IllustDownloadList(
                             entries = entries.filter { it.targetType == "illust" },
                             onOpenIllust = onOpenIllust,
-                            onDelete = viewModel::delete,
+                            onDelete = { pendingDelete = it },
                         )
                         DownloadFilter.NOVEL -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel" },
@@ -139,20 +147,34 @@ fun DownloadsRoute(
                                     onOpenNovel(entry.targetId)
                                 }
                             },
-                            onDelete = viewModel::delete,
+                            onDelete = { pendingDelete = it },
                         )
                         DownloadFilter.OFFLINE -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel_offline" },
                             context = context,
                             onOpenCover = onOpenCover,
                             onOpen = { entry -> onOpenReader(entry.targetId) },
-                            onDelete = viewModel::delete,
+                            onDelete = { pendingDelete = it },
                         )
                         null -> {}
                     }
                 }
             }
         }
+    }
+
+    // 删除下载确认（删除文件 + 索引，不可撤销）
+    pendingDelete?.let { entry ->
+        ConfirmDialog(
+            title = stringResource(R.string.downloads_delete_title),
+            message = stringResource(R.string.downloads_delete_message, entry.title.orEmpty()),
+            confirmText = stringResource(com.pixiv.reader.core.ui.R.string.common_delete),
+            onConfirm = {
+                viewModel.delete(entry)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null },
+        )
     }
 }
 
@@ -176,15 +198,19 @@ private fun IllustDownloadList(
         verticalItemSpacing = 8.dp,
     ) {
         items(entries, key = { it.targetId }) { entry ->
-            Box {
-                IllustCard(
-                    illust = entry.toDownloadIllust(),
-                    onClick = { onOpenIllust(entry.targetId) },
-                )
-                DeleteOverlay(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
-                    onDelete = { onDelete(entry) },
-                )
+            Column {
+                Box {
+                    IllustCard(
+                        illust = entry.toDownloadIllust(),
+                        onClick = { onOpenIllust(entry.targetId) },
+                    )
+                    DeleteOverlay(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                        onDelete = { onDelete(entry) },
+                    )
+                }
+                // 下载中 / 失败状态行（done 不显示）
+                DownloadStatusRow(entry)
             }
         }
     }
@@ -210,22 +236,56 @@ private fun NovelDownloadList(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(entries, key = { it.targetId }) { entry ->
-            Box {
-                val card = entry.toDownloadNovelCard(context)
-                NovelCard(
-                    novel = card,
-                    onClick = { onOpen(entry) },
-                    onOpenCover = { card.coverUrl?.let(onOpenCover) },
-                    onOpenAuthor = {},
-                    onToggleFavorite = {},
-                    onTagClick = {},
-                )
-                DeleteOverlay(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
-                    onDelete = { onDelete(entry) },
-                )
+            Column {
+                Box {
+                    val card = entry.toDownloadNovelCard(context)
+                    NovelCard(
+                        novel = card,
+                        onClick = { onOpen(entry) },
+                        onOpenCover = { card.coverUrl?.let(onOpenCover) },
+                        onOpenAuthor = {},
+                        onToggleFavorite = {},
+                        onTagClick = {},
+                    )
+                    DeleteOverlay(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                        onDelete = { onDelete(entry) },
+                    )
+                }
+                // 下载中 / 失败状态行（done 不显示）
+                DownloadStatusRow(entry)
             }
         }
+    }
+}
+
+/** 下载状态行：downloading 显示进度条 + 百分比；failed 显示红色失败标记；done 不显示。 */
+@Composable
+private fun DownloadStatusRow(
+    entry: DownloadEntryEntity,
+    modifier: Modifier = Modifier,
+) {
+    when (entry.status) {
+        "downloading" -> Column(modifier = modifier.fillMaxWidth().padding(top = 6.dp)) {
+            LinearProgressIndicator(
+                progress = { entry.progress.coerceIn(0, 100) / 100f },
+                modifier = Modifier.fillMaxWidth().height(4.dp),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(R.string.downloads_downloading, entry.progress.coerceIn(0, 100)),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        "failed" -> Text(
+            text = stringResource(R.string.downloads_failed),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = modifier.padding(top = 4.dp),
+        )
+        else -> {}
     }
 }
 

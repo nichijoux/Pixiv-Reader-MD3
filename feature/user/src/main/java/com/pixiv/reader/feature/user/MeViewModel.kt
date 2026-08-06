@@ -135,7 +135,6 @@ class MeViewModel @Inject constructor(
             val size = withContext(Dispatchers.IO) {
                 listOf(
                     File(appContext.filesDir, "offline"),
-                    File(appContext.filesDir, "novel_debug"),
                     appContext.cacheDir,
                 ).sumOf { dir ->
                     if (!dir.exists()) 0L else dir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
@@ -145,14 +144,17 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 清除缓存：离线小说缓存 + 调试文件 + Coil 图片缓存，并删除对应下载索引。 */
+    /** 清除缓存：离线小说缓存 + 整个 cacheDir（Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等），并删除对应下载索引。 */
     fun clearCache() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 runCatching { File(appContext.filesDir, "offline").deleteRecursively() }
                 runCatching { downloadEntryDao.deleteByType("novel_offline") }
-                runCatching { File(appContext.filesDir, "novel_debug").deleteRecursively() }
+                // 先让 Coil 正常关闭磁盘/内存缓存，再清空整个 cacheDir：
+                // 覆盖 image_cache（Coil）、ugoira（动图帧）、novel_debug（阅读器调试）等，与 refreshCacheSize 统计一致
                 runCatching { appContext.imageLoader.diskCache?.clear() }
+                runCatching { appContext.imageLoader.memoryCache?.clear() }
+                runCatching { appContext.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
             }
             refreshCacheSize()
             _message.send(UiMessage(R.string.me_cache_cleared))

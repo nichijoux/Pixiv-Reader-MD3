@@ -4,33 +4,34 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.common.MessageType
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
-import com.pixiv.reader.core.database.entity.DownloadEntryEntity
-import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.Request
 
 /**
  * 插画详情 ViewModel：详情 / 多页（网页接口补每 P 真实宽高）/ 相关推荐 / 评论区 / 收藏。
- * 附带副作用：打开详情写浏览历史；下载原图到 filesDir/Downloads 并写下载索引。
+ * 附带副作用：打开详情写浏览历史；下载整个作品（全部页）由 [IllustDownloadWorker] 后台执行，
+ * 完成后观察下载索引并发应用内完成/失败通知。
  * illustId 从 SavedStateHandle 读取（路由参数）。
  */
 @HiltViewModel
@@ -174,65 +175,31 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /** 下载当前作品原图到 filesDir/Downloads，并写入下载索引（P6 迁移到 DownloadManager）。 */
+    /** 下载整个作品（全部页）到 filesDir/Downloads/pixiv_{id}/，由 WorkManager 后台执行。 */
     fun download() {
-        viewModelScope.launch {
-            val page = _pages.value.firstOrNull() ?: return@launch
-            val url = page.originalUrl ?: page.displayUrl ?: return@launch
-            val name = "pixiv_${illustId}.jpg"
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val dir = File(context.filesDir, "Downloads").apply { mkdirs() }
-                    val file = File(dir, name)
-                    pixivRepository.imageClient.newCall(Request.Builder().url(url).build())
-                        .execute()
-                        .use { resp ->
-                            if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
-                            resp.body?.byteStream()?.use { input ->
-                                file.outputStream().use { input.copyTo(it) }
-                            }
-                        }
-                    file
-                }
-            }
-            result
-                .onSuccess { file ->
-                    recordDownload(file, status = "done")
-                    _message.send(UiMessage(R.string.illust_msg_saved_to_downloads))
-                }
-                .onFailure {
-                    recordDownload(file = null, status = "failed")
-                    _message.send(UiMessage(R.string.illust_msg_download_failed, listOf(it.message ?: "")))
-                }
-        }
+        val request = OneTimeWorkRequestBuilder<IllustDownloadWorker>()
+            .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to illustId))
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+        _message.trySend(UiMessage(R.string.illust_msg_download_started))
+        observeDownloadCompletion()
     }
 
-    /** 写入下载索引（targetType=illust；解析本地文件真实宽高）。 */
-    private fun recordDownload(file: File?, status: String) {
+    /** 观察本次下载完成：等 downloading 出现后，再等 done/failed，发应用内完成/失败通知（与开始通知同位置）。 */
+    private fun observeDownloadCompletion() {
         viewModelScope.launch {
-            runCatching {
-                var w = 0
-                var h = 0
-                if (file != null && file.exists()) {
-                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    android.graphics.BitmapFactory.decodeFile(file.path, opts)
-                    w = opts.outWidth
-                    h = opts.outHeight
+            // 先等本次下载进入 downloading（避免命中历史 done 记录）
+            downloadEntryDao.observeAll().first { entries ->
+                entries.any { it.targetId == illustId && it.targetType == "illust" && it.status == "downloading" }
+            }
+            val done = downloadEntryDao.observeAll()
+                .first { entries ->
+                    entries.any { it.targetId == illustId && it.targetType == "illust" && (it.status == "done" || it.status == "failed") }
                 }
-                downloadEntryDao.upsert(
-                    DownloadEntryEntity(
-                        targetId = illustId,
-                        targetType = "illust",
-                        title = _illust.value?.title,
-                        coverUrl = _illust.value?.image_urls?.medium
-                            ?: _illust.value?.image_urls?.square_medium,
-                        localPath = file?.path,
-                        status = status,
-                        pageCount = _pages.value.size,
-                        width = w,
-                        height = h,
-                    ),
-                )
+                .firstOrNull { it.targetId == illustId && it.targetType == "illust" }
+            when (done?.status) {
+                "done" -> _message.send(UiMessage(R.string.illust_msg_download_done, type = MessageType.SUCCESS))
+                "failed" -> _message.send(UiMessage(R.string.illust_msg_download_failed, listOf(""), type = MessageType.ERROR))
             }
         }
     }

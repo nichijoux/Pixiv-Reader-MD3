@@ -18,6 +18,8 @@
     <string name="illust_error_load_failed_reason">Failed to load: %1$s</string>
     <string name="illust_msg_action_failed">Action failed: %1$s</string>
     <string name="illust_msg_saved_to_downloads">Saved to Downloads</string>
+    <string name="illust_msg_download_started">Downloading…</string>
+    <string name="illust_msg_download_done">Download complete</string>
     <string name="illust_msg_download_failed">Download failed: %1$s</string>
     <string name="illust_msg_report_wip">Report feature is under development</string>
 </resources>

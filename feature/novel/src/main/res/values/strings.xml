@@ -88,4 +88,6 @@
     <string name="novel_msg_export_failed">导出失败：%1$s</string>
     <string name="novel_msg_queued">已加入下载队列</string>
     <string name="novel_msg_queued_background">已加入下载队列（后台）</string>
+    <string name="novel_msg_offline_done">下载完成：%1$s</string>
+    <string name="novel_msg_offline_failed">下载失败</string>
 </resources>

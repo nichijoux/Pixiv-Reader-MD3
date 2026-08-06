@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -14,6 +15,7 @@ import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
+import com.pixiv.reader.core.network.download.ProgressDownloader
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,7 +34,7 @@ import okhttp3.Request
 
 /**
  * 全屏查看器 ViewModel：多图横滑 / 动图（UgoiraLoader）/ 预览·原图切换 /
- * 壁纸设置 / 收藏 / 原图下载（写下载索引，含真实宽高）。
+ * 壁纸设置 / 收藏 / 当前页下载（前台分块下载，写下载索引含字节进度）。
  * illustId 与初始 page 从 SavedStateHandle 读取（路由参数）。
  */
 @HiltViewModel
@@ -40,9 +42,9 @@ class ViewerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
-    private val ugoiraLoader: UgoiraLoader,
-    private val imageSaver: ImageSaver,
+    private val progressDownloader: ProgressDownloader,
     private val downloadEntryDao: DownloadEntryDao,
+    private val ugoiraLoader: UgoiraLoader,
     private val userPreferences: UserPreferences,
 ) : ViewModel() {
 
@@ -178,23 +180,35 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    /** 下载当前页原图（前台分块下载，写索引含字节进度；单页快，切走页面会中断）。 */
     fun download(page: IllustPageInfo) {
+        val url = page.originalUrl ?: page.displayUrl ?: return
+        val index = _pages.value.indexOf(page).takeIf { it >= 0 } ?: 0
         viewModelScope.launch {
-            val url = page.originalUrl ?: page.displayUrl ?: return@launch
-            imageSaver.save(url, "pixiv_${illustId}.jpg")
+            _message.trySend(UiMessage(R.string.viewer_msg_download_started))
+            recordDownload(null, "downloading", progress = 0)
+            var lastWritten = -1
+            progressDownloader.download(url, "pixiv_${illustId}/p_${index + 1}.jpg") { done, total ->
+                // 字节进度 → 百分比，节流（≥2% 才写数据库）
+                val pct = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 99) else 0
+                if (pct - lastWritten >= 2) {
+                    lastWritten = pct
+                    downloadEntryDao.updateProgress(illustId, pct)
+                }
+            }
                 .onSuccess { file ->
-                    recordDownload(file.path, "done")
-                    _message.send(UiMessage(R.string.viewer_msg_saved_to_downloads))
+                    recordDownload(file.path, "done", progress = 100)
+                    _message.trySend(UiMessage(R.string.viewer_msg_saved_to_downloads, type = MessageType.SUCCESS))
                 }
                 .onFailure {
                     recordDownload(null, "failed")
-                    _message.send(UiMessage(R.string.viewer_msg_download_failed, listOf(it.message ?: "")))
+                    _message.trySend(UiMessage(R.string.viewer_msg_download_failed, listOf(it.message ?: ""), type = MessageType.ERROR))
                 }
         }
     }
 
     /** 写入下载索引（targetType=illust；解析本地文件真实宽高）。 */
-    private fun recordDownload(localPath: String?, status: String) {
+    private fun recordDownload(localPath: String?, status: String, progress: Int = 0) {
         viewModelScope.launch {
             runCatching {
                 var w = 0
@@ -217,6 +231,7 @@ class ViewerViewModel @Inject constructor(
                             ?: _illust.value?.image_urls?.square_medium,
                         localPath = localPath,
                         status = status,
+                        progress = progress,
                         pageCount = _pages.value.size,
                         width = w,
                         height = h,

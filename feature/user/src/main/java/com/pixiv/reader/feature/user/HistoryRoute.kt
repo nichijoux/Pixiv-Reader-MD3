@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -20,12 +22,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -37,6 +43,7 @@ import com.pixiv.api.model.Illust
 import com.google.gson.Gson
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.ConfirmDialog
 import com.pixiv.reader.core.ui.component.CreatorProfile
 import com.pixiv.reader.core.ui.component.CreatorProfileCard
 import com.pixiv.reader.core.ui.component.EmptyBox
@@ -72,6 +79,7 @@ fun HistoryRoute(
     val pagerState = rememberPagerState(pageCount = { HistoryFilter.entries.size })
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var showClearConfirm by remember { mutableStateOf(false) }
 
     // 滑动切页 → 同步筛选
     LaunchedEffect(pagerState.currentPage) {
@@ -92,11 +100,19 @@ fun HistoryRoute(
                 },
                 actions = {
                     if (history.isNotEmpty()) {
-                        IconButton(onClick = viewModel::clearAll) {
+                        // 清空历史：图标 + 文字（删除色），点击弹确认框
+                        TextButton(onClick = { showClearConfirm = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
                             Text(
                                 text = stringResource(R.string.history_clear),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(start = 4.dp),
                             )
                         }
                     }
@@ -152,6 +168,20 @@ fun HistoryRoute(
                 }
             }
         }
+    }
+
+    // 清空浏览历史确认
+    if (showClearConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.history_clear_title),
+            message = stringResource(R.string.history_clear_message),
+            confirmText = stringResource(R.string.history_clear),
+            onConfirm = {
+                viewModel.clearAll()
+                showClearConfirm = false
+            },
+            onDismiss = { showClearConfirm = false },
+        )
     }
 }
 

@@ -47,6 +47,7 @@ import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 
 /**
  * 我的收藏（P5）：插画/小说收藏 + 标签筛选 + 分页。
@@ -75,7 +76,7 @@ fun BookmarkRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 

@@ -11,6 +11,10 @@
     <string name="search_filter">筛选</string>
     <string name="search_history_title">搜索历史</string>
     <string name="search_history_clear">清空</string>
+    <string name="search_history_clear_title">清空搜索历史？</string>
+    <string name="search_history_clear_message">将删除全部搜索历史记录，此操作不可撤销。</string>
+    <string name="search_history_delete_title">删除搜索历史？</string>
+    <string name="search_history_delete_message">将删除搜索历史「%1$s」。</string>
     <string name="search_hot_title">热门搜索</string>
     <string name="search_hint">输入关键词以搜索</string>
     <string name="search_no_hot">暂无热门作品</string>

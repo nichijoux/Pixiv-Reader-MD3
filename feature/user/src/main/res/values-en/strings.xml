@@ -30,6 +30,8 @@
 
     <!-- Me -->
     <string name="me_logout">Sign out</string>
+    <string name="me_logout_confirm_title">Sign out?</string>
+    <string name="me_logout_confirm_message">You\'ll need to log in again to continue using the app.</string>
     <string name="me_section_content">Content</string>
     <string name="me_section_appearance">Appearance</string>
     <string name="me_section_browse">Browsing</string>
@@ -69,6 +71,8 @@
     <string name="me_cache_size">Currently using %1$s (offline novels / images / debug files)</string>
     <string name="me_cache_calculating">Calculating…</string>
     <string name="me_clear">Clear</string>
+    <string name="me_cache_clear_title">Clear cache?</string>
+    <string name="me_cache_clear_message">This will delete all cached files (image cache, animation frames, etc.). This action cannot be undone.</string>
     <string name="me_check_update">Check for updates</string>
     <string name="me_already_latest">You are up to date</string>
     <string name="me_cache_cleared">Cache cleared</string>
@@ -80,6 +84,8 @@
     <!-- History -->
     <string name="history_title">Browse history</string>
     <string name="history_clear">Clear</string>
+    <string name="history_clear_title">Clear browse history?</string>
+    <string name="history_clear_message">This will delete all browsing history. This action cannot be undone.</string>
     <string name="history_empty_illust">No illustration history yet</string>
     <string name="history_empty_novel">No novel history yet</string>
     <string name="history_empty_user">No user history yet</string>
@@ -89,10 +95,18 @@
     <string name="downloads_empty_illust">No illustration downloads</string>
     <string name="downloads_empty">No downloads</string>
     <string name="downloads_local_novel">Local novel</string>
+    <string name="downloads_delete_title">Delete download?</string>
+    <string name="downloads_delete_message">This will delete "%1$s". This action cannot be undone.</string>
+    <string name="downloads_downloading">Downloading %1$d%%</string>
+    <string name="downloads_failed">Download failed</string>
 
     <!-- Blocked -->
-    <string name="blocked_title">Mute management</string>
-    <string name="blocked_clear">Clear</string>
+    <string name="blocked_title">Blocked</string>
+    <string name="blocked_clear">Clear all</string>
+    <string name="blocked_clear_title">Clear local filter tags?</string>
+    <string name="blocked_clear_message">This will delete all local filter tags. This action cannot be undone.</string>
+    <string name="blocked_delete_title">Delete filter tag?</string>
+    <string name="blocked_delete_message">This will delete the filter tag "%1$s".</string>
     <string name="blocked_local_tags_title">Local filter tags</string>
     <string name="blocked_local_tags_desc">Tags filtered from recommendations and search</string>
     <string name="blocked_local_tags_input_hint">Enter a tag to add</string>

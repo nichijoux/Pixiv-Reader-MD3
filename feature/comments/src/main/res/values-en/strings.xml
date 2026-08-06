@@ -9,6 +9,7 @@
     <string name="comment_reply_prefix">Reply to @%1$s: </string>
     <string name="comment_reply">Reply</string>
     <string name="comment_reply_cancel">Cancel reply</string>
+    <string name="comment_reply_expand">View all %1$d replies</string>
     <string name="comment_msg_published">Comment posted</string>
     <string name="comment_msg_failed">Failed to post comment: %1$s</string>
 </resources>

@@ -19,6 +19,7 @@
     <string name="viewer_msg_wallpaper_set">已设为壁纸</string>
     <string name="viewer_msg_wallpaper_failed">设置壁纸失败：%1$s</string>
     <string name="viewer_msg_saved_to_downloads">已保存到下载目录</string>
+    <string name="viewer_msg_download_started">开始下载…</string>
     <string name="viewer_msg_download_failed">下载失败：%1$s</string>
     <string name="viewer_msg_switched_preview">已切换预览</string>
     <string name="viewer_msg_loaded_original">已加载原图</string>

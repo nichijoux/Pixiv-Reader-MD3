@@ -30,6 +30,8 @@
 
     <!-- 我的页 MeRoute -->
     <string name="me_logout">退出登录</string>
+    <string name="me_logout_confirm_title">退出登录？</string>
+    <string name="me_logout_confirm_message">退出后需要重新登录才能继续使用。</string>
     <string name="me_section_content">用户内容管理</string>
     <string name="me_section_appearance">外观设置</string>
     <string name="me_section_browse">浏览设置</string>
@@ -69,6 +71,8 @@
     <string name="me_cache_size">当前占用 %1$s（离线小说/图片/调试文件）</string>
     <string name="me_cache_calculating">计算中…</string>
     <string name="me_clear">清除</string>
+    <string name="me_cache_clear_title">清除缓存？</string>
+    <string name="me_cache_clear_message">将删除全部缓存文件（图片缓存、动图帧等），此操作不可撤销。</string>
     <string name="me_check_update">检查更新</string>
     <string name="me_already_latest">当前已是最新版本</string>
     <string name="me_cache_cleared">缓存已清除</string>
@@ -78,8 +82,10 @@
     <string name="me_open_source_license">开源许可：项目基于 pixiv 开放接口，仅供学习与交流使用。</string>
 
     <!-- HistoryRoute -->
-    <string name="history_title">阅读历史</string>
+    <string name="history_title">浏览历史</string>
     <string name="history_clear">清空</string>
+    <string name="history_clear_title">清空浏览历史？</string>
+    <string name="history_clear_message">将删除全部浏览记录，此操作不可撤销。</string>
     <string name="history_empty_illust">暂无插画浏览记录</string>
     <string name="history_empty_novel">暂无小说浏览记录</string>
     <string name="history_empty_user">暂无用户浏览记录</string>
@@ -89,10 +95,18 @@
     <string name="downloads_empty_illust">暂无插画下载</string>
     <string name="downloads_empty">暂无下载</string>
     <string name="downloads_local_novel">本地小说</string>
+    <string name="downloads_delete_title">删除下载？</string>
+    <string name="downloads_delete_message">将删除「%1$s」，此操作不可撤销。</string>
+    <string name="downloads_downloading">下载中 %1$d%%</string>
+    <string name="downloads_failed">下载失败</string>
 
     <!-- BlockedRoute -->
     <string name="blocked_title">屏蔽管理</string>
     <string name="blocked_clear">清空</string>
+    <string name="blocked_clear_title">清空本地过滤标签？</string>
+    <string name="blocked_clear_message">将删除全部本地过滤标签，此操作不可撤销。</string>
+    <string name="blocked_delete_title">删除过滤标签？</string>
+    <string name="blocked_delete_message">将删除过滤标签「%1$s」。</string>
     <string name="blocked_local_tags_title">本地过滤标签</string>
     <string name="blocked_local_tags_desc">在推荐与搜索中过滤的标签</string>
     <string name="blocked_local_tags_input_hint">输入标签后添加</string>

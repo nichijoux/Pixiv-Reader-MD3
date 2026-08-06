@@ -1,11 +1,17 @@
 package com.pixiv.reader.app.navigation
 
+import android.app.Activity
 import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
@@ -92,6 +98,17 @@ fun PixivNavGraph(
     onLogout: () -> Unit,
     navController: NavHostController = rememberNavController(),
 ) {
+    // 嵌套 NavHost（外层 main 含 MainShell 内层 Tab）：内层 back handler 到 start（home_tab）后让位外层，
+    // 外层若再 pop startDestination 会栈空白屏。此处：外层当前为 startDestination 时系统返回直接退出 app。
+    // 注意：不能在 NavHost 组合前访问 navController.graph（会 IllegalStateException），故用 route pattern 判断。
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val startRoutePattern = if (isLoggedIn) "main?search={search}" else ROUTE_AUTH
+    val activity = LocalContext.current as? Activity
+    BackHandler(enabled = currentRoute == startRoutePattern) {
+        activity?.finish()
+    }
+
     NavHost(
         navController = navController,
         startDestination = if (isLoggedIn) ROUTE_MAIN else ROUTE_AUTH,
@@ -172,7 +189,7 @@ fun PixivNavGraph(
         ) { backStackEntry ->
             val illustId = backStackEntry.arguments?.getLong("illustId") ?: 0L
             IllustDetailRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenViewer = { id, page ->
                     // 打开全屏查看器并定位到指定页
                     navController.navigate("viewer/$id?page=$page")
@@ -194,7 +211,7 @@ fun PixivNavGraph(
                 navArgument("page") { type = NavType.IntType; defaultValue = 0 },
             ),
         ) {
-            ViewerRoute(onBack = { navController.popBackStack() })
+            ViewerRoute(onBack = { navController.safeBack() })
         }
         // 全屏图片查看（URL 直入）：小说封面等单图全屏，title 可选
         composable(
@@ -207,7 +224,7 @@ fun PixivNavGraph(
             FullscreenImageRoute(
                 url = backStackEntry.arguments?.getString("url"),
                 title = backStackEntry.arguments?.getString("title").orEmpty(),
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
             )
         }
         // 小说详情：支持 pixiv://novel/{id} 深链；系列分册点击打开对应详情
@@ -219,7 +236,7 @@ fun PixivNavGraph(
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
             NovelDetailRoute(
                 novelId = novelId,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenNovel = { id ->
                     // 系列目录：点击打开该分册的小说详情
                     navController.navigate("novel/$id")
@@ -253,7 +270,7 @@ fun PixivNavGraph(
             CommentListRoute(
                 type = type,
                 targetId = targetId,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
@@ -268,7 +285,7 @@ fun PixivNavGraph(
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
             ReaderRoute(
                 novelId = novelId,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenNovel = { id ->
                     // 系列目录：点击其他分册直接打开该本阅读器
                     navController.navigate("reader/$id")
@@ -284,7 +301,7 @@ fun PixivNavGraph(
             val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
             UserRoute(
                 userId = userId,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
@@ -320,7 +337,7 @@ fun PixivNavGraph(
             arguments = listOf(navArgument("userId") { type = NavType.LongType }),
         ) {
             UserBookmarksRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
@@ -335,7 +352,7 @@ fun PixivNavGraph(
             arguments = listOf(navArgument("userId") { type = NavType.LongType }),
         ) {
             UserFollowingRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
                 },
@@ -347,7 +364,7 @@ fun PixivNavGraph(
             arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
         ) {
             NovelSeriesRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
@@ -371,7 +388,7 @@ fun PixivNavGraph(
         // 浏览历史：三类（插画/小说/作者），点击对应卡片跳详情
         composable(ROUTE_HISTORY) {
             HistoryRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
@@ -398,7 +415,7 @@ fun PixivNavGraph(
             ),
         ) {
             BookmarkRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
@@ -425,7 +442,7 @@ fun PixivNavGraph(
         // 追更小说列表
         composable(ROUTE_WATCHLIST) {
             WatchlistRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
@@ -434,13 +451,13 @@ fun PixivNavGraph(
         // 屏蔽名单
         composable(ROUTE_BLOCKED) {
             BlockedRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
             )
         }
         // 下载管理：三类（图片/小说/本地文件）；本地文件走 local_reader 路由
         composable(ROUTE_DOWNLOADS) {
             DownloadsRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
@@ -467,7 +484,7 @@ fun PixivNavGraph(
             val local = LocalReaderStore.consume()
             ReaderRoute(
                 novelId = novelId,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenNovel = { id ->
                     navController.navigate("reader/$id")
                 },
@@ -478,7 +495,7 @@ fun PixivNavGraph(
         // 收藏标签管理：点击标签带 type+tag 跳收藏列表
         composable(ROUTE_TAGS) {
             TagsRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenTag = { type, tag ->
                     navController.navigate(
                         "bookmarks?type=$type&tag=${Uri.encode(tag)}",
@@ -489,7 +506,7 @@ fun PixivNavGraph(
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情
         composable(ROUTE_MANGA_RANKING) {
             MangaRankingRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
@@ -498,7 +515,7 @@ fun PixivNavGraph(
         // 小说排行榜（全屏页）：条目用 NovelCard（封面→全屏大图、作者→主页、收藏、标签）
         composable(ROUTE_NOVEL_RANKING) {
             NovelRankingRoute(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safeBack() },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
@@ -516,5 +533,21 @@ fun PixivNavGraph(
                 },
             )
         }
+    }
+}
+
+/**
+ * 安全返回：栈只剩 startDestination 时静默忽略。
+ *
+ * BackHandler 只拦截系统返回键，拦不住页面按钮的 onBack → navigateUp。快速操作场景
+ * （如 pop 过渡动画中，上层不可点击区域穿透命中下层仍在退出的返回按钮）会触发第二次
+ * navigateUp，此时外层栈已只剩 startDestination（main），若照常 pop 会清空 start 导致
+ * 空栈 + 过渡竞态（表现为页面重新进入刷新 / 返回桌面）。故栈底时一律忽略，不 pop 也不退出。
+ */
+private fun NavHostController.safeBack() {
+    if (previousBackStackEntry != null) {
+        navigateUp()
+    } else {
+        Log.d("PixivNavGraph", "safeBack: 栈底忽略（穿透/误触/越界返回），避免空栈")
     }
 }

@@ -63,7 +63,8 @@ class DownloadsViewModel @Inject constructor(
                     runCatching {
                         val file = File(path)
                         if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
-                            file.delete()
+                            // 多页插画下载存目录（Downloads/pixiv_{id}/），递归删除
+                            if (file.isDirectory) file.deleteRecursively() else file.delete()
                         }
                     }
                 }

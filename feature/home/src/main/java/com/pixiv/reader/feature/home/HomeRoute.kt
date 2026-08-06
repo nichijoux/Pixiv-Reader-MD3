@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
@@ -20,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,7 +38,7 @@ import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.IllustWaterfallSkeleton
 import com.pixiv.reader.feature.home.R
 
 /**
@@ -120,6 +123,7 @@ fun HomeRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecommendContent(
     viewModel: HomeViewModel,
@@ -131,22 +135,35 @@ private fun RecommendContent(
     val isLoadingMore by viewModel.recommendPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.recommendPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.recommendPaged.error.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
-    when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
-        else -> IllustWaterfallGrid(
-            illusts = items,
-            onItemClick = onOpenIllust,
-            onLoadMore = viewModel::loadMore,
-            hasMore = hasMore,
-            isLoadingMore = isLoadingMore,
-            onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-            onOpenUser = onOpenUser,
-        )
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = viewModel::pullRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        when {
+            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
+            (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton()
+            error != null && items.isEmpty() -> ErrorBox(
+                message = error.orEmpty(),
+                onRetry = viewModel::retry,
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            )
+            else -> IllustWaterfallGrid(
+                illusts = items,
+                onItemClick = onOpenIllust,
+                onLoadMore = viewModel::loadMore,
+                hasMore = hasMore,
+                isLoadingMore = isLoadingMore,
+                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                onOpenUser = onOpenUser,
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FollowContent(
     viewModel: HomeViewModel,
@@ -158,19 +175,31 @@ private fun FollowContent(
     val isLoadingMore by viewModel.followingPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.followingPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.followingPaged.error.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
-    when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
-        else -> IllustWaterfallGrid(
-            illusts = items,
-            onItemClick = onOpenIllust,
-            onLoadMore = viewModel::loadMore,
-            hasMore = hasMore,
-            isLoadingMore = isLoadingMore,
-            onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-            onOpenUser = onOpenUser,
-        )
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = viewModel::pullRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        when {
+            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
+            (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton()
+            error != null && items.isEmpty() -> ErrorBox(
+                message = error.orEmpty(),
+                onRetry = viewModel::retry,
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            )
+            else -> IllustWaterfallGrid(
+                illusts = items,
+                onItemClick = onOpenIllust,
+                onLoadMore = viewModel::loadMore,
+                hasMore = hasMore,
+                isLoadingMore = isLoadingMore,
+                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                onOpenUser = onOpenUser,
+            )
+        }
     }
 }
 

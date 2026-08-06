@@ -57,6 +57,7 @@ import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ZoomableImage
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.ViewerScrim
 
@@ -109,7 +110,7 @@ fun ViewerRoute(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray())) }
+        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType()) }
     }
 
     Box(
@@ -271,6 +272,7 @@ fun ViewerRoute(
             state = notificationHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(start = 24.dp, end = 24.dp, bottom = 100.dp),
         )
     }

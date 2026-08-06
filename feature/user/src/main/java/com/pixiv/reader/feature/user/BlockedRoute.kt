@@ -53,10 +53,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.ConfirmDialog
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 
 /**
  * 屏蔽管理：卡片分组 + pill 标签——
@@ -76,12 +78,15 @@ fun BlockedRoute(
     val localTags by viewModel.localTags.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf("") }
+    // 本地过滤标签清空 / 单条删除确认
+    var confirmClear by remember { mutableStateOf(false) }
+    var pendingDeleteTag by remember { mutableStateOf<String?>(null) }
 
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 
@@ -96,7 +101,7 @@ fun BlockedRoute(
                 },
                 actions = {
                     if (localTags.isNotEmpty()) {
-                        TextButton(onClick = viewModel::clearLocalTags) {
+                        TextButton(onClick = { confirmClear = true }) {
                             Text(stringResource(R.string.blocked_clear), color = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -176,7 +181,7 @@ fun BlockedRoute(
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         localTags.forEach { tag ->
-                                            TagPill(text = tag, onRemove = { viewModel.removeLocalTag(tag) })
+                                            TagPill(text = tag, onRemove = { pendingDeleteTag = tag })
                                         }
                                     }
                                 }
@@ -268,6 +273,33 @@ fun BlockedRoute(
                 }
             }
         }
+    }
+
+    // 清空本地过滤标签确认
+    if (confirmClear) {
+        ConfirmDialog(
+            title = stringResource(R.string.blocked_clear_title),
+            message = stringResource(R.string.blocked_clear_message),
+            confirmText = stringResource(R.string.blocked_clear),
+            onConfirm = {
+                viewModel.clearLocalTags()
+                confirmClear = false
+            },
+            onDismiss = { confirmClear = false },
+        )
+    }
+    // 单条本地过滤标签删除确认
+    pendingDeleteTag?.let { tag ->
+        ConfirmDialog(
+            title = stringResource(R.string.blocked_delete_title),
+            message = stringResource(R.string.blocked_delete_message, tag),
+            confirmText = stringResource(com.pixiv.reader.core.ui.R.string.common_delete),
+            onConfirm = {
+                viewModel.removeLocalTag(tag)
+                pendingDeleteTag = null
+            },
+            onDismiss = { pendingDeleteTag = null },
+        )
     }
 }
 

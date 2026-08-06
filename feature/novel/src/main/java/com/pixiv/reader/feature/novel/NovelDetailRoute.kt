@@ -1,5 +1,10 @@
 package com.pixiv.reader.feature.novel
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -68,6 +74,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -89,6 +96,7 @@ import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 
@@ -196,8 +204,21 @@ fun NovelDetailRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
+    }
+
+    // Android 13+ 通知权限：离线下载（后台 worker 完成/失败系统通知）前请求
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* 无论是否授予都继续下载（worker 内会检查权限，无权限静默） */ }
+    fun startOfflineDownload(download: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        download()
     }
 
     Box(
@@ -258,11 +279,11 @@ fun NovelDetailRoute(
                     showDownloadDialog = false
                 },
                 onOfflineCurrent = {
-                    viewModel.downloadOfflineCurrent()
+                    startOfflineDownload { viewModel.downloadOfflineCurrent() }
                     showDownloadDialog = false
                 },
                 onOfflineSeries = {
-                    viewModel.downloadOfflineSeries()
+                    startOfflineDownload { viewModel.downloadOfflineSeries() }
                     showDownloadDialog = false
                 },
                 onDismiss = { showDownloadDialog = false },
@@ -270,7 +291,9 @@ fun NovelDetailRoute(
         }
         NotificationHost(
             state = notificationHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
         )
     }
 }

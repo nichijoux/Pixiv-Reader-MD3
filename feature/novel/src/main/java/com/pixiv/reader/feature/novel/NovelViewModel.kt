@@ -8,11 +8,13 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.MessageType
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
+import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
-import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.google.gson.Gson
@@ -23,12 +25,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
  * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更。
  * 评论已独立到 [NovelCommentsViewModel]（详情页不再加载评论）。
+ * 离线下载（worker）完成后观察下载索引并发应用内完成/失败通知。
  */
 @HiltViewModel
 class NovelViewModel @Inject constructor(
@@ -37,6 +41,7 @@ class NovelViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val readingProgressDao: ReadingProgressDao,
     private val browseHistoryDao: BrowseHistoryDao,
+    private val downloadEntryDao: DownloadEntryDao,
     private val novelExporter: NovelExporter,
 ) : ViewModel() {
 
@@ -203,10 +208,11 @@ class NovelViewModel @Inject constructor(
         viewModelScope.launch {
             _downloading.value = true
             _downloadProgress.value = context.getString(R.string.novel_msg_downloading)
+            _message.send(UiMessage(R.string.novel_msg_downloading))
             // exportNovel 内部已 runCatching，返回 Result<File>
             novelExporter.exportNovel(detail, format)
-                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name))) }
-                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""))) }
+                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name), type = MessageType.SUCCESS)) }
+                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""), type = MessageType.ERROR)) }
             _downloading.value = false
             _downloadProgress.value = null
         }
@@ -217,13 +223,14 @@ class NovelViewModel @Inject constructor(
         val detail = _novel.value ?: return
         if (_downloading.value) return
         viewModelScope.launch {
-_downloading.value = true
+            _downloading.value = true
             _downloadProgress.value = context.getString(R.string.novel_msg_preparing)
+            _message.send(UiMessage(R.string.novel_msg_downloading))
             novelExporter.exportSeries(detail, format) { index, total ->
                 _downloadProgress.value = context.getString(R.string.novel_msg_downloading_chapter, index, total)
             }
-                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name))) }
-                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""))) }
+                .onSuccess { file -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(file.name), type = MessageType.SUCCESS)) }
+                .onFailure { _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(it.message ?: ""), type = MessageType.ERROR)) }
             _downloading.value = false
             _downloadProgress.value = null
         }
@@ -239,6 +246,7 @@ _downloading.value = true
             .build()
         WorkManager.getInstance(context).enqueue(request)
         _message.trySend(UiMessage(R.string.novel_msg_queued))
+        observeOfflineCompletion(detail.id)
     }
 
     /** 下载整个系列到应用（后台队列，失败自动重试）。 */
@@ -255,5 +263,24 @@ _downloading.value = true
             .build()
         WorkManager.getInstance(context).enqueue(request)
         _message.trySend(UiMessage(R.string.novel_msg_queued_background))
+        observeOfflineCompletion(detail.id)
+    }
+
+    /** 观察离线下载完成：等 downloading 出现后，再等 done/failed，发应用内完成/失败通知（与开始通知同位置）。 */
+    private fun observeOfflineCompletion(id: Long) {
+        viewModelScope.launch {
+            downloadEntryDao.observeAll().first { entries ->
+                entries.any { it.targetId == id && it.targetType == "novel_offline" && it.status == "downloading" }
+            }
+            val done = downloadEntryDao.observeAll()
+                .first { entries ->
+                    entries.any { it.targetId == id && it.targetType == "novel_offline" && (it.status == "done" || it.status == "failed") }
+                }
+                .firstOrNull { it.targetId == id && it.targetType == "novel_offline" }
+            when (done?.status) {
+                "done" -> _message.send(UiMessage(R.string.novel_msg_offline_done, listOf(_novel.value?.title.orEmpty()), type = MessageType.SUCCESS))
+                "failed" -> _message.send(UiMessage(R.string.novel_msg_offline_failed, type = MessageType.ERROR))
+            }
+        }
     }
 }

@@ -10,4 +10,6 @@
     <string name="unfavorite">Unfavorite</string>
     <string name="ranking_bookmarks">%1$s bookmarks</string>
     <string name="fullscreen_image_cd_back">Back</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
 </resources>

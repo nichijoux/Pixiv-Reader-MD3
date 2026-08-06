@@ -1,10 +1,5 @@
 package com.pixiv.reader.feature.user
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -69,8 +64,9 @@ import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.SeriesBookCover
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.skeletonPulseColor
 import com.pixiv.reader.core.ui.theme.AppShapes
-import com.pixiv.reader.core.ui.theme.Durations
 import kotlinx.coroutines.launch
 
 /**
@@ -133,7 +129,7 @@ fun UserRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 
@@ -629,17 +625,7 @@ private fun SeriesStatusBadge(
 /** 加载骨架：头部（头像/名称/按钮/统计）+ Tab 条 + 瀑布流占位，呼吸脉冲。 */
 @Composable
 private fun UserProfileSkeleton() {
-    val transition = rememberInfiniteTransition(label = "userSkeleton")
-    val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.75f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "userSkeletonAlpha",
-    )
-    val color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    val color = skeletonPulseColor(label = "userSkeleton")
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),

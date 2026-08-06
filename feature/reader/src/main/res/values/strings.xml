@@ -21,6 +21,8 @@
     <string name="reader_settings_change_custom_font">更换自定义字体</string>
     <string name="reader_settings_import_custom_font">导入自定义字体</string>
     <string name="reader_settings_clear">清除</string>
+    <string name="reader_settings_clear_font_title">清除自定义字体？</string>
+    <string name="reader_settings_clear_font_message">将删除已导入的自定义字体文件并恢复默认字体。</string>
     <string name="reader_settings_section_theme">主题</string>
     <string name="reader_settings_follow_system">跟随系统</string>
     <string name="reader_settings_follow_system_desc">按系统深色模式自动切换夜间/纸张</string>

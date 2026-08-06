@@ -11,6 +11,10 @@
     <string name="search_filter">Filter</string>
     <string name="search_history_title">Search history</string>
     <string name="search_history_clear">Clear all</string>
+    <string name="search_history_clear_title">Clear search history?</string>
+    <string name="search_history_clear_message">This will delete all search history records. This action cannot be undone.</string>
+    <string name="search_history_delete_title">Delete search history?</string>
+    <string name="search_history_delete_message">This will delete the search history "%1$s".</string>
     <string name="search_hot_title">Trending searches</string>
     <string name="search_hint">Enter a keyword to search</string>
     <string name="search_no_hot">No trending works</string>

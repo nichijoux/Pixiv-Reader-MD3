@@ -81,6 +81,7 @@ import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.currentWindowSizeClass
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +105,7 @@ fun IllustDetailRoute(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray())) }
+        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType()) }
     }
 
     Scaffold(

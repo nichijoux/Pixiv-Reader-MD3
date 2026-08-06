@@ -47,6 +47,7 @@ import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 
 /**
  * 追更（P5）：已追更的小说系列列表。
@@ -71,7 +72,7 @@ fun WatchlistRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 

@@ -88,4 +88,6 @@
     <string name="novel_msg_export_failed">Export failed: %1$s</string>
     <string name="novel_msg_queued">Added to download queue</string>
     <string name="novel_msg_queued_background">Added to download queue (background)</string>
+    <string name="novel_msg_offline_done">Download complete: %1$s</string>
+    <string name="novel_msg_offline_failed">Download failed</string>
 </resources>

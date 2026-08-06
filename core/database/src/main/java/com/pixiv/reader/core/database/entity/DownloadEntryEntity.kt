@@ -12,6 +12,8 @@ data class DownloadEntryEntity(
     val coverUrl: String? = null,
     val localPath: String? = null,
     val status: String = "pending", // pending / downloading / done / failed
+    /** 下载进度（0-100 百分比；插画=字节进度，小说系列/离线=章进度）。 */
+    val progress: Int = 0,
     val pageCount: Int = 0,
     /** 插画真实宽高（下载后解析，供历史/下载列表完整显示）。 */
     val width: Int = 0,

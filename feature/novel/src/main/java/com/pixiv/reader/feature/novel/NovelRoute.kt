@@ -5,18 +5,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -61,11 +68,14 @@ import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.RankingBannerSkeleton
+import com.pixiv.reader.core.ui.component.SkeletonBlock
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.skeletonPulseColor
 import kotlinx.coroutines.launch
 
 /**
@@ -96,7 +106,7 @@ fun NovelRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 
@@ -306,7 +316,8 @@ private fun NovelPagedList(
         modifier = Modifier.fillMaxSize(),
     ) {
         when {
-            isLoading && items.isEmpty() -> LoadingBox()
+            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
+            (isLoading || isRefreshing) && items.isEmpty() -> NovelFeedSkeleton(showBannerHeader = header != null)
             error != null && items.isEmpty() -> ErrorBox(
                 message = error,
                 onRetry = onRetry,
@@ -368,6 +379,88 @@ private fun NovelPagedList(
                                         .padding(horizontal = 12.dp, vertical = 6.dp),
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 小说列表加载骨架：仿 [NovelCard] 布局（封面 104dp 3:4 + 标题/系列/作者行 + 底部标签胶囊）
+ * 渲染 6 张占位卡，呼吸脉冲替代全屏转圈——首载与下拉刷新共用。
+ * [showBannerHeader] 为 true 时列表顶部渲染排行榜入口 banner 骨架占位（对齐真实列表 header，
+ * 如推荐页的排行榜入口；关注页无 header 传 false）。
+ */
+@Composable
+private fun NovelFeedSkeleton(showBannerHeader: Boolean) {
+    val color = skeletonPulseColor(label = "novelFeedSkeleton")
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (showBannerHeader) {
+            item(key = "skeleton_header") { RankingBannerSkeleton() }
+        }
+        items(count = 6) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // 上部分：左封面 | 右信息（作者行抵底）
+                    Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                        SkeletonBlock(
+                            modifier = Modifier
+                                .width(104.dp)
+                                .aspectRatio(3f / 4f)
+                                .clip(RoundedCornerShape(12.dp)),
+                            color = color,
+                        )
+                        Column(
+                            modifier = Modifier
+                                .padding(start = 14.dp)
+                                .weight(1f)
+                                .fillMaxHeight(),
+                        ) {
+                            SkeletonBlock(
+                                modifier = Modifier.fillMaxWidth(0.75f).height(16.dp).clip(RoundedCornerShape(6.dp)),
+                                color = color,
+                            )
+                            SkeletonBlock(
+                                modifier = Modifier.padding(top = 8.dp).fillMaxWidth(0.35f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                                color = color,
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                SkeletonBlock(Modifier.size(24.dp).clip(CircleShape), color)
+                                SkeletonBlock(
+                                    modifier = Modifier.padding(start = 8.dp).width(80.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                                    color = color,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                SkeletonBlock(
+                                    modifier = Modifier.width(40.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                                    color = color,
+                                )
+                            }
+                        }
+                    }
+                    // 下部分：标签胶囊占位
+                    Row(
+                        modifier = Modifier.padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        repeat(3) {
+                            SkeletonBlock(
+                                modifier = Modifier.width(56.dp).height(20.dp).clip(RoundedCornerShape(10.dp)),
+                                color = color,
+                            )
                         }
                     }
                 }

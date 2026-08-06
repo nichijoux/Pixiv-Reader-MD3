@@ -10,4 +10,6 @@
     <string name="unfavorite">取消收藏</string>
     <string name="ranking_bookmarks">%1$s 收藏</string>
     <string name="fullscreen_image_cd_back">返回</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_delete">删除</string>
 </resources>

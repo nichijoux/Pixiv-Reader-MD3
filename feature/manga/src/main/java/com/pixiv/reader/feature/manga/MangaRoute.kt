@@ -40,7 +40,8 @@ import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.RankingBannerSkeleton
 
 /**
  * 漫画 Tab：顶部排行榜入口 banner（网格头部，随滚动）+ 推荐漫画瀑布流 + 下拉刷新。
@@ -94,7 +95,11 @@ fun MangaRoute(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when {
-                    isLoading && items.isEmpty() -> LoadingBox()
+                    // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
+                    // 顶部渲染排行榜入口 banner 骨架占位（对齐真实网格 header，不随数据消失）
+                    (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton(
+                        header = { RankingBannerSkeleton() },
+                    )
                     error != null && items.isEmpty() -> ErrorBox(
                         message = error,
                         onRetry = viewModel::refresh,

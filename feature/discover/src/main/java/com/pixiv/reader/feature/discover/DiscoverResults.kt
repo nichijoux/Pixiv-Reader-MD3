@@ -1,10 +1,5 @@
 package com.pixiv.reader.feature.discover
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +33,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,7 +50,8 @@ import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.core.ui.component.PixivImage
-import com.pixiv.reader.core.ui.theme.Durations
+import com.pixiv.reader.core.ui.component.SkeletonBlock
+import com.pixiv.reader.core.ui.component.skeletonPulseColor
 
 @Composable
 internal fun IllustSearchResults(
@@ -228,28 +223,6 @@ internal fun LaunchedLoadMore(isLoadingMore: Boolean, onLoadMore: () -> Unit) {
             androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp)
         }
     }
-}
-
-/** 骨架呼吸脉冲色：`surfaceVariant` + alpha 0.35↔0.75，替代全屏转圈的加载占位。 */
-@Composable
-private fun skeletonPulseColor(): Color {
-    val transition = rememberInfiniteTransition(label = "searchSkeleton")
-    val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.75f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "searchSkeletonAlpha",
-    )
-    return MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
-}
-
-/** 圆角占位块（[Modifier.clip] 由调用方指定形状）。 */
-@Composable
-private fun SkeletonBlock(modifier: Modifier, color: Color) {
-    Box(modifier = modifier.background(color))
 }
 
 /**

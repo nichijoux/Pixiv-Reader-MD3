@@ -29,4 +29,6 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    // 后台下载（普通 Worker + EntryPoint，无需 @HiltWorker）
+    implementation(libs.androidx.work.runtime.ktx)
 }

@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.comments
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,9 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -47,10 +50,13 @@ import com.pixiv.api.model.Comment
 import com.pixiv.reader.core.ui.component.CommentInput
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
+import com.pixiv.reader.core.ui.component.SkeletonBlock
 import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.skeletonPulseColor
+import com.pixiv.reader.core.ui.theme.AppShapes
 
 /**
  * 通用评论列表页（novel / illust 共用，路由 `comments/{type}/{targetId}`）。
@@ -73,6 +79,9 @@ fun CommentListRoute(
     val isLoadingMore by viewModel.commentsPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.commentsPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.commentsPaged.error.collectAsStateWithLifecycle()
+    val replies by viewModel.replies.collectAsStateWithLifecycle()
+    val repliesLoading by viewModel.repliesLoading.collectAsStateWithLifecycle()
+    val expandedReplies by viewModel.expandedReplies.collectAsStateWithLifecycle()
     val draft by viewModel.commentDraft.collectAsStateWithLifecycle()
     val replyTarget by viewModel.replyTarget.collectAsStateWithLifecycle()
 
@@ -80,7 +89,7 @@ fun CommentListRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 
@@ -131,7 +140,7 @@ fun CommentListRoute(
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { viewModel.setReplyTarget(null) }) {
+                        IconButton(onClick = { viewModel.setReplyTarget(null, null) }) {
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = stringResource(R.string.comment_reply_cancel),
@@ -152,7 +161,8 @@ fun CommentListRoute(
         },
     ) { padding ->
         when {
-            isLoading && comments.isEmpty() -> LoadingBox(Modifier.padding(padding))
+            // 首载：骨架占位（仿评论行布局），替代全屏转圈
+            isLoading && comments.isEmpty() -> CommentSkeleton(Modifier.padding(padding))
             error != null && comments.isEmpty() -> ErrorBox(
                 message = error.orEmpty(),
                 onRetry = viewModel::loadComments,
@@ -174,7 +184,12 @@ fun CommentListRoute(
                     CommentRow(
                         comment = comment,
                         onOpenUser = onOpenUser,
-                        onReply = { viewModel.setReplyTarget(comment) },
+                        onReply = { target -> viewModel.setReplyTarget(target, comment.id) },
+                        replies = replies[comment.id].orEmpty(),
+                        repliesLoading = repliesLoading.contains(comment.id),
+                        expanded = expandedReplies.contains(comment.id),
+                        onLoadReplies = { viewModel.loadReplies(comment.id) },
+                        onToggleExpanded = { viewModel.toggleRepliesExpanded(comment.id) },
                     )
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -195,12 +210,65 @@ fun CommentListRoute(
     }
 }
 
-/** 评论行：头像 + 昵称 + 时间 + 正文 + 树形子回复 + 回复入口。 */
+/**
+ * 评论列表加载骨架：仿 [CommentRow] 布局（36dp 圆头像 + 昵称/时间条 + 正文 2 行 + 分隔线）
+ * 渲染 8 条，呼吸脉冲替代全屏转圈。
+ */
+@Composable
+private fun CommentSkeleton(modifier: Modifier = Modifier) {
+    val color = skeletonPulseColor(label = "commentSkeleton")
+    LazyColumn(modifier = modifier.fillMaxSize()) {
+        items(count = 8) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                SkeletonBlock(Modifier.size(36.dp).clip(CircleShape), color)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 10.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SkeletonBlock(
+                            modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(6.dp)),
+                            color = color,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        SkeletonBlock(
+                            modifier = Modifier.width(48.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                            color = color,
+                        )
+                    }
+                    SkeletonBlock(
+                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth(0.9f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                        color = color,
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth(0.65f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                        color = color,
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+}
+
+/** 评论行：头像 + 昵称 + 时间 + 正文 + 树形子回复（最多 3 条，超出可展开）+ 回复入口。 */
 @Composable
 private fun CommentRow(
     comment: Comment,
     onOpenUser: (Long) -> Unit,
-    onReply: () -> Unit,
+    onReply: (Comment) -> Unit,
+    replies: List<Comment>,
+    repliesLoading: Boolean,
+    expanded: Boolean,
+    onLoadReplies: () -> Unit,
+    onToggleExpanded: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -242,45 +310,103 @@ private fun CommentRow(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 4.dp),
             )
-            // 回复入口
-            Text(
+            // 回复入口（胶囊，对齐 HTML `.replybtn`）
+            ReplyPill(
                 text = stringResource(R.string.comment_reply),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onReply)
-                    .padding(vertical = 2.dp),
+                modifier = Modifier.padding(top = 6.dp),
+                onClick = { onReply(comment) },
             )
-            // 树形对话：父评论下方直接渲染子回复（浅色块 + 缩进，区分父子层）。
-            val replies = comment.replies.orEmpty()
-            if (replies.isNotEmpty()) {
-                val visibleReplies = replies.take(20)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    visibleReplies.forEachIndexed { index, reply ->
-                        ReplyRow(reply)
-                        if (index != visibleReplies.lastIndex) {
-                            Spacer(Modifier.height(8.dp))
+            // 树形对话：父评论下方渲染子回复（浅色块 + 缩进）。
+            // v3 列表只给 has_replies 标志，子回复按需拉取；未加载时自动触发加载。
+            if (comment.has_replies) {
+                if (repliesLoading && replies.isEmpty()) {
+                    // 加载中占位
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    }
+                    LaunchedEffect(comment.id) { onLoadReplies() }
+                } else if (replies.isNotEmpty()) {
+                    // 最多显示 3 条；超出且未展开时显示「查看全部」入口
+                    val showAll = expanded || replies.size <= MAX_VISIBLE_REPLIES
+                    val visibleReplies = if (showAll) replies else replies.take(MAX_VISIBLE_REPLIES)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        visibleReplies.forEachIndexed { index, reply ->
+                            ReplyRow(
+                                reply = reply,
+                                onReply = { onReply(reply) },
+                            )
+                            if (index != visibleReplies.lastIndex) {
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+                        if (!showAll && replies.size > MAX_VISIBLE_REPLIES) {
+                            // 「查看全部 N 条回复」入口（点击展开，无收起）
+                            Text(
+                                text = stringResource(R.string.comment_reply_expand, replies.size),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .padding(top = 6.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable(onClick = onToggleExpanded)
+                                    .padding(vertical = 2.dp),
+                            )
                         }
                     }
+                } else {
+                    // has_replies 但尚未加载（非加载中状态）→ 触发加载
+                    LaunchedEffect(comment.id) { onLoadReplies() }
                 }
             }
         }
     }
 }
 
-/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、无分隔线）。 */
+/** 子回复未展开时的最大显示条数。 */
+private const val MAX_VISIBLE_REPLIES = 3
+
+/** 回复入口胶囊（对齐 HTML `.replybtn`：primary-container 底 + primary 字 + 圆角胶囊）。 */
 @Composable
-private fun ReplyRow(reply: Comment) {
+private fun ReplyPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier
+            .clip(AppShapes.pill)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    )
+}
+
+/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、可回复）。 */
+@Composable
+private fun ReplyRow(
+    reply: Comment,
+    onReply: () -> Unit,
+) {
     Row(verticalAlignment = Alignment.Top) {
         UserAvatar(
             name = reply.user?.name,
@@ -321,6 +447,12 @@ private fun ReplyRow(reply: Comment) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 2.dp),
+            )
+            // 回复入口（胶囊，可回复子评论）
+            ReplyPill(
+                text = stringResource(R.string.comment_reply),
+                modifier = Modifier.padding(top = 4.dp),
+                onClick = onReply,
             )
         }
     }

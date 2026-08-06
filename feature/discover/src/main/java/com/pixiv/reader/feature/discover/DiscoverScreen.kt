@@ -64,6 +64,7 @@ import com.pixiv.api.model.Novel
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.ConfirmDialog
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.NovelCard
@@ -224,75 +225,107 @@ private fun IdlePanel(
     history: List<SearchHistoryEntity>,
     viewModel: DiscoverViewModel,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-    ) {
-        if (history.isNotEmpty()) {
-            item(key = "history_title") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                    Text(
-                        text = stringResource(R.string.search_history_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 6.dp).weight(1f),
-                    )
-                    TextButton(onClick = viewModel::clearHistory) { Text(stringResource(R.string.search_history_clear), color = MaterialTheme.colorScheme.error) }
-                }
-            }
-            // 历史胶囊：点击搜索、长按删除单条
-            item(key = "history_chips") {
-                FlowRow(
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    history.forEach { item ->
-                        HistoryChip(
-                            text = item.keyword,
-                            onClick = { viewModel.onQueryChange(item.keyword); viewModel.search() },
-                            onLongClick = { viewModel.removeHistory(item) },
+    var confirmClear by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<SearchHistoryEntity?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        ) {
+            if (history.isNotEmpty()) {
+                item(key = "history_title") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = stringResource(R.string.search_history_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 6.dp).weight(1f),
                         )
+                        TextButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.search_history_clear), color = MaterialTheme.colorScheme.error) }
                     }
                 }
+                // 历史胶囊：点击搜索、长按删除单条
+                item(key = "history_chips") {
+                    FlowRow(
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        history.forEach { item ->
+                            HistoryChip(
+                                text = item.keyword,
+                                onClick = { viewModel.onQueryChange(item.keyword); viewModel.search() },
+                                onLongClick = { pendingDelete = item },
+                            )
+                        }
+                    }
+                }
+                item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp)) }
             }
-            item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp)) }
-        }
-        item(key = "hot_title") {
-Text(
-            text = stringResource(R.string.search_hot_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-        )
-        }
-        items(hotTags.take(6).withIndex().toList(), key = { it.index }) { (index, tag) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { tag.tag?.let { viewModel.onQueryChange(it); viewModel.search() } }
-                    .padding(vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            item(key = "hot_title") {
                 Text(
-                    text = "${index + 1}",
+                    text = stringResource(R.string.search_hot_title),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (index < 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(24.dp),
-                )
-                Text(
-                    text = tag.translated_name ?: tag.tag.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                 )
             }
+            items(hotTags.take(6).withIndex().toList(), key = { it.index }) { (index, tag) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { tag.tag?.let { viewModel.onQueryChange(it); viewModel.search() } }
+                        .padding(vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${index + 1}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (index < 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(24.dp),
+                    )
+                    Text(
+                        text = tag.translated_name ?: tag.tag.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+
+        // 清空搜索历史确认
+        if (confirmClear) {
+            ConfirmDialog(
+                title = stringResource(R.string.search_history_clear_title),
+                message = stringResource(R.string.search_history_clear_message),
+                confirmText = stringResource(R.string.search_history_clear),
+                onConfirm = {
+                    viewModel.clearHistory()
+                    confirmClear = false
+                },
+                onDismiss = { confirmClear = false },
+            )
+        }
+        // 单条搜索历史删除确认（长按历史胶囊）
+        pendingDelete?.let { entity ->
+            ConfirmDialog(
+                title = stringResource(R.string.search_history_delete_title),
+                message = stringResource(R.string.search_history_delete_message, entity.keyword),
+                confirmText = stringResource(com.pixiv.reader.core.ui.R.string.common_delete),
+                onConfirm = {
+                    viewModel.removeHistory(entity)
+                    pendingDelete = null
+                },
+                onDismiss = { pendingDelete = null },
+            )
         }
     }
 }

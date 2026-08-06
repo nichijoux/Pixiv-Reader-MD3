@@ -1,10 +1,6 @@
 package com.pixiv.reader.core.ui.component
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -39,7 +35,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.pixiv.reader.core.ui.theme.AppShapes
-import com.pixiv.reader.core.ui.theme.Durations
 import com.pixiv.reader.core.ui.theme.Spacing
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -212,17 +207,7 @@ private enum class RankContentState { Loading, Error, Content }
  */
 @Composable
 private fun RankingSkeleton() {
-    val transition = rememberInfiniteTransition(label = "rankingSkeleton")
-    val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.75f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "rankingSkeletonAlpha",
-    )
-    val color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    val color = skeletonPulseColor(label = "rankingSkeleton")
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
         verticalArrangement = Arrangement.spacedBy(2.dp),

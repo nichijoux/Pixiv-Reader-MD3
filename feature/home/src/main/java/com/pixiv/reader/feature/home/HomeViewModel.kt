@@ -34,6 +34,10 @@ class HomeViewModel @Inject constructor(
     private val _tab = MutableStateFlow(HomeTab.RECOMMEND)
     val tab: StateFlow<HomeTab> = _tab.asStateFlow()
 
+    /** 下拉刷新指示（PullToRefreshBox 用，按当前 Tab 生效）。 */
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
         loadTrendingTags()
         loadRecommend()
@@ -89,6 +93,34 @@ class HomeViewModel @Inject constructor(
                 fetch = { pixivRepository.api.getFollowingIllusts("all") },
                 fetchNext = { pixivRepository.api.getNextIllusts(it) },
             )
+        }
+    }
+
+    /** 下拉刷新：重拉当前 Tab 第一页（清空旧列表），结束后复位指示（防重入）。 */
+    fun pullRefresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                when (_tab.value) {
+                    HomeTab.RECOMMEND -> {
+                        recommendPaged.reset()
+                        recommendPaged.loadInitial(
+                            fetch = { pixivRepository.api.getRecommendedIllusts(includeRanking = true) },
+                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                        )
+                    }
+                    HomeTab.FOLLOW -> {
+                        followingPaged.reset()
+                        followingPaged.loadInitial(
+                            fetch = { pixivRepository.api.getFollowingIllusts("all") },
+                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                        )
+                    }
+                }
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

@@ -51,6 +51,8 @@ class NovelExporter @Inject constructor(
         novel: Novel,
         format: NovelExportFormat,
     ): Result<File> = withContext(Dispatchers.IO) {
+        // 开始：写 downloading 中间态（下载管理可见）
+        markDownloading(novel, format, progress = 0)
         runCatching {
             val loaded = contentLoader.load(novel.id).getOrThrow()
             when (format) {
@@ -58,8 +60,8 @@ class NovelExporter @Inject constructor(
                 NovelExportFormat.EPUB -> buildEpubFile(listOf(loaded), seriesTitle = null, coverNovel = novel)
             }
         }.onSuccess { file ->
-            recordDownload(novel, file, format, chapterCount = 1)
-        }
+            recordDownload(novel, file, format, chapterCount = 1, progress = 100)
+        }.onFailure { markFailed(novel, format) }
     }
 
     /** 导出整个系列（循环分页拉全部章节，逐章抓取串行下载），返回导出的文件。 */
@@ -68,6 +70,8 @@ class NovelExporter @Inject constructor(
         format: NovelExportFormat,
         onProgress: (index: Int, total: Int) -> Unit = { _, _ -> },
     ): Result<File> = withContext(Dispatchers.IO) {
+        // 开始：写 downloading 中间态
+        markDownloading(novel, format, progress = 0)
         runCatching {
             val seriesId = novel.series?.id ?: error("该小说不属于任何系列")
             val novels = fetchSeriesNovels(seriesId)
@@ -75,6 +79,7 @@ class NovelExporter @Inject constructor(
             val chapters = mutableListOf<Pair<Novel, NovelDocument>>()
             novels.forEachIndexed { index, chapter ->
                 onProgress(index + 1, novels.size)
+                updateProgress(novel, format, ((index + 1) * 100) / novels.size)
                 chapters.add(contentLoader.load(chapter.id).getOrThrow())
             }
             val file = when (format) {
@@ -83,8 +88,9 @@ class NovelExporter @Inject constructor(
             }
             file to novels.size
         }.onSuccess { (file, chapterCount) ->
-            recordDownload(novel, file, format, chapterCount)
-        }.map { it.first }
+            recordDownload(novel, file, format, chapterCount, progress = 100)
+        }.onFailure { markFailed(novel, format) }
+            .map { it.first }
     }
 
     /** 写入下载索引（targetType=novel，localPath=导出文件）。 */
@@ -92,6 +98,45 @@ class NovelExporter @Inject constructor(
         novel: Novel,
         file: File,
         format: NovelExportFormat,
+        chapterCount: Int,
+        progress: Int = 100,
+    ) {
+        upsertIndex(novel, format, localPath = file.path, status = "done", progress = progress, chapterCount = chapterCount)
+    }
+
+    /** 标记开始下载（downloading 中间态，进度 0）。 */
+    private suspend fun markDownloading(novel: Novel, format: NovelExportFormat, progress: Int) {
+        upsertIndex(novel, format, localPath = null, status = "downloading", progress = progress, chapterCount = 0)
+    }
+
+    /** 更新下载进度（第 x/y 章 → 百分比）。 */
+    private suspend fun updateProgress(novel: Novel, format: NovelExportFormat, progress: Int) {
+        runCatching {
+            downloadEntryDao.upsert(
+                DownloadEntryEntity(
+                    targetId = novel.id,
+                    targetType = "novel",
+                    title = "${novel.title.orEmpty()}（${format.name}）",
+                    coverUrl = novel.image_urls?.medium ?: novel.image_urls?.square_medium,
+                    localPath = null,
+                    status = "downloading",
+                    progress = progress,
+                ),
+            )
+        }
+    }
+
+    /** 标记下载失败（failed 状态，供下载管理页标记）。 */
+    private suspend fun markFailed(novel: Novel, format: NovelExportFormat) {
+        upsertIndex(novel, format, localPath = null, status = "failed", progress = 0, chapterCount = 0)
+    }
+
+    private suspend fun upsertIndex(
+        novel: Novel,
+        format: NovelExportFormat,
+        localPath: String?,
+        status: String,
+        progress: Int,
         chapterCount: Int,
     ) {
         runCatching {
@@ -101,8 +146,9 @@ class NovelExporter @Inject constructor(
                     targetType = "novel",
                     title = "${novel.title.orEmpty()}（${format.name}）",
                     coverUrl = novel.image_urls?.medium ?: novel.image_urls?.square_medium,
-                    localPath = file.path,
-                    status = "done",
+                    localPath = localPath,
+                    status = status,
+                    progress = progress,
                     pageCount = chapterCount,
                 ),
             )

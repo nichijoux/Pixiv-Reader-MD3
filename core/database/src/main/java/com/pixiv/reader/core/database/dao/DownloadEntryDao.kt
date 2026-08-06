@@ -31,6 +31,10 @@ interface DownloadEntryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: DownloadEntryEntity)
 
+    /** 更新单条下载进度（轻量 UPDATE，供分块下载节流写）。 */
+    @Query("UPDATE download_entry SET progress = :progress, updatedAt = :updatedAt WHERE targetId = :targetId")
+    suspend fun updateProgress(targetId: Long, progress: Int, updatedAt: Long = System.currentTimeMillis())
+
     /** 删除单条下载索引。 */
     @Delete
     suspend fun delete(entity: DownloadEntryEntity)

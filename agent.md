@@ -863,3 +863,30 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - 用户反馈：①竖排按钮 icon/文字间隔过大 → 4dp→2dp（NovelIconLabelGap）；②图标无颜色 → 图标始终主色（仅 disabled 置灰，对齐 HTML `.abtn .ic{fill:var(--primary)}`）；③系列目录标题未加粗 → TocTitle 用 `novelTocTitleStyle()`（titleMedium.copy(Bold)）；④展开全文改为「展开」且居中按钮 → TextButton fillMaxWidth 居中，string 改 novel_intro_expand="展开"/Show more；⑤目录数字改为胶囊 → TocTitle 重构为「系列目录」标题 + 数量胶囊（primaryContainer 底 + pill + primary 字），新增 novel_toc_title、删除 novel_toc_section；⑥整体字号 +1sp。
 - **字体规范**（遵循用户"查看 common 统一规范"）：core:ui/theme/Type.kt 已有统一 Typography（titleLarge 20sp/titleMedium 16sp/bodyLarge 16sp/bodyMedium 14sp/labelMedium 12sp）。详情页不再自定义 Novel*Font 常量，改为 **@Composable 派生样式函数**（novelTitleStyle/novelAuthorStyle/novelMetaStyle/novelStatValueStyle/novelSmallLabelStyle/novelIntroStyle/novelReadButtonStyle/novelTocTitleStyle/novelTocRowStyle/novelCurrentBadgeStyle/novelCountBadgeStyle/novelOptionTitleStyle），内部 `MaterialTheme.typography.xxx.copy(fontSize, fontWeight)`，字号集中定义、无散落 magic number。
 - 验证：`:app:compileDebugKotlin` + `:feature:novel` 单测通过。**未提交**。
+
+### 第六十五轮补充 2：通用评论页父子级评论（按需拉取 + 3 条截断展开）+ 子评论可回复
+- **根因**：pixiv v3 评论列表只返回顶层 + `has_replies` 标志，子回复需 `getCommentReplies(type, comment_id)` 按需拉取（该端点此前全项目无人调用）；且 `ReplyRow` 无回复入口。
+- **CommentListViewModel**：
+  - `replies: StateFlow<Map<Long, List<Comment>>>`（顶层 id → 子回复）、`repliesLoading: StateFlow<Set<Long>>`、`expandedReplies: StateFlow<Set<Long>>`；
+  - `loadReplies(parentId)`（防重 → getCommentReplies → 写缓存）；`toggleRepliesExpanded(parentId)`；
+  - `setReplyTarget(comment, topLevelId)`：回复目标可为顶层或子评论，`_replyTargetTopId` 记录所属顶层 id（刷新用）；
+  - `postComment()` 成功后刷新目标 = `replyTargetTopId ?: replyTarget.id` → 该顶层评论：自动加入 expandedReplies + 清缓存 + loadReplies（新回复即时可见）。
+- **CommentListRoute**：
+  - `CommentRow`：`onReply: (Comment) -> Unit`；`has_replies` 时自动 `LaunchedEffect` 加载子回复（懒组合 → 仅可见行请求），浅色块内小 loading；
+  - 子回复**最多显示 3 条**（`MAX_VISIBLE_REPLIES = 3`），超出未展开时底部「查看全部 %d 条回复」入口（comment_reply_expand），点击展开全显**无收起**；
+  - `ReplyRow` 新增「回复」入口（labelSmall primary，`onReply(reply)` 闭包携带外层顶层 id）→ 子评论可回复。
+- strings：新增 `comment_reply_expand`（查看全部 %1$d 条回复 / View all %1$d replies）双语。
+- 验证：`:app:compileDebugKotlin` + `:feature:comments:testDebugUnitTest` 通过。**未提交**。
+
+### 第六十五轮补充 3：清理缓存残留修复（5.2M 清不掉）
+- **根因**：`MeViewModel.clearCache()` 清理范围与 `refreshCacheSize()` 统计不一致——统计整个 `cacheDir`，但清理只清 Coil `diskCache`（image_cache）+ 误清 `filesDir/novel_debug`（死路径）。残留 = `cacheDir/ugoira`（动图帧缓存，UgoiraLoader 写） + `cacheDir/novel_debug`（阅读器调试 HTML，ReaderViewModel 写）。
+- **修复**：`clearCache()` 改为：Coil `diskCache.clear()` + `memoryCache.clear()`（先正常关闭）→ **清空整个 `appContext.cacheDir`**（listFiles().forEach { deleteRecursively() }），一次覆盖 image_cache/ugoira/novel_debug，与统计一致；保留 filesDir/offline + downloadEntryDao.deleteByType("novel_offline")。`refreshCacheSize()` 移除死路径 filesDir/novel_debug。下载文件在 filesDir/Downloads、字体在 filesDir/fonts，均不在 cacheDir，不会误删。
+- 验证：`:app:compileDebugKotlin` + `:feature:user:testDebugUnitTest` 通过。**未提交**。
+
+### 第六十五轮补充 4：浏览历史页清空按钮改图标+文字
+- 用户确认「清除缓存」保持只清缓存文件（浏览历史是 Room 数据库持久数据，不纳入清缓存）。
+- HistoryRoute TopAppBar actions：清空按钮由纯文字 IconButton 改为 **TextButton（DeleteOutline 图标 18dp + 「清空」文字，error 色）**；新增 imports：Icons.Filled.DeleteOutline / TextButton / layout.size。
+- 验证：`:app:compileDebugKotlin` + `:feature:user:testDebugUnitTest` 通过。**未提交**。
+
+### 设计规范文档：design.md
+- 新建 `F:\pixiv-mateiral3\design.md`：整理全项目设计规范唯一权威文档——色板（Color.kt 静态 M3 + 语义色 + 阅读器 4 主题）、字体（Type.kt Typography 档位 + 页面级派生样式约定）、间距 Spacing、形状 AppShapes（全圆仅 pill）、时长 Durations、主题机制（动态色/深浅）、模式枚举 AppModes、通用组件模式（收藏浮层 28/18、ReplyPill 胶囊、竖排按钮、子评论 3 条展开、沉浸 banner 无视差等）、i18n 约定、design/*.html 原型基准。后续新增 UI 一律引用该文档与 Token。

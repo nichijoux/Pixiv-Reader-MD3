@@ -57,12 +57,15 @@ import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.ConfirmDialog
+import com.pixiv.reader.core.ui.component.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.ProfileHeader
 import com.pixiv.reader.core.ui.component.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.SettingsCard
 import com.pixiv.reader.core.ui.component.SettingsCardItem
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 import com.pixiv.reader.core.ui.theme.AppShapes
 
 /** 开源仓库地址。 */
@@ -99,10 +102,14 @@ fun MeRoute(
     val activity = context as? Activity
     // 语言切换防抖：落盘期间忽略重复点击，避免连点导致 DataStore 并发写竞态
     var switchingLanguage by remember { mutableStateOf(false) }
+    // 清除缓存确认
+    var showClearCache by remember { mutableStateOf(false) }
+    // 退出登录确认（提示类，非删除）
+    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
         }
     }
 
@@ -122,7 +129,7 @@ fun MeRoute(
                     profile = ProfileHeaderData(user),
                     onClickProfile = { viewModel.ownUid?.let(onOpenUser) },
                     actionLabel = stringResource(R.string.me_logout),
-                    onAction = onLogout,
+                    onAction = { showLogoutConfirm = true },
                 )
 
                 // ── 用户内容管理 ──
@@ -363,7 +370,7 @@ fun MeRoute(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        TextButton(onClick = viewModel::clearCache) {
+                        TextButton(onClick = { showClearCache = true }) {
                             Text(stringResource(R.string.me_clear), color = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -438,6 +445,35 @@ fun MeRoute(
                 )
             }
         }
+    }
+
+    // 清除缓存确认（清空 cacheDir + 离线缓存，不可撤销）
+    if (showClearCache) {
+        ConfirmDialog(
+            title = stringResource(R.string.me_cache_clear_title),
+            message = stringResource(R.string.me_cache_clear_message),
+            confirmText = stringResource(R.string.me_clear),
+            onConfirm = {
+                viewModel.clearCache()
+                showClearCache = false
+            },
+            onDismiss = { showClearCache = false },
+        )
+    }
+
+    // 退出登录确认（提示类：Info 图标 + primary 蓝色系，非删除语义）
+    if (showLogoutConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.me_logout_confirm_title),
+            message = stringResource(R.string.me_logout_confirm_message),
+            confirmText = stringResource(R.string.me_logout),
+            variant = ConfirmDialogVariant.WARNING,
+            onConfirm = {
+                onLogout()
+                showLogoutConfirm = false
+            },
+            onDismiss = { showLogoutConfirm = false },
+        )
     }
 }
 
