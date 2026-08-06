@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.comments
+package com.pixiv.reader.feature.comments.state
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -7,6 +7,7 @@ import com.pixiv.api.model.Comment
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.feature.comments.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel

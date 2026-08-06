@@ -24,7 +24,7 @@ import com.pixiv.reader.core.novel.LocalReaderStore
 import com.pixiv.reader.core.ui.component.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
-import com.pixiv.reader.feature.comments.CommentListRoute
+import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.illust.IllustDownloadWorker
 import com.pixiv.reader.feature.manga.MangaRankingRoute
