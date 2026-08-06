@@ -1,10 +1,5 @@
 package com.pixiv.reader.feature.novel
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,36 +22,43 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.ModeComment
+import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,10 +72,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -209,19 +208,6 @@ fun NovelDetailRoute(
         }
     }
 
-    // Android 13+ 通知权限：离线下载（后台 worker 完成/失败系统通知）前请求
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { /* 无论是否授予都继续下载（worker 内会检查权限，无权限静默） */ }
-    fun startOfflineDownload(download: () -> Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        download()
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -261,30 +247,10 @@ fun NovelDetailRoute(
         }
         val dialogNovel = novel
         if (showDownloadDialog && dialogNovel != null) {
-            DownloadDialog(
+            DownloadSheet(
                 hasSeries = dialogNovel.series?.id != null,
-                onTxtCurrent = {
-                    viewModel.exportNovel(NovelExportFormat.TXT)
-                    showDownloadDialog = false
-                },
-                onEpubCurrent = {
-                    viewModel.exportNovel(NovelExportFormat.EPUB)
-                    showDownloadDialog = false
-                },
-                onTxtSeries = {
-                    viewModel.exportSeries(NovelExportFormat.TXT)
-                    showDownloadDialog = false
-                },
-                onEpubSeries = {
-                    viewModel.exportSeries(NovelExportFormat.EPUB)
-                    showDownloadDialog = false
-                },
-                onOfflineCurrent = {
-                    startOfflineDownload { viewModel.downloadOfflineCurrent() }
-                    showDownloadDialog = false
-                },
-                onOfflineSeries = {
-                    startOfflineDownload { viewModel.downloadOfflineSeries() }
+                onFormat = { format, series ->
+                    viewModel.export(format, series)
                     showDownloadDialog = false
                 },
                 onDismiss = { showDownloadDialog = false },
@@ -1079,66 +1045,89 @@ private fun NovelCenteredBox(content: @Composable () -> Unit) {
     }
 }
 
-// ── 下载对话框（原样迁移） ───────────────────────────────────────────────────
+// ── 下载底部弹窗 ─────────────────────────────────────────────────────────────
 
-/** 下载选择对话框：导出文件（TXT/EPUB）+ 离线阅读（缓存到应用）。 */
+/** 下载格式行信息（标题、副标题、图标）。 */
+private data class DownloadFormatInfo(
+    val format: NovelExportFormat,
+    val titleRes: Int,
+    val descRes: Int,
+    val icon: ImageVector,
+)
+
+/** 五种导出格式。 */
+private val DOWNLOAD_FORMATS = listOf(
+    DownloadFormatInfo(NovelExportFormat.TXT, R.string.novel_download_txt_current, R.string.novel_download_txt_current_desc, Icons.Filled.Description),
+    DownloadFormatInfo(NovelExportFormat.EPUB, R.string.novel_download_epub_current, R.string.novel_download_epub_current_desc, Icons.Filled.MenuBook),
+    DownloadFormatInfo(NovelExportFormat.PDF, R.string.novel_download_pdf_current, R.string.novel_download_pdf_current_desc, Icons.Filled.PictureAsPdf),
+    DownloadFormatInfo(NovelExportFormat.MARKDOWN, R.string.novel_download_markdown_current, R.string.novel_download_markdown_current_desc, Icons.Filled.Notes),
+    DownloadFormatInfo(NovelExportFormat.DOCX, R.string.novel_download_docx_current, R.string.novel_download_docx_current_desc, Icons.Filled.Article),
+)
+
+/**
+ * 下载选择底部弹窗：从底部弹出。
+ * 顶部范围选择器（单个文件 / 整个系列，无系列时不显示），下方单一格式列表；
+ * 点击格式行按当前选中范围导出。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DownloadDialog(
+private fun DownloadSheet(
     hasSeries: Boolean,
-    onTxtCurrent: () -> Unit,
-    onEpubCurrent: () -> Unit,
-    onTxtSeries: () -> Unit,
-    onEpubSeries: () -> Unit,
-    onOfflineCurrent: () -> Unit,
-    onOfflineSeries: () -> Unit,
+    onFormat: (NovelExportFormat, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // 是否导出整个系列（false=单个文件）；无系列时恒 false
+    var scopeSeries by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.novel_download_title)) },
-        text = {
-            Column {
-                DialogGroupTitle(stringResource(R.string.novel_download_group_export))
-                DownloadOption(
-                    title = stringResource(R.string.novel_download_txt_current),
-                    subtitle = stringResource(R.string.novel_download_txt_current_desc),
-                    onClick = onTxtCurrent,
-                )
-                DownloadOption(
-                    title = stringResource(R.string.novel_download_epub_current),
-                    subtitle = stringResource(R.string.novel_download_epub_current_desc),
-                    onClick = onEpubCurrent,
-                )
-                if (hasSeries) {
-                    DownloadOption(
-                        title = stringResource(R.string.novel_download_txt_series),
-                        subtitle = stringResource(R.string.novel_download_txt_series_desc),
-                        onClick = onTxtSeries,
-                    )
-                    DownloadOption(
-                        title = stringResource(R.string.novel_download_epub_series),
-                        subtitle = stringResource(R.string.novel_download_epub_series_desc),
-                        onClick = onEpubSeries,
-                    )
-                }
-                DialogGroupTitle(stringResource(R.string.novel_download_group_offline))
-                DownloadOption(
-                    title = stringResource(R.string.novel_download_offline_current),
-                    subtitle = stringResource(R.string.novel_download_offline_current_desc),
-                    onClick = onOfflineCurrent,
-                )
-                if (hasSeries) {
-                    DownloadOption(
-                        title = stringResource(R.string.novel_download_offline_series),
-                        subtitle = stringResource(R.string.novel_download_offline_series_desc),
-                        onClick = onOfflineSeries,
-                    )
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.novel_download_title),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            if (hasSeries) {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                ) {
+                    SegmentedButton(
+                        selected = !scopeSeries,
+                        onClick = { scopeSeries = false },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    ) {
+                        Text(stringResource(R.string.novel_download_scope_single))
+                    }
+                    SegmentedButton(
+                        selected = scopeSeries,
+                        onClick = { scopeSeries = true },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    ) {
+                        Text(stringResource(R.string.novel_download_scope_series))
+                    }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {},
-    )
+            DialogGroupTitle(stringResource(R.string.novel_download_group_export))
+            DOWNLOAD_FORMATS.forEach { info ->
+                DownloadOption(
+                    icon = info.icon,
+                    title = stringResource(info.titleRes),
+                    subtitle = stringResource(info.descRes),
+                    onClick = { onFormat(info.format, scopeSeries) },
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1147,25 +1136,46 @@ private fun DialogGroupTitle(text: String) {
         text = text,
         style = novelMetaStyle(),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp, start = 20.dp, end = 20.dp),
     )
 }
 
 @Composable
-private fun DownloadOption(title: String, subtitle: String, onClick: () -> Unit) {
-    Column(
+private fun DownloadOption(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = novelOptionTitleStyle())
-        Text(
-            text = subtitle,
-            style = novelSmallLabelStyle(),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp),
         )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 14.dp),
+        ) {
+            Text(
+                text = title,
+                style = novelOptionTitleStyle(),
+            )
+            Text(
+                text = subtitle,
+                style = novelSmallLabelStyle(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
     }
 }

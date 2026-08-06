@@ -14,6 +14,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PixivReader">
 
+        <!-- 导出文件分享/系统打开：filesDir/Downloads/novels 下的小说文件 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

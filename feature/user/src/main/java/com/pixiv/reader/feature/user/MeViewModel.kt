@@ -9,12 +9,10 @@ import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.ViewerOrientation
-import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -35,7 +33,6 @@ class MeViewModel @Inject constructor(
     @ApplicationContext context: Context,
     sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
-    private val downloadEntryDao: DownloadEntryDao,
 ) : ViewModel() {
 
     private val appContext: Context = context.applicationContext
@@ -78,6 +75,10 @@ class MeViewModel @Inject constructor(
     val viewerOrientation: StateFlow<ViewerOrientation> =
         userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerOrientation.HORIZONTAL)
 
+    /** 小说导出目录（SAF tree uri；空 = 应用默认私有目录）。 */
+    val novelExportDir: StateFlow<String> =
+        userPreferences.novelExportDir.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
     /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
     val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
@@ -114,6 +115,16 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setAutoUpdate(value) }
     }
 
+    /** 设置小说导出目录（SAF tree uri；空串 = 恢复默认应用目录）。 */
+    fun setNovelExportDir(uri: String) {
+        viewModelScope.launch { runCatching { userPreferences.setNovelExportDir(uri) } }
+    }
+
+    /** 恢复默认导出目录（应用私有目录）。 */
+    fun resetNovelExportDir() {
+        viewModelScope.launch { runCatching { userPreferences.setNovelExportDir("") } }
+    }
+
     /** 设置小说 Tab 默认页（推荐 / 关注）。 */
     fun setNovelDefaultTab(value: NovelDefaultTab) {
         viewModelScope.launch { userPreferences.setNovelDefaultTab(value) }
@@ -129,14 +140,11 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { _message.send(UiMessage(R.string.me_already_latest)) }
     }
 
-    /** 刷新缓存占用大小。 */
+    /** 刷新缓存占用大小（cacheDir：Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）。 */
     fun refreshCacheSize() {
         viewModelScope.launch {
             val size = withContext(Dispatchers.IO) {
-                listOf(
-                    File(appContext.filesDir, "offline"),
-                    appContext.cacheDir,
-                ).sumOf { dir ->
+                listOf(appContext.cacheDir).sumOf { dir ->
                     if (!dir.exists()) 0L else dir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
                 }
             }
@@ -144,12 +152,10 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 清除缓存：离线小说缓存 + 整个 cacheDir（Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等），并删除对应下载索引。 */
+    /** 清除缓存：整个 cacheDir（Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）。 */
     fun clearCache() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                runCatching { File(appContext.filesDir, "offline").deleteRecursively() }
-                runCatching { downloadEntryDao.deleteByType("novel_offline") }
                 // 先让 Coil 正常关闭磁盘/内存缓存，再清空整个 cacheDir：
                 // 覆盖 image_cache（Coil）、ugoira（动图帧）、novel_debug（阅读器调试）等，与 refreshCacheSize 统计一致
                 runCatching { appContext.imageLoader.diskCache?.clear() }

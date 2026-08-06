@@ -30,7 +30,7 @@
 
     <!-- Reader top bar / menu -->
     <string name="reader_title_default">Reading</string>
-    <string name="reader_offline_badge">Offline</string>
+    <string name="reader_local_badge">Local</string>
     <string name="reader_cd_back">Back</string>
     <string name="reader_cd_more">More</string>
     <string name="reader_menu_unbookmark">Remove bookmark</string>

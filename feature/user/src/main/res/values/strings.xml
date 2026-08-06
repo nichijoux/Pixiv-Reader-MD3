@@ -16,7 +16,6 @@
     <!-- 下载 DownloadFilter -->
     <string name="downloads_filter_illust">插画</string>
     <string name="downloads_filter_novel">小说</string>
-    <string name="downloads_filter_offline">离线</string>
 
     <!-- 用户分区 UserSection -->
     <string name="user_section_illust">插画</string>
@@ -60,9 +59,14 @@
     <string name="me_language_english">English</string>
     <string name="me_auto_update">自动更新</string>
     <string name="me_auto_update_desc">启动时检查新版本（更新逻辑待接入）</string>
+    <string name="me_export_dir">下载位置</string>
+    <string name="me_export_dir_value">当前：%1$s</string>
+    <string name="me_export_dir_default">应用目录</string>
+    <string name="me_export_dir_pick">选择目录</string>
+    <string name="me_export_dir_reset">恢复默认</string>
     <string name="me_storage_title">存储</string>
     <string name="me_clear_cache">清除缓存</string>
-    <string name="me_cache_size">当前占用 %1$s（离线小说/图片/调试文件）</string>
+    <string name="me_cache_size">当前占用 %1$s（图片/调试文件）</string>
     <string name="me_cache_calculating">计算中…</string>
     <string name="me_clear">清除</string>
     <string name="me_cache_clear_title">清除缓存？</string>

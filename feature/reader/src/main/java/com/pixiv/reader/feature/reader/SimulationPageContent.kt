@@ -257,9 +257,9 @@ fun SimulationPageContent(
                 )
             },
     ) {
-        val density = LocalDensity.current
-        pageW = with(density) { maxWidth.toPx() }
-        pageH = with(density) { maxHeight.toPx() }
+        // 页面尺寸（px）：直接用 scope 的 constraints（无需 Density 转换，IDE 可识别 scope 使用）
+        pageW = constraints.maxWidth.toFloat()
+        pageH = constraints.maxHeight.toFloat()
 
         val current = pages[currentIndex.intValue]
         val reveal = if (turningForward) {

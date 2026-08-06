@@ -31,7 +31,6 @@ import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
 import com.pixiv.reader.feature.novel.NovelExportFormat
 import com.pixiv.reader.feature.novel.NovelExportWorker
-import com.pixiv.reader.feature.novel.NovelOfflineDownloadWorker
 import com.pixiv.reader.feature.novel.NovelRankingRoute
 import com.pixiv.reader.feature.novel.NovelSeriesRoute
 import com.pixiv.reader.feature.reader.ReaderRoute
@@ -457,7 +456,7 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
             )
         }
-        // 下载管理：三类（图片/小说/本地文件）；本地文件走 local_reader 路由
+        // 下载管理：插画/小说；本地文件走 local_reader 路由
         composable(ROUTE_DOWNLOADS) {
             val context = LocalContext.current
             DownloadsRoute(
@@ -470,9 +469,6 @@ fun PixivNavGraph(
                 },
                 onOpenCover = { url ->
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
-                },
-                onOpenReader = { novelId ->
-                    navController.navigate("reader/$novelId")
                 },
                 onOpenLocalReader = { novelId ->
                     navController.navigate("local_reader/$novelId")
@@ -548,8 +544,7 @@ private fun NavHostController.safeBack() {
 
 /**
  * 重试下载（下载管理页 failed 条目）：按 targetType 重建对应后台任务。
- * 断点续传：已下载部分（插画 `.part` 文件 / 小说导出章节缓存 / 离线已缓存章）由
- * 各 Worker 自动复用，只补缺失部分。
+ * 断点续传：已下载部分（插画 `.part` 文件 / 小说导出章节缓存）由各 Worker 自动复用，只补缺失部分。
  */
 private fun retryDownload(context: Context, entry: DownloadEntryEntity) {
     when (entry.targetType) {
@@ -558,18 +553,8 @@ private fun retryDownload(context: Context, entry: DownloadEntryEntity) {
                 .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to entry.targetId))
                 .build(),
         )
-        "novel_offline" -> {
-            val data = mutableListOf<Pair<String, Any?>>()
-            data += NovelOfflineDownloadWorker.KEY_NOVEL_ID to entry.targetId
-            entry.seriesId?.let { data += NovelOfflineDownloadWorker.KEY_SERIES_ID to it }
-            WorkManager.getInstance(context).enqueue(
-                OneTimeWorkRequestBuilder<NovelOfflineDownloadWorker>()
-                    .setInputData(workDataOf(*data.toTypedArray()))
-                    .build(),
-            )
-        }
         "novel" -> {
-            val format = runCatching { NovelExportFormat.valueOf(entry.format ?: "TXT") }
+            val format = runCatching { NovelExportFormat.valueOf(entry.format) }
                 .getOrDefault(NovelExportFormat.TXT)
             val data = mutableListOf<Pair<String, Any?>>()
             data += NovelExportWorker.KEY_NOVEL_ID to entry.targetId

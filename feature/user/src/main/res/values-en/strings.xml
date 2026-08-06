@@ -16,7 +16,6 @@
     <!-- Download filters -->
     <string name="downloads_filter_illust">Illustrations</string>
     <string name="downloads_filter_novel">Novels</string>
-    <string name="downloads_filter_offline">Offline</string>
 
     <!-- User sections -->
     <string name="user_section_illust">Illustrations</string>
@@ -60,9 +59,14 @@
     <string name="me_language_english">English</string>
     <string name="me_auto_update">Auto update</string>
     <string name="me_auto_update_desc">Check for new versions on launch (not yet implemented)</string>
+    <string name="me_export_dir">Download location</string>
+    <string name="me_export_dir_value">Current: %1$s</string>
+    <string name="me_export_dir_default">App folder</string>
+    <string name="me_export_dir_pick">Choose folder</string>
+    <string name="me_export_dir_reset">Reset</string>
     <string name="me_storage_title">Storage</string>
     <string name="me_clear_cache">Clear cache</string>
-    <string name="me_cache_size">Currently using %1$s (offline novels / images / debug files)</string>
+    <string name="me_cache_size">Currently using %1$s (images / debug files)</string>
     <string name="me_cache_calculating">Calculating…</string>
     <string name="me_clear">Clear</string>
     <string name="me_cache_clear_title">Clear cache?</string>

@@ -182,9 +182,9 @@ fun ReaderRoute(
     val themeColors = remember(effectiveTheme) { readerThemeColors(effectiveTheme) }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
-var settingsOpen by remember { mutableStateOf(false) }
-var menuOpen by remember { mutableStateOf(false) }
-var pageInfo by remember { mutableStateOf(0 to 0) }
+    var settingsOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var pageInfo by remember { mutableStateOf(0 to 0) }
     // 清除自定义字体确认
     var showClearFontConfirm by remember { mutableStateOf(false) }
     // 沉浸式阅读：默认只显示正文，点击正文切换工具栏显隐
@@ -208,7 +208,14 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
     ) { uri -> uri?.let(viewModel::importCustomFont) }
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType()) }
+        viewModel.message.collect { msg ->
+            notificationHostState.show(
+                context.getString(
+                    msg.res,
+                    *msg.args.toTypedArray()
+                ), type = msg.type.toNotificationType()
+            )
+        }
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.flushProgress() }
@@ -219,9 +226,11 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
     val pagerStateRef =
         remember { mutableStateOf<androidx.compose.foundation.pager.PagerState?>(null) }
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(themeColors.background)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(themeColors.background)
+    ) {
         // 正文容器：始终全屏（工具栏为浮层，不挤压正文）
         Box(
             modifier = Modifier
@@ -253,120 +262,128 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                 },
         ) {
             when {
-                    isLoading && document == null -> LoadingBox()
-                    error != null && document == null ->
-                        ErrorBox(message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(), onRetry = viewModel::load)
+                isLoading && document == null -> LoadingBox()
+                error != null && document == null ->
+                    ErrorBox(message = error?.let {
+                        stringResource(
+                            it.res,
+                            *it.args.toTypedArray()
+                        )
+                    }.orEmpty(), onRetry = viewModel::load)
 
-                    document == null -> EmptyBox(stringResource(R.string.reader_empty_content))
-                    else -> {
-                        val doc = checkNotNull(document)
-                        AdaptiveContentBox {
-                            BoxWithConstraints {
-                                val contentWidth = maxWidth - PAGE_H_PADDING * 2
-                                val pageHeight = maxHeight - PAGE_V_PADDING * 2
-                                val fontFamilyInstance = rememberReaderFontFamily(fontFamily, customFont)
-                                val baseStyle = rememberReaderTextStyle(
-                                    fontSize,
-                                    lineHeight,
-                                    fontFamilyInstance
+                document == null -> EmptyBox(stringResource(R.string.reader_empty_content))
+                else -> {
+                    val doc = checkNotNull(document)
+                    AdaptiveContentBox {
+                        BoxWithConstraints {
+                            val contentWidth = maxWidth - PAGE_H_PADDING * 2
+                            val pageHeight = maxHeight - PAGE_V_PADDING * 2
+                            val fontFamilyInstance =
+                                rememberReaderFontFamily(fontFamily, customFont)
+                            val baseStyle = rememberReaderTextStyle(
+                                fontSize,
+                                lineHeight,
+                                fontFamilyInstance
+                            )
+                            val imageHeight = readerImageHeight(contentWidth)
+                            val restoreOffset = if (progressRestored) charOffset else 0
+
+                            if (pageMode == ReaderPageMode.SCROLL) {
+                                ScrollReaderContent(
+                                    document = doc,
+                                    baseStyle = baseStyle,
+                                    imageHeight = imageHeight,
+                                    restoreCharOffset = restoreOffset,
+                                    jumpToChar = jumpToChar,
+                                    onScrollOffset = viewModel::reportScrollOffset,
+                                    onPageInfo = { c, t -> pageInfo = c to t },
                                 )
-                                val imageHeight = readerImageHeight(contentWidth)
-                                val restoreOffset = if (progressRestored) charOffset else 0
-
-                                if (pageMode == ReaderPageMode.SCROLL) {
-                                    ScrollReaderContent(
-                                        document = doc,
+                            } else {
+                                val pages = rememberReaderPages(
+                                    document = doc,
+                                    fontSizeSp = fontSize,
+                                    lineHeightMultiplier = lineHeight,
+                                    fontFamilyName = fontFamily,
+                                    customFont = customFont,
+                                    contentWidthDp = contentWidth,
+                                    pageHeightDp = pageHeight,
+                                )
+                                if (pageMode == ReaderPageMode.SIMULATION) {
+                                    // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
+                                    SimulationPageContent(
+                                        pages = pages,
+                                        baseStyle = baseStyle,
+                                        imageHeight = imageHeight,
+                                        backgroundColor = themeColors.background,
+                                        restoreCharOffset = restoreOffset,
+                                        jumpToChar = jumpToChar,
+                                        onPageChange = { index ->
+                                            pages.getOrNull(index)?.let {
+                                                viewModel.reportPage(
+                                                    it.startChar,
+                                                    pages.size
+                                                )
+                                            }
+                                        },
+                                        onPageInfo = { c, t -> pageInfo = c to t },
+                                        barsVisible = barsVisible,
+                                        onCloseBars = { barsVisible = false },
+                                    )
+                                } else {
+                                    val pagerState = rememberPagerState(pageCount = { pages.size })
+                                    LaunchedEffect(pagerState) { pagerStateRef.value = pagerState }
+                                    PagerReaderContent(
+                                        pagerState = pagerState,
+                                        pages = pages,
                                         baseStyle = baseStyle,
                                         imageHeight = imageHeight,
                                         restoreCharOffset = restoreOffset,
                                         jumpToChar = jumpToChar,
-                                        onScrollOffset = viewModel::reportScrollOffset,
+                                        onPageChange = { index ->
+                                            pages.getOrNull(index)?.let {
+                                                viewModel.reportPage(
+                                                    it.startChar,
+                                                    pages.size
+                                                )
+                                            }
+                                        },
                                         onPageInfo = { c, t -> pageInfo = c to t },
                                     )
-                                } else {
-                                    val pages = rememberReaderPages(
-                                        document = doc,
-                                        fontSizeSp = fontSize,
-                                        lineHeightMultiplier = lineHeight,
-                                        fontFamilyName = fontFamily,
-                                        customFont = customFont,
-                                        contentWidthDp = contentWidth,
-                                        pageHeightDp = pageHeight,
-                                    )
-                                    if (pageMode == ReaderPageMode.SIMULATION) {
-                                        // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
-                                        SimulationPageContent(
-                                            pages = pages,
-                                            baseStyle = baseStyle,
-                                            imageHeight = imageHeight,
-                                            backgroundColor = themeColors.background,
-                                            restoreCharOffset = restoreOffset,
-                                            jumpToChar = jumpToChar,
-                                            onPageChange = { index ->
-                                                pages.getOrNull(index)?.let {
-                                                    viewModel.reportPage(
-                                                        it.startChar,
-                                                        pages.size
-                                                    )
-                                                }
-                                            },
-                                            onPageInfo = { c, t -> pageInfo = c to t },
-                                            barsVisible = barsVisible,
-                                            onCloseBars = { barsVisible = false },
-                                        )
-                                    } else {
-                                        val pagerState = rememberPagerState(pageCount = { pages.size })
-                                        LaunchedEffect(pagerState) { pagerStateRef.value = pagerState }
-                                        PagerReaderContent(
-                                            pagerState = pagerState,
-                                            pages = pages,
-                                            baseStyle = baseStyle,
-                                            imageHeight = imageHeight,
-                                            restoreCharOffset = restoreOffset,
-                                            jumpToChar = jumpToChar,
-                                            onPageChange = { index ->
-                                                pages.getOrNull(index)?.let {
-                                                    viewModel.reportPage(
-                                                        it.startChar,
-                                                        pages.size
-                                                    )
-                                                }
-                                            },
-                                            onPageInfo = { c, t -> pageInfo = c to t },
-                                        )
-                                    }
                                 }
+                            }
 
-                                // 中间 1/3 透明覆盖层：点击切换工具栏（不消费拖动，滑动翻页不受影响）。
-                                // 放在内容之上，确保在子层手势消费指针事件后仍能收到轻点。
-                                // 滑动模式不叠加覆盖层（避免滚动时误触工具栏），工具栏由顶部窄条触发。
-                                if (pageMode != ReaderPageMode.SCROLL) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .width(maxWidth / 3f)
-                                            .align(Alignment.Center)
-                                            .pointerInput(Unit) {
-                                                detectTapGestures(onTap = { barsVisible = !barsVisible })
-                                            },
-                                    )
-                                } else {
-                                    // 滑动模式：顶部窄条点按显示工具栏（不干扰上下滚动）
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(28.dp)
-                                            .align(Alignment.TopCenter)
-                                            .pointerInput(Unit) {
-                                                detectTapGestures(onTap = { barsVisible = true })
-                                            },
-                                    )
-                                }
+                            // 中间 1/3 透明覆盖层：点击切换工具栏（不消费拖动，滑动翻页不受影响）。
+                            // 放在内容之上，确保在子层手势消费指针事件后仍能收到轻点。
+                            // 滑动模式不叠加覆盖层（避免滚动时误触工具栏），工具栏由顶部窄条触发。
+                            if (pageMode != ReaderPageMode.SCROLL) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(maxWidth / 3f)
+                                        .align(Alignment.Center)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(onTap = {
+                                                barsVisible = !barsVisible
+                                            })
+                                        },
+                                )
+                            } else {
+                                // 滑动模式：顶部窄条点按显示工具栏（不干扰上下滚动）
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(28.dp)
+                                        .align(Alignment.TopCenter)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(onTap = { barsVisible = true })
+                                        },
+                                )
                             }
                         }
                     }
                 }
             }
+        }
 
         // 亮度遮罩（0.3 ~ 1.0，1.0 为不遮）
         if (brightness < 1f) {
@@ -391,7 +408,8 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = novel?.title ?: stringResource(R.string.reader_title_default),
+                                text = novel?.title
+                                    ?: stringResource(R.string.reader_title_default),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 color = themeColors.text,
@@ -399,7 +417,7 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                             )
                             if (isOffline) {
                                 Text(
-                                    text = stringResource(R.string.reader_offline_badge),
+                                    text = stringResource(R.string.reader_local_badge),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = themeColors.text.copy(alpha = 0.7f),
                                     modifier = Modifier.padding(start = 6.dp),
@@ -429,7 +447,13 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(if (isBookmarked) stringResource(R.string.reader_menu_unbookmark) else stringResource(R.string.reader_menu_bookmark)) },
+                                    text = {
+                                        Text(
+                                            if (isBookmarked) stringResource(R.string.reader_menu_unbookmark) else stringResource(
+                                                R.string.reader_menu_bookmark
+                                            )
+                                        )
+                                    },
                                     leadingIcon = {
                                         Icon(
                                             if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -439,7 +463,13 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                                     onClick = { menuOpen = false; viewModel.toggleBookmark() },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (isMarked) stringResource(R.string.reader_menu_remove_mark) else stringResource(R.string.reader_menu_add_mark)) },
+                                    text = {
+                                        Text(
+                                            if (isMarked) stringResource(R.string.reader_menu_remove_mark) else stringResource(
+                                                R.string.reader_menu_add_mark
+                                            )
+                                        )
+                                    },
                                     leadingIcon = {
                                         Icon(
                                             if (isMarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
@@ -449,7 +479,13 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                                     onClick = { menuOpen = false; viewModel.toggleMark() },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (isWatchlisted) stringResource(R.string.reader_menu_unwatch) else stringResource(R.string.reader_menu_watch)) },
+                                    text = {
+                                        Text(
+                                            if (isWatchlisted) stringResource(R.string.reader_menu_unwatch) else stringResource(
+                                                R.string.reader_menu_watch
+                                            )
+                                        )
+                                    },
                                     leadingIcon = {
                                         Icon(
                                             if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
@@ -517,7 +553,15 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
             onPageModeChange = viewModel::onPageModeChange,
             onBrightnessChange = viewModel::onBrightnessChange,
             onFollowSystemChange = viewModel::onFollowSystemChange,
-            onImportFont = { fontPicker.launch(arrayOf("font/ttf", "font/otf", "application/octet-stream")) },
+            onImportFont = {
+                fontPicker.launch(
+                    arrayOf(
+                        "font/ttf",
+                        "font/otf",
+                        "application/octet-stream"
+                    )
+                )
+            },
             onClearFont = { showClearFontConfirm = true },
             onDismiss = { settingsOpen = false },
         )
@@ -562,7 +606,9 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                 )
 
                 else -> LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp),
                     contentPadding = PaddingValues(bottom = 24.dp),
                 ) {
                     items(toc, key = { it.novelId }) { item ->
@@ -630,12 +676,18 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                     singleLine = true,
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = if (searchIndex >= 0) {
-                            stringResource(R.string.reader_search_position, searchIndex + 1, searchResults.size)
+                            stringResource(
+                                R.string.reader_search_position,
+                                searchIndex + 1,
+                                searchResults.size
+                            )
                         } else {
                             stringResource(R.string.reader_search_total, searchResults.size)
                         },
@@ -646,17 +698,25 @@ var pageInfo by remember { mutableStateOf(0 to 0) }
                     IconButton(onClick = {
                         viewModel.setSearchIndex(searchIndex - 1)
                     }, enabled = searchIndex > 0) {
-                        Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.reader_cd_prev))
+                        Icon(
+                            Icons.Filled.ArrowUpward,
+                            contentDescription = stringResource(R.string.reader_cd_prev)
+                        )
                     }
                     IconButton(onClick = {
                         viewModel.setSearchIndex(searchIndex + 1)
                     }, enabled = searchIndex in 0 until searchResults.size - 1) {
-                        Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.reader_cd_next))
+                        Icon(
+                            Icons.Filled.ArrowDownward,
+                            contentDescription = stringResource(R.string.reader_cd_next)
+                        )
                     }
                 }
                 if (searchResults.isNotEmpty()) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
                     ) {
                         items(searchResults.take(100)) { offset ->
@@ -1032,15 +1092,16 @@ private fun BookPageTurnContent(
                 )
             },
     ) {
-        val density = LocalDensity.current
-        val w = with(density) { maxWidth.toPx() }
-        val h = with(density) { maxHeight.toPx() }
+        // 页面尺寸（px）：直接用 scope 的 constraints（无需 Density 转换，IDE 可识别 scope 使用）
+        val w = constraints.maxWidth.toFloat()
+        val h = constraints.maxHeight.toFloat()
         val progress = curlProgress.value
 
         // 被卷起的角落：翻下一页卷右下角，翻上一页卷左下角；
         // 手指位置 = 从角落线性移动到目标点（由进度驱动，卷角大小跟随拖动）
         val corner = if (turningForward) Offset(w, h) else Offset(0f, h)
-        val target = if (turningForward) Offset(w * 0.42f, h * 0.58f) else Offset(w * 0.58f, h * 0.58f)
+        val target =
+            if (turningForward) Offset(w * 0.42f, h * 0.58f) else Offset(w * 0.58f, h * 0.58f)
         val finger = Offset(
             corner.x + (target.x - corner.x) * progress,
             corner.y + (target.y - corner.y) * progress,

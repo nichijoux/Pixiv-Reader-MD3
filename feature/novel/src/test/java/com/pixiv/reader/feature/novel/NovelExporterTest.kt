@@ -41,11 +41,13 @@ class NovelExporterTest {
     @Test
     fun `buildTxt 输出标题作者并跳过插图`() {
         val txt = buildTxt(
-            listOf(sampleNovel() to document(
-                NovelBlock.Paragraph("第一段"),
-                NovelBlock.Image("https://example.com/1.jpg"),
-                NovelBlock.Quote("引用内容"),
-            )),
+            listOf(
+                sampleNovel() to document(
+                    NovelBlock.Paragraph("第一段"),
+                    NovelBlock.Image("https://example.com/1.jpg"),
+                    NovelBlock.Quote("引用内容"),
+                )
+            ),
             seriesTitle = null,
         )
         assertTrue(txt.contains("测试小说"))
@@ -66,6 +68,69 @@ class NovelExporterTest {
         assertTrue(txt.contains("【第二章】"))
         assertTrue(txt.contains("内容一"))
         assertTrue(txt.contains("内容二"))
+    }
+
+    // ── MARKDOWN ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `buildMarkdown 保留标题层级与引用并跳过插图`() {
+        val md = buildMarkdown(
+            listOf(
+                sampleNovel() to document(
+                    NovelBlock.Paragraph("第一段"),
+                    NovelBlock.Image("https://example.com/1.jpg"),
+                    NovelBlock.Quote("引用内容"),
+                    NovelBlock.Heading("小节", 3),
+                    NovelBlock.Separator(),
+                )
+            ),
+            seriesTitle = null,
+        )
+        assertTrue(md.contains("# 测试小说"))
+        assertTrue(md.contains("第一段"))
+        assertTrue(md.contains("> 引用内容"))
+        assertTrue(md.contains("### 小节"))
+        assertTrue(md.contains("---"))
+        assertFalse(md.contains("example.com"))
+    }
+
+    // ── DOCX ─────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `buildDocx 生成最小 ooxml 容器与段落文本`() {
+        val chapters = listOf(
+            sampleNovel(1L, "第一章") to document(
+                NovelBlock.Paragraph("内容一"),
+                NovelBlock.Image("https://example.com/1.jpg"),
+                NovelBlock.Quote("引用内容"),
+            ),
+        )
+        val bytes = buildDocx(chapters, seriesTitle = "系列标题")
+
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            val names = mutableListOf<String>()
+            var docXml = ""
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                names.add(entry.name)
+                val content = zip.readBytes().toString(Charsets.UTF_8)
+                if (entry.name == "word/document.xml") docXml = content
+            }
+            assertEquals(listOf("[Content_Types].xml", "_rels/.rels", "word/document.xml"), names)
+            assertTrue(docXml.contains("系列标题"))
+            assertTrue(docXml.contains("第一章"))
+            assertTrue(docXml.contains("内容一"))
+            assertTrue(docXml.contains("引用内容"))
+            // 插图不输出
+            assertFalse(docXml.contains("example.com"))
+        }
+    }
+
+    @Test
+    fun `docxHeading 标题加粗带字号且转义特殊字符`() {
+        assertTrue(docxHeading("A&B", 1).contains("<w:b/>"))
+        assertTrue(docxHeading("A&B", 1).contains("A&amp;B"))
+        assertTrue(docxHeading("标题", 2).contains("<w:sz w:val=\"32\"/>"))
     }
 
     // ── EPUB ─────────────────────────────────────────────────────────────────

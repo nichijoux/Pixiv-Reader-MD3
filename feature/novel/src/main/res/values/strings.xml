@@ -56,22 +56,21 @@
     <string name="novel_watch">追更</string>
     <string name="novel_download">下载</string>
 
-    <!-- 下载对话框 -->
+    <!-- 下载底部弹窗 -->
     <string name="novel_download_title">下载小说</string>
+    <string name="novel_download_scope_single">单个文件</string>
+    <string name="novel_download_scope_series">整个系列</string>
     <string name="novel_download_group_export">导出文件</string>
-    <string name="novel_download_group_offline">离线阅读</string>
     <string name="novel_download_txt_current">本文（TXT）</string>
     <string name="novel_download_txt_current_desc">纯文本，不包含插图</string>
     <string name="novel_download_epub_current">本文（EPUB）</string>
     <string name="novel_download_epub_current_desc">标准电子书，内嵌插图</string>
-    <string name="novel_download_txt_series">整个系列（TXT）</string>
-    <string name="novel_download_txt_series_desc">合并所有分册为纯文本</string>
-    <string name="novel_download_epub_series">整个系列（EPUB）</string>
-    <string name="novel_download_epub_series_desc">合并所有分册为电子书</string>
-    <string name="novel_download_offline_current">下载到应用（离线阅读）</string>
-    <string name="novel_download_offline_current_desc">断网可读本文</string>
-    <string name="novel_download_offline_series">下载整个系列（离线阅读）</string>
-    <string name="novel_download_offline_series_desc">断网可读全部分册</string>
+    <string name="novel_download_pdf_current">本文（PDF）</string>
+    <string name="novel_download_pdf_current_desc">便携文档，适合打印分享</string>
+    <string name="novel_download_markdown_current">本文（Markdown）</string>
+    <string name="novel_download_markdown_current_desc">纯文本，保留标题层级</string>
+    <string name="novel_download_docx_current">本文（Word）</string>
+    <string name="novel_download_docx_current_desc">Office 文档，可编辑排版</string>
 
     <!-- ViewModel 消息 / 错误 -->
     <string name="novel_error_load_failed">加载失败</string>
@@ -87,8 +86,4 @@
     <string name="novel_msg_exported">已导出：%1$s</string>
     <string name="novel_msg_export_queued">已加入导出队列</string>
     <string name="novel_msg_export_failed">导出失败：%1$s</string>
-    <string name="novel_msg_queued">已加入下载队列</string>
-    <string name="novel_msg_queued_background">已加入下载队列（后台）</string>
-    <string name="novel_msg_offline_done">下载完成：%1$s</string>
-    <string name="novel_msg_offline_failed">下载失败</string>
 </resources>

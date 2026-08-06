@@ -110,7 +110,7 @@ class IllustDownloadWorker(
             val overall = (base + pagePct * span / 100).coerceIn(0, 100)
             if (overall - lastWritten >= 1) {
                 lastWritten = overall
-                dao.updateProgress(illust.id, overall)
+                dao.updateProgress("illust", illust.id, "", overall)
             }
         }).getOrThrow()
         part.renameTo(target)

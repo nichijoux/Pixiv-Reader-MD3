@@ -20,6 +20,8 @@ gson = "2.11.0"
 coroutines = "1.10.2"
 pixivLogin = "1.2.0"
 junit = "4.13.2"
+pdfbox = "2.0.27.0"
+documentfile = "1.0.1"
 
 [libraries]
 # Compose / UI
@@ -64,6 +66,10 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+# PDF 生成（Android 移植版 PDFBox，Apache 2.0）
+pdfbox = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfbox" }
+# SAF 目录访问（DocumentFile）
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 # Network（pixiv-api-kotlin 依赖）
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }

@@ -193,7 +193,7 @@ class ViewerViewModel @Inject constructor(
                 val pct = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 99) else 0
                 if (pct - lastWritten >= 2) {
                     lastWritten = pct
-                    downloadEntryDao.updateProgress(illustId, pct)
+                    downloadEntryDao.updateProgress("illust", illustId, "", pct)
                 }
             }
                 .onSuccess { file ->

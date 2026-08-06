@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 共享路径：仅暴露应用内小说导出目录 -->
+<paths>
+    <files-path name="novels" path="Downloads/novels/" />
+</paths>

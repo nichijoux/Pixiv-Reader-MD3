@@ -3,6 +3,8 @@ package com.pixiv.reader.feature.user
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.OpenInNew
@@ -32,6 +36,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -50,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.documentfile.provider.DocumentFile
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.AppLanguage
@@ -96,6 +102,7 @@ fun MeRoute(
     val novelDefaultTab by viewModel.novelDefaultTab.collectAsStateWithLifecycle()
     val viewerOrientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
+    val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     val activity = context as? Activity
@@ -105,6 +112,31 @@ fun MeRoute(
     var showClearCache by remember { mutableStateOf(false) }
     // 退出登录确认（提示类，非删除）
     var showLogoutConfirm by remember { mutableStateOf(false) }
+
+    // 小说导出目录：SAF 选择目录后持久授权并保存
+    val exportDirLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+            viewModel.setNovelExportDir(uri.toString())
+        }
+    }
+    // 当前导出目录显示名（未配置 = 应用默认）
+    val exportDirName = remember(novelExportDir) {
+        if (novelExportDir.isBlank()) {
+            context.getString(R.string.me_export_dir_default)
+        } else {
+            DocumentFile.fromTreeUri(context, Uri.parse(novelExportDir))?.name
+                ?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.me_export_dir_default)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
@@ -343,6 +375,47 @@ fun MeRoute(
                             checked = autoUpdate,
                             onCheckedChange = viewModel::setAutoUpdate,
                         )
+                    }
+                }
+                CardSpacer()
+                // 下载位置（小说导出目录：默认应用目录，可 SAF 指定如系统 Download）
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.me_export_dir), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = stringResource(R.string.me_export_dir_value, exportDirName),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (novelExportDir.isNotBlank()) {
+                                TextButton(onClick = viewModel::resetNovelExportDir) {
+                                    Text(stringResource(R.string.me_export_dir_reset))
+                                }
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = { exportDirLauncher.launch(null) },
+                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FolderOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.me_export_dir_pick))
+                        }
                     }
                 }
                 CardSpacer()

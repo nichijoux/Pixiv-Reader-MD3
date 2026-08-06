@@ -30,7 +30,7 @@
 
     <!-- 阅读器顶栏 / 菜单 -->
     <string name="reader_title_default">阅读</string>
-    <string name="reader_offline_badge">离线</string>
+    <string name="reader_local_badge">本地</string>
     <string name="reader_cd_back">返回</string>
     <string name="reader_cd_more">更多</string>
     <string name="reader_menu_unbookmark">取消收藏</string>

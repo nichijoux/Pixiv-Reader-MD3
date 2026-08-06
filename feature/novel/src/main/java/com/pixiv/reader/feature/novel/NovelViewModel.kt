@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 /**
  * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更。
  * 评论已独立到 [NovelCommentsViewModel]（详情页不再加载评论）。
- * 离线下载（worker）完成后观察下载索引并发应用内完成/失败通知。
+ * 导出（worker）完成后观察下载索引并发应用内完成/失败通知。
  */
 @HiltViewModel
 class NovelViewModel @Inject constructor(
@@ -200,38 +200,18 @@ class NovelViewModel @Inject constructor(
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
-    /** 导出当前单本小说为指定格式文件（后台队列，支持断点续传）。 */
-    fun exportNovel(format: NovelExportFormat) {
+    /** 导出小说为指定格式文件（本文或整个系列，后台队列，支持断点续传）。 */
+    fun export(format: NovelExportFormat, series: Boolean = false) {
         val detail = _novel.value ?: return
         if (_downloading.value) return
+        val seriesId = if (series) detail.series?.id else null
+        if (series && seriesId == null) return
+        val data = mutableListOf<Pair<String, Any?>>()
+        data += NovelExportWorker.KEY_NOVEL_ID to detail.id
+        data += NovelExportWorker.KEY_FORMAT to format.name
+        seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
         val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
-            .setInputData(
-                workDataOf(
-                    NovelExportWorker.KEY_NOVEL_ID to detail.id,
-                    NovelExportWorker.KEY_FORMAT to format.name,
-                ),
-            )
-            .build()
-        WorkManager.getInstance(context).enqueue(request)
-        _downloading.value = true
-        _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
-        _message.trySend(UiMessage(R.string.novel_msg_export_queued))
-        observeExportCompletion(detail.id)
-    }
-
-    /** 导出整个系列为指定格式文件（后台队列，支持断点续传）。 */
-    fun exportSeries(format: NovelExportFormat) {
-        val detail = _novel.value ?: return
-        val seriesId = detail.series?.id ?: return
-        if (_downloading.value) return
-        val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
-            .setInputData(
-                workDataOf(
-                    NovelExportWorker.KEY_NOVEL_ID to detail.id,
-                    NovelExportWorker.KEY_SERIES_ID to seriesId,
-                    NovelExportWorker.KEY_FORMAT to format.name,
-                ),
-            )
+            .setInputData(workDataOf(*data.toTypedArray()))
             .build()
         WorkManager.getInstance(context).enqueue(request)
         _downloading.value = true
@@ -256,54 +236,6 @@ class NovelViewModel @Inject constructor(
             when (done?.status) {
                 "done" -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(done.title ?: ""), type = MessageType.SUCCESS))
                 "failed" -> _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(""), type = MessageType.ERROR))
-            }
-        }
-    }
-
-    // ── 离线下载（WorkManager 后台队列，缓存到 app，断网可读） ───────────────
-
-    /** 下载当前单本到应用（后台队列）。 */
-    fun downloadOfflineCurrent() {
-        val detail = _novel.value ?: return
-        val request = OneTimeWorkRequestBuilder<NovelOfflineDownloadWorker>()
-            .setInputData(workDataOf(NovelOfflineDownloadWorker.KEY_NOVEL_ID to detail.id))
-            .build()
-        WorkManager.getInstance(context).enqueue(request)
-        _message.trySend(UiMessage(R.string.novel_msg_queued))
-        observeOfflineCompletion(detail.id)
-    }
-
-    /** 下载整个系列到应用（后台队列，失败自动重试）。 */
-    fun downloadOfflineSeries() {
-        val detail = _novel.value ?: return
-        val seriesId = detail.series?.id ?: return
-        val request = OneTimeWorkRequestBuilder<NovelOfflineDownloadWorker>()
-            .setInputData(
-                workDataOf(
-                    NovelOfflineDownloadWorker.KEY_NOVEL_ID to detail.id,
-                    NovelOfflineDownloadWorker.KEY_SERIES_ID to seriesId,
-                ),
-            )
-            .build()
-        WorkManager.getInstance(context).enqueue(request)
-        _message.trySend(UiMessage(R.string.novel_msg_queued_background))
-        observeOfflineCompletion(detail.id)
-    }
-
-    /** 观察离线下载完成：等 downloading 出现后，再等 done/failed，发应用内完成/失败通知（与开始通知同位置）。 */
-    private fun observeOfflineCompletion(id: Long) {
-        viewModelScope.launch {
-            downloadEntryDao.observeAll().first { entries ->
-                entries.any { it.targetId == id && it.targetType == "novel_offline" && it.status == "downloading" }
-            }
-            val done = downloadEntryDao.observeAll()
-                .first { entries ->
-                    entries.any { it.targetId == id && it.targetType == "novel_offline" && (it.status == "done" || it.status == "failed") }
-                }
-                .firstOrNull { it.targetId == id && it.targetType == "novel_offline" }
-            when (done?.status) {
-                "done" -> _message.send(UiMessage(R.string.novel_msg_offline_done, listOf(_novel.value?.title.orEmpty()), type = MessageType.SUCCESS))
-                "failed" -> _message.send(UiMessage(R.string.novel_msg_offline_failed, type = MessageType.ERROR))
             }
         }
     }

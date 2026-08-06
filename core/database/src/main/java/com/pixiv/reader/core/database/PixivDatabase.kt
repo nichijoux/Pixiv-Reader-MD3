@@ -48,6 +48,43 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * v5→v6：download_entry 主键改为 (targetType, targetId, format)，
+ * 支持同一目标多种导出格式并存；同时剔除已移除的 novel_offline 离线索引。
+ * SQLite 无法直接改主键，采用 建新表 + 拷贝 + 换名。
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `download_entry_new` (" +
+                "`targetId` INTEGER NOT NULL, " +
+                "`targetType` TEXT NOT NULL, " +
+                "`title` TEXT, " +
+                "`coverUrl` TEXT, " +
+                "`localPath` TEXT, " +
+                "`status` TEXT NOT NULL, " +
+                "`progress` INTEGER NOT NULL, " +
+                "`pageCount` INTEGER NOT NULL, " +
+                "`width` INTEGER NOT NULL, " +
+                "`height` INTEGER NOT NULL, " +
+                "`seriesId` INTEGER, " +
+                "`format` TEXT NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`targetType`, `targetId`, `format`))",
+        )
+        db.execSQL(
+            "INSERT INTO `download_entry_new` (" +
+                "`targetId`, `targetType`, `title`, `coverUrl`, `localPath`, `status`, " +
+                "`progress`, `pageCount`, `width`, `height`, `seriesId`, `format`, `updatedAt`) " +
+                "SELECT `targetId`, `targetType`, `title`, `coverUrl`, `localPath`, `status`, " +
+                "`progress`, `pageCount`, `width`, `height`, `seriesId`, COALESCE(`format`, ''), `updatedAt` " +
+                "FROM `download_entry` WHERE `targetType` != 'novel_offline'",
+        )
+        db.execSQL("DROP TABLE `download_entry`")
+        db.execSQL("ALTER TABLE `download_entry_new` RENAME TO `download_entry`")
+    }
+}
+
 @Database(
     entities = [
         ReadingProgressEntity::class,
@@ -55,7 +92,7 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         DownloadEntryEntity::class,
         SearchHistoryEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {

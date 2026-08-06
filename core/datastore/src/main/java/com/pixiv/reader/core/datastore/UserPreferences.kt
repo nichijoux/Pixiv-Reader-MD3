@@ -82,6 +82,10 @@ class UserPreferences @Inject constructor(
         prefs[KEY_MUTED_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
 
+    // ── 下载 ──
+    /** 小说导出目录（SAF tree uri；空 = 应用私有目录 filesDir/Downloads/novels）。 */
+    val novelExportDir: Flow<String> = context.dataStore.data.map { it[KEY_NOVEL_EXPORT_DIR] ?: "" }
+
     suspend fun setReaderFontSize(value: Float) = context.dataStore.edit { it[KEY_FONT_SIZE] = value }
     suspend fun setReaderLineHeight(value: Float) = context.dataStore.edit { it[KEY_LINE_HEIGHT] = value }
     suspend fun setReaderFontFamily(value: String) = context.dataStore.edit { it[KEY_FONT_FAMILY] = value }
@@ -102,6 +106,7 @@ class UserPreferences @Inject constructor(
     suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
+    suspend fun setNovelExportDir(value: String) = context.dataStore.edit { it[KEY_NOVEL_EXPORT_DIR] = value }
 
     private companion object {
         val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
@@ -121,5 +126,6 @@ class UserPreferences @Inject constructor(
         val KEY_HOT_TAGS = stringPreferencesKey("hot_tags")
         val KEY_HOT_TAGS_AT = longPreferencesKey("hot_tags_updated_at")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
+        val KEY_NOVEL_EXPORT_DIR = stringPreferencesKey("novel_export_dir")
     }
 }

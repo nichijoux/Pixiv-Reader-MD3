@@ -7,6 +7,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.HiltAndroidApp
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -21,6 +22,12 @@ class PixivApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    override fun onCreate() {
+        super.onCreate()
+        // 一次性清理旧版「离线下载」缓存目录（离线功能已移除，老数据不再使用）
+        runCatching { File(filesDir, "offline").deleteRecursively() }
+    }
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()

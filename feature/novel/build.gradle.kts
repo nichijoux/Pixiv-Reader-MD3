@@ -33,6 +33,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     // 后台下载（普通 Worker + EntryPoint，无需 @HiltWorker）
     implementation(libs.androidx.work.runtime.ktx)
+    // PDF 导出
+    implementation(libs.pdfbox)
+    // SAF 目录访问（导出目录 DocumentFile）
+    implementation(libs.androidx.documentfile)
 
     testImplementation(libs.junit)
 }
