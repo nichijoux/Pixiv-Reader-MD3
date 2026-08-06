@@ -25,9 +25,9 @@
     <string name="novel_not_found">Novel not found</string>
     <string name="novel_cd_back">Back</string>
     <string name="novel_publish_date">Published %1$s</string>
-    <string name="novel_toc_section">Contents (%1$d)</string>
+    <string name="novel_toc_title">Contents</string>
     <string name="novel_series_view_all">View full series</string>
-    <string name="novel_intro_expand">Show full description</string>
+    <string name="novel_intro_expand">Show more</string>
     <string name="novel_intro_collapse">Collapse</string>
     <string name="novel_comment_button">Comments</string>
 

@@ -46,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +65,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextIndent
@@ -104,6 +106,61 @@ private const val TABLET_WIDTH_DP = 600
 private const val NOVEL_TOC_MAX_HEIGHT_FRACTION = 0.4f
 /** 平板左栏系列目录宽度。 */
 private val NOVEL_TOC_PANEL_WIDTH = 264.dp
+
+// ── 文字样式（基于 core:ui 统一 Typography 派生，对齐 HTML 并整体 +1sp，禁止散落 magic number） ──
+
+/** 标题：titleLarge + 22sp Bold。 */
+@Composable
+private fun novelTitleStyle() = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold)
+
+/** 作者名：bodyMedium + 15sp SemiBold。 */
+@Composable
+private fun novelAuthorStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+
+/** 次级信息（发布时间 / 查看完整系列 / 展开 / 下载进度）：bodyMedium 13sp。 */
+@Composable
+private fun novelMetaStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
+
+/** 统计数值：bodyLarge Bold。 */
+@Composable
+private fun novelStatValueStyle() = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+
+/** 小标签（统计标签 / 标签 / 竖排按钮 / 目录 meta / 序号徽标）：labelMedium。 */
+@Composable
+private fun novelSmallLabelStyle() = MaterialTheme.typography.labelMedium
+
+/** 简介：bodyMedium 14.5sp + 行高 25sp。 */
+@Composable
+private fun novelIntroStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, lineHeight = 25.sp)
+
+/** 阅读主按钮：titleMedium SemiBold。 */
+@Composable
+private fun novelReadButtonStyle() = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+
+/** 系列目录标题：titleMedium Bold。 */
+@Composable
+private fun novelTocTitleStyle() = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+
+/** 系列目录行标题：bodyMedium（当前章加粗在调用处 copy）。 */
+@Composable
+private fun novelTocRowStyle() = MaterialTheme.typography.bodyMedium
+
+/** 「当前」胶囊：labelMedium 11sp SemiBold。 */
+@Composable
+private fun novelCurrentBadgeStyle() = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+
+/** 数量胶囊：labelMedium SemiBold。 */
+@Composable
+private fun novelCountBadgeStyle() = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+
+/** 下载对话框选项标题：bodyMedium 15sp Medium。 */
+@Composable
+private fun novelOptionTitleStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium)
+
+// ── 间距 ────────────────────────────────────────────────────────────────────
+
+/** 竖排按钮 icon 与 label 的间隔（HTML `.abtn` gap:4px，此处收紧为 2dp）。 */
+private val NovelIconLabelGap = 2.dp
 
 /**
  * 小说详情（第六十四轮完全重写，对齐 design/novel-detail-ui.html）：
@@ -458,11 +515,10 @@ private fun NovelHeader(
     expandableIntro: Boolean,
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
-        // 标题：21sp Bold（HTML 21px/700）
+        // 标题：titleLarge 派生 + 22sp Bold
         Text(
             text = novel.title.orEmpty(),
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold,
+            style = novelTitleStyle(),
         )
         // 作者行：头像 + 昵称 + chevron ›
         Row(
@@ -479,8 +535,7 @@ private fun NovelHeader(
             )
             Text(
                 text = novel.user?.name.orEmpty(),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = novelAuthorStyle(),
             )
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -504,7 +559,7 @@ private fun NovelHeader(
                 )
                 Text(
                     text = stringResource(R.string.novel_publish_date, publishDate),
-                    fontSize = 12.sp,
+                    style = novelMetaStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp),
                 )
@@ -547,8 +602,7 @@ private fun NovelHeader(
                 tags.forEach { tag ->
                     Text(
                         text = "#${tag.displayName ?: tag.name.orEmpty()}",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = novelSmallLabelStyle(),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .clip(AppShapes.pill)
@@ -565,26 +619,25 @@ private fun NovelHeader(
             val clamped = expandableIntro && !expanded
             Text(
                 text = htmlToPlainText(caption),
-                fontSize = 13.5.sp,
-                lineHeight = 24.sp,
+                style = novelIntroStyle().copy(
+                    textIndent = TextIndent(firstLine = 2.em),
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (clamped) 6 else Int.MAX_VALUE,
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    textIndent = TextIndent(firstLine = 2.em),
-                ),
                 modifier = Modifier.padding(top = 14.dp),
             )
             if (expandableIntro) {
-                Text(
-                    text = if (expanded) stringResource(R.string.novel_intro_collapse) else stringResource(R.string.novel_intro_expand),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(top = 6.dp)
-                        .clickable { expanded = !expanded },
-                )
+                // 展开 / 收起：居中按钮
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = if (expanded) stringResource(R.string.novel_intro_collapse) else stringResource(R.string.novel_intro_expand),
+                        style = novelMetaStyle().copy(fontWeight = FontWeight.SemiBold),
+                    )
+                }
             }
         }
     }
@@ -609,14 +662,13 @@ private fun NovelStatBlock(
             )
             Text(
                 text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+                style = novelStatValueStyle(),
                 modifier = Modifier.padding(start = 4.dp),
             )
         }
         Text(
             text = label,
-            fontSize = 11.sp,
+            style = novelSmallLabelStyle(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -649,8 +701,7 @@ private fun NovelActions(
             Icon(Icons.Filled.AutoStories, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(
                 text = readLabel,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = novelReadButtonStyle(),
                 modifier = Modifier.padding(start = 6.dp),
             )
         }
@@ -694,7 +745,7 @@ private fun NovelActions(
         if (downloading && !downloadProgress.isNullOrBlank()) {
             Text(
                 text = downloadProgress,
-                fontSize = 12.sp,
+                style = novelMetaStyle(),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -734,14 +785,14 @@ private fun VerticalActionButton(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(19.dp),
-            tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            // 图标始终主色（对齐 HTML `.abtn .ic{fill:var(--primary)}`），仅 disabled 置灰
+            tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = novelSmallLabelStyle().copy(fontWeight = FontWeight.SemiBold),
             color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = NovelIconLabelGap),
         )
     }
 }
@@ -774,8 +825,7 @@ private fun ChapterRow(
         ) {
             Text(
                 text = (index + 1).toString().padStart(2, '0'),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
+                style = novelSmallLabelStyle().copy(fontWeight = FontWeight.Bold),
                 color = if (isCurrent) MaterialTheme.colorScheme.onPrimary
                 else MaterialTheme.colorScheme.onSecondaryContainer,
             )
@@ -787,8 +837,7 @@ private fun ChapterRow(
         ) {
             Text(
                 text = novel.title.orEmpty(),
-                fontSize = 13.sp,
-                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                style = if (isCurrent) novelTocRowStyle().copy(fontWeight = FontWeight.SemiBold) else novelTocRowStyle(),
                 color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -799,12 +848,12 @@ private fun ChapterRow(
             ) {
                 Text(
                     text = stringResource(R.string.novel_chapter_word, formatCountForNovel(novel.text_length ?: 0)),
-                    fontSize = 11.sp,
+                    style = novelSmallLabelStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = stringResource(R.string.novel_chapter_bookmark, formatCount((novel.total_bookmarks ?: 0).toLong())),
-                    fontSize = 11.sp,
+                    style = novelSmallLabelStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -812,8 +861,7 @@ private fun ChapterRow(
         if (isCurrent) {
             Text(
                 text = stringResource(R.string.novel_chapter_current),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = novelCurrentBadgeStyle(),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .clip(AppShapes.pill)
@@ -825,7 +873,7 @@ private fun ChapterRow(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 系列目录标题（HTML `.sectitle`）：MenuBook 图标 + 15sp Bold + 数量胶囊。 */
+/** 系列目录标题（HTML `.sectitle`）：MenuBook 图标 + 15sp Bold 标题 + 数量胶囊 `.cnt`。 */
 @Composable
 private fun TocTitle(count: Int, modifier: Modifier = Modifier) {
     Row(
@@ -839,11 +887,24 @@ private fun TocTitle(count: Int, modifier: Modifier = Modifier) {
             tint = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = stringResource(R.string.novel_toc_section, count),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
+            text = stringResource(R.string.novel_toc_title),
+            style = novelTocTitleStyle(),
             modifier = Modifier.padding(start = 7.dp),
         )
+        // 数量胶囊（HTML `.sectitle .cnt`：primary-container 底 + primary 字 + 圆角胶囊）
+        Box(
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .clip(AppShapes.pill)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 9.dp, vertical = 2.dp),
+        ) {
+            Text(
+                text = count.toString(),
+                style = novelCountBadgeStyle(),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -941,8 +1002,7 @@ private fun SeriesMoreRow(
     ) {
         Text(
             text = stringResource(R.string.novel_series_view_all),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = novelMetaStyle().copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.primary,
         )
         Icon(
@@ -1037,7 +1097,7 @@ private fun DownloadDialog(
 private fun DialogGroupTitle(text: String) {
     Text(
         text = text,
-        fontSize = 12.sp,
+        style = novelMetaStyle(),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
     )
@@ -1052,10 +1112,10 @@ private fun DownloadOption(title: String, subtitle: String, onClick: () -> Unit)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
     ) {
-        Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        Text(title, style = novelOptionTitleStyle())
         Text(
             text = subtitle,
-            fontSize = 12.sp,
+            style = novelSmallLabelStyle(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp),
         )

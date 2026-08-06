@@ -25,9 +25,9 @@
     <string name="novel_not_found">没有找到该小说</string>
     <string name="novel_cd_back">返回</string>
     <string name="novel_publish_date">发布于 %1$s</string>
-    <string name="novel_toc_section">系列目录（%1$d）</string>
+    <string name="novel_toc_title">系列目录</string>
     <string name="novel_series_view_all">查看完整系列</string>
-    <string name="novel_intro_expand">展开全文</string>
+    <string name="novel_intro_expand">展开</string>
     <string name="novel_intro_collapse">收起</string>
     <string name="novel_comment_button">评论</string>
 
