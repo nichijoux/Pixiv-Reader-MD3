@@ -24,10 +24,11 @@
     <!-- Novel detail -->
     <string name="novel_not_found">Novel not found</string>
     <string name="novel_cd_back">Back</string>
-    <string name="novel_series_section">Series volumes (%1$d)</string>
     <string name="novel_publish_date">Published %1$s</string>
     <string name="novel_toc_section">Contents (%1$d)</string>
     <string name="novel_series_view_all">View full series</string>
+    <string name="novel_intro_expand">Show full description</string>
+    <string name="novel_intro_collapse">Collapse</string>
     <string name="novel_comment_button">Comments</string>
 
     <!-- Novel series detail page -->
@@ -41,20 +42,12 @@
     <string name="novel_series_total_chars">Total characters %1$s</string>
     <string name="novel_series_view_author">View author</string>
     <string name="novel_series_volumes_section">Volumes (%1$d)</string>
-    <string name="novel_comments_section">Comments (%1$d)</string>
-    <string name="novel_comments_loading">Loading comments…</string>
-    <string name="novel_comments_empty">No comments yet</string>
-    <string name="novel_comments_retry">Tap to retry</string>
-    <string name="novel_anonymous_user">Anonymous</string>
-    <string name="novel_reply_prefix">Reply to @%1$s: </string>
     <string name="novel_stat_word">Words</string>
     <string name="novel_stat_bookmark">Bookmarks</string>
     <string name="novel_stat_view">Views</string>
     <string name="novel_chapter_word">Words %1$s</string>
     <string name="novel_chapter_bookmark">Bookmarks %1$s</string>
     <string name="novel_chapter_current">Current</string>
-    <string name="novel_reply">Reply</string>
-    <string name="novel_reply_cancel">Cancel reply</string>
     <string name="novel_continue_reading">Continue %1$d%%</string>
     <string name="novel_start_reading">Start reading</string>
     <string name="novel_bookmarked">Bookmarked</string>
@@ -83,8 +76,6 @@
     <!-- ViewModel messages / errors -->
     <string name="novel_error_load_failed">Failed to load</string>
     <string name="novel_error_load_failed_reason">Failed to load: %1$s</string>
-    <string name="novel_msg_comment_published">Comment posted</string>
-    <string name="novel_msg_comment_failed">Failed to post comment: %1$s</string>
     <string name="novel_msg_bookmarked">Bookmarked</string>
     <string name="novel_msg_unbookmarked">Removed bookmark</string>
     <string name="novel_msg_action_failed">Action failed: %1$s</string>

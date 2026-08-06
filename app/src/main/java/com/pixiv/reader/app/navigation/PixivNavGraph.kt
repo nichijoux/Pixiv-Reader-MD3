@@ -13,9 +13,9 @@ import com.pixiv.reader.core.novel.LocalReaderStore
 import com.pixiv.reader.core.ui.component.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
+import com.pixiv.reader.feature.comments.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
-import com.pixiv.reader.feature.novel.NovelCommentsRoute
 import com.pixiv.reader.feature.novel.NovelDetailRoute
 import com.pixiv.reader.feature.novel.NovelRankingRoute
 import com.pixiv.reader.feature.novel.NovelSeriesRoute
@@ -41,10 +41,10 @@ const val ROUTE_MAIN = "main"
 const val ROUTE_ILLUST = "illust/{illustId}"
 /** 全屏查看器（多图翻页），可选 page 参数指定起始页。 */
 const val ROUTE_VIEWER = "viewer/{illustId}?page={page}"
-/** 小说详情（沉浸式 banner + 系列目录 + 操作）。评论独立页见 ROUTE_NOVEL_COMMENTS。 */
+/** 小说详情（沉浸式 banner + 系列目录 + 操作）。评论走通用页 ROUTE_COMMENTS。 */
 const val ROUTE_NOVEL = "novel/{novelId}"
-/** 小说评论独立页（从小说详情「评论」按钮进入，分页 + 回复）。 */
-const val ROUTE_NOVEL_COMMENTS = "novel_comments/{novelId}"
+/** 通用评论列表页（novel / illust 共用）：comments/{type}/{targetId}，type ∈ novel|illust。 */
+const val ROUTE_COMMENTS = "comments/{type}/{targetId}"
 /** 小说阅读器（在线 / 离线缓存共用同一路由）。 */
 const val ROUTE_READER = "reader/{novelId}"
 /** 用户主页（插画 / 小说 / 收藏 Tab）。 */
@@ -180,6 +180,10 @@ fun PixivNavGraph(
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
+                onOpenComments = { id ->
+                    // 评论独立页（通用）：illust 类型
+                    navController.navigate("comments/illust/$id")
+                },
             )
         }
         // 全屏查看器：page 可选，缺省从第 0 页开始
@@ -231,18 +235,24 @@ fun PixivNavGraph(
                     navController.navigate("novel_series/$seriesId")
                 },
                 onOpenComments = { id ->
-                    navController.navigate("novel_comments/$id")
+                    // 评论独立页（通用）：novel 类型
+                    navController.navigate("comments/novel/$id")
                 },
             )
         }
-        // 小说评论独立页：从小说详情「评论」按钮进入，PagedState 分页 + 回复
+        // 通用评论列表页：novel / illust 共用，PagedState 分页 + 回复
         composable(
-            route = ROUTE_NOVEL_COMMENTS,
-            arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
+            route = ROUTE_COMMENTS,
+            arguments = listOf(
+                navArgument("type") { type = NavType.StringType },
+                navArgument("targetId") { type = NavType.LongType },
+            ),
         ) { backStackEntry ->
-            val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
-            NovelCommentsRoute(
-                novelId = novelId,
+            val type = backStackEntry.arguments?.getString("type") ?: "novel"
+            val targetId = backStackEntry.arguments?.getLong("targetId") ?: 0L
+            CommentListRoute(
+                type = type,
+                targetId = targetId,
                 onBack = { navController.popBackStack() },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")

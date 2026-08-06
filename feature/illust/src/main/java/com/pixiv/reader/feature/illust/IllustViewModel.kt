@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pixiv.api.model.Comment
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -63,14 +62,10 @@ class IllustViewModel @Inject constructor(
     private val _isBookmarking = MutableStateFlow(false)
     val isBookmarking: StateFlow<Boolean> = _isBookmarking.asStateFlow()
 
-    private val _commentDraft = MutableStateFlow("")
-    val commentDraft: StateFlow<String> = _commentDraft.asStateFlow()
-
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
     val relatedPaged = PagedState<Illust>()
-    val commentsPaged = PagedState<Comment>()
 
     init {
         load()
@@ -88,7 +83,6 @@ class IllustViewModel @Inject constructor(
                     _pages.value = ill.toPages()
                     recordHistory(ill)
                     loadRelated()
-                    loadComments()
                     loadRealSizes()
                 }
                 .onFailure {
@@ -159,33 +153,6 @@ class IllustViewModel @Inject constructor(
 
     fun loadMoreRelated() {
         viewModelScope.launch { relatedPaged.loadMore() }
-    }
-
-    fun loadComments() {
-        viewModelScope.launch {
-            commentsPaged.loadInitial(
-                fetch = { pixivRepository.api.getIllustComments(illustId) },
-                fetchNext = { pixivRepository.api.getNextComments(it) },
-            )
-        }
-    }
-
-    fun onCommentDraftChange(value: String) {
-        _commentDraft.value = value
-    }
-
-    fun postComment() {
-        val text = _commentDraft.value.trim()
-        if (text.isEmpty()) return
-        viewModelScope.launch {
-            runCatching { pixivRepository.api.postIllustComment(illustId, text) }
-                .onSuccess {
-                    _commentDraft.value = ""
-                    _message.send(UiMessage(R.string.illust_msg_comment_published))
-                    loadComments()
-                }
-                .onFailure { _message.send(UiMessage(R.string.illust_msg_comment_failed, listOf(it.message ?: ""))) }
-        }
     }
 
     fun toggleBookmark() {

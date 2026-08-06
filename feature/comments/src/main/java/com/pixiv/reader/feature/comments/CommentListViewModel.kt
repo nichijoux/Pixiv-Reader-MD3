@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.comments
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -17,18 +17,21 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
- * 小说评论独立页 ViewModel（第六十四轮起从详情页拆出）。
+ * 通用评论列表 ViewModel（novel / illust 共用）。
  *
- * 职责：分页加载评论（`getNovelComments` + `getNextComments`，PagedState 游标分页）、
- * 发评论 / 回复（`parent_comment_id`）、回复目标与输入草稿状态、消息通知。
+ * 路由参数 `type`（novel/illust）决定调用哪个评论 API（分页加载 + 发布/回复），
+ * `targetId` 为对应内容 id。stamp 贴纸暂不启用（API 已支持，后续可扩展）。
  */
 @HiltViewModel
-class NovelCommentsViewModel @Inject constructor(
+class CommentListViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
 ) : ViewModel() {
 
-    private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
+    private val type: String = savedStateHandle.get<String>("type") ?: "novel"
+    private val targetId: Long = savedStateHandle.get<Long>("targetId") ?: 0L
+
+    val isIllust: Boolean get() = type == "illust"
 
     /** 分页评论列表（数据驻留 VM，触底加载更多）。 */
     val commentsPaged = PagedState<Comment>()
@@ -47,11 +50,14 @@ class NovelCommentsViewModel @Inject constructor(
         loadComments()
     }
 
-    /** 首次加载 / 重新加载评论。 */
+    /** 首次加载 / 重新加载评论（按 type 分流）。 */
     fun loadComments() {
         viewModelScope.launch {
             commentsPaged.loadInitial(
-                fetch = { pixivRepository.api.getNovelComments(novelId) },
+                fetch = {
+                    if (isIllust) pixivRepository.api.getIllustComments(targetId)
+                    else pixivRepository.api.getNovelComments(targetId)
+                },
                 fetchNext = { pixivRepository.api.getNextComments(it) },
             )
         }
@@ -76,25 +82,33 @@ class NovelCommentsViewModel @Inject constructor(
         }
     }
 
-    /** 发布评论 / 回复（成功后清空草稿与回复目标并刷新列表）。 */
+    /** 发布评论 / 回复（按 type 分流，成功后清空草稿与回复目标并刷新列表）。 */
     fun postComment() {
         val text = _commentDraft.value.trim()
         if (text.isEmpty()) return
         viewModelScope.launch {
             runCatching {
-                pixivRepository.api.postNovelComment(
-                    novelId = novelId,
-                    comment = text,
-                    parentCommentId = _replyTarget.value?.id,
-                )
+                if (isIllust) {
+                    pixivRepository.api.postIllustComment(
+                        illustId = targetId,
+                        comment = text,
+                        parentCommentId = _replyTarget.value?.id,
+                    )
+                } else {
+                    pixivRepository.api.postNovelComment(
+                        novelId = targetId,
+                        comment = text,
+                        parentCommentId = _replyTarget.value?.id,
+                    )
+                }
             }
                 .onSuccess {
                     _commentDraft.value = ""
                     _replyTarget.value = null
-                    _message.send(UiMessage(R.string.novel_msg_comment_published))
+                    _message.send(UiMessage(R.string.comment_msg_published))
                     loadComments()
                 }
-                .onFailure { _message.send(UiMessage(R.string.novel_msg_comment_failed, listOf(it.message ?: ""))) }
+                .onFailure { _message.send(UiMessage(R.string.comment_msg_failed, listOf(it.message ?: ""))) }
         }
     }
 }

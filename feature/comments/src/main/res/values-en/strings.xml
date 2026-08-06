@@ -1,0 +1,14 @@
+<resources>
+    <!-- Generic comment list page (shared by novel / illust) -->
+    <string name="comment_title">Comments (%1$d)</string>
+    <string name="comment_cd_back">Back</string>
+    <string name="comment_loading">Loading comments…</string>
+    <string name="comment_empty">No comments yet</string>
+    <string name="comment_retry">Tap to retry</string>
+    <string name="comment_anonymous_user">Anonymous</string>
+    <string name="comment_reply_prefix">Reply to @%1$s: </string>
+    <string name="comment_reply">Reply</string>
+    <string name="comment_reply_cancel">Cancel reply</string>
+    <string name="comment_msg_published">Comment posted</string>
+    <string name="comment_msg_failed">Failed to post comment: %1$s</string>
+</resources>

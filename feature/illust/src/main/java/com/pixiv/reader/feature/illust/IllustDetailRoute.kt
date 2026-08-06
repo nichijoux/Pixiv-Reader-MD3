@@ -12,14 +12,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -30,11 +28,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material3.Button
@@ -46,17 +44,17 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,13 +69,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.pixiv.api.model.Comment
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.WindowSizeClass
 import com.pixiv.reader.core.common.formatCount
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.CommentInput
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
@@ -92,6 +88,7 @@ fun IllustDetailRoute(
     onBack: () -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenComments: (Long) -> Unit,
     viewModel: IllustViewModel = hiltViewModel(),
 ) {
     val illust by viewModel.illust.collectAsStateWithLifecycle()
@@ -100,7 +97,6 @@ fun IllustDetailRoute(
     val error by viewModel.error.collectAsStateWithLifecycle()
     val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
     val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
-    val commentDraft by viewModel.commentDraft.collectAsStateWithLifecycle()
 
     var currentPage by remember { mutableStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -171,6 +167,9 @@ fun IllustDetailRoute(
                         tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                IconButton(onClick = { onOpenComments(illust?.id ?: 0L) }) {
+                    Icon(Icons.Filled.ModeComment, contentDescription = stringResource(R.string.illust_cd_comments))
+                }
                 Button(
                     onClick = { onOpenViewer(illust?.id ?: 0L, pageToOpen) },
                     modifier = Modifier.weight(1f).height(44.dp),
@@ -203,9 +202,6 @@ fun IllustDetailRoute(
                     onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
                     onOpenUser = onOpenUser,
                     viewModel = viewModel,
-                    commentDraft = commentDraft,
-                    onCommentDraftChange = viewModel::onCommentDraftChange,
-                    onPostComment = viewModel::postComment,
                 )
             }
         } else {
@@ -226,14 +222,6 @@ fun IllustDetailRoute(
                         }
                         item(key = "info") { InfoSection(illust, onOpenUser) }
                         item(key = "related") { RelatedSection(viewModel) }
-                        item(key = "comments") {
-                            CommentSection(
-                                viewModel = viewModel,
-                                draft = commentDraft,
-                                onDraftChange = viewModel::onCommentDraftChange,
-                                onPost = viewModel::postComment,
-                            )
-                        }
                     }
                 }
             }
@@ -241,7 +229,7 @@ fun IllustDetailRoute(
     }
 }
 
-/** 平板双栏布局：左侧主内容（图+作者+相关），右侧评论区（输入框固定底部） */
+/** 平板布局：主内容单列（图 + 作者 + 相关），评论走通用评论页。 */
 @Composable
 private fun TwoPaneContent(
     modifier: Modifier,
@@ -252,61 +240,21 @@ private fun TwoPaneContent(
     onOpenViewer: (Int) -> Unit,
     onOpenUser: (Long) -> Unit,
     viewModel: IllustViewModel,
-    commentDraft: String,
-    onCommentDraftChange: (String) -> Unit,
-    onPostComment: () -> Unit,
 ) {
-    val comments by viewModel.commentsPaged.items.collectAsStateWithLifecycle()
-
-    Row(modifier = modifier.fillMaxSize()) {
-        // 左栏：可滚动（左:右 ≈ 3:1，右栏限宽 420dp 防止过宽）
-        Column(
-            modifier = Modifier
-                .weight(3f)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState()),
-        ) {
-            if (pages.isNotEmpty()) {
-                PagePager(
-                    pages = pages,
-                    onPageChange = onPageChange,
-                    onOpenViewer = onOpenViewer,
-                )
-            }
-            InfoSection(illust, onOpenUser)
-            RelatedSection(viewModel)
-        }
-
-        VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-
-        // 右栏：评论区（输入框固定底部）
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .widthIn(max = 420.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-            ) {
-                Text(stringResource(R.string.illust_section_comments), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                CommentList(comments)
-            }
-            CommentInput(
-                draft = commentDraft,
-                onDraftChange = onCommentDraftChange,
-                onPost = onPostComment,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        if (pages.isNotEmpty()) {
+            PagePager(
+                pages = pages,
+                onPageChange = onPageChange,
+                onOpenViewer = onOpenViewer,
             )
         }
+        InfoSection(illust, onOpenUser)
+        RelatedSection(viewModel)
     }
 }
 
@@ -554,118 +502,3 @@ private fun RelatedSection(viewModel: IllustViewModel) {
     }
 }
 
-// ── 评论 ──
-
-@Composable
-private fun CommentSection(
-    viewModel: IllustViewModel,
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    onPost: () -> Unit,
-) {
-    val comments by viewModel.commentsPaged.items.collectAsStateWithLifecycle()
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text(stringResource(R.string.illust_section_comments), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        CommentList(comments)
-        Spacer(Modifier.height(12.dp))
-        CommentInput(
-            draft = draft,
-            onDraftChange = onDraftChange,
-            onPost = onPost,
-        )
-    }
-}
-
-@Composable
-private fun CommentList(comments: List<Comment>) {
-    if (comments.isEmpty()) {
-        Text(
-            text = stringResource(R.string.illust_comments_empty),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
-        return
-    }
-    Column {
-        comments.take(50).forEach { comment -> CommentRow(comment) }
-    }
-}
-
-@Composable
-private fun CommentRow(comment: Comment) {
-    Row(
-        modifier = Modifier.padding(vertical = 8.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        UserAvatar(
-            name = comment.user?.name,
-            avatarUrl = comment.user?.profile_image_urls?.best(),
-            modifier = Modifier.size(28.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = comment.user?.name.orEmpty(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = comment.comment.orEmpty(),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            // 树形对话：父评论下方直接渲染子回复（浅色块 + 缩进，区分父子层）。
-            val replies = comment.replies.orEmpty()
-            if (replies.isNotEmpty()) {
-                val visibleReplies = replies.take(20)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    visibleReplies.forEachIndexed { index, reply ->
-                        IllustReplyRow(reply)
-                        if (index != visibleReplies.lastIndex) {
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、无分隔线）。 */
-@Composable
-private fun IllustReplyRow(reply: Comment) {
-    Row(verticalAlignment = Alignment.Top) {
-        UserAvatar(
-            name = reply.user?.name,
-            avatarUrl = reply.user?.profile_image_urls?.best(),
-            modifier = Modifier.size(24.dp),
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 8.dp),
-        ) {
-            Text(
-                text = reply.user?.name.orEmpty(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            val parentName = reply.parent_comment?.user?.name
-            val prefix = if (!parentName.isNullOrBlank()) stringResource(R.string.illust_reply_prefix, parentName) else ""
-            Text(
-                text = prefix + reply.comment.orEmpty(),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-    }
-}

@@ -3,6 +3,7 @@
     <string name="illust_cd_back">返回</string>
     <string name="illust_cd_more">更多</string>
     <string name="illust_cd_download">下载</string>
+    <string name="illust_cd_comments">评论</string>
     <string name="illust_btn_fullscreen">全屏查看</string>
     <string name="illust_cd_fullscreen">全屏查看</string>
     <string name="illust_menu_download_original">下载原图</string>
@@ -13,13 +14,8 @@
     <string name="illust_stat_view">浏览</string>
     <string name="illust_stat_bookmark">收藏</string>
     <string name="illust_section_related">相关作品</string>
-    <string name="illust_section_comments">评论</string>
-    <string name="illust_comments_empty">还没有评论</string>
-    <string name="illust_reply_prefix">回复 @%1$s：</string>
     <string name="illust_error_load_failed">加载失败</string>
     <string name="illust_error_load_failed_reason">加载失败：%1$s</string>
-    <string name="illust_msg_comment_published">评论已发布</string>
-    <string name="illust_msg_comment_failed">评论失败：%1$s</string>
     <string name="illust_msg_action_failed">操作失败：%1$s</string>
     <string name="illust_msg_saved_to_downloads">已保存到下载目录</string>
     <string name="illust_msg_download_failed">下载失败：%1$s</string>

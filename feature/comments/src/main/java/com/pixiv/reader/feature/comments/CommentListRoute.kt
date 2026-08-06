@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.novel
+package com.pixiv.reader.feature.comments
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,7 +53,7 @@ import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 
 /**
- * 小说评论独立页（第六十四轮起）：从详情页拆出，点详情「评论」按钮进入。
+ * 通用评论列表页（novel / illust 共用，路由 `comments/{type}/{targetId}`）。
  *
  * 全屏页 + TopAppBar；`PagedState<Comment>` 分页（触底加载更多）；
  * 支持回复（底部回复条 + 输入框预填 @昵称，`parent_comment_id` 发子评论）；
@@ -61,11 +61,12 @@ import com.pixiv.reader.core.ui.component.rememberNotificationHostState
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NovelCommentsRoute(
-    novelId: Long,
+fun CommentListRoute(
+    type: String,
+    targetId: Long,
     onBack: () -> Unit,
     onOpenUser: (Long) -> Unit,
-    viewModel: NovelCommentsViewModel = hiltViewModel(),
+    viewModel: CommentListViewModel = hiltViewModel(),
 ) {
     val comments by viewModel.commentsPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.commentsPaged.isLoading.collectAsStateWithLifecycle()
@@ -100,10 +101,10 @@ fun NovelCommentsRoute(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.novel_comments_section, comments.size)) },
+                title = { Text(stringResource(R.string.comment_title, comments.size)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.novel_cd_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.comment_cd_back))
                     }
                 },
             )
@@ -125,7 +126,7 @@ fun NovelCommentsRoute(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = stringResource(R.string.novel_reply_prefix, replyTarget?.user?.name.orEmpty()),
+                            text = stringResource(R.string.comment_reply_prefix, replyTarget?.user?.name.orEmpty()),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -133,7 +134,7 @@ fun NovelCommentsRoute(
                         IconButton(onClick = { viewModel.setReplyTarget(null) }) {
                             Icon(
                                 Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.novel_reply_cancel),
+                                contentDescription = stringResource(R.string.comment_reply_cancel),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                         }
@@ -159,7 +160,7 @@ fun NovelCommentsRoute(
             )
 
             comments.isEmpty() -> EmptyBox(
-                text = stringResource(R.string.novel_comments_empty),
+                text = stringResource(R.string.comment_empty),
                 modifier = Modifier.padding(padding),
             )
 
@@ -221,9 +222,11 @@ private fun CommentRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = comment.user?.name ?: stringResource(R.string.novel_anonymous_user),
+                    text = comment.user?.name ?: stringResource(R.string.comment_anonymous_user),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.clickable { comment.user?.id?.let(onOpenUser) },
                 )
                 Spacer(Modifier.weight(1f))
@@ -241,7 +244,7 @@ private fun CommentRow(
             )
             // 回复入口
             Text(
-                text = stringResource(R.string.novel_reply),
+                text = stringResource(R.string.comment_reply),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
@@ -291,9 +294,11 @@ private fun ReplyRow(reply: Comment) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = reply.user?.name ?: stringResource(R.string.novel_anonymous_user),
+                    text = reply.user?.name ?: stringResource(R.string.comment_anonymous_user),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -304,7 +309,7 @@ private fun ReplyRow(reply: Comment) {
             }
             val parentName = reply.parent_comment?.user?.name
             val prefix = if (!parentName.isNullOrBlank()) {
-                stringResource(R.string.novel_reply_prefix, parentName)
+                stringResource(R.string.comment_reply_prefix, parentName)
             } else {
                 null
             }

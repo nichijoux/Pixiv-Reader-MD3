@@ -24,10 +24,11 @@
     <!-- 小说详情 -->
     <string name="novel_not_found">没有找到该小说</string>
     <string name="novel_cd_back">返回</string>
-    <string name="novel_series_section">系列分册（%1$d）</string>
     <string name="novel_publish_date">发布于 %1$s</string>
     <string name="novel_toc_section">系列目录（%1$d）</string>
     <string name="novel_series_view_all">查看完整系列</string>
+    <string name="novel_intro_expand">展开全文</string>
+    <string name="novel_intro_collapse">收起</string>
     <string name="novel_comment_button">评论</string>
 
     <!-- 小说系列详情页 -->
@@ -41,20 +42,12 @@
     <string name="novel_series_total_chars">总字数 %1$s</string>
     <string name="novel_series_view_author">查看作者</string>
     <string name="novel_series_volumes_section">分册（%1$d）</string>
-    <string name="novel_comments_section">评论（%1$d）</string>
-    <string name="novel_comments_loading">评论加载中…</string>
-    <string name="novel_comments_empty">暂无评论</string>
-    <string name="novel_comments_retry">点击重试</string>
-    <string name="novel_anonymous_user">匿名用户</string>
-    <string name="novel_reply_prefix">回复 @%1$s：</string>
     <string name="novel_stat_word">字数</string>
     <string name="novel_stat_bookmark">收藏</string>
     <string name="novel_stat_view">浏览</string>
     <string name="novel_chapter_word">字数 %1$s</string>
     <string name="novel_chapter_bookmark">收藏 %1$s</string>
     <string name="novel_chapter_current">当前</string>
-    <string name="novel_reply">回复</string>
-    <string name="novel_reply_cancel">取消回复</string>
     <string name="novel_continue_reading">继续阅读 %1$d%%</string>
     <string name="novel_start_reading">开始阅读</string>
     <string name="novel_bookmarked">已收藏</string>
@@ -83,8 +76,6 @@
     <!-- ViewModel 消息 / 错误 -->
     <string name="novel_error_load_failed">加载失败</string>
     <string name="novel_error_load_failed_reason">加载失败：%1$s</string>
-    <string name="novel_msg_comment_published">评论已发布</string>
-    <string name="novel_msg_comment_failed">评论失败：%1$s</string>
     <string name="novel_msg_bookmarked">已收藏</string>
     <string name="novel_msg_unbookmarked">已取消收藏</string>
     <string name="novel_msg_action_failed">操作失败：%1$s</string>

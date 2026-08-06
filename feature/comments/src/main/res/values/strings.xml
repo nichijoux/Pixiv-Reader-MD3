@@ -1,0 +1,14 @@
+<resources>
+    <!-- 通用评论列表页（novel / illust 共用） -->
+    <string name="comment_title">评论（%1$d）</string>
+    <string name="comment_cd_back">返回</string>
+    <string name="comment_loading">评论加载中…</string>
+    <string name="comment_empty">暂无评论</string>
+    <string name="comment_retry">点击重试</string>
+    <string name="comment_anonymous_user">匿名用户</string>
+    <string name="comment_reply_prefix">回复 @%1$s：</string>
+    <string name="comment_reply">回复</string>
+    <string name="comment_reply_cancel">取消回复</string>
+    <string name="comment_msg_published">评论已发布</string>
+    <string name="comment_msg_failed">评论失败：%1$s</string>
+</resources>

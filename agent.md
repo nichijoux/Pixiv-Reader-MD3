@@ -837,3 +837,24 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **导航**：PixivNavGraph 新增 `ROUTE_NOVEL_COMMENTS = "novel_comments/{novelId}"` + composable 注册；ROUTE_NOVEL 接线 onOpenSeries（→novel_series/{id}）与 onOpenComments（→novel_comments/{id}）。
 - **strings**：新增 6 项双语（novel_publish_date/novel_toc_section/novel_series_view_all/novel_comment_button/novel_reply/novel_reply_cancel）；评论页标题复用 novel_comments_section。
 - 验证：`:app:compileDebugKotlin` + `:feature:novel:testDebugUnitTest` 通过。**未提交**（第六十二~六十四轮全部改动待提交）。
+
+### 第六十五轮：小说详情页完全重写 + 通用评论页（feature:comments）
+- **背景**：用户反馈详情页"布局与 HTML 一致但体验完全不一致"，点名：按钮应为 col 竖排（实际 row）、字体太小/未加粗、部分按钮缺图标、原型无封面视差但实现了（须删）、简介缺首行缩进。选择：整页重写而非补丁；平板目录 sticky（重构）；深色跟随系统；阅读按钮换合理图标（AutoStories）；平板 banner 随滚且目录滚动不影响 banner；手机简介 6 行截断 + 展开全文；评论区做成通用页面（novel/illust 共用）。
+- **小说详情整页重写（feature:novel/NovelDetailRoute.kt 新建，~700 行）**：
+  - NovelRoute.kt 删详情页全部代码只留小说 Tab（428 行）；旧 NovelCommentsRoute/ViewModel 删除；
+  - banner 无视差（去掉 graphicsLayer/NOVEL_BANNER_PARALLAX），底部 110dp 渐变，随滚；
+  - 标题 21sp Bold；作者行 14sp SemiBold + KeyboardArrowRight ›；发布时间行 DateRange + 12sp；统计行 icon+15sp Bold+11sp 标签 weight(1f) 均分；标签 11sp pill；简介 13.5sp + TextIndent(firstLine=2.em) + 手机 maxLines=6 截断 + 展开全文（rememberSaveable，novel_intro_expand/collapse）；
+  - 操作区：阅读主按钮 48dp + AutoStories + 15sp SemiBold；4 竖排卡片钮 VerticalActionButton（icon 上/label 下 11sp SemiBold、52dp、AppShapes.card 圆角 12、surfaceContainerLow+outline、激活 primaryContainer、disabled alpha 0.45）；
+  - 系列目录：TocTitle（MenuBook + 15sp Bold + 数量）、ChapterRow（28dp 序号徽标 圆角9 当前主色、13sp SemiBold、当前胶囊 10sp）、SeriesMoreRow（12sp SemiBold + KeyboardArrowRight ›）；
+  - 平板双栏（screenWidthDp≥600 且有系列）：Box{ LazyColumn{banner 360dp 全宽随滚; info_actions padding(start=280dp) 避让} ; Box(align TopStart){ padding(top=360dp) NovelTocPanel(264dp fillMaxHeight 内部滚动) } }——目录浮层与 LazyColumn 并列，滚动互不影响、banner 滚走目录仍固定；返回按钮平板 TopEnd/手机 TopStart；
+  - 手机单列：banner 280dp + 目录 heightIn(屏高×0.4) 限高内部滚动；下载对话框原样迁移。
+- **通用评论页（新建 feature:comments 模块）**：settings.gradle + app 依赖 + build.gradle（hilt/ksp/compose，api core:ui/core:network/core:model）；
+  - 路由 `ROUTE_COMMENTS = "comments/{type}/{targetId}"`（app NavGraph 注册，type String + targetId Long）；
+  - CommentListViewModel（@HiltViewModel）：PagedState<Comment> 按 type 分流 getNovelComments/getIllustComments + getNextComments；postComment 按 type 分流 postNovelComment/postIllustComment（parentCommentId 回复）；stamp 暂不启用；
+  - CommentListRoute：TopAppBar「评论（N）」+ 分页列表 + 触底加载 + 回复条（@昵称 预填/Close 取消）+ CommentInput + 三态 + onOpenUser；
+  - strings（comment_* 双语）；CommentRow/ReplyRow 从旧 novel 版迁移通用化。
+- **接线与清理**：
+  - novel 详情「评论」按钮 → comments/novel/{id}；删除 novel 评论 strings（novel_comments_*/novel_reply*/novel_msg_comment_*/novel_anonymous_user/novel_series_section）；
+  - illust：IllustDetailRoute 移除内嵌评论（CommentSection/CommentList/CommentRow/IllustReplyRow + TwoPane 右栏），bottomBar 加 ModeComment 评论 IconButton → onOpenComments → comments/illust/{id}；IllustViewModel 移除评论职责（commentsPaged/commentDraft/loadComments/loadMoreComments/onCommentDraftChange/postComment + load() 内调用）；illust strings 清理 + 新增 illust_cd_comments。
+- **坑**：import 清理脚本用 `\b符号\b` 统计使用次数会**误删委托类 import**（getValue/setValue 由 `by collectAsStateWithLifecycle()` 隐式使用、源码无字面标识符）——已回补 NovelRoute.kt/IllustDetailRoute.kt 的 getValue/setValue/derivedStateOf/remember/rememberSaveable/dp。教训：清理 unused import 必须排除 by 委托/运算符重载符号，或直接手动核对。
+- 验证：`:app:compileDebugKotlin` + `:feature:novel`/`:feature:comments`/`:feature:illust` 单测通过。**未提交**。
