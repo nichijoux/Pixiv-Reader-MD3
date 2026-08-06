@@ -12,4 +12,6 @@
     <string name="comment_reply_expand">View all %1$d replies</string>
     <string name="comment_msg_published">Comment posted</string>
     <string name="comment_msg_failed">Failed to post comment: %1$s</string>
+    <string name="comment_stamp_cd">Comment stamp</string>
+    <string name="comment_emoji_cd">Comment emoji</string>
 </resources>

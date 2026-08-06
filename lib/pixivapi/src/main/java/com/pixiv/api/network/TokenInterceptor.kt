@@ -55,12 +55,13 @@ class TokenInterceptor(
 }
 
 /**
- * 图片 CDN 拦截器：i.pximg.net 必须带 Referer 否则 403
+ * 图片 CDN 拦截器：pximg.net 各子域必须带 Referer 否则 403
+ * （i.pximg.net 作品图 / s.pximg.net 贴纸等静态资源）。
  */
 class ImageInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
-        if (original.url.host == "i.pximg.net") {
+        if (original.url.host.endsWith(".pximg.net")) {
             val builder = original.newBuilder()
                 .header("Referer", "https://app-api.pixiv.net/")
                 .header("User-Agent", com.pixiv.api.PixivConstants.APP_USER_AGENT)

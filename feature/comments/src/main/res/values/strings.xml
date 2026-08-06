@@ -12,4 +12,6 @@
     <string name="comment_reply_expand">查看全部 %1$d 条回复</string>
     <string name="comment_msg_published">评论已发布</string>
     <string name="comment_msg_failed">评论失败：%1$s</string>
+    <string name="comment_stamp_cd">评论贴纸</string>
+    <string name="comment_emoji_cd">评论表情</string>
 </resources>
