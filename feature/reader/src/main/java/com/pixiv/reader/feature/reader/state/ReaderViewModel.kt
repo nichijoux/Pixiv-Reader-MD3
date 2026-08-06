@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.reader
+package com.pixiv.reader.feature.reader.state
 
 import android.content.Context
 import android.net.Uri
@@ -14,46 +14,35 @@ import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
-import com.pixiv.reader.core.novel.NovelParser
 import com.pixiv.reader.core.novel.percentageAt
+import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.feature.reader.data.NovelTextSearch
+import com.pixiv.reader.feature.reader.data.ReaderDataLoader
+import com.pixiv.reader.feature.reader.data.ReaderSeriesToc
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
-
-/**
- * 目录项。
- * [novelId] = -1 表示当前小说（页内按 [charOffset] 跳转）；
- * 否则为系列内目标小说（点击打开该本阅读器，[charOffset] 恒为 0）。
- */
-data class ReaderTocItem(
-    val title: String,
-    val novelId: Long = -1,
-    val charOffset: Int = 0,
-)
 
 /**
  * 阅读器 ViewModel。
  *
  * 职责：
- * - 加载小说详情 + 正文 HTML（NovelParser 解析）
+ * - 加载小说详情 + 正文 HTML（数据层委托 [ReaderDataLoader] 解析）
  * - 收集阅读偏好（字号/行距/字体/主题/翻页/亮度）
  * - 字符级进度：本地 Room 落库（防抖）+ 官方 marker 同步
  * - 阅读书签（marker）/ 收藏 / 追更
+ * - 目录（系列分页，委托 [ReaderSeriesToc]）与全文搜索（[NovelTextSearch]）
  */
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
@@ -65,6 +54,8 @@ class ReaderViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
+    private val dataLoader = ReaderDataLoader(pixivRepository, context)
+    private val seriesToc = ReaderSeriesToc(pixivRepository)
 
     private val _novel = MutableStateFlow<Novel?>(null)
     val novel: StateFlow<Novel?> = _novel.asStateFlow()
@@ -210,37 +201,7 @@ class ReaderViewModel @Inject constructor(
                 _isLoading.value = true
                 _error.value = null
                 _isOffline.value = false
-                runCatching {
-                    val detail = pixivRepository.api.getNovel(novelId).novel
-                    val html = withContext(Dispatchers.IO) {
-                        val raw = pixivRepository.api.getNovelHtml(novelId).string()
-                        logNovelHtml(raw)
-                        raw
-                    }
-                    // 网页小说详情：拿 textEmbeddedImages（正文嵌入图片映射，key 为 novelImageId）
-                    val webNovel = runCatching {
-                        pixivRepository.webApi.getNovelWeb(novelId).body
-                    }.getOrNull()
-                    val imageUrls = webNovel?.textEmbeddedImages
-                        ?.mapNotNull { (file, info) ->
-                            val urls = info?.urls
-                            val url = urls?.get("1200x1200")
-                                ?: urls?.get("480mw")
-                                ?: urls?.get("240mw")
-                                ?: urls?.get("original")
-                                ?: info?.url
-                            if (url.isNullOrBlank()) return@mapNotNull null
-                            "uploadedimage:$file" to url
-                        }
-                        ?.toMap()
-                        ?: emptyMap()
-                    val document = withContext(Dispatchers.IO) {
-                        // 解析 + [pixivimage:ID] 引用画作 → ajax/illust/{id} 解析首图 URL
-                        resolvePixivImages(NovelParser.parse(html, imageUrls))
-                    }
-                    logParseResult(document)
-                    detail to document
-                }.onSuccess { (detail, document) ->
+                dataLoader.loadNovel(novelId).onSuccess { (detail, document) ->
                     if (_isLocalMode.value) return@onSuccess
                     _novel.value = detail
                     _document.value = document
@@ -262,65 +223,6 @@ class ReaderViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
-    }
-
-    /**
-     * 调试：打印并保存原始 HTML，便于排查"没有正文内容"。
-     * HTML 写入 cacheDir/novel_debug/{id}.html，可用 Android Studio Device Explorer 取出。
-     */
-    private fun logNovelHtml(html: String) {
-        runCatching {
-            Log.d(TAG, "novel[$novelId] html length=${html.length}")
-            // 分段打印前 1200 字符（避免 logcat 单行截断）
-            val preview = html.take(1200)
-            Log.d(TAG, "novel[$novelId] html head:\n$preview")
-            val dir = File(context.cacheDir, "novel_debug").apply { mkdirs() }
-            val file = File(dir, "${novelId}.html")
-            file.writeText(html)
-            Log.d(TAG, "novel[$novelId] html saved to: ${file.absolutePath}")
-        }.onFailure { Log.w(TAG, "logNovelHtml failed", it) }
-    }
-
-    /** 调试：打印解析结果（块数 / 全文长度 / 各块类型 / 全文开头）。 */
-    private fun logParseResult(document: NovelDocument) {
-        runCatching {
-            Log.d(TAG, "parse result: blocks=${document.blocks.size}, textLength=${document.textLength}")
-            if (document.blocks.isEmpty()) {
-                Log.d(TAG, "parse produced NO blocks (fullText empty)")
-            } else {
-                val types = document.blocks.take(20).map { it::class.simpleName }
-                Log.d(TAG, "first 20 block types: $types")
-                Log.d(TAG, "fullText head: ${document.fullText.take(300)}")
-            }
-        }.onFailure { Log.w(TAG, "logParseResult failed", it) }
-    }
-
-    /**
-     * 把正文中的 `[pixivimage:ID]` 标记解析为画作首图 URL。
-     * 通过网页接口 `ajax/illust/{id}` 的 `urls.regular/original` 获取（带 Cookie，正常可访问）；
-     * 解析失败的标记保留原文（渲染层按图片块显示但加载失败占位）。
-     */
-    private suspend fun resolvePixivImages(document: NovelDocument): NovelDocument {
-        val pending = document.blocks
-            .filterIsInstance<NovelBlock.Image>()
-            .filter { it.url.startsWith("pixivimage:") }
-        if (pending.isEmpty()) return document
-        val resolved = mutableMapOf<String, String>()
-        for (img in pending) {
-            val id = img.url.removePrefix("pixivimage:").toLongOrNull() ?: continue
-            val body = runCatching { pixivRepository.webApi.getWebIllust(id).body }.getOrNull() ?: continue
-            val url = body.urls?.get("regular") ?: body.urls?.get("original")
-            if (!url.isNullOrBlank()) resolved[img.url] = url
-        }
-        if (resolved.isEmpty()) return document
-        val newBlocks = document.blocks.map { block ->
-            if (block is NovelBlock.Image) {
-                resolved[block.url]?.let { block.copy(url = it) } ?: block
-            } else {
-                block
-            }
-        }
-        return NovelDocument(blocks = newBlocks, fullText = document.fullText, textLength = document.textLength)
     }
 
     /** 恢复进度：优先本地 Room，其次官方 marker，最后回到开头。 */
@@ -487,7 +389,7 @@ class ReaderViewModel @Inject constructor(
         }
         _tocLoading.value = true
         try {
-            val novels = fetchSeriesNovels(series.id)
+            val novels = seriesToc.fetchSeriesNovels(series.id)
             _toc.value = novels.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
         } catch (e: Exception) {
             Log.w(TAG, "buildToc series failed", e)
@@ -495,29 +397,6 @@ class ReaderViewModel @Inject constructor(
         } finally {
             _tocLoading.value = false
         }
-    }
-
-    /** 拉取系列内全部小说（循环分页，防御最多 20 页）。 */
-    private suspend fun fetchSeriesNovels(seriesId: Long): List<Novel> {
-        val result = mutableListOf<Novel>()
-        var lastOrder: Int? = null
-        repeat(20) {
-            val resp = pixivRepository.api.getNovelSeries(seriesId, lastOrder)
-            resp.novels?.let { result.addAll(it) }
-            val next = resp.next_url
-            if (next.isNullOrBlank()) return result
-            lastOrder = parseLastOrder(next)
-            if (lastOrder == null) return result
-        }
-        return result
-    }
-
-    /** 从 next_url 解析 last_order 查询参数。 */
-    private fun parseLastOrder(nextUrl: String?): Int? {
-        if (nextUrl.isNullOrBlank()) return null
-        return nextUrl.substringAfter('?', "").split('&')
-            .firstOrNull { it.startsWith("last_order=") }
-            ?.substringAfter('=')?.toIntOrNull()
     }
 
     /** 在全文（忽略大小写）中搜索关键词，记录所有匹配的字符偏移。 */
@@ -528,15 +407,7 @@ class ReaderViewModel @Inject constructor(
             _searchIndex.value = -1
             return
         }
-        val results = mutableListOf<Int>()
-        var from = 0
-        while (true) {
-            val idx = text.indexOf(query, from, ignoreCase = true)
-            if (idx < 0) break
-            results.add(idx)
-            from = idx + query.length
-            if (results.size >= 500) break
-        }
+        val results = NovelTextSearch.search(text, query)
         _searchResults.value = results
         _searchIndex.value = if (results.isNotEmpty()) 0 else -1
     }

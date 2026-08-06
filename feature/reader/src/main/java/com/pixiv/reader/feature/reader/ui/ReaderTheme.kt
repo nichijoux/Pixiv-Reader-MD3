@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.reader
+package com.pixiv.reader.feature.reader.ui
 
 import androidx.compose.ui.graphics.Color
 import com.pixiv.reader.core.common.ReaderThemeMode
@@ -22,6 +22,7 @@ import com.pixiv.reader.core.ui.theme.ReaderPaperDivider
 import com.pixiv.reader.core.ui.theme.ReaderPaperSecondary
 import com.pixiv.reader.core.ui.theme.ReaderPaperText
 import com.pixiv.reader.core.ui.theme.ReaderPaperTopBar
+import com.pixiv.reader.feature.reader.R
 
 /**
  * 阅读器主题配色（4 套）：

@@ -33,7 +33,7 @@ import com.pixiv.reader.feature.novel.NovelExportFormat
 import com.pixiv.reader.feature.novel.NovelExportWorker
 import com.pixiv.reader.feature.novel.NovelRankingRoute
 import com.pixiv.reader.feature.novel.NovelSeriesRoute
-import com.pixiv.reader.feature.reader.ReaderRoute
+import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.BlockedRoute
 import com.pixiv.reader.feature.user.DownloadsRoute
 import com.pixiv.reader.feature.user.HistoryRoute

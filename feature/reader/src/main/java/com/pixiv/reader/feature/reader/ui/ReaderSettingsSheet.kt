@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.reader
+package com.pixiv.reader.feature.reader.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.ReaderPageMode
 import com.pixiv.reader.core.common.ReaderThemeMode
+import com.pixiv.reader.feature.reader.R
 import kotlin.math.roundToInt
 
 /**

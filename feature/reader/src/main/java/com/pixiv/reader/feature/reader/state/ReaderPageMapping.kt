@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.reader
+package com.pixiv.reader.feature.reader.state
 
 /**
  * 阅读器字符偏移 ↔ 页 / 官方页码换算（纯函数，可单测）。
@@ -17,9 +17,6 @@ fun List<ReaderPage>.pageIndexForChar(charOffset: Int): Int {
         ?: first()
     return indexOf(lastLe)
 }
-
-/** 页首字符偏移（插图页返回 -1）。 */
-fun ReaderPage.startCharOrNull(): Int? = if (startChar >= 0) startChar else null
 
 /**
  * 字符偏移 → 官方 marker 页码（官方分页按比例换算，clamp 到 1..pageCount）。

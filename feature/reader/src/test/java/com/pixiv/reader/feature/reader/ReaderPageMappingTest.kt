@@ -1,5 +1,9 @@
 package com.pixiv.reader.feature.reader
 
+import com.pixiv.reader.feature.reader.state.ReaderPage
+import com.pixiv.reader.feature.reader.state.estimateCharFromOfficialPage
+import com.pixiv.reader.feature.reader.state.estimateOfficialPage
+import com.pixiv.reader.feature.reader.state.pageIndexForChar
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

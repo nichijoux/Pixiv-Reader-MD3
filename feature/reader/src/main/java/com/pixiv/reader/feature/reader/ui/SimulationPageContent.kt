@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.reader
+package com.pixiv.reader.feature.reader.ui
 
 import android.util.Log
 import androidx.compose.animation.core.Animatable
@@ -7,12 +7,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -34,22 +29,18 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.feature.reader.state.ReaderPage
+import com.pixiv.reader.feature.reader.state.pageIndexForChar
 import kotlinx.coroutines.launch
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
-
-private val PAGE_H_PADDING = 24.dp
-private val PAGE_V_PADDING = 16.dp
 
 /** 仿真翻页调试日志 TAG。 */
 private const val TAG = "SimulationPage"
@@ -62,6 +53,9 @@ private const val TAG = "SimulationPage"
  * - 当前页 = 整页减去卷页区域（ClipOp.Difference）
  * - 下一页在卷页区域内绘制 + 柔光阴影
  * - 纸背 = 纸色填充 + 阴影，**不绘制镜像文字**，彻底避免文字黑影重叠
+ *
+ * 卷页几何计算见 [calcCurlPoints] / [curlPath0] / [curlBackPath] / [curlNextTri]（PageCurlGeometry.kt），
+ * 单页内容渲染复用 [RenderReaderPage]。
  */
 @Composable
 fun SimulationPageContent(
@@ -328,7 +322,13 @@ fun SimulationPageContent(
                         }
                     },
             ) {
-                renderPage(reveal, baseStyle)
+                RenderReaderPage(
+                    reveal,
+                    baseStyle,
+                    Modifier
+                        .fillMaxSize()
+                        .padding(PAGE_H_PADDING, PAGE_V_PADDING)
+                )
             }
         }
 
@@ -349,7 +349,13 @@ fun SimulationPageContent(
                     }
                 },
         ) {
-                renderPage(current, baseStyle)
+            RenderReaderPage(
+                current,
+                baseStyle,
+                Modifier
+                    .fillMaxSize()
+                    .padding(PAGE_H_PADDING, PAGE_V_PADDING)
+            )
         }
 
         // 纸背：在纸背三角（mPath0 ∩ backPath）内铺纸底色 + 沿折痕镜像当前页内容（半透明灰化），
@@ -395,190 +401,12 @@ fun SimulationPageContent(
                         }
                     },
             ) {
-            renderPage(current, baseStyle)
-            }
-        }
-    }
-}
-
-// ── 卷页几何（翻译自 legado calcPoints） ──────────────────────────────────────
-
-/** 坐标是否有限（防御 NaN/Infinity 导致 Shader 崩溃）。 */
-private fun Float.isFinite(): Boolean = !isNaN() && !isInfinite()
-
-private fun Offset.isFinite(): Boolean = x.isFinite() && y.isFinite()
-
-internal data class CurlPoints(
-    val start1: Offset,
-    val control1: Offset,
-    val vertex1: Offset,
-    val end1: Offset,
-    val start2: Offset,
-    val control2: Offset,
-    val vertex2: Offset,
-    val end2: Offset,
-    val touch: Offset,
-    val corner: Offset,
-    val touchToCornerDis: Float,
-)
-
-internal fun calcCurlPoints(
-    touchX: Float,
-    touchY: Float,
-    cornerX: Float,
-    cornerY: Float,
-    viewWidth: Float,
-    viewHeight: Float,
-): CurlPoints {
-    var tx = touchX
-    var ty = touchY
-    var mx = (tx + cornerX) / 2f
-    var my = (ty + cornerY) / 2f
-    // 除零保护：corner 与中点重合时退化为中点的垂线计算，避免 NaN
-    var c1x = if (abs(cornerX - mx) > 1e-4f) {
-        mx - (cornerY - my) * (cornerY - my) / (cornerX - mx)
-    } else {
-        mx
-    }
-    var c1y = cornerY
-    var c2x = cornerX
-    var c2y = calcC2Y(mx, my, cornerX, cornerY)
-    var s1x = c1x - (cornerX - c1x) / 2f
-    var s1y = cornerY
-
-    // 固定左边上下两个点（边界修正）
-    if (tx > 0f && tx < viewWidth) {
-        if (s1x < 0f || s1x > viewWidth) {
-            if (s1x < 0f) s1x = viewWidth - s1x
-            val f1 = abs(cornerX - tx)
-            val f2 = viewWidth * f1 / s1x
-            tx = abs(cornerX - f2)
-            val f3 = abs(cornerX - tx) * abs(cornerY - ty) / f1
-            ty = abs(cornerY - f3)
-            mx = (tx + cornerX) / 2f
-            my = (ty + cornerY) / 2f
-            c1x = if (abs(cornerX - mx) > 1e-4f) {
-                mx - (cornerY - my) * (cornerY - my) / (cornerX - mx)
-            } else {
-                mx
-            }
-            c1y = cornerY
-            c2x = cornerX
-            c2y = calcC2Y(mx, my, cornerX, cornerY)
-            s1x = c1x - (cornerX - c1x) / 2f
-        }
-    }
-    val s2x = cornerX
-    val s2y = c2y - (cornerY - c2y) / 2f
-
-    val touchToCornerDis = hypot(tx - cornerX, ty - cornerY)
-
-    val e1 = getCross(Offset(tx, ty), Offset(c1x, c1y), Offset(s1x, s1y), Offset(s2x, s2y))
-    val e2 = getCross(Offset(tx, ty), Offset(c2x, c2y), Offset(s1x, s1y), Offset(s2x, s2y))
-
-    return CurlPoints(
-        start1 = Offset(s1x, s1y),
-        control1 = Offset(c1x, c1y),
-        vertex1 = Offset((s1x + 2 * c1x + e1.x) / 4f, (2 * c1y + s1y + e1.y) / 4f),
-        end1 = e1,
-        start2 = Offset(s2x, s2y),
-        control2 = Offset(c2x, c2y),
-        vertex2 = Offset((s2x + 2 * c2x + e2.x) / 4f, (2 * c2y + s2y + e2.y) / 4f),
-        end2 = e2,
-        touch = Offset(tx, ty),
-        corner = Offset(cornerX, cornerY),
-        touchToCornerDis = touchToCornerDis,
-    )
-}
-
-private fun calcC2Y(mx: Float, my: Float, cornerX: Float, cornerY: Float): Float {
-    val f4 = cornerY - my
-    return if (abs(f4) <= 1e-4f) {
-        my - (cornerX - mx) * (cornerX - mx) / 0.1f
-    } else {
-        my - (cornerX - mx) * (cornerX - mx) / (cornerY - my)
-    }
-}
-
-/** 直线 P1P2 与 P3P4 的交点。 */
-private fun getCross(p1: Offset, p2: Offset, p3: Offset, p4: Offset): Offset {
-    val denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x)
-    if (abs(denom) < 1e-6f) return p3
-    val a = p1.x * p2.y - p1.y * p2.x
-    val b = p3.x * p4.y - p3.y * p4.x
-    val x = (a * (p3.x - p4.x) - (p1.x - p2.x) * b) / denom
-    val y = (a * (p3.y - p4.y) - (p1.y - p2.y) * b) / denom
-    return Offset(x, y)
-}
-
-// ── 路径构建（翻译自 legado mPath0 / 纸背三角） ─────────────────────────────
-
-/** mPath0：被卷起的区域（贝塞尔曲线围成）。 */
-private fun curlPath0(p: CurlPoints): Path = Path().apply {
-    moveTo(p.start1.x, p.start1.y)
-    quadraticTo(p.control1.x, p.control1.y, p.end1.x, p.end1.y)
-    lineTo(p.touch.x, p.touch.y)
-    lineTo(p.end2.x, p.end2.y)
-    quadraticTo(p.control2.x, p.control2.y, p.start2.x, p.start2.y)
-    lineTo(p.corner.x, p.corner.y)
-    close()
-}
-
-/** 纸背三角：vertex2 → vertex1 → end1 → touch → end2。 */
-private fun curlBackPath(p: CurlPoints): Path = Path().apply {
-    moveTo(p.vertex2.x, p.vertex2.y)
-    lineTo(p.vertex1.x, p.vertex1.y)
-    lineTo(p.end1.x, p.end1.y)
-    lineTo(p.touch.x, p.touch.y)
-    lineTo(p.end2.x, p.end2.y)
-    close()
-}
-
-/** 下一页露出三角：start1 → vertex1 → vertex2 → start2 → corner。 */
-private fun curlNextTri(p: CurlPoints): Path = Path().apply {
-    moveTo(p.start1.x, p.start1.y)
-    lineTo(p.vertex1.x, p.vertex1.y)
-    lineTo(p.vertex2.x, p.vertex2.y)
-    lineTo(p.start2.x, p.start2.y)
-    lineTo(p.corner.x, p.corner.y)
-    close()
-}
-
-/** 渲染单页内容（文本行 + 图片混合排版，图片高度来自分页器自适应值）。 */
-@Composable
-private fun renderPage(
-    page: ReaderPage,
-    baseStyle: TextStyle,
-) {
-    val density = LocalDensity.current
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(PAGE_H_PADDING, PAGE_V_PADDING),
-    ) {
-        page.elements.forEach { el ->
-            when (el) {
-                is PageElement.TextLine -> if (el.text.isEmpty()) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(with(density) { el.heightPx.toDp() }),
-                    )
-                } else {
-                    Text(
-                        text = el.text,
-                        style = el.style,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                is PageElement.Image -> PixivImage(
-                    url = el.url,
-                    contentDescription = el.caption,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(with(density) { el.heightPx.toDp() }),
-                    contentScale = ContentScale.Fit,
+                RenderReaderPage(
+                    current,
+                    baseStyle,
+                    Modifier
+                        .fillMaxSize()
+                        .padding(PAGE_H_PADDING, PAGE_V_PADDING)
                 )
             }
         }
