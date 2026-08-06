@@ -34,12 +34,12 @@ import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
 import com.pixiv.reader.feature.reader.ui.ReaderRoute
-import com.pixiv.reader.feature.user.BlockedRoute
-import com.pixiv.reader.feature.user.DownloadsRoute
-import com.pixiv.reader.feature.user.HistoryRoute
-import com.pixiv.reader.feature.user.UserBookmarksRoute
-import com.pixiv.reader.feature.user.UserFollowingRoute
-import com.pixiv.reader.feature.user.UserRoute
+import com.pixiv.reader.feature.user.ui.BlockedRoute
+import com.pixiv.reader.feature.user.ui.DownloadsRoute
+import com.pixiv.reader.feature.user.ui.HistoryRoute
+import com.pixiv.reader.feature.user.ui.UserBookmarksRoute
+import com.pixiv.reader.feature.user.ui.UserFollowingRoute
+import com.pixiv.reader.feature.user.ui.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
 import com.pixiv.reader.feature.watchlist.WatchlistRoute
 

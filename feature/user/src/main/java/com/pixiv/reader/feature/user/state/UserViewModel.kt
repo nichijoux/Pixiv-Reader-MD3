@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.user
+package com.pixiv.reader.feature.user.state
 
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
@@ -16,6 +16,7 @@ import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesCoverCache
+import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel

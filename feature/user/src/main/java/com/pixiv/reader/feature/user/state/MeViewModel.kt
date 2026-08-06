@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.user
+package com.pixiv.reader.feature.user.state
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -11,6 +11,7 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.SessionRepository
+import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

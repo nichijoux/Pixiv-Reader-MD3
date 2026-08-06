@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.user
+package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,6 +52,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.feature.user.state.BlockedViewModel
+import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.ConfirmDialog
 import com.pixiv.reader.core.ui.component.LoadingBox

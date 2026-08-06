@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.user
+package com.pixiv.reader.feature.user.ui
 
 import android.content.Context
 import android.content.Intent
@@ -54,6 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.feature.user.state.DownloadFilter
+import com.pixiv.reader.feature.user.state.DownloadsViewModel
+import com.pixiv.reader.feature.user.R
 import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity

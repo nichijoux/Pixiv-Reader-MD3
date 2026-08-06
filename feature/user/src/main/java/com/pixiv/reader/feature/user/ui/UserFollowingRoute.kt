@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.user
+package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.feature.user.state.UserFollowingViewModel
+import com.pixiv.reader.feature.user.R
 import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.ui.component.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.CreatorProfile

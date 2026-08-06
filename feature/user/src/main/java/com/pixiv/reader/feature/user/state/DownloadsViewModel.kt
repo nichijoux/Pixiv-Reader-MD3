@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.user
+package com.pixiv.reader.feature.user.state
 
 import android.content.Context
 import android.net.Uri
@@ -12,6 +12,7 @@ import com.pixiv.reader.core.novel.EpubNovelParser
 import com.pixiv.reader.core.novel.LocalReaderStore
 import com.pixiv.reader.core.novel.MarkdownNovelParser
 import com.pixiv.reader.core.novel.TxtNovelParser
+import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
