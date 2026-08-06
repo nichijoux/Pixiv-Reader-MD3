@@ -1,7 +1,6 @@
-package com.pixiv.reader.feature.discover
+package com.pixiv.reader.feature.discover.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,213 +23,22 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.api.model.Illust
-import com.pixiv.api.model.Novel
-import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.common.formatCount
-import com.pixiv.reader.core.common.formatCountForNovel
-import com.pixiv.reader.core.ui.component.CreatorProfile
-import com.pixiv.reader.core.ui.component.CreatorProfileCard
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
-import com.pixiv.reader.core.ui.component.PixivImage
 import com.pixiv.reader.core.ui.component.SkeletonBlock
 import com.pixiv.reader.core.ui.component.skeletonPulseColor
 
-@Composable
-internal fun IllustSearchResults(
-    viewModel: DiscoverViewModel,
-    onOpenIllust: (Long) -> Unit,
-    onOpenUser: (Long) -> Unit,
-) {
-    val items by viewModel.illustPaged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.illustPaged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.illustPaged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.illustPaged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.illustPaged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> IllustSearchSkeleton()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
-        else -> IllustWaterfallGrid(
-            illusts = items,
-            onItemClick = onOpenIllust,
-            onLoadMore = viewModel::loadMore,
-            hasMore = hasMore,
-            isLoadingMore = isLoadingMore,
-            onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-            onOpenUser = onOpenUser,
-        )
-    }
-}
-
-@Composable
-internal fun NovelSearchResults(
-    viewModel: DiscoverViewModel,
-    onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
-    onOpenUser: (Long) -> Unit,
-    onOpenSeries: (Long) -> Unit,
-) {
-    val items by viewModel.novelPaged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.novelPaged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.novelPaged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.novelPaged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.novelPaged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> NovelSearchSkeleton()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(items, key = { it.id }) { novel ->
-                NovelRow(
-                    novel = novel,
-                    onClick = { onOpenNovel(novel.id) },
-                    onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
-                    onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
-                    onToggleFavorite = { nowFavorite -> viewModel.toggleNovelFavorite(novel.id, nowFavorite) },
-                    onTagClick = { tag ->
-                        viewModel.onQueryChange(tag)
-                        viewModel.search()
-                    },
-                    onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                )
-            }
-            if (hasMore) {
-                item(key = "load_more") {
-                    LaunchedLoadMore(isLoadingMore, viewModel::loadMore)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NovelRow(
-    novel: Novel,
-    onClick: () -> Unit,
-    onOpenCover: () -> Unit,
-    onOpenAuthor: () -> Unit,
-    onToggleFavorite: (Boolean) -> Unit,
-    onTagClick: (String) -> Unit,
-    onSeriesClick: (Long) -> Unit = {},
-) {
-    NovelCard(
-        novel = NovelCardData(
-            id = novel.id,
-            title = novel.title.orEmpty(),
-            coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
-            authorId = novel.user?.id ?: 0L,
-            authorName = novel.user?.name.orEmpty(),
-            authorAvatarUrl = novel.user?.profile_image_urls?.best(),
-            publishDate = novel.create_date,
-            seriesTitle = novel.series?.title,
-            seriesId = novel.series?.id,
-            favoriteCount = novel.total_bookmarks ?: 0,
-            wordCount = novel.text_length ?: 0,
-            tags = novel.tags.orEmpty()
-                .take(6)
-                .map { it.translated_name ?: it.name ?: "" }
-                .filter { it.isNotBlank() },
-            isFavorite = novel.is_bookmarked == true,
-        ),
-        onClick = onClick,
-        onOpenCover = onOpenCover,
-        onOpenAuthor = onOpenAuthor,
-        onToggleFavorite = onToggleFavorite,
-        onTagClick = onTagClick,
-        onSeriesClick = onSeriesClick,
-    )
-}
-
-@Composable
-internal fun UserSearchResults(
-    viewModel: DiscoverViewModel,
-    onOpenUser: (Long) -> Unit,
-) {
-    val items by viewModel.userPaged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.userPaged.isLoading.collectAsStateWithLifecycle()
-    val error by viewModel.userPaged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> UserSearchSkeleton()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(items, key = { it.user?.id ?: 0L }) { preview ->
-                UserRow(
-                    preview = preview,
-                    onClick = { preview.user?.id?.let(onOpenUser) },
-                    onToggleFollow = { followed ->
-                        preview.user?.id?.let { viewModel.toggleFollowUser(it, followed) }
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun UserRow(
-    preview: UserPreview,
-    onClick: () -> Unit,
-    onToggleFollow: (Boolean) -> Unit,
-) {
-    val user = preview.user
-    CreatorProfileCard(
-        profile = CreatorProfile(
-            id = user?.id ?: 0L,
-            name = user?.name.orEmpty(),
-            avatarUrl = user?.profile_image_urls?.best(),
-            covers = preview.illusts.take(3).mapNotNull {
-                it.image_urls?.square_medium ?: it.image_urls?.medium
-            },
-            isFollowed = user?.is_followed == true,
-        ),
-        onToggleFollow = onToggleFollow,
-        onClick = onClick,
-    )
-}
-
-@Composable
-internal fun LaunchedLoadMore(isLoadingMore: Boolean, onLoadMore: () -> Unit) {
-    androidx.compose.runtime.LaunchedEffect(Unit) { onLoadMore() }
-    if (isLoadingMore) {
-        Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp)
-        }
-    }
-}
-
 /**
- * 插画搜索结果骨架：仿 [IllustWaterfallGrid]（自适应 2 列瀑布流）渲染 8 张占位卡
+ * 插画搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.IllustWaterfallGrid]
+ * （自适应 2 列瀑布流）渲染 8 张占位卡
  * ——圆角 14dp 卡片 + 封面块（交替高度模拟瀑布流）+ 标题 2 行 + 作者行（20dp 圆头像 + 名称条）。
  */
 @Composable
-private fun IllustSearchSkeleton() {
+internal fun IllustSearchSkeleton() {
     val color = skeletonPulseColor()
     val coverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
     LazyVerticalStaggeredGrid(
@@ -289,11 +97,11 @@ private fun IllustSearchSkeleton() {
 }
 
 /**
- * 小说搜索结果骨架：仿 [NovelCard]（横排卡片列表）渲染 6 张占位卡
+ * 小说搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.NovelCard]（横排卡片列表）渲染 6 张占位卡
  * ——圆角 16dp Card + 左侧 104dp 3/4 封面块 + 右侧标题/作者条。
  */
 @Composable
-private fun NovelSearchSkeleton() {
+internal fun NovelSearchSkeleton() {
     val color = skeletonPulseColor()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -346,11 +154,11 @@ private fun NovelSearchSkeleton() {
 }
 
 /**
- * 用户搜索结果骨架：仿 [CreatorProfileCard] 渲染 5 张占位卡
+ * 用户搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.CreatorProfileCard] 渲染 5 张占位卡
  * ——圆角 16dp 卡片 + 顶部 120dp 三封面横排 + 底部 64dp 圆头像（重叠封面）+ 名称条 + 关注按钮块。
  */
 @Composable
-private fun UserSearchSkeleton() {
+internal fun UserSearchSkeleton() {
     val color = skeletonPulseColor()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

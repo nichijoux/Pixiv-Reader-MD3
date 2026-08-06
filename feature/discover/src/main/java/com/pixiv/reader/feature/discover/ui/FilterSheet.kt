@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.discover
+package com.pixiv.reader.feature.discover.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -6,30 +6,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
 import com.pixiv.reader.feature.discover.R
+import com.pixiv.reader.feature.discover.state.SearchFilters
+import com.pixiv.reader.feature.discover.state.SearchMode
+import com.pixiv.reader.feature.discover.state.SearchType
 
 /**
  * 高级筛选底部面板：
@@ -37,6 +32,7 @@ import com.pixiv.reader.feature.discover.R
  * - [detailed] = true 时追加当前类型专属条件（搜索结果时展示完整条件）
  * - 用户类型始终提示无筛选
  * 输入行均用 Row + weight 平分 + 固定分隔，保证不超宽。
+ * 通用表单原语见 FilterFormComponents.kt。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +69,7 @@ internal fun FilterBottomSheet(
                 )
             } else {
                 // 通用区
-                SectionSpacer()
+                FilterSectionSpacer()
                 FilterChipRow(
                     label = stringResource(R.string.filter_mode),
                     options = listOf(
@@ -136,7 +132,7 @@ internal fun FilterBottomSheet(
 
                 // 插画专属（搜索结果时展示）
                 if (detailed && type == SearchType.ILLUST) {
-                    SectionTitle(stringResource(R.string.filter_illust_section))
+                    FilterSectionTitle(stringResource(R.string.filter_illust_section))
                     FilterChipRow(
                         label = stringResource(R.string.filter_ratio),
                         options = listOf(
@@ -160,7 +156,7 @@ internal fun FilterBottomSheet(
                         onSelect = { draft = draft.copy(contentType = it.ifBlank { null }) },
                     )
                     if (toolOptions.isNotEmpty()) {
-                        SectionTitle(stringResource(R.string.filter_tool_section))
+                        FilterSectionTitle(stringResource(R.string.filter_tool_section))
                         LazyScrollChips(
                             options = toolOptions.map { it to it },
                             selected = draft.tool,
@@ -189,9 +185,9 @@ internal fun FilterBottomSheet(
 
                 // 小说专属（搜索结果时展示）
                 if (detailed && type == SearchType.NOVEL) {
-                    SectionTitle(stringResource(R.string.filter_novel_section))
+                    FilterSectionTitle(stringResource(R.string.filter_novel_section))
                     if (genreOptions.isNotEmpty()) {
-                        SectionTitle(stringResource(R.string.filter_genre_section))
+                        FilterSectionTitle(stringResource(R.string.filter_genre_section))
                         LazyScrollChips(
                             options = genreOptions.map { it.id.toString() to (it.label ?: genreUnknown) },
                             selected = draft.genre?.toString(),
@@ -249,174 +245,5 @@ internal fun FilterBottomSheet(
                 }
             }
         }
-    }
-}
-
-// ── 基础组件 ─────────────────────────────────────────────────────────────────
-
-@Composable
-private fun SectionSpacer() {
-    Text("", modifier = Modifier.height(8.dp))
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
-    )
-}
-
-/** 单选 FilterChip 行（同组互斥，横向可滚动）。 */
-@Composable
-private fun FilterChipRow(
-    label: String,
-    options: List<Pair<String, String>>,
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(76.dp),
-        )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(options, key = { it.first }) { (value, text) ->
-                FilterChip(
-                    selected = selected == value,
-                    onClick = { onSelect(value) },
-                    label = { Text(text) },
-                )
-            }
-        }
-    }
-}
-
-/** 横向滚动选项（工具 / 题材，可选取消）。 */
-@Composable
-private fun LazyScrollChips(
-    options: List<Pair<String, String>>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        item(key = "all") {
-            FilterChip(
-                selected = selected == null,
-                onClick = { onSelect(null) },
-                label = { Text(stringResource(R.string.filter_unlimited)) },
-            )
-        }
-        items(options, key = { it.first }) { (value, text) ->
-            FilterChip(
-                selected = selected == value,
-                onClick = { onSelect(if (selected == value) null else value) },
-                label = { Text(text) },
-            )
-        }
-    }
-}
-
-/** 区间输入行（两端 weight 平分，不超宽）。 */
-@Composable
-private fun RangeInputRow(
-    label: String,
-    startValue: String?,
-    endValue: String?,
-    startPlaceholder: String,
-    endPlaceholder: String,
-    keyboardType: KeyboardType = KeyboardType.Number,
-    onStart: (String) -> Unit,
-    onEnd: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(76.dp),
-        )
-        OutlinedTextField(
-            value = startValue.orEmpty(),
-            onValueChange = onStart,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text(startPlaceholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        )
-        Text(
-            text = "~",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 6.dp),
-        )
-        OutlinedTextField(
-            value = endValue.orEmpty(),
-            onValueChange = onEnd,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text(endPlaceholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        )
-    }
-}
-
-/** 单值输入行。 */
-@Composable
-private fun SingleInputRow(
-    label: String,
-    value: String,
-    placeholder: String,
-    onValue: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(76.dp),
-        )
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValue,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text(placeholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        )
-    }
-}
-
-/** 开关行。 */
-@Composable
-private fun SwitchRow(
-    label: String,
-    checked: Boolean,
-    onChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(76.dp),
-        )
-        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
