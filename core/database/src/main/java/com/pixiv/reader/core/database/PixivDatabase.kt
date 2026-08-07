@@ -2,8 +2,6 @@ package com.pixiv.reader.core.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
@@ -13,90 +11,13 @@ import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 
-/** v1→v2：新增 search_history 表（保留既有数据）。 */
-val MIGRATION_1_2 = object : Migration(1, 2) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "CREATE TABLE IF NOT EXISTS `search_history` (" +
-                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
-                "`keyword` TEXT NOT NULL, " +
-                "`searchedAt` INTEGER NOT NULL)",
-        )
-    }
-}
-
-/** v2→v3：download_entry 新增 width/height 列（插画真实宽高）。 */
-val MIGRATION_2_3 = object : Migration(2, 3) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `width` INTEGER NOT NULL DEFAULT 0")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `height` INTEGER NOT NULL DEFAULT 0")
-    }
-}
-
-/** v3→v4：download_entry 新增 progress 列（下载进度 0-100，默认 0）。 */
-val MIGRATION_3_4 = object : Migration(3, 4) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `progress` INTEGER NOT NULL DEFAULT 0")
-    }
-}
-
-/** v4→v5：download_entry 新增 seriesId/format 列（小说导出重试重建任务用）。 */
-val MIGRATION_4_5 = object : Migration(4, 5) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `seriesId` INTEGER")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `format` TEXT")
-    }
-}
-
 /**
- * v5→v6：download_entry 主键改为 (targetType, targetId, format)，
- * 支持同一目标多种导出格式并存；同时剔除已移除的 novel_offline 离线索引。
- * SQLite 无法直接改主键，采用 建新表 + 拷贝 + 换名。
+ * 数据库最终结构（version = 1）。
+ *
+ * 历史迁移（v1→v7 共六条，含 download_entry 字段演进与主键重构）已全部清理，
+ * 新装用户直接按此 schema 建库；旧版本（v7）数据经 `fallbackToDestructiveMigration` 重建。
+ * 后续新增实体/字段：升 version 并从这里开始写新迁移。
  */
-val MIGRATION_5_6 = object : Migration(5, 6) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "CREATE TABLE IF NOT EXISTS `download_entry_new` (" +
-                "`targetId` INTEGER NOT NULL, " +
-                "`targetType` TEXT NOT NULL, " +
-                "`title` TEXT, " +
-                "`coverUrl` TEXT, " +
-                "`localPath` TEXT, " +
-                "`status` TEXT NOT NULL, " +
-                "`progress` INTEGER NOT NULL, " +
-                "`pageCount` INTEGER NOT NULL, " +
-                "`width` INTEGER NOT NULL, " +
-                "`height` INTEGER NOT NULL, " +
-                "`seriesId` INTEGER, " +
-                "`format` TEXT NOT NULL, " +
-                "`updatedAt` INTEGER NOT NULL, " +
-                "PRIMARY KEY(`targetType`, `targetId`, `format`))",
-        )
-        db.execSQL(
-            "INSERT INTO `download_entry_new` (" +
-                "`targetId`, `targetType`, `title`, `coverUrl`, `localPath`, `status`, " +
-                "`progress`, `pageCount`, `width`, `height`, `seriesId`, `format`, `updatedAt`) " +
-                "SELECT `targetId`, `targetType`, `title`, `coverUrl`, `localPath`, `status`, " +
-                "`progress`, `pageCount`, `width`, `height`, `seriesId`, COALESCE(`format`, ''), `updatedAt` " +
-                "FROM `download_entry` WHERE `targetType` != 'novel_offline'",
-        )
-        db.execSQL("DROP TABLE `download_entry`")
-        db.execSQL("ALTER TABLE `download_entry_new` RENAME TO `download_entry`")
-    }
-}
-
-/** v6→v7：download_entry 新增小说元数据快照列（作者/字数/收藏/发布/系列标题，下载管理卡片展示用）。 */
-val MIGRATION_6_7 = object : Migration(6, 7) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `authorName` TEXT")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `authorAvatarUrl` TEXT")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `wordCount` INTEGER NOT NULL DEFAULT 0")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `favoriteCount` INTEGER NOT NULL DEFAULT 0")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `publishDate` TEXT")
-        db.execSQL("ALTER TABLE `download_entry` ADD COLUMN `seriesTitle` TEXT")
-    }
-}
-
 @Database(
     entities = [
         ReadingProgressEntity::class,
@@ -104,7 +25,7 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         DownloadEntryEntity::class,
         SearchHistoryEntity::class,
     ],
-    version = 7,
+    version = 1,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {

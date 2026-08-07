@@ -10,6 +10,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -41,7 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
@@ -72,6 +76,42 @@ import com.pixiv.reader.feature.reader.state.rememberReaderTextStyle
 import com.pixiv.reader.feature.reader.state.readerImageHeight
 import java.io.File
 import kotlinx.coroutines.launch
+
+/**
+ * 快速轻点检测 modifier：无移动且在长按阈值内抬起才回调 onTap。
+ * - 长按（按住 ≥ 长按阈值）：抬起时时间差超阈值 → 不回调
+ * - 长按后拖动 / 普通拖动（移动超 slop）：break 不回调，事件不消费 → 穿透下层滚动/卷页
+ * - 全程不消费 down/move（requireUnconsumed=false、不调 consume），滚动不被打断
+ * pointerInput block 是受限协程（PointerInputScope），可直接调用受限挂起函数。
+ */
+private fun Modifier.quickTap(onTap: () -> Unit): Modifier =
+    pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var tapped = false
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                if (change.changedToUpIgnoreConsumed()) {
+                    // 抬起：按住时长 < 长按阈值 且 无移动 → 快速点击
+                    if (change.uptimeMillis - down.uptimeMillis <
+                        viewConfiguration.longPressTimeoutMillis
+                    ) {
+                        tapped = true
+                    }
+                    break
+                }
+                // 移动超 slop = 拖动（含长按后拖动）→ 取消点击，事件留给下层滚动
+                if (change.positionChanged() &&
+                    (change.position - down.position).getDistance() >
+                    viewConfiguration.touchSlop
+                ) {
+                    break
+                }
+            }
+            if (tapped) onTap()
+        }
+    }
 
 /**
  * 小说阅读器（P4 核心）。
@@ -222,38 +262,52 @@ fun ReaderRoute(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .pointerInput(pageMode, barsVisible) {
-                    // 中间 1/3 点击切换工具栏由内容上方的透明覆盖层处理；
+                    // 中间 1/3 点击切换工具栏：翻页/仿真由内容上方的透明覆盖层处理，滑动由下方
+                    // quickTap modifier 处理（父层、不消费事件，滚动穿透）；
                     // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）；
                     // 隐藏时：翻页模式左右边缘翻页；仿真模式左右边缘由内部处理
-                    if (pageMode == ReaderPageMode.SIMULATION) return@pointerInput
-                    detectTapGestures(onTap = { offset ->
-                        if (pageMode != ReaderPageMode.PAGINATE) return@detectTapGestures
-                        val w = size.width.toFloat()
-                        val third = w / 3f
-                        val edge = offset.x < third || offset.x > w - third
-                        if (barsVisible) {
-                            if (edge) barsVisible = false
-                            return@detectTapGestures
-                        }
-                        if (!edge) return@detectTapGestures
-                        val ps = pagerStateRef.value ?: return@detectTapGestures
-                        if (offset.x < third) {
-                            if (ps.currentPage > 0) {
-                                readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1) }
-                            } else {
-                                // 当前章首页向前翻：系列跳上一章尾页，非系列无操作
-                                onPrevChapterRequest()
+                    when (pageMode) {
+                        ReaderPageMode.PAGINATE -> detectTapGestures(onTap = { offset ->
+                            val w = size.width.toFloat()
+                            val third = w / 3f
+                            val edge = offset.x < third || offset.x > w - third
+                            if (barsVisible) {
+                                if (edge) barsVisible = false
+                                return@detectTapGestures
                             }
-                        } else if (offset.x > w - third) {
-                            if (ps.currentPage < ps.pageCount - 1) {
-                                readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1) }
-                            } else {
-                                // 当前章末页向后翻：系列跳下一章开头，非系列无操作
-                                onNextChapterRequest()
+                            if (!edge) return@detectTapGestures
+                            val ps = pagerStateRef.value ?: return@detectTapGestures
+                            if (offset.x < third) {
+                                if (ps.currentPage > 0) {
+                                    readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1) }
+                                } else {
+                                    // 当前章首页向前翻：系列跳上一章尾页，非系列无操作
+                                    onPrevChapterRequest()
+                                }
+                            } else if (offset.x > w - third) {
+                                if (ps.currentPage < ps.pageCount - 1) {
+                                    readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1) }
+                                } else {
+                                    // 当前章末页向后翻：系列跳下一章开头，非系列无操作
+                                    onNextChapterRequest()
+                                }
                             }
-                        }
-                    })
-                },
+                        })
+
+                        ReaderPageMode.SCROLL -> Unit // 滑动模式点击唤出由下方 quickTap modifier 处理
+
+                        ReaderPageMode.SIMULATION -> Unit // 仿真模式左右边缘由内部处理
+                    }
+                }
+                // 滑动模式：点击任意处切换工具栏。quickTap 在父层（与翻页模式边缘点击同层），
+                // 不消费事件——中间区域滚动/长按拖动完全不受干扰
+                .then(
+                    if (pageMode == ReaderPageMode.SCROLL) {
+                        Modifier.quickTap { barsVisible = !barsVisible }
+                    } else {
+                        Modifier
+                    }
+                ),
         ) {
             // Crossfade：加载完成（Loading/Error/空态 → 正文）淡入过渡，
             // 缓存命中的章节秒开时也有内容动画（与慢加载观感一致）
@@ -271,123 +325,112 @@ fun ReaderRoute(
                     doc == null -> EmptyBox(stringResource(R.string.reader_empty_content))
                     else -> {
                         AdaptiveContentBox {
-                        BoxWithConstraints {
-                            val contentWidth = maxWidth - PAGE_H_PADDING * 2
-                            // 页高减去系统导航栏高度：文字排版避开导航栏（纸面仍延伸到屏幕底，沉浸式）
-                            val navBarBottom = WindowInsets.navigationBars
-                                .asPaddingValues()
-                                .calculateBottomPadding()
-                            val pageHeight = maxHeight - PAGE_V_PADDING * 2 - navBarBottom - READER_STATUS_BAR_HEIGHT
-                            val fontFamilyInstance =
-                                rememberReaderFontFamily(fontFamily, customFont)
-                            val baseStyle = rememberReaderTextStyle(
-                                fontSize,
-                                lineHeight,
-                                fontFamilyInstance
-                            )
-                            val imageHeight = readerImageHeight(contentWidth)
-                            val restoreOffset = if (progressRestored) charOffset else 0
+                            BoxWithConstraints {
+                                val contentWidth = maxWidth - PAGE_H_PADDING * 2
+                                // 页高减去系统导航栏高度：文字排版避开导航栏（纸面仍延伸到屏幕底，沉浸式）
+                                val navBarBottom = WindowInsets.navigationBars
+                                    .asPaddingValues()
+                                    .calculateBottomPadding()
+                                val pageHeight =
+                                    maxHeight - PAGE_V_PADDING * 2 - navBarBottom - READER_STATUS_BAR_HEIGHT
+                                val fontFamilyInstance =
+                                    rememberReaderFontFamily(fontFamily, customFont)
+                                val baseStyle = rememberReaderTextStyle(
+                                    fontSize,
+                                    lineHeight,
+                                    fontFamilyInstance
+                                )
+                                val imageHeight = readerImageHeight(contentWidth)
+                                val restoreOffset = if (progressRestored) charOffset else 0
 
-                            if (pageMode == ReaderPageMode.SCROLL) {
-                                ScrollReaderContent(
-                                    document = doc,
-                                    baseStyle = baseStyle,
-                                    imageHeight = imageHeight,
-                                    restoreCharOffset = restoreOffset,
-                                    jumpToChar = jumpToChar,
-                                    onScrollOffset = viewModel::reportScrollOffset,
-                                    onPageInfo = { c, t -> pageInfo = c to t },
-                                    modifier = Modifier
-                                        .navigationBarsPadding()
-                                        .padding(bottom = READER_STATUS_BAR_HEIGHT),
-                                )
-                            } else {
-                                val pages: List<ReaderPage> = rememberReaderPages(
-                                    document = doc,
-                                    fontSizeSp = fontSize,
-                                    lineHeightMultiplier = lineHeight,
-                                    fontFamilyName = fontFamily,
-                                    customFont = customFont,
-                                    contentWidthDp = contentWidth,
-                                    pageHeightDp = pageHeight,
-                                )
-                                if (pageMode == ReaderPageMode.SIMULATION) {
-                                    // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
-                                    SimulationPageContent(
-                                        pages = pages,
+                                if (pageMode == ReaderPageMode.SCROLL) {
+                                    ScrollReaderContent(
+                                        document = doc,
                                         baseStyle = baseStyle,
                                         imageHeight = imageHeight,
-                                        backgroundColor = themeColors.background,
                                         restoreCharOffset = restoreOffset,
                                         jumpToChar = jumpToChar,
-                                        onPageChange = { index ->
-                                            pages.getOrNull(index)?.let {
-                                                viewModel.reportPage(
-                                                    it.startChar,
-                                                    pages.size
-                                                )
-                                            }
-                                        },
+                                        onScrollOffset = viewModel::reportScrollOffset,
                                         onPageInfo = { c, t -> pageInfo = c to t },
-                                        barsVisible = barsVisible,
-                                        onCloseBars = { barsVisible = false },
-                                        onPrevChapterRequest = onPrevChapterRequest,
-                                        onNextChapterRequest = onNextChapterRequest,
+                                        modifier = Modifier
+                                            .navigationBarsPadding()
+                                            .padding(bottom = READER_STATUS_BAR_HEIGHT),
                                     )
                                 } else {
-                                    val pagerState = rememberPagerState(pageCount = { pages.size })
-                                    LaunchedEffect(pagerState) { pagerStateRef.value = pagerState }
-                                    PagerReaderContent(
-                                        pagerState = pagerState,
-                                        pages = pages,
-                                        baseStyle = baseStyle,
-                                        imageHeight = imageHeight,
-                                        restoreCharOffset = restoreOffset,
-                                        jumpToChar = jumpToChar,
-                                        onPageChange = { index ->
-                                            pages.getOrNull(index)?.let {
-                                                viewModel.reportPage(
-                                                    it.startChar,
-                                                    pages.size
-                                                )
-                                            }
-                                        },
-                                        onPageInfo = { c, t -> pageInfo = c to t },
+                                    val pages: List<ReaderPage> = rememberReaderPages(
+                                        document = doc,
+                                        fontSizeSp = fontSize,
+                                        lineHeightMultiplier = lineHeight,
+                                        fontFamilyName = fontFamily,
+                                        customFont = customFont,
+                                        contentWidthDp = contentWidth,
+                                        pageHeightDp = pageHeight,
+                                    )
+                                    if (pageMode == ReaderPageMode.SIMULATION) {
+                                        // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
+                                        SimulationPageContent(
+                                            pages = pages,
+                                            baseStyle = baseStyle,
+                                            imageHeight = imageHeight,
+                                            backgroundColor = themeColors.background,
+                                            restoreCharOffset = restoreOffset,
+                                            jumpToChar = jumpToChar,
+                                            onPageChange = { index ->
+                                                pages.getOrNull(index)?.let {
+                                                    viewModel.reportPage(
+                                                        it.startChar,
+                                                        pages.size
+                                                    )
+                                                }
+                                            },
+                                            onPageInfo = { c, t -> pageInfo = c to t },
+                                            barsVisible = barsVisible,
+                                            onCloseBars = { barsVisible = false },
+                                            onPrevChapterRequest = onPrevChapterRequest,
+                                            onNextChapterRequest = onNextChapterRequest,
+                                        )
+                                    } else {
+                                        val pagerState =
+                                            rememberPagerState(pageCount = { pages.size })
+                                        LaunchedEffect(pagerState) {
+                                            pagerStateRef.value = pagerState
+                                        }
+                                        PagerReaderContent(
+                                            pagerState = pagerState,
+                                            pages = pages,
+                                            baseStyle = baseStyle,
+                                            imageHeight = imageHeight,
+                                            restoreCharOffset = restoreOffset,
+                                            jumpToChar = jumpToChar,
+                                            onPageChange = { index ->
+                                                pages.getOrNull(index)?.let {
+                                                    viewModel.reportPage(
+                                                        it.startChar,
+                                                        pages.size
+                                                    )
+                                                }
+                                            },
+                                            onPageInfo = { c, t -> pageInfo = c to t },
+                                        )
+                                    }
+                                }
+
+                                // 中间 1/3 透明覆盖层：点击切换工具栏（仅翻页/仿真模式叠加）。
+                                // 滑动模式不叠加覆盖层——LazyColumn 无上层手势节点，中间区域滚动不受任何干扰，
+                                // 其点击唤出由正文容器父层 quickTap 处理（不消费事件，滚动穿透）。
+                                if (pageMode != ReaderPageMode.SCROLL) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .width(maxWidth / 3f)
+                                            .align(Alignment.Center)
+                                            .quickTap { barsVisible = !barsVisible },
                                     )
                                 }
-                            }
-
-                            // 中间 1/3 透明覆盖层：点击切换工具栏（不消费拖动，滑动翻页不受影响）。
-                            // 放在内容之上，确保在子层手势消费指针事件后仍能收到轻点。
-                            // 滑动模式不叠加覆盖层（避免滚动时误触工具栏），工具栏由顶部窄条触发。
-                            if (pageMode != ReaderPageMode.SCROLL) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .width(maxWidth / 3f)
-                                        .align(Alignment.Center)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(onTap = {
-                                                barsVisible = !barsVisible
-                                            })
-                                        },
-                                )
-                            } else {
-                                // 滑动模式：顶部窄条点按显示工具栏（不干扰上下滚动）
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(28.dp)
-                                        .align(Alignment.TopCenter)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(onTap = { barsVisible = true })
-                                        },
-                                )
                             }
                         }
                     }
                 }
-            }
             }
         }
 

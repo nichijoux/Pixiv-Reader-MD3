@@ -8,12 +8,13 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
-import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -26,11 +27,15 @@ import kotlin.math.roundToInt
 class ReaderPaginator(
     private val textMeasurer: TextMeasurer,
     private val baseStyle: TextStyle,
+    private val density: Density,
     private val contentWidthPx: Int,
     private val pageHeightPx: Int,
     private val lineHeightPx: Int,
     private val imageHeightPx: Int,
 ) {
+    /** 图片说明文字高度余量（ReaderImageBlock：上下 4dp 内边距 + labelMedium ~16sp + 4dp 间距）。 */
+    private val imageCaptionHeightPx =
+        with(density) { 28.dp.toPx() }.roundToInt().coerceAtLeast(1)
     private val paragraphStyle = baseStyle.copy(textAlign = TextAlign.Justify)
     private val headingStyle = baseStyle.copy(
         fontSize = baseStyle.fontSize * 1.25f,
@@ -82,11 +87,14 @@ class ReaderPaginator(
         /**
          * 图片参与文本流分页（不独占整页）：高度已自适应（≤ 页高 * IMAGE_MAX_HEIGHT_RATIO），
          * 图片后剩余空间不足一行时立即换页，避免页尾悬挂零散文字。
+         * 预留说明文字高度（ReaderImageBlock 的 caption 在图片下方，分页漏算会挤出后续文字）。
          */
         fun addImage(url: String, caption: String?) {
-            if (usedHeight + imageHeightPx > pageHeightPx && elements.isNotEmpty()) closePage()
+            val totalHeightPx =
+                imageHeightPx + if (caption.isNullOrBlank()) 0 else imageCaptionHeightPx
+            if (usedHeight + totalHeightPx > pageHeightPx && elements.isNotEmpty()) closePage()
             elements.add(PageElement.Image(url, caption, imageHeightPx))
-            usedHeight += imageHeightPx
+            usedHeight += totalHeightPx
             if (usedHeight + lineHeightPx > pageHeightPx) closePage()
         }
 
@@ -144,18 +152,22 @@ class ReaderPaginator(
             constraints = Constraints(maxWidth = contentWidthPx),
             overflow = androidx.compose.ui.text.style.TextOverflow.Clip,
         )
+        // 渲染行高：每行独立 Text 的高度 = style.lineHeight（TextLayout.height = 行数 × lineHeight）。
+        // 不能用 getLineTop/Bottom 差值——Compose 对段落最后一行返回字形底（lastLineFontMetrics，
+        // 不含 lineHeight 下半空隙），每段最后一行会少算约 0.85 行距；段落多时累计误差把页面
+        // 底部 1~2 行挤出可视区（文字"离下面很远"、翻页才显示）。
+        val rowHeightPx = with(density) { style.lineHeight.toPx() }.roundToInt().coerceAtLeast(1)
         val lines = mutableListOf<MeasuredLine>()
         for (i in 0 until layout.lineCount) {
             val start = layout.getLineStart(i)
             val end = layout.getLineEnd(i)
             if (start >= end) continue // 空行（行首/行尾换行）跳过
-            val height = ceil(layout.getLineBottom(i) - layout.getLineTop(i)).toInt().coerceAtLeast(1)
             lines.add(
                 MeasuredLine(
                     text = text.substring(start, end).trimEnd(),
                     startOffset = start,
                     endOffset = end,
-                    heightPx = height,
+                    heightPx = rowHeightPx,
                 ),
             )
         }
@@ -241,6 +253,7 @@ fun rememberReaderPages(
             ReaderPaginator(
                 textMeasurer = textMeasurer,
                 baseStyle = baseStyle,
+                density = density,
                 contentWidthPx = contentWidthPx,
                 pageHeightPx = pageHeightPx,
                 lineHeightPx = lineHeightPx,

@@ -909,3 +909,4 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 8. **本地阅读格式**：除 TXT/EPUB 外，`MarkdownNovelParser`（core:novel）支持 MD；下载管理点 md/txt/epub → `local_reader`，pdf/docx → 系统应用打开。
 9. **小说导出**：`NovelExporter` 支持 TXT/EPUB/PDF/MD/DOCX 单本/系列/部分分册（第 66 轮前后升级：导出前统一格式化 + OpenCC 繁转简 + DOCX/EPUB 样式），默认输出系统 `Download/PixivReader`（MediaStore，Android 8-9 回退私有目录）。
 10. **阅读器翻页**：仿真翻页纸背经第 8 轮修正后**不绘制镜像文字**（仅纸色 + 边缘渐变阴影）。
+11. **数据库迁移清理**：`PixivDatabase` version **7 → 1（最终结构）**——原 `MIGRATION_1_2`~`MIGRATION_6_7` 六条迁移全部删除，新装直接按最终 schema 建库（4 实体不变），旧版本数据经 `fallbackToDestructiveMigration()` 重建；后续加实体/字段从 1 开始写新迁移。AGENTS.md/CODEFLOW.md/NEW_AGENT_PROMPT.md 已同步。

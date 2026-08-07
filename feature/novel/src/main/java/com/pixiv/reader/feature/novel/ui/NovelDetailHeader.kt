@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.novel.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,7 +65,7 @@ internal fun NovelHeader(
             text = novel.title.orEmpty(),
             style = novelTitleStyle(),
         )
-        // 作者 + 发布时间同行：头像/昵称 › 撑左（点击进用户主页）+ 关注胶囊，发布时间靠右
+        // 作者行：头像/昵称 › 撑左（点击进用户主页），关注/取关胶囊顶到行最右
         val publishDate = novel.create_date?.take(10)
         Row(
             modifier = Modifier
@@ -89,6 +90,8 @@ internal fun NovelHeader(
                     style = novelAuthorStyle(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    // 占满剩余宽度（fill=false 短名不拉伸），超长省略，保证关注胶囊不被挤出
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -96,31 +99,33 @@ internal fun NovelHeader(
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                // 关注 / 取关胶囊（嵌套 clickable 自身消费事件，不会触发外层进用户页）
-                AuthorFollowPill(
-                    isFollowed = isAuthorFollowed,
-                    enabled = !isAuthorFollowing,
-                    onClick = onToggleFollowAuthor,
-                )
             }
-            // 发布时间：同行靠右（不可点击）
-            if (!publishDate.isNullOrBlank()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.DateRange,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = stringResource(R.string.novel_publish_date, publishDate),
-                        style = novelMetaStyle(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp),
-                    )
-                }
+            // 关注 / 取关胶囊：顶到行最右
+            AuthorFollowPill(
+                isFollowed = isAuthorFollowed,
+                enabled = !isAuthorFollowing,
+                onClick = onToggleFollowAuthor,
+            )
+        }
+        // 发布时间：作者行下一行、右侧对齐（不可点击）
+        if (!publishDate.isNullOrBlank()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.novel_publish_date, publishDate),
+                    style = novelMetaStyle(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
             }
         }
         // 统计：三块均分撑满整行（icon + 值 15sp Bold + 标签 11sp）
@@ -185,7 +190,10 @@ internal fun NovelHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (clamped) 6 else Int.MAX_VALUE,
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
-                modifier = Modifier.padding(top = 14.dp),
+                // 展开/收起时高度平滑过渡
+                modifier = Modifier
+                    .padding(top = 14.dp)
+                    .animateContentSize(),
                 onTextLayout = { layout ->
                     // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
                     if (clamped) truncated = layout.hasVisualOverflow

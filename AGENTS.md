@@ -33,7 +33,7 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **图片 URL 必须走 `PixivRepository.imageClient`**（自动 Referer，否则 403）。Coil 由 `PixivApp` 注入该 client，`PixivImage`/`AsyncImage` 自动带。
 - **org.json 是 Android 内置类**：本地 JVM 单测（testDebugUnitTest）不可用，需 `testImplementation("org.json:json:20240303")`（core:novel 已配）。
 - **Gson 经 lib:pixivapi 传递**，feature 层可直接 `Gson()`（如历史 payloadJson）。
-- **数据库**：`core/database` `PixivDatabase` **version=7**，加实体/字段必须升 version + 写 Migration（现有 `MIGRATION_1_2`~`MIGRATION_6_7` 六条，含 download_entry 主键重构），`fallbackToDestructiveMigration()` 兜底。DAO 模式：`deleteByX 先删旧再 upsert` 去重置顶（BrowseHistory/SearchHistory）。
+- **数据库**：`core/database` `PixivDatabase` **version=1（最终结构）**——历史迁移（原 v1~v7 六条）已全部清理，新装直接按最终 schema 建库，旧版本数据经 `fallbackToDestructiveMigration()` 重建；后续加实体/字段必须升 version 并从 1 开始写新 Migration。DAO 模式：`deleteByX 先删旧再 upsert` 去重置顶（BrowseHistory/SearchHistory）。
 - **历史/下载快照完整性**：`BrowseHistoryEntity.payloadJson` 存完整卡片数据（历史插画宽高、小说作者等），否则通用组件信息不全/图片裁剪中间。
 - **插画完整显示**：`IllustCard` 按 `illust.width/height` aspectRatio 显示；无宽高会固定高度 + Crop 裁剪中间——数据源需带宽高（历史/下载实体存 width/height）。
 - **离线小说缓存已移除**：原 `OfflineNovelRepository`（core:network，`filesDir/offline` + `NovelDocumentCodec`）已删除，阅读器**无离线优先逻辑**（在线小说直连网络，每次重新拉取+解析）；`PixivApp` 启动时会清理旧版 offline 缓存目录。`NovelDocumentCodec` 现存于 core:novel，仅测试使用。

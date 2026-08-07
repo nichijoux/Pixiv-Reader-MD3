@@ -18,7 +18,7 @@
 - 图片 URL 必须走 `PixivRepository.imageClient`（自动 Referer）；Coil 由 PixivApp 注入
 - 用户可见文案必须走各模块 `res/values/strings.xml`（中文）+ `res/values-en/`（英文）；ViewModel 通知走 `UiMessage(@StringRes, args)`
 - `lib:pixivapi` 是 vendor 副本（`pixiv-api-kotlin/` 只读勿改），改 API 只在 lib 下
-- 数据库 `PixivDatabase` version=7（迁移 MIGRATION_1_2~6_7），加实体/字段必须升版本 + 写 Migration
+- 数据库 `PixivDatabase` version=1（最终结构，历史迁移已清理），加实体/字段必须升版本 + 写 Migration
 - 模式值用 `core/common/AppModes.kt` 枚举（`value`+`from()`，存储值不变零迁移）
 - 收藏按钮用自绘 Box 浮层（28dp 容器 + 18dp 爱心），禁用 IconButton
 

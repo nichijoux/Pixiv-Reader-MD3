@@ -154,7 +154,7 @@ UI 侧：`LazyColumn` 监听 `listState.layoutInfo.visibleItemsInfo.lastOrNull()
 
 ## 6. 持久化三套
 
-### 6.1 Room（`core/database`，db name `pixiv_reader.db`，**version=7**）
+### 6.1 Room（`core/database`，db name `pixiv_reader.db`，**version=1 最终结构**）
 
 实体（4 个）：
 | 实体 | 表 | 主键 | 用途 |
@@ -166,7 +166,7 @@ UI 侧：`LazyColumn` 监听 `listState.layoutInfo.visibleItemsInfo.lastOrNull()
 
 DAO 模式要点：**`deleteByX` 先删旧再 `upsert` = 去重置顶**（BrowseHistory/SearchHistory 用）。
 
-Migration：已有 `MIGRATION_1_2` ~ `MIGRATION_6_7` 六条（早期含建 search_history、download_entry 加 width/height，后经历主键重构为复合主键）。**加字段/实体必须升 version + 写 Migration**；`fallbackToDestructiveMigration()` 兜底（开发期避免卡迁移，但加列时仍要显式 Migration 保数据）。
+Migration：历史迁移（原 v1→v7 六条，含 download_entry 主键重构）已全部清理，新装直接按最终 schema 建库；旧版本数据经 `fallbackToDestructiveMigration()` 重建。**加字段/实体必须升 version + 写 Migration**（从 1 开始）。
 
 ### 6.2 DataStore Preferences（`core/datastore`，name `pixiv_prefs`）
 
