@@ -23,6 +23,9 @@ import com.pixiv.reader.feature.reader.state.ReaderPage
 internal val PAGE_H_PADDING = 24.dp
 internal val PAGE_V_PADDING = 16.dp
 
+/** 底部信息条高度（左侧章节标题 + 右侧分页），正文页高需为其避让。 */
+internal val READER_STATUS_BAR_HEIGHT = 20.dp
+
 /**
  * 渲染单页内容（文本行 + 图片混合排版）。
  * 供翻页模式与仿真模式共用（图片高度来自分页器自适应值，图片块含说明文字）。

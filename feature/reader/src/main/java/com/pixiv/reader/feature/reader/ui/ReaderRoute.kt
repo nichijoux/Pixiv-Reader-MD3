@@ -2,21 +2,34 @@ package com.pixiv.reader.feature.reader.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,7 +46,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.ReaderPageMode
@@ -47,6 +62,7 @@ import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderViewModel
 import com.pixiv.reader.feature.reader.state.ReaderPage
@@ -76,6 +92,8 @@ fun ReaderRoute(
     onOpenNovel: (Long) -> Unit,
     localDocument: NovelDocument? = null,
     localTitle: String? = null,
+    toEnd: Boolean = false,
+    onOpenNovelToEnd: (Long) -> Unit = onOpenNovel,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val novel by viewModel.novel.collectAsStateWithLifecycle()
@@ -113,6 +131,20 @@ fun ReaderRoute(
     val customFontPath by viewModel.customFontPath.collectAsStateWithLifecycle()
     val followSystem by viewModel.followSystem.collectAsStateWithLifecycle()
 
+    // 首页向前翻页：系列且有上一章 → 打开上一章并定位尾页；非系列 / 系列第一章 → 无操作（禁用向前翻页）
+    val onPrevChapterRequest: () -> Unit = {
+        val tocIndex = toc.indexOfFirst { it.novelId == novelId }
+        val prevChapterId = if (tocIndex > 0) toc.getOrNull(tocIndex - 1)?.novelId else null
+        if (prevChapterId != null) onOpenNovelToEnd(prevChapterId)
+    }
+
+    // 末页向后翻页：系列且有下一章 → 打开下一章（开头）；非系列 / 系列最后一章 → 无操作
+    val onNextChapterRequest: () -> Unit = {
+        val tocIndex = toc.indexOfFirst { it.novelId == novelId }
+        val nextChapterId = if (tocIndex >= 0) toc.getOrNull(tocIndex + 1)?.novelId else null
+        if (nextChapterId != null) onOpenNovel(nextChapterId)
+    }
+
     // 主题跟随系统：开启后按系统深色模式选「夜间/纸张」
     val isDark = isSystemInDarkTheme()
     val effectiveTheme = if (followSystem) {
@@ -134,6 +166,17 @@ fun ReaderRoute(
     var tocOpen by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+
+    // 系列上一章「尾页」进入（reader/{id}?toEnd=true）：正文就绪后定位到文档末尾。
+    // 走 jumpToChar 通道（无 restored 门闩）：避免 progressRestored 未就绪时先定位到开头，
+    // 之后尾页偏移就绪却因门闩被拦截（表现为"跳到上一章是开头"）。
+    LaunchedEffect(toEnd, document?.textLength) {
+        val doc = document
+        if (toEnd && doc != null) {
+            viewModel.seekToEnd()
+            jumpToChar = doc.textLength
+        }
+    }
 
     // 自定义字体：从文件路径加载 FontFamily（损坏时回退 null）
     val customFont = remember(customFontPath) {
@@ -171,12 +214,13 @@ fun ReaderRoute(
             .fillMaxSize()
             .background(themeColors.background)
     ) {
-        // 正文容器：始终全屏（工具栏为浮层，不挤压正文）
+        // 正文容器：始终全屏（工具栏为浮层，不挤压正文）。
+        // 底部不做 navigationBarsPadding：页面纸面（含仿真卷页几何）延伸到系统导航栏实现沉浸，
+        // 文字避让由下方 pageHeight 减去导航栏高度承担（最后一行不会进导航栏）。
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
                 .pointerInput(pageMode, barsVisible) {
                     // 中间 1/3 点击切换工具栏由内容上方的透明覆盖层处理；
                     // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）；
@@ -193,31 +237,47 @@ fun ReaderRoute(
                         }
                         if (!edge) return@detectTapGestures
                         val ps = pagerStateRef.value ?: return@detectTapGestures
-                        if (offset.x < third && ps.currentPage > 0) {
-                            readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1) }
-                        } else if (offset.x > w - third && ps.currentPage < ps.pageCount - 1) {
-                            readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1) }
+                        if (offset.x < third) {
+                            if (ps.currentPage > 0) {
+                                readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1) }
+                            } else {
+                                // 当前章首页向前翻：系列跳上一章尾页，非系列无操作
+                                onPrevChapterRequest()
+                            }
+                        } else if (offset.x > w - third) {
+                            if (ps.currentPage < ps.pageCount - 1) {
+                                readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1) }
+                            } else {
+                                // 当前章末页向后翻：系列跳下一章开头，非系列无操作
+                                onNextChapterRequest()
+                            }
                         }
                     })
                 },
         ) {
-            when {
-                isLoading && document == null -> LoadingBox()
-                error != null && document == null ->
-                    ErrorBox(message = error?.let {
-                        stringResource(
-                            it.res,
-                            *it.args.toTypedArray()
-                        )
-                    }.orEmpty(), onRetry = viewModel::load)
+            // Crossfade：加载完成（Loading/Error/空态 → 正文）淡入过渡，
+            // 缓存命中的章节秒开时也有内容动画（与慢加载观感一致）
+            Crossfade(targetState = document, animationSpec = tween(200)) { doc ->
+                when {
+                    doc == null && isLoading -> LoadingBox()
+                    doc == null && error != null ->
+                        ErrorBox(message = error?.let {
+                            stringResource(
+                                it.res,
+                                *it.args.toTypedArray()
+                            )
+                        }.orEmpty(), onRetry = viewModel::load)
 
-                document == null -> EmptyBox(stringResource(R.string.reader_empty_content))
-                else -> {
-                    val doc = checkNotNull(document)
-                    AdaptiveContentBox {
+                    doc == null -> EmptyBox(stringResource(R.string.reader_empty_content))
+                    else -> {
+                        AdaptiveContentBox {
                         BoxWithConstraints {
                             val contentWidth = maxWidth - PAGE_H_PADDING * 2
-                            val pageHeight = maxHeight - PAGE_V_PADDING * 2
+                            // 页高减去系统导航栏高度：文字排版避开导航栏（纸面仍延伸到屏幕底，沉浸式）
+                            val navBarBottom = WindowInsets.navigationBars
+                                .asPaddingValues()
+                                .calculateBottomPadding()
+                            val pageHeight = maxHeight - PAGE_V_PADDING * 2 - navBarBottom - READER_STATUS_BAR_HEIGHT
                             val fontFamilyInstance =
                                 rememberReaderFontFamily(fontFamily, customFont)
                             val baseStyle = rememberReaderTextStyle(
@@ -237,6 +297,9 @@ fun ReaderRoute(
                                     jumpToChar = jumpToChar,
                                     onScrollOffset = viewModel::reportScrollOffset,
                                     onPageInfo = { c, t -> pageInfo = c to t },
+                                    modifier = Modifier
+                                        .navigationBarsPadding()
+                                        .padding(bottom = READER_STATUS_BAR_HEIGHT),
                                 )
                             } else {
                                 val pages: List<ReaderPage> = rememberReaderPages(
@@ -268,6 +331,8 @@ fun ReaderRoute(
                                         onPageInfo = { c, t -> pageInfo = c to t },
                                         barsVisible = barsVisible,
                                         onCloseBars = { barsVisible = false },
+                                        onPrevChapterRequest = onPrevChapterRequest,
+                                        onNextChapterRequest = onNextChapterRequest,
                                     )
                                 } else {
                                     val pagerState = rememberPagerState(pageCount = { pages.size })
@@ -323,6 +388,7 @@ fun ReaderRoute(
                     }
                 }
             }
+            }
         }
 
         // 亮度遮罩（0.3 ~ 1.0，1.0 为不遮）
@@ -336,7 +402,13 @@ fun ReaderRoute(
 
         // 顶栏浮层：返回 / 标题 / 更多（浮在正文之上，不挤压正文布局）
         // 沉浸式：Box 实色背景覆盖状态栏（时间栏）区域，内部内容再避让状态栏
-        if (barsVisible) {
+        // 进出场动画：从顶部滑入 / 滑出 + 淡入淡出
+        AnimatedVisibility(
+            visible = barsVisible,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(tween(200)),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(tween(200)),
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
             ReaderTopBar(
                 themeColors = themeColors,
                 title = novel?.title ?: stringResource(R.string.reader_title_default),
@@ -349,18 +421,50 @@ fun ReaderRoute(
                 onToggleBookmark = viewModel::toggleBookmark,
                 onToggleMark = viewModel::toggleMark,
                 onToggleWatchlist = viewModel::toggleWatchlist,
-                modifier = Modifier.align(Alignment.TopCenter),
             )
         }
 
-        // 底栏浮层：目录 / 搜索 / 设置
-        if (barsVisible) {
+        // 底部信息条（常驻，工具栏弹出时被其覆盖）：左侧章节标题 + 右侧 第 x/y 页
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .height(READER_STATUS_BAR_HEIGHT)
+                .padding(horizontal = Spacing.lg),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = novel?.title.orEmpty(),
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (pageInfo.second > 0) {
+                    Text(
+                        text = "${pageInfo.first + 1} / ${pageInfo.second}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = Spacing.md),
+                    )
+                }
+            }
+        }
+
+        // 底栏浮层：目录 / 搜索 / 设置；进出场动画：从底部滑入 / 滑出 + 淡入淡出
+        AnimatedVisibility(
+            visible = barsVisible,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(200)),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(200)),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
             ReaderBottomToolBar(
                 themeColors = themeColors,
                 onToc = { tocOpen = true },
                 onSearch = { searchOpen = true },
                 onSettings = { settingsOpen = true },
-                modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
 

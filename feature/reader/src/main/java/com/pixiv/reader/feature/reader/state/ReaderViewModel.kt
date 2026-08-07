@@ -18,6 +18,7 @@ import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.percentageAt
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.data.NovelTextSearch
+import com.pixiv.reader.feature.reader.data.ReaderChapterCache
 import com.pixiv.reader.feature.reader.data.ReaderDataLoader
 import com.pixiv.reader.feature.reader.data.ReaderSeriesToc
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,6 +51,7 @@ class ReaderViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val readingProgressDao: ReadingProgressDao,
     private val userPreferences: UserPreferences,
+    private val readerChapterCache: ReaderChapterCache,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -201,20 +203,21 @@ class ReaderViewModel @Inject constructor(
                 _isLoading.value = true
                 _error.value = null
                 _isOffline.value = false
-                dataLoader.loadNovel(novelId).onSuccess { (detail, document) ->
-                    if (_isLocalMode.value) return@onSuccess
-                    _novel.value = detail
-                    _document.value = document
-                    // 目录构建含系列小说列表的网络请求，放到 IO 之外异步执行
-                    viewModelScope.launch { buildToc() }
-                    // 进度恢复异常不应当影响正文展示
-                    runCatching { restoreProgress() }
-                        .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
-                    loadServerState()
-                }.onFailure {
-                    Log.w(TAG, "load novel failed", it)
-                    _error.value = it.message?.let { m -> UiMessage(R.string.reader_error_load_failed_reason, listOf(m)) }
-                        ?: UiMessage(R.string.reader_error_load_failed)
+                // 缓存命中（阅读时预加载过 / 此前刚读过）：跳过网络与重新解析，跳章秒开
+                val cached = readerChapterCache.getChapter(novelId)
+                if (cached != null) {
+                    applyLoaded(cached.novel, cached.document)
+                } else {
+                    dataLoader.loadNovel(novelId).onSuccess { (detail, document) ->
+                        if (_isLocalMode.value) return@onSuccess
+                        if (detail == null) return@onSuccess
+                        readerChapterCache.putChapter(novelId, ReaderChapterCache.Entry(detail, document))
+                        applyLoaded(detail, document)
+                    }.onFailure {
+                        Log.w(TAG, "load novel failed", it)
+                        _error.value = it.message?.let { m -> UiMessage(R.string.reader_error_load_failed_reason, listOf(m)) }
+                            ?: UiMessage(R.string.reader_error_load_failed)
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "load unexpected", e)
@@ -223,6 +226,18 @@ class ReaderViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+
+    /** 正文就绪后的公共状态流转（缓存命中与网络加载共用）。 */
+    private suspend fun applyLoaded(detail: Novel, document: NovelDocument) {
+        _novel.value = detail
+        _document.value = document
+        // 目录构建含系列小说列表的网络请求，放到 IO 之外异步执行
+        viewModelScope.launch { buildToc() }
+        // 进度恢复异常不应当影响正文展示
+        runCatching { restoreProgress() }
+            .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
+        loadServerState()
     }
 
     /** 恢复进度：优先本地 Room，其次官方 marker，最后回到开头。 */
@@ -237,6 +252,27 @@ class ReaderViewModel @Inject constructor(
         }
         _charOffset.value = offset
         _percentage.value = document.percentageAt(offset)
+        _progressRestored.value = true
+        // 若本次进入请求了「定位到尾页」（系列上一章首页向前翻），恢复完成后覆盖为文档末尾
+        applySeekToEnd()
+    }
+
+    /** 是否请求了定位到文档末尾（reader/{id}?toEnd=true，系列上一章「尾页」进入）。 */
+    private var seekToEndRequested = false
+
+    /** 请求定位到文档末尾（系列首页向前翻 → 上一章尾页）。 */
+    fun seekToEnd() {
+        seekToEndRequested = true
+        applySeekToEnd()
+    }
+
+    private fun applySeekToEnd() {
+        if (!seekToEndRequested) return
+        val document = _document.value ?: return
+        seekToEndRequested = false
+        val end = document.textLength
+        _charOffset.value = end
+        _percentage.value = document.percentageAt(end)
         _progressRestored.value = true
     }
 
@@ -375,7 +411,8 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * 构建目录：系列小说展示**系列内各本小说**；非系列小说只显示本小说一条。
-     * 不再按当前小说的标题/长段落做"第 N 节"分章。
+     * 系列列表优先走缓存（跳章后新阅读器立即显示目录并高亮新位置）；
+     * 目录就绪后预加载下一章（阅读时缓存，跳下一章秒开）。
      */
     private suspend fun buildToc() {
         val detail = _novel.value
@@ -387,16 +424,49 @@ class ReaderViewModel @Inject constructor(
             )
             return
         }
+        val seriesId = series.id
+        readerChapterCache.getToc(seriesId)?.let { cached ->
+            _toc.value = cached.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
+            preloadNeighborChapters()
+            return
+        }
         _tocLoading.value = true
         try {
-            val novels = seriesToc.fetchSeriesNovels(series.id)
+            val novels = seriesToc.fetchSeriesNovels(seriesId)
+            readerChapterCache.putToc(seriesId, novels)
             _toc.value = novels.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
+            preloadNeighborChapters()
         } catch (e: Exception) {
             Log.w(TAG, "buildToc series failed", e)
             _toc.value = emptyList()
         } finally {
             _tocLoading.value = false
         }
+    }
+
+    /** 阅读时预加载系列上一章与下一章（已缓存则跳过）：上下章跳转秒开。 */
+    private fun preloadNeighborChapters() {
+        val current = _novel.value ?: return
+        val tocIndex = _toc.value.indexOfFirst { it.novelId == current.id }
+        if (tocIndex < 0) return
+        val neighbors = listOfNotNull(
+            _toc.value.getOrNull(tocIndex - 1)?.novelId,
+            _toc.value.getOrNull(tocIndex + 1)?.novelId,
+        )
+        neighbors
+            .filter { it > 0L && readerChapterCache.getChapter(it) == null }
+            .forEach { id ->
+                viewModelScope.launch {
+                    dataLoader.loadNovel(id)
+                        .onSuccess { (detail, document) ->
+                            if (detail != null) {
+                                readerChapterCache.putChapter(id, ReaderChapterCache.Entry(detail, document))
+                                Log.d(TAG, "preload neighbor chapter $id cached")
+                            }
+                        }
+                        .onFailure { e -> Log.w(TAG, "preload neighbor chapter $id failed", e) }
+                }
+            }
     }
 
     /** 在全文（忽略大小写）中搜索关键词，记录所有匹配的字符偏移。 */

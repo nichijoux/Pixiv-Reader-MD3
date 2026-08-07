@@ -5,6 +5,11 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -58,8 +63,8 @@ const val ROUTE_VIEWER = "viewer/{illustId}?page={page}"
 const val ROUTE_NOVEL = "novel/{novelId}"
 /** 通用评论列表页（novel / illust 共用）：comments/{type}/{targetId}，type ∈ novel|illust。 */
 const val ROUTE_COMMENTS = "comments/{type}/{targetId}"
-/** 小说阅读器（在线 / 离线缓存共用同一路由）。 */
-const val ROUTE_READER = "reader/{novelId}"
+/** 小说阅读器（在线 / 离线缓存共用同一路由）。toEnd=true 时定位到文档末尾（系列上一章尾页进入）。 */
+const val ROUTE_READER = "reader/{novelId}?toEnd={toEnd}"
 /** 用户主页（插画 / 小说 / 收藏 Tab）。 */
 const val ROUTE_USER = "user/{userId}"
 /** 用户公开收藏（该用户公开收藏的插画，从用户主页统计格进入）。 */
@@ -278,19 +283,47 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 小说阅读器：支持 pixiv://reader/{id} 深链；系列目录点击其他分册直接换读
+        // 小说阅读器：支持 pixiv://reader/{id} 深链；系列目录点击其他分册直接换读；
+        // toEnd=true（系列上一章尾页进入）时阅读器定位到文档末尾。
+        // 显式方向过渡（replace 章节切换时旧页不播退出动画，仅新页 enter 动画）：
+        // enter = 从右滑入 + 淡入（阅读方向），pop 返回 = 向右滑出
         composable(
             route = ROUTE_READER,
-            arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
+            arguments = listOf(
+                navArgument("novelId") { type = NavType.LongType },
+                navArgument("toEnd") { type = NavType.BoolType; defaultValue = false },
+            ),
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://reader/{novelId}" }),
+            enterTransition = {
+                slideInHorizontally(tween(220)) { it } + fadeIn(tween(220))
+            },
+            exitTransition = {
+                slideOutHorizontally(tween(220)) { -it } + fadeOut(tween(220))
+            },
+            popEnterTransition = {
+                slideInHorizontally(tween(220)) { -it } + fadeIn(tween(220))
+            },
+            popExitTransition = {
+                slideOutHorizontally(tween(220)) { it } + fadeOut(tween(220))
+            },
         ) { backStackEntry ->
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
+            val toEnd = backStackEntry.arguments?.getBoolean("toEnd") ?: false
             ReaderRoute(
                 novelId = novelId,
+                toEnd = toEnd,
                 onBack = { navController.safeBack() },
                 onOpenNovel = { id ->
-                    // 系列目录：点击其他分册直接打开该本阅读器
-                    navController.navigate("reader/$id")
+                    // 系列章节切换：replace 当前阅读器（不压栈），返回键直接退出阅读器而非退回上一章
+                    navController.navigate("reader/$id") {
+                        popUpTo(ROUTE_READER) { inclusive = true }
+                    }
+                },
+                onOpenNovelToEnd = { id ->
+                    // 首页向前翻页：replace 打开系列上一本并定位到尾页
+                    navController.navigate("reader/$id?toEnd=true") {
+                        popUpTo(ROUTE_READER) { inclusive = true }
+                    }
                 },
             )
         }

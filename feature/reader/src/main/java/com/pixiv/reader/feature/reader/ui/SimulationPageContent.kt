@@ -2,6 +2,7 @@ package com.pixiv.reader.feature.reader.ui
 
 import android.util.Log
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -39,6 +40,7 @@ import com.pixiv.reader.feature.reader.state.ReaderPage
 import com.pixiv.reader.feature.reader.state.pageIndexForChar
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
 
@@ -69,6 +71,8 @@ fun SimulationPageContent(
     onPageInfo: (Int, Int) -> Unit,
     barsVisible: Boolean = false,
     onCloseBars: () -> Unit = {},
+    onPrevChapterRequest: () -> Unit = {},
+    onNextChapterRequest: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -81,9 +85,11 @@ fun SimulationPageContent(
     var hasCorner by remember { mutableStateOf(false) }
     // 拖拽触摸点（位置驱动卷页的核心）
     var touch by remember { mutableStateOf<Offset?>(null) }
-    // 松手后的回弹/翻过动画
+    // 松手后的回弹/翻过动画（拖拽用，两个轴独立）
     val animX = remember { Animatable(0f) }
     val animY = remember { Animatable(0f) }
+    // 点击翻页动画进度（单轴驱动，touch 沿直线路径插值，对齐 legado Scroller）
+    val turnProgress = remember { Animatable(0f) }
     var animating by remember { mutableStateOf(false) }
     // 页面尺寸（px），由 BoxWithConstraints 填充
     var pageW by remember { mutableStateOf(0f) }
@@ -174,30 +180,44 @@ fun SimulationPageContent(
         }
     }
 
-    /** 点击翻页：整页翻动动画。 */
-    suspend fun turnTo(forward: Boolean) {
+    /**
+     * 点击翻页：整页翻动动画（对齐 legado-with-MD3 nextPageByAnim/prevPageByAnim + onAnimStart）：
+     * - 角落 = 点击点象限（上一页固定左下角 (0,h)）
+     * - touch 起手：下一页 (0.9w, 0.9h|1)，上一页 (0,h)；目标：下一页飞出左缘 x=-w，上一页飞出右缘 x=w
+     *   （y 落回角落所在水平线）→ 卷页水平扫过整页（从右向左翻 / 从左向右翻），无对角上翻
+     * - 时长 = animationSpeed(300) × |dx| / w，LinearInterpolator 线性插值（单轴进度驱动直线路径）
+     * - 动画结束瞬间切页（legado fillPage）
+     */
+    suspend fun turnTo(forward: Boolean, tapPoint: Offset) {
         turningForward = forward
         val w = pageW
         val h = pageH
+        // 角落：下一页 = 点击点象限（右列；上半部顶角 / 下半部底角）；上一页固定左下角
         val cx = if (forward) w else 0f
-        val cy = h
+        val cy = if (!forward) h else if (tapPoint.y > h / 2f) h else 0f
         corner = Offset(cx, cy)
         hasCorner = true
-        // touch 沿翻过方向出页足够远，使卷页几何覆盖整页后再切页。
-        // 旧实现只到页面边缘（x=0/w），卷页停在底部三角未覆盖整页 → 动画结束后闪切、有停顿感。
-        val dx = if (forward) -w else w
-        val dy = -h
-        val len = hypot(dx, dy)
-        val scale = hypot(w, h) * 1.3f / len
-        val tx = cx + dx * scale
-        val ty = cy + dy * scale
-        Log.d(TAG, "turnTo forward=$forward 目标=($tx,$ty) scale=$scale")
+        // 起手 touch 点（legado setStartPoint）
+        val startX = if (forward) w * 0.9f else 0f
+        val startY = if (forward) (if (tapPoint.y > h / 2f) h * 0.9f else 1f) else h
+        // 目标（legado onAnimStart）：沿 x 飞出对侧边缘，y 落回角落所在水平线
+        val dx = if (forward) -(w + startX) else (w - startX)
+        val dy = if (cy > 0f) (h - startY) else (1f - startY)
+        val tx = startX + dx
+        val ty = startY + dy
+        // 时长 = animationSpeed × |dx| / w（legado startScroll，animationSpeed=300）
+        val duration = (300f * abs(dx) / w).toInt().coerceAtLeast(1)
+        Log.d(TAG, "turnTo forward=$forward tap=(${tapPoint.x},${tapPoint.y}) corner=($cx,$cy) " +
+            "start=($startX,$startY) 目标=($tx,$ty) duration=$duration")
         animating = true
-        animX.snapTo(cx)
-        animY.snapTo(cy)
-        touch = Offset(cx, cy)
-        animX.animateTo(tx, tween(300)) { touch = Offset(animX.value, animY.value) }
-        animY.animateTo(ty, tween(300)) { touch = Offset(animX.value, animY.value) }
+        touch = Offset(startX, startY)
+        turnProgress.snapTo(0f)
+        turnProgress.animateTo(1f, tween(duration, easing = LinearEasing)) {
+            touch = Offset(
+                startX + (tx - startX) * turnProgress.value,
+                startY + (ty - startY) * turnProgress.value,
+            )
+        }
         finishTurn()
     }
 
@@ -209,10 +229,18 @@ fun SimulationPageContent(
                     when {
                         offset.x < third -> {
                             // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）
-                            if (barsVisible) onCloseBars() else scope.launch { turnTo(false) }
+                            if (barsVisible) onCloseBars()
+                            else if (currentIndex.intValue > 0) scope.launch { turnTo(false, offset) }
+                            // 当前章首页向前翻：非系列 / 系列第一章无操作（禁用无效动画），
+                            // 系列且有上一章 → 由外层 onPrevChapterRequest 跳上一章尾页
+                            else onPrevChapterRequest()
                         }
                         offset.x > size.width - third -> {
-                            if (barsVisible) onCloseBars() else scope.launch { turnTo(true) }
+                            if (barsVisible) onCloseBars()
+                            // 最后一页向后翻：系列且有下一章 → 由外层 onNextChapterRequest 跳下一章开头，
+                            // 非系列 / 系列最后一章 → 无操作（禁用无效动画）
+                            else if (currentIndex.intValue < pages.size - 1) scope.launch { turnTo(true, offset) }
+                            else onNextChapterRequest()
                         }
                         else -> Unit // 中间点击切换工具栏由外层处理
                     }
@@ -221,20 +249,31 @@ fun SimulationPageContent(
             .pointerInput(pages.size) {
                 detectDragGestures(
                     onDragStart = { pos ->
-                        // 按触摸点象限选择被卷起的角落（点哪掀哪）
                         val w = size.width.toFloat()
                         val h = size.height.toFloat()
-                        corner = Offset(
-                            if (pos.x <= w / 2f) 0f else w,
-                            if (pos.y <= h / 2f) 0f else h,
-                        )
-                        hasCorner = true
-                        // 方向：起拖在页面右半=下一页，左半=上一页
-                        turningForward = pos.x >= w / 2f
-                        touch = pos
-                        animating = false
-                        Log.d(TAG, "onDragStart pos=(${pos.x},${pos.y}) w=$w h=$h " +
-                            "corner=(${corner.x},${corner.y}) forward=$turningForward")
+                        val forward = pos.x >= w / 2f
+                        val atFirstPage = currentIndex.intValue <= 0
+                        val atLastPage = currentIndex.intValue >= pages.size - 1
+                        when {
+                            // 边界：第一页向前拖 → 系列且有上一章则跳上一章尾页；非系列无操作
+                            !forward && atFirstPage -> onPrevChapterRequest()
+                            // 最后一页向后拖：系列且有下一章 → 跳下一章开头；非系列 / 最后一章无操作
+                            forward && atLastPage -> onNextChapterRequest()
+                            else -> {
+                                // 按触摸点象限选择被卷起的角落（点哪掀哪）
+                                corner = Offset(
+                                    if (pos.x <= w / 2f) 0f else w,
+                                    if (pos.y <= h / 2f) 0f else h,
+                                )
+                                hasCorner = true
+                                // 方向：起拖在页面右半=下一页，左半=上一页
+                                turningForward = forward
+                                touch = pos
+                                animating = false
+                                Log.d(TAG, "onDragStart pos=(${pos.x},${pos.y}) w=$w h=$h " +
+                                    "corner=(${corner.x},${corner.y}) forward=$turningForward")
+                            }
+                        }
                     },
                     onDrag = { change, _ ->
                         change.consume()
