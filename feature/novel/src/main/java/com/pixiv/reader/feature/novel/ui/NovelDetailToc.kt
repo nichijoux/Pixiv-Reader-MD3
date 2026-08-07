@@ -11,9 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MenuBook
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -159,21 +161,27 @@ internal fun NovelTocScroll(
     maxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    // 自动滚动定位到当前章节（首次加载 / 系列数据更新时），当前章不在列表中则不滚动
+    LaunchedEffect(seriesNovels, currentId) {
+        val index = seriesNovels.indexOfFirst { it.id == currentId }
+        if (index >= 0) listState.scrollToItem(index)
+    }
     Column(modifier = modifier) {
         TocTitle(
             count = seriesNovels.size,
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
         )
-        Column(
+        LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
                 .clip(AppShapes.card)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .verticalScroll(rememberScrollState()),
+                .background(MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
-            seriesNovels.forEachIndexed { index, chapter ->
+            itemsIndexed(seriesNovels) { index, chapter ->
                 ChapterRow(
                     novel = chapter,
                     index = index,
@@ -196,6 +204,12 @@ internal fun NovelTocPanel(
     onOpenSeries: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    // 自动滚动定位到当前章节（首次加载 / 系列数据更新时），当前章不在列表中则不滚动
+    LaunchedEffect(seriesNovels, currentId) {
+        val index = seriesNovels.indexOfFirst { it.id == currentId }
+        if (index >= 0) listState.scrollToItem(index)
+    }
     Column(
         modifier = modifier
             .clip(AppShapes.card)
@@ -207,12 +221,11 @@ internal fun NovelTocPanel(
             count = seriesNovels.size,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
         )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f),
         ) {
-            seriesNovels.forEachIndexed { index, chapter ->
+            itemsIndexed(seriesNovels) { index, chapter ->
                 ChapterRow(
                     novel = chapter,
                     index = index,

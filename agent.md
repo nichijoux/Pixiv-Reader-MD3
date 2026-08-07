@@ -94,8 +94,8 @@ F:\pixiv-mateiral3\
 │   ├── user/                    # 用户主页/关注/拉黑
 │   ├── bookmark/                # 收藏夹/标签管理
 │   ├── watchlist/               # 追更
-│   ├── download/                # 下载管理 + 离线阅读
-│   └── settings/                # 设置
+│   ├── download/                # 空壳（未使用，无 Kotlin 代码；下载管理在 feature:user）
+│   └── settings/                # 空壳（设置已并入我的页 MeRoute）
 └── app/                         # 壳工程：Application、导航根、主题、深链 pixiv://
 ```
 
@@ -231,9 +231,9 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - [x] **平板/自适应基础**（窗口尺寸分类 + 自适应导航壳 + 自适应瀑布流列数，单测覆盖）
 - [x] **P3 插画查看**（编译通过，单测 15/15 通过）
 - [x] **P4 小说阅读（核心）**（编译通过，单测 27/27 通过）
-- [ ] P5 用户社交
-- [ ] P6 下载 + 设置
-- [ ] P7 打磨
+- [x] **P5 用户社交**（用户主页 4 分区/关注/拉黑、收藏夹、追更、我的页、屏蔽管理、浏览历史；第 26~46 轮落地）
+- [x] **P6 下载 + 设置**（小说导出 TXT/EPUB/PDF/MD/DOCX + WorkManager 队列、下载管理、设置并入我的页；第 25/29~32/48 轮落地；**离线小说缓存已于后续移除**，见文末「文档更正记录」）
+- [ ] P7 打磨（第 51~65 轮已持续落地：通知组件/Token 化/排行榜重构/详情重写/评论通用页等）
 
 ### P0 完成要点（2026-08-03）
 - 根 Gradle 工程 + `libs.versions.toml` 版本矩阵（AGP 8.13.0 / Kotlin 2.1.20 / KSP 2.1.20-1.0.31 / Compose BOM 2024.09.00）
@@ -890,3 +890,22 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 
 ### 设计规范文档：design.md
 - 新建 `F:\pixiv-mateiral3\design.md`：整理全项目设计规范唯一权威文档——色板（Color.kt 静态 M3 + 语义色 + 阅读器 4 主题）、字体（Type.kt Typography 档位 + 页面级派生样式约定）、间距 Spacing、形状 AppShapes（全圆仅 pill）、时长 Durations、主题机制（动态色/深浅）、模式枚举 AppModes、通用组件模式（收藏浮层 28/18、ReplyPill 胶囊、竖排按钮、子评论 3 条展开、沉浸 banner 无视差等）、i18n 约定、design/*.html 原型基准。后续新增 UI 一律引用该文档与 Token。
+
+---
+
+## 文档更正记录（与代码现状对齐）
+
+> 以下为 2026-08-07 全项目通读后发现的历史记录/文档与代码现状的出入，已同步更正
+> `AGENTS.md` / `CODEFLOW.md` / `NEW_AGENT_PROMPT.md`。历史轮次条目保留原貌（记录当时状态），
+> 现状以本节 + 更正后的文档为准。
+
+1. **`PixivDatabase` 版本**：文档记载 version=3（`MIGRATION_1_2`/`2_3`）→ 实际 **version=7**，已有 `MIGRATION_1_2`~`MIGRATION_6_7` 六条（含 download_entry 主键重构：单列 targetId → 复合主键 targetType+targetId+format）。
+2. **离线小说阅读已移除**：第 29~32 轮的 `OfflineNovelRepository`（`filesDir/offline` + `NovelDocumentCodec` + `NovelOfflineDownloadWorker` + `DownloadFilter.OFFLINE`）已从代码中删除（agent.md 未记录移除轮次）；`PixivApp.onCreate` 现会清理旧版 `filesDir/offline` 目录，阅读器 `load()` 无离线优先分支（在线小说直连网络），`NovelDocumentCodec` 残存于 core:novel 仅测试用。下载管理中的小说条目 = 导出文件（TXT/EPUB/PDF/MD/DOCX），文本格式经 `LocalReaderStore` 走 `local_reader` 本地阅读。
+3. **排行榜**：agent.md 曾记载的 discover `RankingViewModel/RankingScreen`（7 模式）已在第 49 轮删除；现状 = 漫画 5 段（`feature:manga/MangaRankingViewModel`）+ 小说 6 段（`feature:novel/NovelRankingViewModel`），复用 `core:ui RankingList<T>`。
+4. **小说详情/插画详情评论**：第 65 轮起评论迁至通用页 `feature:comments`（路由 `comments/{type}/{targetId}`），NovelViewModel/IllustViewModel 不再持有评论职责；插画详情双栏（TwoPane 右评论）同步移除。
+5. **网络断线提示**：第 51 轮起由 Snackbar 全面替换为 `NotificationHost`；全库无 `SnackbarHostState/showSnackbar` 残留。
+6. **core:novel 单测**：24 用例 → 实际 **28 用例**（`HtmlToPlainTextTest` 4 + `NovelParserTest` 15 + `DebugRealHtmlTest` 1 + `NovelDocumentCodecTest` 4 + 其它）。
+7. **模块空壳**：`feature:download` 与 `feature:settings` 均为空壳（仅 build.gradle + manifest，无 Kotlin；download 的 build.gradle 残留 core:ui/model/navigation 依赖未清理）；设置已全部并入我的页 `MeRoute`。
+8. **本地阅读格式**：除 TXT/EPUB 外，`MarkdownNovelParser`（core:novel）支持 MD；下载管理点 md/txt/epub → `local_reader`，pdf/docx → 系统应用打开。
+9. **小说导出**：`NovelExporter` 支持 TXT/EPUB/PDF/MD/DOCX 单本/系列/部分分册（第 66 轮前后升级：导出前统一格式化 + OpenCC 繁转简 + DOCX/EPUB 样式），默认输出系统 `Download/PixivReader`（MediaStore，Android 8-9 回退私有目录）。
+10. **阅读器翻页**：仿真翻页纸背经第 8 轮修正后**不绘制镜像文字**（仅纸色 + 边缘渐变阴影）。

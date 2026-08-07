@@ -7,7 +7,7 @@ Pixiv Reader — Android (Kotlin + Jetpack Compose + Hilt + Room) 客户端。Wi
 ```powershell
 $env:JAVA_HOME = "C:\Users\nichijoux\.jdks\jbr-21.0.11"; $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 & .\gradlew.bat :app:compileDebugKotlin --console=plain   # 快速编译（推荐验证手段）
-# 单测（改动涉及模块时跑，core:novel 24 用例 + feature:reader/network/novel/user/common）
+# 单测（改动涉及模块时跑，core:novel 28 用例 + feature:reader/network/novel/user/common）
 & .\gradlew.bat :core:novel:testDebugUnitTest :feature:reader:testDebugUnitTest :core:network:testDebugUnitTest :feature:novel:testDebugUnitTest :feature:user:testDebugUnitTest :core:common:testDebugUnitTest --console=plain
 ```
 
@@ -24,8 +24,8 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **feature 之间禁止互相依赖**（如 reader 不能用 novel 的东西）。共享逻辑放 core 层。
 - 新增 feature ViewModel 需在 build.gradle 加：`hilt`/`ksp` 插件 + `api(project(":core:network"))` + `api(libs.hilt.android)` + `ksp(libs.hilt.compiler)` + `implementation(libs.hilt.navigation.compose)`；用 DAO/DataStore 再加对应 core 模块。
 - **`lib:pixivapi` 是 vendor 副本**：`pixiv-api-kotlin/` 只读勿改；改 API 只能在 `lib/pixivapi/`。所有 `com.pixiv.api.*` import 解析到 lib 副本（`namespace = com.pixiv.api`，Retrofit 接口在 `com.pixiv.api.network`）。
-- `feature/download` 模块是空壳（未使用）；下载管理实现在 `feature:user`。
-- **排行榜通用组件**：`core:ui RankingList<T>`（ScrollableTabRow + HorizontalPager 滑动切段 + 三态 + 触底加载，`itemContent(T, rank)` slot）+ `core:ui RankingRow`（插画/漫画默认行）+ `core:common RankingModeInfo(@StringRes labelRes, value)`。各 feature 提供自己的 mode 列表即可复用（漫画 5 段在 `feature:manga/MangaRankingViewModel`；未来小说/插画榜直接复用）。**每段独立分页**：调用方传 `stateFor(mode) -> PagedState<T>`（VM 内 `pages.getOrPut` 缓存，数据驻留 VM）+ `onRetry(mode)`/`onLoadMore(mode)`；RankingList 每页只 collect 自己 mode 的 PagedState——已加载段滑动切回**不重复请求、无过渡动画**（AnimatedContent targetState 用该页自身内容三态）。`core:ui` 已依赖 `core:network`（PagedState）。
+- `feature/download` 模块是空壳（仅 build.gradle + manifest，无 Kotlin 代码；build.gradle 残留 core:ui/model/navigation 依赖未清理）；下载管理实现在 `feature:user`。
+- **排行榜通用组件**：`core:ui RankingList<T>`（ScrollableTabRow + HorizontalPager 滑动切段 + 三态 + 触底加载，`itemContent(T, rank)` slot）+ `core:ui RankingRow`（插画/漫画默认行）+ `core:common RankingModeInfo(@StringRes labelRes, value)`。各 feature 提供自己的 mode 列表即可复用（漫画 5 段在 `feature:manga/MangaRankingViewModel`；小说 6 段在 `feature:novel/NovelRankingViewModel`，均已落地；未来插画榜直接复用）。**每段独立分页**：调用方传 `stateFor(mode) -> PagedState<T>`（VM 内 `pages.getOrPut` 缓存，数据驻留 VM）+ `onRetry(mode)`/`onLoadMore(mode)`；RankingList 每页只 collect 自己 mode 的 PagedState——已加载段滑动切回**不重复请求、无过渡动画**（AnimatedContent targetState 用该页自身内容三态）。`core:ui` 已依赖 `core:network`（PagedState）。
 
 ## 核心机制（易踩坑）
 
@@ -33,11 +33,11 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **图片 URL 必须走 `PixivRepository.imageClient`**（自动 Referer，否则 403）。Coil 由 `PixivApp` 注入该 client，`PixivImage`/`AsyncImage` 自动带。
 - **org.json 是 Android 内置类**：本地 JVM 单测（testDebugUnitTest）不可用，需 `testImplementation("org.json:json:20240303")`（core:novel 已配）。
 - **Gson 经 lib:pixivapi 传递**，feature 层可直接 `Gson()`（如历史 payloadJson）。
-- **数据库**：`core/database` `PixivDatabase` **version=3**，加实体/字段必须升 version + 写 Migration（见 `MIGRATION_1_2`/`MIGRATION_2_3`），`fallbackToDestructiveMigration()` 兜底。DAO 模式：`deleteByX 先删旧再 upsert` 去重置顶（BrowseHistory/SearchHistory）。
+- **数据库**：`core/database` `PixivDatabase` **version=7**，加实体/字段必须升 version + 写 Migration（现有 `MIGRATION_1_2`~`MIGRATION_6_7` 六条，含 download_entry 主键重构），`fallbackToDestructiveMigration()` 兜底。DAO 模式：`deleteByX 先删旧再 upsert` 去重置顶（BrowseHistory/SearchHistory）。
 - **历史/下载快照完整性**：`BrowseHistoryEntity.payloadJson` 存完整卡片数据（历史插画宽高、小说作者等），否则通用组件信息不全/图片裁剪中间。
 - **插画完整显示**：`IllustCard` 按 `illust.width/height` aspectRatio 显示；无宽高会固定高度 + Crop 裁剪中间——数据源需带宽高（历史/下载实体存 width/height）。
-- **离线阅读**：`OfflineNovelRepository`（core:network）存解析后 `NovelDocument` JSON（`NovelDocumentCodec`，org.json）；阅读器离线优先（`ReaderViewModel.load` 先查 exists）。
-- **本地 TXT/EPUB 阅读**：`TxtNovelParser`/`EpubNovelParser`（core:novel）→ `LocalReaderStore.set` → `local_reader/{novelId}` 路由（`ReaderRoute(localDocument=...)` → `ReaderViewModel.useLocalDocument`）。
+- **离线小说缓存已移除**：原 `OfflineNovelRepository`（core:network，`filesDir/offline` + `NovelDocumentCodec`）已删除，阅读器**无离线优先逻辑**（在线小说直连网络，每次重新拉取+解析）；`PixivApp` 启动时会清理旧版 offline 缓存目录。`NovelDocumentCodec` 现存于 core:novel，仅测试使用。
+- **本地 TXT/EPUB/MD 阅读**：`TxtNovelParser`/`EpubNovelParser`/`MarkdownNovelParser`（core:novel）→ `LocalReaderStore.set` → `local_reader/{novelId}` 路由（`ReaderRoute(localDocument=...)` → `ReaderViewModel.useLocalDocument`）。
 - **主题**：`core/ui/theme/PixivReaderTheme(darkTheme, dynamicColor)`；`UserPreferences.themeMode`(0 跟随/1 浅色/2 深色) 由 `MainActivity` 收集生效。
 
 ## 通用组件（core:ui，优先复用）
@@ -64,4 +64,4 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 
 ## 参考
 
-- **`agent.md`**：开发轮次完整记录（P0~P6、第 47 轮 + 各补充），改代码前先看它了解历史决策与既有机制，避免重复踩坑/重复实现。
+- **`agent.md`**：开发轮次完整记录（P0~P7、至第六十五轮 + 各补充），改代码前先看它了解历史决策与既有机制，避免重复踩坑/重复实现。

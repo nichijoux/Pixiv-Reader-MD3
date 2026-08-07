@@ -82,14 +82,15 @@ internal fun buildTxt(
             }
             document.blocks.forEach { block ->
                 when (block) {
-                    is NovelBlock.Paragraph -> appendLine(block.text)
+                    // 去全角缩进：TXT 无内置样式，缩进字符应由阅读器/排版层控制，文件本体不留
+                    is NovelBlock.Paragraph -> appendLine(stripIndent(block.text))
                     is NovelBlock.Heading -> {
                         appendLine()
                         appendLine(block.text)
                         appendLine()
                     }
 
-                    is NovelBlock.Quote -> appendLine("> ${block.text}")
+                    is NovelBlock.Quote -> appendLine("> ${stripIndent(block.text)}")
                     is NovelBlock.Image -> Unit // TXT 模式跳过插图
                     is NovelBlock.Separator -> appendLine(block.symbol)
                 }

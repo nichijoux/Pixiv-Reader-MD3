@@ -11,7 +11,7 @@
 - **Pixiv Reader** = Android（Kotlin + Jetpack Compose + Hilt + Room）的 pixiv 客户端，主打「插画/小说双阅读」。
 - 包结构按 **多模块 Clean 分层**：`app → feature/* → core/* → lib:pixivapi`，依赖单向，feature 之间禁止互依。
 - 网络分两条腿：**app-api**（`getRecommendedIllusts` 这类官方 OAuth 接口）和 **webApi**（`pixiv.net` 网页接口，补 app-api 缺失的能力：每 P 真实宽高、isBlocking、拉黑、正文嵌入图映射、评论树等）。两者都封装在 `lib:pixivapi`（vendor 副本，只读勿改；feature 改 API 只能在 `lib/pixivapi/`）。
-- 图片 loader 用 **Coil**，全局 `SingletonImageLoader`（`PixivApp`）注入带 pixiv Referer 的 `OkHttpClient`，所以代码里所有 `PixivImage` / `AsyncImage` 自动带 Referer，不 403。
+- 图片 loader 用 **Coil**，`PixivApp` 实现 `coil.ImageLoaderFactory`，`newImageLoader()` 注入带 pixiv Referer 的 `OkHttpClient`（`pixivRepository.imageClient`），所以代码里所有 `PixivImage` / `AsyncImage` 自动带 Referer，不 403。
 - 状态管理统一 **StateFlow** + `collectAsStateWithLifecycle`；分页统一 `PagedState<T>`（基于 `next_url` 游标）。
 - 持久化三套：**Room**（进度/历史/下载索引/搜索历史）、**DataStore Preferences**（阅读偏好/主题/屏蔽标签/热门缓存）、**MMKV**（会话 token / OAuth verifier）。
 - 导航：**单一 Activity + Compose Navigation**。顶层全屏页路由在 `PixivNavGraph`，底部 5 Tab 在 `MainShell` 内层 NavHost。内层 Tab 不能直达顶层路由，靠**回调链**上抛。
@@ -50,7 +50,7 @@ app ──▶ feature/* ──▶ core/ui ──┐
 ```
 PixivApp（@HiltAndroidApp）
   ├─ Hilt 装配：PixivApi / Session / NetworkMonitor / 各 Repository / DAO
-  ├─ WorkManager Configuration（HiltWorkerFactory）→ 支持注入式 Worker（如小说离线下载）
+  ├─ WorkManager Configuration（HiltWorkerFactory）→ 支持注入式 Worker（如小说导出 NovelExportWorker）
   └─ newImageLoader()：ImageLoader.Builder.okHttpClient(pixivRepository.imageClient) → Coil 全局带 Referer
          ↓
 MainActivity（@AndroidEntryPoint）
@@ -154,19 +154,19 @@ UI 侧：`LazyColumn` 监听 `listState.layoutInfo.visibleItemsInfo.lastOrNull()
 
 ## 6. 持久化三套
 
-### 6.1 Room（`core/database`，db name `pixiv_reader.db`，**version=3**）
+### 6.1 Room（`core/database`，db name `pixiv_reader.db`，**version=7**）
 
 实体（4 个）：
 | 实体 | 表 | 主键 | 用途 |
 |---|---|---|---|
 | `ReadingProgressEntity` | reading_progress | novelId | 字符级阅读进度（charOffset/percentage/seriesId/title/coverUrl） |
 | `BrowseHistoryEntity` | browse_history | id(auto) | 浏览历史（targetType/targetId + **payloadJson** 完整卡片快照） |
-| `DownloadEntryEntity` | download_entry | targetId | 下载索引（illust/ugoira/novel/novel_offline + width/height + status + localPath） |
+| `DownloadEntryEntity` | download_entry | (targetType, targetId, format) | 下载索引（illust / novel 导出 + width/height + status + localPath） |
 | `SearchHistoryEntity` | search_history | id(auto) | 搜索历史关键词 |
 
 DAO 模式要点：**`deleteByX` 先删旧再 `upsert` = 去重置顶**（BrowseHistory/SearchHistory 用）。
 
-Migration：`MIGRATION_1_2`（建 search_history）、`MIGRATION_2_3`（download_entry 加 width/height）。**加字段/实体必须升 version + 写 Migration**；`fallbackToDestructiveMigration()` 兜底（开发期避免卡迁移，但加列时仍要显式 Migration 保数据）。
+Migration：已有 `MIGRATION_1_2` ~ `MIGRATION_6_7` 六条（早期含建 search_history、download_entry 加 width/height，后经历主键重构为复合主键）。**加字段/实体必须升 version + 写 Migration**；`fallbackToDestructiveMigration()` 兜底（开发期避免卡迁移，但加列时仍要显式 Migration 保数据）。
 
 ### 6.2 DataStore Preferences（`core/datastore`，name `pixiv_prefs`）
 
@@ -182,10 +182,10 @@ Migration：`MIGRATION_1_2`（建 search_history）、`MIGRATION_2_3`（download
 - `MmkvVerifierStore`：OAuth PKCE verifier。
 
 ### 6.4 文件系统约定
-- 离线小说：`{filesDir}/offline/novels/{novelId}.json`（`NovelDocumentCodec.encode`）+ `{novelId}_meta.json`（最小元数据），由 `OfflineNovelRepository` 管理。
-- 导出文件：`{filesDir}/Downloads/`（插画原图、小说 TXT/EPUB 导出）。
-- 调试：`{filesDir}/novel_debug/`（解析结果，设置页可清）。
-- 自定义阅读字体：导入到私有目录后存绝对路径到 `readerCustomFontPath`。
+- 离线小说缓存**已移除**（`filesDir/offline` + `OfflineNovelRepository` 已删，`PixivApp` 启动清理旧目录）。
+- 导出文件：默认系统 `Download/PixivReader`（MediaStore，Android 8-9 回退 `{filesDir}/Downloads/`——插画 `pixiv_{id}/` 原图、小说 `novels/` TXT/EPUB/PDF/MD/DOCX）；SAF 授权目录也可写入所选树。
+- 调试：`{cacheDir}/novel_debug/`（阅读器调试 HTML），「我的页-存储-清除缓存」清空整个 `cacheDir`（含 image_cache/ugoira/novel_debug）。
+- 自定义阅读字体：导入到 `{filesDir}/fonts/` 后存绝对路径到 `readerCustomFontPath`。
 
 ---
 
@@ -196,7 +196,7 @@ Migration：`MIGRATION_1_2`（建 search_history）、`MIGRATION_2_3`（download
 
 ### 7.2 发现（feature:discover）
 `DiscoverViewModel`（最复杂的列表 VM）：
-- 搜索类型三类（插画/小说/用户）× 模式两档（最新 sort=date_desc / 热门 popular_desc）。
+- 搜索类型三类（插画/小说/用户）× 模式两档（`SearchMode.LATEST` 常规分页 / `SearchMode.HOT` 一次性 `popularIllusts/popularNovels` 拉取，用户类型忽略 HOT）。
 - 热门搜索缓存：`hotTags` + `hotTagsUpdatedAt`，**24h TTL** 优先 DataStore，过期才 `api.getHotTags` 网络刷新并回写。
 - 搜索历史：`SearchHistoryDao`，`recordHistory` 先 `deleteByKeyword` 再 `upsert` = 去重置顶。
 - 筛选：`loadOptions` 拉 `/v1/search/options`（绘制工具/题材）；`applyFilters` 后重新搜索。
@@ -204,9 +204,9 @@ Migration：`MIGRATION_1_2`（建 search_history）、`MIGRATION_2_3`（download
 - 副作用：收藏/关注由组件回调 `toggleIllustFavorite`/`toggleNovelFavorite`/`toggleFollow`（`nowFavorite`/`nowFollowed` 为目标态）。
 
 ### 7.3 漫画 Tab + 排行榜（feature:manga）
-- **MangaRoute（漫画 Tab，底部第 3 位）**：TopBar「漫画」+ 排行榜入口 banner（纯 tertiaryContainer，点击进漫画排行榜）+ 推荐漫画瀑布流（`api.getRecommendedManga` → `PagedState<Illust>` + `IllustWaterfallGrid`）。
+- **MangaRoute（漫画 Tab，底部第 3 位）**：TopBar「漫画」+ 排行榜入口 banner（primaryContainer 主色，点击进漫画排行榜）+ 推荐漫画瀑布流（`api.getRecommendedManga` → `PagedState<Illust>` + `IllustWaterfallGrid`）。
 - **MangaRankingRoute（全屏页 `manga_ranking`）**：复用通用 `core:ui RankingList<T>`——`ScrollableTabRow` + `HorizontalPager` 左右滑动切段，点 Tab `animateScrollToPage`；5 段（日 `day_manga` / 周 `week` / 月 `month` / 新人 `week_rookie` / R18 `day_r18`）由 `MangaRankingViewModel.modes`（`RankingModeInfo(@StringRes, value)`）配置；每段**独立** `PagedState`（VM `pages.getOrPut` 缓存、数据驻留 VM，仅段首次进入加载，滑动切回不重复请求），行渲染 `RankingRow`（排名徽标 1金/2橙/3灰 + 封面 + 标题/作者/收藏）。
-- 说明：pixiv 漫画专属榜仅 `day_manga`；周/月/新人/R18 为通用 mode（会混入插画）。未来小说/插画排行榜复用 `RankingList` + 各自 `RankingModeInfo` 列表与 itemContent。
+- 说明：pixiv 漫画专属榜仅 `day_manga`；周/月/新人/R18 为通用 mode（会混入插画）。小说排行榜已同构复用（`NovelRankingViewModel` 6 段：day/week/day_male/day_female/week_rookie/day_r18，行渲染 `NovelCard(rank)`）；未来插画榜照此模式新增即可。
 
 ### 7.4 插画详情（feature:illust）
 ```
@@ -215,11 +215,11 @@ IllustDetailRoute
        ├─ api.getIllust(id) → illust + is_bookmarked + toPages()
        ├─ recordHistory(illust)  ← BrowseHistory payloadJson 存 id/title/coverUrl/width/height/bookmarks/pageCount/isBookmarked
        ├─ loadRelated()  → relatedPaged
-       ├─ loadComments() → commentsPaged
-       └─ loadRealSizes() ← webApi.getIllustPages(id) 补每 P 真实宽高（关键）
+       ├─ loadRealSizes() ← webApi.getIllustPages(id) 补每 P 真实宽高（关键）
+       └─ 评论：入口按钮 → 通用评论页 comments/illust/{id}（第 65 轮起不再内嵌）
 ```
 - 下载：`download()` → `imageClient` 下载原图到 `filesDir/Downloads` → `recordDownload` 写 `DownloadEntryEntity`（`BitmapFactory` 解析真实宽高写 width/height）。
-- 双栏：`WindowSizeClass != Compact` → `TwoPaneContent`（左主内容 + 右评论，输入框固底）。
+- 双栏：`WindowSizeClass != Compact` → 内容限宽居中（`AdaptiveContentBox`）；评论双栏已随通用评论页移除。
 - 多 P Pager：容器高度按图真实宽高比自适应（`AsyncImage.onSuccess` 拿 drawable.intrinsic 算比例，无则用网页宽高，再无兜底 1.5）。
 
 ### 7.5 全屏查看器（feature:viewer）
@@ -239,30 +239,29 @@ NovelDetailRoute(novelId)
   └─ NovelViewModel
        ├─ load() → api.getNovel + seriesNovels(api.getNovelSeries 分页 20 页防御)
        ├─ recordHistory(payloadJson 存 NovelCardData 完整：作者/头像/日期/系列/收藏/字数/标签)
-       ├─ loadComments() + postComment()
        ├─ toggleBookmark / toggleWatchlist（series 才能追更）
-       └─ 下载对话框：
-            ├─ exportNovel(TXT/EPUB)   → NovelExporter 导出单本到 filesDir/Downloads
-            ├─ exportSeries(TXT/EPUB)  → 逐章下载合并
-            ├─ downloadOfflineCurrent()/Series() → 入队 NovelOfflineDownloadWorker（见下）
+       └─ 下载对话框：单本 / 系列 / 部分分册多选 → NovelExportWorker 导出
+            （TXT/EPUB/PDF/MD/DOCX；逐章缓存断点续传；完成后写 DownloadEntry 索引）
 ```
-沉浸式 banner：`PixivImage` 高度 `NOVEL_BANNER_HEIGHT+PARALLAX`，`graphicsLayer.translationY = scrollOffset*0.45f` 视差。返回按钮浮层（半透明圆底）。系列分册点击 → `onOpenNovel(id)`。
+沉浸式 banner：全宽封面 + 底部 110dp 渐变过渡到 `surface`（第 65 轮起**无视差**）。返回按钮浮层（40dp 黑 35% 半透明圆底）。系列分册点击 → `onOpenNovel(id)`。
 
-### 7.7 小说离线下载（WorkManager）
+### 7.7 小说导出（WorkManager）
 ```
-NovelViewModel.downloadOfflineCurrent/Series
-  └─ WorkManager.enqueue(NovelOfflineDownloadWorker, inputData novelId/seriesId)
+NovelViewModel.exportNovel / exportSeries / exportSelectedChapters(format)
+  └─ WorkManager.enqueue(NovelExportWorker, inputData novelId/seriesId?/format)
        └─ doWork：
-            seriesId>0 → fetchSeriesNovels（循环分页 last_order，防御 20 页）→ 逐本 downloadOne
-            downloadOne(id)：
-              ├─ downloadEntryDao.upsert(status="downloading")
+            逐章串行（系列循环分页 last_order，防御 20 页）：
+              ├─ downloadEntryDao.upsert(status="downloading", progress=x/y)
               ├─ novelContentLoader.load(id) → (Novel, NovelDocument)
               │     ├─ api.getNovel(id)
               │     ├─ api.getNovelHtml(id).string()
               │     ├─ webApi.getNovelWeb(id).textEmbeddedImages → uploadedimage 映射
               │     └─ NovelParser.parse(html, imageUrls) → resolvePixivImages（[pixivimage:ID] → 首图 URL）
-              ├─ offlineNovelRepository.save(novel, doc) → 写 {novelId}.json + _meta.json
-              └─ upsert(status="done")  ← 失败 Result.retry() 自动重试
+              ├─ 章节正文缓存（断点续传，只补缺失）
+              └─ writeExportFile：SAF 树 / MediaStore Download/PixivReader / 私有目录回退
+                    格式 TXT/EPUB/PDF(pdfbox)/MD/DOCX；导出前统一格式化
+                    （合并硬换行/卷章重排/OpenCC 繁转简/标点规范化）
+            完成后 recordDownload 写索引；失败 Result.retry() 自动重试
 ```
 `NovelContentLoader` 注释明确：与 `ReaderViewModel.load` 的加载链路保持一致（TODO 抽到共享层消除重复）。
 
@@ -270,17 +269,16 @@ NovelViewModel.downloadOfflineCurrent/Series
 ```
 ReaderRoute(novelId, localDocument?, localTitle?)
   └─ ReaderViewModel
-       ├─ init：collectPreferences（DataStore 7 项阅读偏好镜像到内存 StateFlow，每项独立 runCatching 防闪退） + load()
-       ├─ useLocalDocument(doc, title)  ← local_reader 路由入口（TXT/EPUB 解析后注入，跳过网络/离线）
-       └─ load()：
-            ├─ 离线优先：offlineNovelRepository.exists(novelId) → loadDocument + loadNovel（断网可读）
-            └─ 否则在线：getNovel + getNovelHtml + webApi.getNovelWeb(textEmbeddedImages) → NovelParser.parse → resolvePixivImages
+       ├─ init：collectPreferences（DataStore 8 项阅读偏好镜像到内存 StateFlow，每项独立 runCatching 防闪退） + load()
+       ├─ useLocalDocument(doc, title)  ← local_reader 路由入口（TXT/EPUB/MD 解析后注入，跳过网络）
+       └─ load()：在线直连——getNovel + getNovelHtml + webApi.getNovelWeb(textEmbeddedImages) → NovelParser.parse → resolvePixivImages
+            （无离线缓存分支；本地文件走 useLocalDocument）
 ```
 
 **翻页模式**（`pageMode`：0滑动/1翻页/2仿真）：
 - 滑动（`ScrollReaderContent`）：`LazyColumn` 按块渲染（Paragraph/Heading/Quote/Separator/Image），滚动进度 = 首可见块字符偏移 + 块内滚动比例。
 - 翻页（`PagerReaderContent`）：`rememberReaderPages` 预分页 → `HorizontalPager`。左右边缘点击翻页（与中间 1/3 透明覆盖层切换工具栏配合）。
-- 仿真（`SimulationPageContent`/`BookPageTurnContent`）：位置驱动贝塞尔卷页（legado 移植）。折痕 = 角落↔手指的垂直平分线，被卷起部分实时绘制"纸背"（内容沿折痕反射 + 灰色遮罩）。
+- 仿真（`SimulationPageContent`）：位置驱动贝塞尔卷页（legado 移植）。折痕 = 角落↔手指的垂直平分线；纸背**不绘制镜像文字**（仅纸色 + 边缘渐变阴影，第 8 轮修正）；下一页仅在「露出三角」内绘制。
 
 **进度流（字符级 + 官方 marker 双轨）**：
 ```
@@ -297,14 +295,15 @@ charOffset + percentage = document.percentageAt(offset)
 
 **主题**：`readerThemeColors(effectiveTheme)` 4 套（日间/纸张/夜间/深黑），`followSystem` 开启按系统深色选夜间/纸张。
 
-### 7.9 本地 TXT/EPUB 阅读
+### 7.9 本地 TXT/EPUB/MD 阅读
 ```
-DownloadsViewModel.parseLocal(uri)  ← 文件选择器
-  ├─ TxtNovelParser.parse / EpubNovelParser.parse（core:novel）→ NovelDocument
-  ├─ LocalReaderStore.set(document, title)  ← 暂存（单例 object，覆盖前次）
+DownloadsViewModel.openLocal(entry)  ← 下载管理点 txt/epub/md 条目
+  ├─ TxtNovelParser / EpubNovelParser / MarkdownNovelParser（core:novel）→ NovelDocument
+  ├─ LocalReaderStore.set(document, title)  ← 暂存（进程内单槽，覆盖前次）
   └─ onReady(novelId) → 导航 local_reader/{novelId}
        └─ PixivNavGraph ROUTE_LOCAL_READER → LocalReaderStore.consume()（一次性取走）→ ReaderRoute(localDocument=, localTitle=)
-            └─ ReaderViewModel.useLocalDocument → _isLocalMode=true, _isOffline=true，跳过网络直接渲染
+            └─ ReaderViewModel.useLocalDocument → 跳过网络直接渲染
+（pdf/docx 条目 → 系统应用打开）
 ```
 
 ### 7.10 浏览历史（feature:user/HistoryRoute）
@@ -314,7 +313,7 @@ TabRow 三类（插画/小说/用户）+ HorizontalPager。`BrowseHistoryDao.obs
 - 用户：`CreatorProfileCard`。
 
 ### 7.11 下载管理（feature:user/DownloadsRoute）
-TabRow 三类（插画/小说/本地文件）+ 右上角删除 overlay。`DownloadEntryDao.observeAll` 分流。删除：`deleteByType` + 清对应本地资源（导出文件删文件 / 离线缓存 `offlineNovelRepository.delete`）。本地文件项点击 → `local_reader` 路由。
+TabRow 两类（插画/小说）+ HorizontalPager。`DownloadEntryDao.observeAll` 分流；插画 `IllustCard` 进度条/failed 重试（`PixivNavGraph.retryDownload` 重建 Worker，`.part` + Range 断点续传）；小说 `NovelCard` + 格式胶囊。删除：确认后删文件（content:// 走 `ContentResolver` / 私有路径校验 `filesDir` 前缀）+ 删索引。文本格式条目（txt/epub/md）→ `local_reader` 本地阅读，pdf/docx → 系统应用打开。
 
 ### 7.12 屏蔽（feature:user/BlockedRoute）
 两块：「屏蔽过滤标签」（推荐/搜索过滤，写 `UserPreferences.mutedTags`）+ 「屏蔽用户」（取关，`webApi.saveBlock action=unblock`）。Material 卡片 + pill 标签（? 删除）。
@@ -323,15 +322,15 @@ TabRow 三类（插画/小说/本地文件）+ 右上角删除 overlay。`Downlo
 - 追更（`feature:watchlist`）：`api.getWatchlistNovel` + `PagedState<WatchlistSeries>`。
 - 收藏（`feature:bookmark`）：`bookmarks?type={type}&tag={tag}`，`api.getBookmarks`。
 - 收藏标签（`feature:user/TagsRoute`）：本地枚举类型（避免跨 feature 依赖）→ 点击跳 `bookmarks?type=&tag=`。
-- 设置（`feature:user` MeRoute 内嵌，无独立设置页）：外观（主题模式/动态取色/语言，MeViewModel 读写 `UserPreferences`）+ 系统（自动更新开关、缓存清理 `filesDir/offline` + `novel_debug` + `cacheDir` + Coil diskCache 并删 `downloadEntryDao.deleteByType("novel_offline")`）+ 关于（版本/描述/检查更新占位/开源链接）。`feature:settings` 为空壳模块（同 `feature:download`，未使用）。
+- 设置（`feature:user` MeRoute 内嵌，无独立设置页）：外观（主题模式/动态取色/语言，MeViewModel 读写 `UserPreferences`）+ 浏览（小说默认页/插画查看方向）+ 系统（自动更新开关、存储：缓存占用 + 清除缓存 = 清空整个 `cacheDir`）+ 关于（版本/描述/检查更新占位/开源链接）。`feature:settings` 为空壳模块（同 `feature:download`，无 Kotlin 代码）。
 
 ---
 
 ## 8. 导航约定（易踩坑）
 
 ### 8.1 两级 NavHost
-- **顶层** `PixivNavGraph`（`app/.../navigation/PixivNavGraph.kt`）：`auth` / `main?search=` / `illust` / `viewer` / `novel` / `reader` / `user` / `history` / `bookmarks?type=&tag=` / `watchlist` / `blocked` / `downloads` / `local_reader` / `tags` / `manga_ranking`。
-- **内层** `MainShell`：`home_tab` / `discover_tab` / `ranking_tab` / `novel_tab` / `me_tab`，自适应导航（手机底部 NavigationBar / 平板 NavigationRail，由 `WindowSizeClass.useRail()` 决定）。
+- **顶层** `PixivNavGraph`（`app/.../navigation/PixivNavGraph.kt`）：`auth` / `main?search=` / `illust` / `viewer` / `image_preview?url=&title=` / `novel` / `novel_series` / `comments/{type}/{targetId}` / `reader` / `local_reader` / `user` / `user_bookmarks` / `user_following` / `history` / `bookmarks?type=&tag=` / `watchlist` / `blocked` / `downloads` / `manga_ranking` / `novel_ranking`。
+- **内层** `MainShell`：`home_tab` / `discover_tab` / `manga_tab` / `novel_tab` / `me_tab`，自适应导航（手机底部 NavigationBar / 平板 NavigationRail，由 `WindowSizeClass.useRail()` 决定）。
 
 ### 8.2 内层 Tab 无法直达顶层路由
 内层 feature 想开插画详情/阅读器/用户主页时，**不能**直接 `navController.navigate("illust/...")`（拿不到顶层 navController）。约定用回调链：
@@ -364,7 +363,7 @@ PixivNavGraph.onOpenIllust ─┐
 - **CommentInput**：评论输入框。
 - **AdaptiveContentBox**：平板限宽（`MAX_CONTENT_WIDTH_DP=760`）居中容器。
 - **AdaptiveNavScaffold**：自适应导航脚手架（手机底栏 / 平板左栏）。
-- **PixivImage**：Coil AsyncImage 封装，url=null 渲染色块，默认 ContentScale.Crop。Referer 靠全局 `SingletonImageLoader` 自动带。
+- **PixivImage**：Coil AsyncImage 封装，url=null 渲染色块，默认 ContentScale.Crop。Referer 靠 app `ImageLoaderFactory` 注入的 imageClient 自动带。
 - **StatusViews**：`LoadingBox` / `ErrorBox(onRetry)` / `EmptyBox`。
 
 ---
@@ -383,7 +382,7 @@ PixivNavGraph.onOpenIllust ─┐
 | 改 API | 只在 `lib/pixivapi/` 改，`pixiv-api-kotlin/` 只读 |
 | 提交命令 | `git add` 与 `git commit` 必须分开执行（争 index.lock） |
 | 阅读进度闪回 | `progressRestored` 必须为 true 才接收 UI 上报，否则初始翻页会覆盖恢复位置 |
-| 离线阅读读不到 | ReaderViewModel.load 离线优先（`offlineNovelRepository.exists` 先查），下载未完成（status≠done）不进入离线分支 |
+| 离线小说缓存已移除 | 阅读器无离线优先分支；在线小说直连网络，本地文件阅读走 `local_reader`（LocalReaderStore） |
 
 ---
 
@@ -409,4 +408,4 @@ $env:JAVA_HOME = "C:\Users\nichijoux\.jdks\jbr-21.0.11"; $env:PATH = "$env:JAVA_
 - [ ] 涉及历史/下载卡片？`payloadJson` 存完整字段（含 width/height）。
 - [ ] 涉及导航？顶层路由 + 回调链；内层 Tab 不直接 navigate 顶层。
 - [ ] 改完 `:app:compileDebugKotlin`；涉及模块跑对应单测。
-- [ ] 想了解历史决策 → `agent.md`（按轮次记录，第 48 轮为注释补充）。
+- [ ] 想了解历史决策 → `agent.md`（按轮次记录，至第六十五轮；文末「文档更正记录」对齐代码现状）。
