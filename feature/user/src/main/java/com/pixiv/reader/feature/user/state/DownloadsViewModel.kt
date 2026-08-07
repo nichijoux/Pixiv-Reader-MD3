@@ -3,7 +3,6 @@ package com.pixiv.reader.feature.user.state
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.StringRes
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -54,13 +53,14 @@ class DownloadsViewModel @Inject constructor(
         if (filter.value != f) filter.value = f
     }
 
-    /** 删除索引，并清理对应本地文件（私有文件路径 或 SAF content uri）。 */
+    /** 删除索引，并清理对应本地文件（私有文件路径 / SAF / MediaStore content uri）。 */
     fun delete(entry: DownloadEntryEntity) {
         viewModelScope.launch {
             entry.localPath?.let { path ->
                 runCatching {
                     if (path.startsWith("content://")) {
-                        DocumentFile.fromSingleUri(context, Uri.parse(path))?.delete()
+                        // SAF 与 MediaStore uri 统一经 ContentResolver 删除
+                        context.contentResolver.delete(Uri.parse(path), null, null)
                     } else {
                         val file = File(path)
                         if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
@@ -74,14 +74,19 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    /** 解析 txt/epub/md 本地文件 → LocalReaderStore，成功后回调 onReady。支持私有路径与 content uri。 */
+    /** 解析 txt/epub/md 本地文件 → LocalReaderStore，成功后回调 onReady。支持私有路径与 content uri（SAF/MediaStore）。 */
     fun openLocal(entry: DownloadEntryEntity, onReady: () -> Unit) {
         viewModelScope.launch {
             val doc = withContext(Dispatchers.IO) {
                 val path = entry.localPath ?: return@withContext null
-                val ext = path.substringAfterLast('.', "").lowercase()
+                // MediaStore uri（content://media/...）不含文件名，类型用索引 format 字段判断
+                val ext = when (entry.format) {
+                    "MARKDOWN" -> "md"
+                    "EPUB" -> "epub"
+                    else -> entry.format.lowercase() // TXT → txt
+                }
                 if (path.startsWith("content://")) {
-                    // SAF 目录导出：经 ContentResolver 读取
+                    // SAF/MediaStore 目录导出：经 ContentResolver 读取
                     val bytes = runCatching {
                         context.contentResolver.openInputStream(Uri.parse(path))?.use { it.readBytes() }
                     }.getOrNull() ?: return@withContext null

@@ -72,7 +72,7 @@ internal fun MeSystemSection(
         )
     }
     CardSpacer()
-    // 下载位置（小说导出目录：默认应用目录，可 SAF 指定如系统 Download）
+    // 下载位置（小说导出目录：默认系统 Download/PixivReader，可 SAF 指定任意目录）
     MeSettingCard {
         Row(
             modifier = Modifier.fillMaxWidth(),

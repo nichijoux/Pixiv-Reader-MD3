@@ -70,4 +70,5 @@
     <string name="reader_msg_watching_added">已加入追更</string>
     <string name="reader_msg_watching_removed">已取消追更</string>
     <string name="reader_msg_not_in_series">该作品不属于系列</string>
+    <string name="reader_error_font_read_failed">无法读取字体文件</string>
 </resources>

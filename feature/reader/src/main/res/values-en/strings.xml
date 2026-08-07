@@ -70,4 +70,5 @@
     <string name="reader_msg_watching_added">Added to watchlist</string>
     <string name="reader_msg_watching_removed">Removed from watchlist</string>
     <string name="reader_msg_not_in_series">This work is not part of a series</string>
+    <string name="reader_error_font_read_failed">Failed to read font file</string>
 </resources>

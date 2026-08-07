@@ -61,7 +61,7 @@
     <string name="me_auto_update_desc">Check for new versions on launch (not yet implemented)</string>
     <string name="me_export_dir">Download location</string>
     <string name="me_export_dir_value">Current: %1$s</string>
-    <string name="me_export_dir_default">App folder</string>
+    <string name="me_export_dir_default">Downloads/PixivReader</string>
     <string name="me_export_dir_pick">Choose folder</string>
     <string name="me_export_dir_reset">Reset</string>
     <string name="me_storage_title">Storage</string>

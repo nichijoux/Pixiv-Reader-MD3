@@ -431,7 +431,7 @@ class ReaderViewModel @Inject constructor(
                 val dest = File(dir, "custom_font.ttf")
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     dest.outputStream().use { input.copyTo(it) }
-                } ?: throw IllegalStateException("无法读取字体文件")
+                } ?: throw IllegalStateException(context.getString(R.string.reader_error_font_read_failed))
                 dest.absolutePath
             }
             path.onSuccess { p ->

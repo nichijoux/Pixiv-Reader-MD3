@@ -1,7 +1,11 @@
 package com.pixiv.reader.feature.novel.data
 
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Novel
@@ -14,6 +18,7 @@ import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.NovelDocumentCodec
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.feature.novel.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -32,6 +37,8 @@ import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDFont
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import androidx.core.net.toUri
+import com.zqc.opencc.android.lib.ChineseConverter
+import com.zqc.opencc.android.lib.ConversionType
 
 /**
  * 小说导出引擎：把小说（单本或整个系列）导出为 TXT / EPUB / PDF / MARKDOWN / DOCX 文件。
@@ -41,8 +48,9 @@ import androidx.core.net.toUri
  * - PDF：pdfbox-android 排版，中日文依赖系统字体
  * - MARKDOWN / DOCX：文本 / OOXML 容器
  *
- * 输出目录：默认 `filesDir/Downloads/novels/`；用户可在「我的-下载位置」通过 SAF
- * 指定任意目录（如系统 Download），配置为空时走默认私有目录。
+ * 输出目录：默认 Android 10+ 写公共 `Download/PixivReader/`（MediaStore，用户可在文件管理器直接看到），
+ * Android 8-9 回退应用私有 `filesDir/Downloads/novels/`（后台 Worker 无法申请存储权限）；
+ * 用户可在「我的-下载位置」通过 SAF 指定任意目录（如系统 Download），配置非空时优先。
  * 断点缓存始终留在私有目录（不可见，导出成功后清理）。
  *
  * 各格式字节生成见 [buildTxt] / [buildMarkdown] / [buildDocx] / [buildEpub]（纯函数可测）；
@@ -75,41 +83,46 @@ class NovelExporter @Inject constructor(
      * @param novelId 小说 ID（同时是下载索引 targetId）
      * @param format 导出格式
      * @param seriesId 所属系列 ID；>0 时导出整个系列，否则单本
+     * @param chapterIds 系列部分分册 ID；非空且 seriesId>0 时只导出选中的分册（合并为一个文件）
      * @return 导出的本地路径（应用内文件路径 或 content:// uri）
      */
     suspend fun exportResumable(
         novelId: Long,
         format: NovelExportFormat,
         seriesId: Long? = null,
+        chapterIds: List<Long>? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
         markDownloading(novelId, format, seriesId)
         runCatching {
-            val (chapters, coverNovel) = loadChaptersWithCache(novelId, format, seriesId)
-            if (chapters.isEmpty()) error("没有可导出的章节")
+            val (chapters, coverNovel) = loadChaptersWithCache(novelId, format, seriesId, chapterIds)
+            if (chapters.isEmpty()) error(context.getString(R.string.novel_export_no_chapters))
+            // 导出前统一格式化（对齐 format_novel）：合并硬换行、卷/章重排、简繁转换（OpenCC）、标点规范化；
+            // 四种格式（TXT/EPUB/DOCX/Markdown，PDF 复用 TXT）自动全部生效。
+            val formatted = formatChapters(chapters, simplifyConverter())
             val localPath = when (format) {
                 NovelExportFormat.TXT -> buildTxtFile(
-                    chapters,
+                    formatted,
                     seriesTitle = coverNovel.series?.title
                 )
 
                 NovelExportFormat.EPUB -> buildEpubFile(
-                    chapters,
+                    formatted,
                     seriesTitle = coverNovel.series?.title,
                     coverNovel = coverNovel
                 )
 
                 NovelExportFormat.MARKDOWN -> buildMarkdownFile(
-                    chapters,
+                    formatted,
                     seriesTitle = coverNovel.series?.title
                 )
 
                 NovelExportFormat.DOCX -> buildDocxFile(
-                    chapters,
+                    formatted,
                     seriesTitle = coverNovel.series?.title
                 )
 
                 NovelExportFormat.PDF -> buildPdfFile(
-                    chapters,
+                    formatted,
                     seriesTitle = coverNovel.series?.title
                 )
             }
@@ -134,14 +147,23 @@ class NovelExporter @Inject constructor(
         novelId: Long,
         format: NovelExportFormat,
         seriesId: Long?,
+        chapterIds: List<Long>? = null,
     ): Pair<List<Pair<Novel, NovelDocument>>, Novel> {
         val cache = cacheDir(novelId, format)
         val chapters = if ((seriesId != null) && (seriesId > 0L)) {
             val novels = fetchSeriesNovels(seriesId)
-            if (novels.isEmpty()) error("系列中没有可下载的分册")
-            novels.mapIndexed { index, chapter ->
+            if (novels.isEmpty()) error(context.getString(R.string.novel_export_series_empty))
+            val selected = if (chapterIds.isNullOrEmpty()) {
+                novels
+            } else {
+                // 部分下载：只保留选中分册（保持系列接口返回顺序），至少一本
+                novels.filter { it.id in chapterIds }.ifEmpty {
+                    error(context.getString(R.string.novel_export_no_chapters))
+                }
+            }
+            selected.mapIndexed { index, chapter ->
                 val pair = loadChapterCached(cache, chapter.id, index, novelId, format)
-                updateProgress(novelId, format, seriesId, ((index + 1) * 100) / novels.size)
+                updateProgress(novelId, format, seriesId, ((index + 1) * 100) / selected.size)
                 pair
             }
         } else {
@@ -151,7 +173,7 @@ class NovelExporter @Inject constructor(
                 },
             )
         }
-        if (chapters.isEmpty()) error("没有可导出的章节")
+        if (chapters.isEmpty()) error(context.getString(R.string.novel_export_no_chapters))
         return chapters to chapters.first().first
     }
 
@@ -348,10 +370,14 @@ class NovelExporter @Inject constructor(
                 downloadImage(img.url)?.let { images += EpubImage("img_${ci}_${ii}.jpg", it) }
             }
         }
+        // 合并样式表（assets/epub/Main.css，样书 Main.css 全文；读取失败则导出无样式文件）
+        val css = runCatching {
+            context.assets.open("epub/Main.css").bufferedReader().use { it.readText() }
+        }.getOrDefault("")
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.EPUB),
-            buildEpub(chapters, seriesTitle, images)
+            buildEpub(chapters, seriesTitle, images, css)
         )
     }
 
@@ -395,25 +421,58 @@ class NovelExporter @Inject constructor(
         )
     }
 
-    // ── 导出目标（默认私有目录 / 用户指定 SAF 目录） ─────────────────────────
+    // ── 导出目标（默认系统 Download / 用户指定 SAF 目录） ─────────────────────
 
     /**
-     * 写入导出文件并返回本地定位串（应用内文件路径 或 content:// uri）。
-     * 用户配置了 SAF tree uri 时写入指定目录（同名文件先删再建，避免重复），否则写默认私有目录。
+     * 写入导出文件并返回本地定位串（content:// uri 或应用内文件路径）。
+     * - 用户配置了 SAF tree uri：写入指定目录（同名文件先删再建，避免重复）
+     * - 未配置：Android 10+ 走 MediaStore 写入公共 Download/PixivReader（用户可在文件管理器直接看到）；
+     *   Android 8-9（MediaStore.Downloads 不可用且公共目录需运行时权限）回退应用私有目录。
      */
     private suspend fun writeExportFile(fileName: String, mime: String, bytes: ByteArray): String {
         val dirUri = userPreferences.novelExportDir.first()
         if (dirUri.isBlank()) {
-            val file = File(exportDir, fileName)
-            file.writeBytes(bytes)
-            return file.path
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                writeToMediaStore(fileName, mime, bytes)
+            } else {
+                // Android 8-9：公共目录需 WRITE_EXTERNAL_STORAGE 运行时权限，而导出在后台 Worker
+                // 无法弹权限框，回退应用私有目录（下载管理页仍可打开/系统分享）。
+                val file = File(exportDir, fileName)
+                file.writeBytes(bytes)
+                file.path
+            }
         }
-        val tree = DocumentFile.fromTreeUri(context, dirUri.toUri()) ?: error("导出目录不可用")
+        val tree = DocumentFile.fromTreeUri(context, dirUri.toUri()) ?: error(context.getString(R.string.novel_export_dir_unavailable))
         tree.findFile(fileName)?.delete()
-        val doc = tree.createFile(mime, fileName) ?: error("无法创建导出文件")
+        val doc = tree.createFile(mime, fileName) ?: error(context.getString(R.string.novel_export_create_failed))
         context.contentResolver.openOutputStream(doc.uri)?.use { it.write(bytes) }
-            ?: error("无法写入导出文件")
+            ?: error(context.getString(R.string.novel_export_write_failed))
         return doc.uri.toString()
+    }
+
+    /** 通过 MediaStore 写入公共 Download/PixivReader 目录（Android 10+，免存储权限）。 */
+    private fun writeToMediaStore(fileName: String, mime: String, bytes: ByteArray): String {
+        val resolver = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, mime)
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/PixivReader")
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: error(context.getString(R.string.novel_export_create_failed))
+        try {
+            resolver.openOutputStream(uri)?.use { it.write(bytes) }
+                ?: error(context.getString(R.string.novel_export_write_failed))
+        } catch (e: Exception) {
+            // 写入失败：回滚占位条目，避免下载管理残留不可打开文件
+            runCatching { resolver.delete(uri, null, null) }
+            throw e
+        }
+        values.clear()
+        values.put(MediaStore.Downloads.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+        return uri.toString()
     }
 
     private fun mimeFor(format: NovelExportFormat): String = when (format) {
@@ -574,6 +633,14 @@ class NovelExporter @Inject constructor(
                 resp.body?.bytes()
             }
         }.getOrNull()
+    }
+
+    /**
+     * 繁→简转换器（Android-OpenCC）：首次调用会由库内部把字典从 assets 复制到 filesDir；
+     * 转换失败回退原文，保证导出不中断。
+     */
+    private fun simplifyConverter(): (String) -> String = { text ->
+        runCatching { ChineseConverter.convert(text, ConversionType.T2S, context) }.getOrDefault(text)
     }
 
     // ── 系列分页（与 ReaderViewModel.fetchSeriesNovels 一致） ────────────────

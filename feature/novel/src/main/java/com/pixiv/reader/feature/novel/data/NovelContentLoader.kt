@@ -1,10 +1,13 @@
 package com.pixiv.reader.feature.novel.data
 
+import android.content.Context
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.NovelParser
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.feature.novel.R
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +22,7 @@ import kotlinx.coroutines.withContext
  */
 @Singleton
 class NovelContentLoader @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
 ) {
     /**
@@ -27,7 +31,7 @@ class NovelContentLoader @Inject constructor(
      */
     suspend fun load(novelId: Long): Result<Pair<Novel, NovelDocument>> = runCatching {
         val detail = pixivRepository.api.getNovel(novelId).novel
-            ?: error("没有找到该小说")
+            ?: error(context.getString(R.string.novel_not_found))
         val html = withContext(Dispatchers.IO) {
             pixivRepository.api.getNovelHtml(novelId).string()
         }

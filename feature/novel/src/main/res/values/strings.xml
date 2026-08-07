@@ -38,9 +38,7 @@
     <string name="novel_series_parts">%1$d 篇</string>
     <string name="novel_series_ongoing">连载中</string>
     <string name="novel_series_concluded">已完结</string>
-    <string name="novel_series_author">作者：%1$s</string>
     <string name="novel_series_total_chars">总字数 %1$s</string>
-    <string name="novel_series_view_author">查看作者</string>
     <string name="novel_series_volumes_section">分册（%1$d）</string>
     <string name="novel_stat_word">字数</string>
     <string name="novel_stat_bookmark">收藏</string>
@@ -64,6 +62,8 @@
     <string name="novel_download_title">下载小说</string>
     <string name="novel_download_scope_single">单个文件</string>
     <string name="novel_download_scope_series">整个系列</string>
+    <string name="novel_download_scope_partial">选取部分</string>
+    <string name="novel_download_select_hint">已选 %1$d/%2$d 本</string>
     <string name="novel_download_group_export">导出文件</string>
     <string name="novel_download_txt_current">TXT</string>
     <string name="novel_download_txt_current_desc">纯文本，不包含插图</string>
@@ -90,4 +90,11 @@
     <string name="novel_msg_exported">已导出：%1$s</string>
     <string name="novel_msg_export_queued">已加入导出队列</string>
     <string name="novel_msg_export_failed">导出失败：%1$s</string>
+
+    <!-- 导出引擎错误（NovelExporter） -->
+    <string name="novel_export_no_chapters">没有可导出的章节</string>
+    <string name="novel_export_series_empty">系列中没有可下载的分册</string>
+    <string name="novel_export_dir_unavailable">导出目录不可用</string>
+    <string name="novel_export_create_failed">无法创建导出文件</string>
+    <string name="novel_export_write_failed">无法写入导出文件</string>
 </resources>

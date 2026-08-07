@@ -38,9 +38,7 @@
     <string name="novel_series_parts">%1$d parts</string>
     <string name="novel_series_ongoing">Ongoing</string>
     <string name="novel_series_concluded">Completed</string>
-    <string name="novel_series_author">Author: %1$s</string>
     <string name="novel_series_total_chars">Total characters %1$s</string>
-    <string name="novel_series_view_author">View author</string>
     <string name="novel_series_volumes_section">Volumes (%1$d)</string>
     <string name="novel_stat_word">Words</string>
     <string name="novel_stat_bookmark">Bookmarks</string>
@@ -64,6 +62,8 @@
     <string name="novel_download_title">Download novel</string>
     <string name="novel_download_scope_single">Single file</string>
     <string name="novel_download_scope_series">Entire series</string>
+    <string name="novel_download_scope_partial">Select parts</string>
+    <string name="novel_download_select_hint">%1$d/%2$d selected</string>
     <string name="novel_download_group_export">Export file</string>
     <string name="novel_download_txt_current">TXT</string>
     <string name="novel_download_txt_current_desc">Plain text, without images</string>
@@ -90,4 +90,11 @@
     <string name="novel_msg_exported">Exported: %1$s</string>
     <string name="novel_msg_export_queued">Export queued</string>
     <string name="novel_msg_export_failed">Export failed: %1$s</string>
+
+    <!-- NovelExporter errors -->
+    <string name="novel_export_no_chapters">No chapters to export</string>
+    <string name="novel_export_series_empty">No volumes available in this series</string>
+    <string name="novel_export_dir_unavailable">Export directory unavailable</string>
+    <string name="novel_export_create_failed">Failed to create export file</string>
+    <string name="novel_export_write_failed">Failed to write export file</string>
 </resources>

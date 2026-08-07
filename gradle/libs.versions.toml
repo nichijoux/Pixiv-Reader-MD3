@@ -22,6 +22,7 @@ pixivLogin = "1.2.0"
 junit = "4.13.2"
 pdfbox = "2.0.27.0"
 documentfile = "1.0.1"
+androidOpencc = "1.2.0"
 
 [libraries]
 # Compose / UI
@@ -70,6 +71,8 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 pdfbox = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfbox" }
 # SAF 目录访问（DocumentFile）
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+# 简繁转换（Android-OpenCC，JitPack 发布）
+android-opencc = { group = "com.github.qichuan", name = "android-opencc", version.ref = "androidOpencc" }
 
 # Network（pixiv-api-kotlin 依赖）
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }

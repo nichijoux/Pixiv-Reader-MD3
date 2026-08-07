@@ -37,6 +37,8 @@ dependencies {
     implementation(libs.pdfbox)
     // SAF 目录访问（导出目录 DocumentFile）
     implementation(libs.androidx.documentfile)
+    // 简繁转换（OpenCC，导出前格式化的繁→简步骤）
+    implementation(libs.android.opencc)
 
     testImplementation(libs.junit)
 }

@@ -1,6 +1,7 @@
 package com.pixiv.reader.core.network.download
 
 import android.content.Context
+import com.pixiv.reader.core.network.R
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -57,7 +58,7 @@ class ProgressDownloader @Inject constructor(
                     when (resp.code) {
                         // 206 Partial Content：追加写入，进度从断点继续
                         HTTP_PARTIAL -> {
-                            val body = resp.body ?: throw IllegalStateException("空响应体")
+                            val body = resp.body ?: throw IllegalStateException(context.getString(R.string.download_error_empty_body))
                             val total = if (body.contentLength() > 0) existing + body.contentLength() else -1L
                             body.source().use { source ->
                                 java.io.FileOutputStream(file, true).use { output ->
@@ -75,7 +76,7 @@ class ProgressDownloader @Inject constructor(
                         }
                         // 200：服务器忽略 Range（不支持断点）→ 全量重写
                         HTTP_OK -> {
-                            val body = resp.body ?: throw IllegalStateException("空响应体")
+                            val body = resp.body ?: throw IllegalStateException(context.getString(R.string.download_error_empty_body))
                             val total = body.contentLength()
                             body.source().use { source ->
                                 file.outputStream().use { output ->

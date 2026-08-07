@@ -10,6 +10,7 @@ import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.download.DownloadWorkerEntryPoint
+import com.pixiv.reader.feature.illust.R
 import dagger.hilt.android.EntryPointAccessors
 import java.io.File
 
@@ -36,7 +37,8 @@ class IllustDownloadWorker(
         val progressDownloader = entryPoint.progressDownloader()
         val downloadEntryDao = entryPoint.downloadEntryDao()
         return try {
-            val illust = pixivRepository.api.getIllust(illustId).illust ?: error("作品不存在")
+            val illust = pixivRepository.api.getIllust(illustId).illust
+                ?: error(applicationContext.getString(R.string.illust_error_work_not_found))
             val pages = illust.toPages()
             if (pages.isEmpty()) return Result.failure()
             if (pageIndex >= 0) {
@@ -69,7 +71,8 @@ class IllustDownloadWorker(
         total: Int,
         single: Boolean,
     ) {
-        val url = page.originalUrl ?: page.displayUrl ?: error("该页无图片地址")
+        val url = page.originalUrl ?: page.displayUrl
+            ?: error(applicationContext.getString(R.string.illust_error_page_no_image))
         // 子路径下载到 Downloads/pixiv_{id}/p_{n}.jpg（ProgressDownloader 自动建目录）
         val dir = File(applicationContext.filesDir, "Downloads/pixiv_${illust.id}").apply { mkdirs() }
         val target = File(dir, "p_${index + 1}.jpg")

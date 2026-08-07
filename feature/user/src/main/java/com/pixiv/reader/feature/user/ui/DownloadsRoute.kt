@@ -428,23 +428,27 @@ private fun formatInfo(format: String): FormatInfo? = when (format) {
     else -> null
 }
 
-/** 应用内可解析阅读的本地文件扩展名（txt/epub/md）。 */
+/** 应用内可解析阅读的本地文件格式（txt/epub/md）。 */
 private fun isParsableLocalFile(entry: DownloadEntryEntity): Boolean {
-    val ext = entry.localPath?.substringAfterLast('.', "")?.lowercase() ?: return false
-    return ext == "txt" || ext == "epub" || ext == "md"
+    // MediaStore uri（content://media/...）不含文件名，不能靠扩展名判断，用索引 format 字段
+    return entry.format == "TXT" || entry.format == "EPUB" || entry.format == "MARKDOWN"
 }
 
-/** 需系统应用打开的本地文件扩展名（pdf/docx）。 */
+/** 需系统应用打开的本地文件格式（pdf/docx）。 */
 private fun isSystemOpenFile(entry: DownloadEntryEntity): Boolean {
-    val ext = entry.localPath?.substringAfterLast('.', "")?.lowercase() ?: return false
-    return ext == "pdf" || ext == "docx"
+    return entry.format == "PDF" || entry.format == "DOCX"
 }
 
-/** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx（SAF content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
+/** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx（SAF/MediaStore content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
 private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity) {
     val path = entry.localPath ?: return
-    val mime = MimeTypeMap.getSingleton()
-        .getMimeTypeFromExtension(path.substringAfterLast('.', "").lowercase()) ?: "*/*"
+    // MediaStore uri（content://media/...）不含文件名，mime 用索引 format 字段推断
+    val mime = when (entry.format) {
+        "PDF" -> "application/pdf"
+        "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        else -> MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(path.substringAfterLast('.', "").lowercase()) ?: "*/*"
+    }
     val intent = Intent(Intent.ACTION_VIEW)
     if (path.startsWith("content://")) {
         intent.setDataAndType(Uri.parse(path), mime)

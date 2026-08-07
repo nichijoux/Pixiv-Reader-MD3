@@ -126,9 +126,9 @@ fun NovelDetailRoute(
         if (showDownloadDialog && dialogNovel != null) {
             DownloadSheet(
                 // 真实系列 id 必为正：过滤 pixiv 空对象（Series(id=0)）误判，无系列时整行隐藏
-                hasSeries = dialogNovel.series?.id?.let { it > 0L } == true,
-                onFormat = { format: NovelExportFormat, series: Boolean ->
-                    viewModel.export(format, series)
+                config = DownloadSheetConfig.Detail(dialogNovel.series?.id?.let { it > 0L } == true),
+                onFormat = { format: NovelExportFormat, scope: NovelDownloadScope, _: List<Long> ->
+                    viewModel.export(format, scope == NovelDownloadScope.SERIES)
                     showDownloadDialog = false
                 },
                 onDismiss = { showDownloadDialog = false },

@@ -61,7 +61,7 @@
     <string name="me_auto_update_desc">启动时检查新版本（更新逻辑待接入）</string>
     <string name="me_export_dir">下载位置</string>
     <string name="me_export_dir_value">当前：%1$s</string>
-    <string name="me_export_dir_default">应用目录</string>
+    <string name="me_export_dir_default">下载/PixivReader</string>
     <string name="me_export_dir_pick">选择目录</string>
     <string name="me_export_dir_reset">恢复默认</string>
     <string name="me_storage_title">存储</string>

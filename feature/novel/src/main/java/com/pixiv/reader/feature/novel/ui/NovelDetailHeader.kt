@@ -210,9 +210,9 @@ internal fun NovelHeader(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 作者关注 / 取关胶囊（紧凑，作者名旁）。 */
+/** 作者关注 / 取关胶囊（紧凑，作者名旁；系列页作者行复用）。 */
 @Composable
-private fun AuthorFollowPill(
+internal fun AuthorFollowPill(
     isFollowed: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,

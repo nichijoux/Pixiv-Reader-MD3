@@ -22,4 +22,8 @@
     <string name="illust_msg_download_done">Download complete</string>
     <string name="illust_msg_download_failed">Download failed: %1$s</string>
     <string name="illust_msg_report_wip">Report feature is under development</string>
+
+    <!-- Download worker errors (IllustDownloadWorker) -->
+    <string name="illust_error_work_not_found">Work not found</string>
+    <string name="illust_error_page_no_image">No image URL for this page</string>
 </resources>

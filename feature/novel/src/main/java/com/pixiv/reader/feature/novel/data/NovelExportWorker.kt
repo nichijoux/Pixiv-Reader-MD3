@@ -19,8 +19,9 @@ interface NovelExportWorkerEntryPoint {
 }
 
 /**
- * 小说导出后台任务（WorkManager）：TXT / EPUB 导出（单本或整个系列），支持断点续传。
- * inputData：`novelId`（必填）、`seriesId`（可选，>0 时导出整个系列）、`format`（"TXT"/"EPUB"）。
+ * 小说导出后台任务（WorkManager）：TXT / EPUB 导出（单本 / 整个系列 / 系列部分章节），支持断点续传。
+ * inputData：`novelId`（必填）、`seriesId`（可选，>0 时导出整个系列）、`format`（"TXT"/"EPUB"）、
+ * `chapterIds`（可选，>0 时只导出系列中选中的分册，合并为一个文件）。
  *
  * 导出过程由 [NovelExporter.exportResumable] 逐章缓存到临时目录；失败返回 [Result.retry]，
  * WorkManager 自动重跑时只补缺失章节（断点重下）。完成/失败状态写入下载索引（下载管理页可见）。
@@ -34,6 +35,7 @@ class NovelExportWorker(
     override suspend fun doWork(): Result {
         val novelId = inputData.getLong(KEY_NOVEL_ID, 0L)
         val seriesId = inputData.getLong(KEY_SERIES_ID, 0L).takeIf { it > 0L }
+        val chapterIds = inputData.getLongArray(KEY_CHAPTER_IDS)?.toList()?.takeIf { it.isNotEmpty() }
         val format = runCatching {
             NovelExportFormat.valueOf(inputData.getString(KEY_FORMAT) ?: "TXT")
         }.getOrDefault(NovelExportFormat.TXT)
@@ -42,10 +44,10 @@ class NovelExportWorker(
         val novelExporter = entryPoint.novelExporter()
         return try {
             // 失败状态由 exportResumable 内部写入（markFailed），这里只决定是否重试
-            novelExporter.exportResumable(novelId, format, seriesId).getOrThrow()
+            novelExporter.exportResumable(novelId, format, seriesId, chapterIds).getOrThrow()
             Result.success()
         } catch (e: Exception) {
-            Log.w(TAG, "小说导出失败 novelId=$novelId seriesId=$seriesId format=$format", e)
+            Log.w(TAG, "小说导出失败 novelId=$novelId seriesId=$seriesId chapterIds=$chapterIds format=$format", e)
             Result.retry()
         }
     }
@@ -55,5 +57,6 @@ class NovelExportWorker(
         const val KEY_NOVEL_ID = "novelId"
         const val KEY_SERIES_ID = "seriesId"
         const val KEY_FORMAT = "format"
+        const val KEY_CHAPTER_IDS = "chapterIds"
     }
 }
