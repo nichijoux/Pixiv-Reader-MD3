@@ -15,8 +15,20 @@
     <!-- Reader settings sheet -->
     <string name="reader_settings_title">Reader settings</string>
     <string name="reader_settings_font_size">Font size</string>
+    <string name="reader_settings_font_weight">Font weight</string>
+    <string name="reader_settings_font_weight_thin">Thin</string>
+    <string name="reader_settings_font_weight_normal">Normal</string>
+    <string name="reader_settings_font_weight_bold">Bold</string>
+    <string name="reader_settings_font_weight_custom">Custom</string>
+    <string name="reader_settings_font_weight_custom_desc">Custom weight</string>
+    <string name="reader_settings_indent">Indent</string>
+    <string name="reader_settings_indent_value">%1$d chars</string>
+    <string name="reader_settings_paragraph_spacing">Paragraph spacing</string>
     <string name="reader_settings_line_spacing">Line spacing</string>
+    <string name="reader_settings_letter_spacing">Letter spacing</string>
+    <string name="reader_settings_section_typography">Typography</string>
     <string name="reader_settings_brightness">Brightness</string>
+    <string name="reader_settings_brightness_auto">Auto</string>
     <string name="reader_settings_section_font">Font</string>
     <string name="reader_settings_change_custom_font">Change custom font</string>
     <string name="reader_settings_import_custom_font">Import custom font</string>

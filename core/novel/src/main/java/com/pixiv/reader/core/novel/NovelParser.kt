@@ -138,7 +138,7 @@ object NovelParser {
             else -> {
                 // 无结构标签的 div：仅当含有有意义的自有文本时兜底为段落
                 val text = cleanText(el.text())
-                if (text.isBlank() || !hasVisibleText(el)) null else NovelBlock.Paragraph(indent(text))
+                if (text.isBlank() || !hasVisibleText(el)) null else NovelBlock.Paragraph(text)
             }
         }
     }
@@ -150,7 +150,9 @@ object NovelParser {
             .let { Jsoup.parse(it).text() }
         val cleaned = cleanText(text)
         if (cleaned.isBlank()) return null
-        return NovelBlock.Paragraph(indent(cleaned))
+        // 不再硬编码全角缩进前缀：cleanText 已剔除段首/段尾空白（含全角空格），
+        // 段首缩进完全由阅读器「缩进」设置控制（textIndent）
+        return NovelBlock.Paragraph(cleaned)
     }
 
     private fun parseHeading(el: Element): NovelBlock? {
@@ -241,14 +243,14 @@ object NovelParser {
         var cursor = 0
         for (m in EMBEDDED_IMAGE_RE.findAll(paragraph)) {
             val before = paragraph.substring(cursor, m.range.first)
-            if (before.isNotBlank()) result.add(NovelBlock.Paragraph(indent(before)))
+            if (before.isNotBlank()) result.add(NovelBlock.Paragraph(before.trim()))
             val content = m.value.removePrefix("[").removeSuffix("]")
             result.add(NovelBlock.Image(resolveEmbeddedUrl(content, imageUrls), null))
             cursor = m.range.last + 1
         }
         if (cursor < paragraph.length) {
             val rest = paragraph.substring(cursor)
-            if (rest.isNotBlank()) result.add(NovelBlock.Paragraph(indent(rest)))
+            if (rest.isNotBlank()) result.add(NovelBlock.Paragraph(rest.trim()))
         }
         return result
     }
@@ -336,9 +338,9 @@ object NovelParser {
     }
 
     private fun cleanText(raw: String): String =
+        // trim() 依据 Character.isWhitespace，含全角空格（U+3000）——
+        // 段首/段尾的空格与全角缩进一律剔除，缩进交给阅读器设置
         raw.replace(Regex("\\s+"), " ").trim()
-
-    private fun indent(text: String): String = PARAGRAPH_INDENT + text
 
     // ── 保留换行的全文提取（任意结构兜底） ───────────────────────────────────
 

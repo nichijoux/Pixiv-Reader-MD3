@@ -47,7 +47,12 @@ class UserPreferences @Inject constructor(
 
     // ── 阅读器 ──
     val readerFontSize: Flow<Float> = context.dataStore.data.map { it[KEY_FONT_SIZE] ?: 17f }
-    val readerLineHeight: Flow<Float> = context.dataStore.data.map { it[KEY_LINE_HEIGHT] ?: 2.05f }
+    /** 行距增量（em，-1.0..1.0）：实际行高倍数 = 1.6 + 增量（默认 2.05 倍 → 0.45） */
+    val readerLineSpacing: Flow<Float> = context.dataStore.data.map {
+        val raw = it[KEY_LINE_HEIGHT] ?: 0.45f
+        // 兼容旧版直接倍数（1.4~2.6）：新值恒在 -1..1，旧倍数 >1 转增量
+        if (raw > 1f) raw - 1.6f else raw
+    }
     val readerFontFamily: Flow<String> = context.dataStore.data.map { it[KEY_FONT_FAMILY] ?: "serif" }
     val readerTheme: Flow<ReaderThemeMode> = context.dataStore.data.map { ReaderThemeMode.from(it[KEY_READER_THEME] ?: ReaderThemeMode.PAPER.value) }
     val readerPageMode: Flow<ReaderPageMode> = context.dataStore.data.map { ReaderPageMode.from(it[KEY_PAGE_MODE] ?: ReaderPageMode.SCROLL.value) }
@@ -56,6 +61,14 @@ class UserPreferences @Inject constructor(
     val readerFollowSystem: Flow<Boolean> = context.dataStore.data.map { it[KEY_FOLLOW_SYSTEM] ?: false }
     /** 自定义阅读字体文件绝对路径（空表示未设置） */
     val readerCustomFontPath: Flow<String> = context.dataStore.data.map { it[KEY_CUSTOM_FONT_PATH] ?: "" }
+    /** 正文字重：300 细体 / 400 常规 / 700 粗体 / 100..900 自定义可变字重 */
+    val readerFontWeight: Flow<Int> = context.dataStore.data.map { it[KEY_FONT_WEIGHT] ?: 400 }
+    /** 段首全角空格缩进数量（0..4） */
+    val readerParagraphIndent: Flow<Int> = context.dataStore.data.map { it[KEY_PARAGRAPH_INDENT] ?: 2 }
+    /** 段距（em，0..2.0）：段落间空白高度 = 段距 × 字号 */
+    val readerParagraphSpacing: Flow<Float> = context.dataStore.data.map { it[KEY_PARAGRAPH_SPACING] ?: 0.6f }
+    /** 字距（em，-0.5..0.5）：字符间距 = 字距 × 字号 */
+    val readerLetterSpacing: Flow<Float> = context.dataStore.data.map { it[KEY_LETTER_SPACING] ?: 0f }
 
     // ── 图片 / 外观 ──
     val imageQuality: Flow<String> = context.dataStore.data.map { it[KEY_IMAGE_QUALITY] ?: "medium" }
@@ -66,6 +79,9 @@ class UserPreferences @Inject constructor(
     // ── 通用 ──
     /** 应用语言：system 跟随系统 / zh 简体中文 / en 英语 */
     val appLanguage: Flow<String> = context.dataStore.data.map { it[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
+    /** 剪贴板 pixiv 链接识别提示（打开 App / 回前台时检测并提示跳转） */
+    val clipboardLinkPrompt: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_CLIPBOARD_LINK_PROMPT] ?: true }
     /** 是否自动更新（设置开关，实际更新逻辑后续接入） */
     val autoUpdate: Flow<Boolean> = context.dataStore.data.map { it[KEY_AUTO_UPDATE] ?: true }
     /** 小说 Tab 默认页：推荐 / 关注（我的页-浏览设置可改） */
@@ -85,15 +101,22 @@ class UserPreferences @Inject constructor(
     // ── 下载 ──
     /** 小说导出目录（SAF tree uri；空 = 应用私有目录 filesDir/Downloads/novels）。 */
     val novelExportDir: Flow<String> = context.dataStore.data.map { it[KEY_NOVEL_EXPORT_DIR] ?: "" }
+    /** 小说导出文件名模板（占位符 {title}/{author}/{id}/{series}；默认 {series}_{id}）。 */
+    val novelFileNameTemplate: Flow<String> =
+        context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE] ?: "{series}_{id}" }
 
     suspend fun setReaderFontSize(value: Float) = context.dataStore.edit { it[KEY_FONT_SIZE] = value }
-    suspend fun setReaderLineHeight(value: Float) = context.dataStore.edit { it[KEY_LINE_HEIGHT] = value }
+    suspend fun setReaderLineSpacing(value: Float) = context.dataStore.edit { it[KEY_LINE_HEIGHT] = value }
     suspend fun setReaderFontFamily(value: String) = context.dataStore.edit { it[KEY_FONT_FAMILY] = value }
     suspend fun setReaderTheme(value: ReaderThemeMode) = context.dataStore.edit { it[KEY_READER_THEME] = value.value }
     suspend fun setReaderPageMode(value: ReaderPageMode) = context.dataStore.edit { it[KEY_PAGE_MODE] = value.value }
     suspend fun setReaderBrightness(value: Float) = context.dataStore.edit { it[KEY_BRIGHTNESS] = value }
     suspend fun setReaderFollowSystem(value: Boolean) = context.dataStore.edit { it[KEY_FOLLOW_SYSTEM] = value }
     suspend fun setReaderCustomFontPath(value: String) = context.dataStore.edit { it[KEY_CUSTOM_FONT_PATH] = value }
+    suspend fun setReaderFontWeight(value: Int) = context.dataStore.edit { it[KEY_FONT_WEIGHT] = value }
+    suspend fun setReaderParagraphIndent(value: Int) = context.dataStore.edit { it[KEY_PARAGRAPH_INDENT] = value }
+    suspend fun setReaderParagraphSpacing(value: Float) = context.dataStore.edit { it[KEY_PARAGRAPH_SPACING] = value }
+    suspend fun setReaderLetterSpacing(value: Float) = context.dataStore.edit { it[KEY_LETTER_SPACING] = value }
     suspend fun setImageQuality(value: String) = context.dataStore.edit { it[KEY_IMAGE_QUALITY] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
     suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
@@ -101,12 +124,16 @@ class UserPreferences @Inject constructor(
     suspend fun setNovelDefaultTab(value: NovelDefaultTab) = context.dataStore.edit { it[KEY_NOVEL_DEFAULT_TAB] = value.value }
     suspend fun setViewerOrientation(value: ViewerOrientation) = context.dataStore.edit { it[KEY_VIEWER_ORIENTATION] = value.value }
     suspend fun setAppLanguage(value: String) = context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
+    suspend fun setClipboardLinkPrompt(value: Boolean) =
+        context.dataStore.edit { it[KEY_CLIPBOARD_LINK_PROMPT] = value }
     suspend fun setHotTags(value: List<String>) =
         context.dataStore.edit { it[KEY_HOT_TAGS] = value.joinToString("\n") }
     suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
     suspend fun setNovelExportDir(value: String) = context.dataStore.edit { it[KEY_NOVEL_EXPORT_DIR] = value }
+    suspend fun setNovelFileNameTemplate(value: String) =
+        context.dataStore.edit { it[KEY_NOVEL_FILE_NAME_TEMPLATE] = value }
 
     private companion object {
         val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
@@ -117,6 +144,10 @@ class UserPreferences @Inject constructor(
         val KEY_BRIGHTNESS = floatPreferencesKey("reader_brightness")
         val KEY_FOLLOW_SYSTEM = booleanPreferencesKey("reader_follow_system")
         val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")
+        val KEY_FONT_WEIGHT = intPreferencesKey("reader_font_weight")
+        val KEY_PARAGRAPH_INDENT = intPreferencesKey("reader_paragraph_indent")
+        val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
+        val KEY_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")
         val KEY_IMAGE_QUALITY = stringPreferencesKey("image_quality")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
@@ -127,5 +158,7 @@ class UserPreferences @Inject constructor(
         val KEY_HOT_TAGS_AT = longPreferencesKey("hot_tags_updated_at")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
         val KEY_NOVEL_EXPORT_DIR = stringPreferencesKey("novel_export_dir")
+        val KEY_NOVEL_FILE_NAME_TEMPLATE = stringPreferencesKey("novel_file_name_template")
+        val KEY_CLIPBOARD_LINK_PROMPT = booleanPreferencesKey("clipboard_link_prompt")
     }
 }

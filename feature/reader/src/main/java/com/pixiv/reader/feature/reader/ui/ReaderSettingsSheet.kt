@@ -1,18 +1,33 @@
 package com.pixiv.reader.feature.reader.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -20,18 +35,28 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.common.ReaderPageMode
 import com.pixiv.reader.core.common.ReaderThemeMode
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.feature.reader.R
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * 阅读器设置面板：字号 / 行距 / 字体（含自定义）/ 主题（含跟随系统）/ 翻页模式 / 亮度。
+ * 阅读器设置面板（参考 legado-with-MD3）：
+ * - 排版区两列网格：字号 Stepper / 字重下拉（细体·常规·粗体·自定义 100–900）/ 缩进·段距·行距·字距滑条
+ * - 字体 / 主题（含跟随系统）/ 翻页模式 / 亮度
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +64,10 @@ fun ReaderSettingsSheet(
     fontSize: Float,
     lineHeight: Float,
     fontFamilyKey: String,
+    fontWeight: Int,
+    paragraphIndent: Int,
+    paragraphSpacing: Float,
+    letterSpacing: Float,
     theme: ReaderThemeMode,
     pageMode: ReaderPageMode,
     brightness: Float,
@@ -47,6 +76,10 @@ fun ReaderSettingsSheet(
     onFontSizeChange: (Float) -> Unit,
     onLineHeightChange: (Float) -> Unit,
     onFontFamilyChange: (String) -> Unit,
+    onFontWeightChange: (Int) -> Unit,
+    onParagraphIndentChange: (Int) -> Unit,
+    onParagraphSpacingChange: (Float) -> Unit,
+    onLetterSpacingChange: (Float) -> Unit,
     onThemeChange: (ReaderThemeMode) -> Unit,
     onPageModeChange: (ReaderPageMode) -> Unit,
     onBrightnessChange: (Float) -> Unit,
@@ -60,6 +93,8 @@ fun ReaderSettingsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 560.dp)
+                .heightIn(max = 640.dp)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
         ) {
@@ -68,29 +103,140 @@ fun ReaderSettingsSheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
-            SettingsSlider(
-                stringResource(R.string.reader_settings_font_size),
-                "${fontSize.roundToInt()}sp",
-                14f,
-                24f,
-                fontSize,
-                onFontSizeChange
-            )
-            SettingsSlider(
-                stringResource(R.string.reader_settings_line_spacing),
-                String.format("%.1f", lineHeight),
-                1.4f,
-                2.6f,
-                lineHeight,
-                onLineHeightChange
-            )
-            SettingsSlider(
-                stringResource(R.string.reader_settings_brightness),
-                "${(brightness * 100).roundToInt()}%",
-                0.3f,
-                1f,
-                brightness,
-                onBrightnessChange
+
+            // ── 排版：两两分组一行 ──
+            SectionLabel(stringResource(R.string.reader_settings_section_typography))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // 字号：Stepper（MD3：outlined 按钮自带边框，中间值，间距拉开）
+                TypographyCard(
+                    title = stringResource(R.string.reader_settings_font_size),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
+                    ) {
+                        OutlinedIconButton(
+                            onClick = { onFontSizeChange((fontSize - 1f).coerceAtLeast(14f)) },
+                            modifier = Modifier.size(30.dp),
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                        Text(
+                            "${fontSize.roundToInt()}sp",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        OutlinedIconButton(
+                            onClick = { onFontSizeChange((fontSize + 1f).coerceAtMost(24f)) },
+                            modifier = Modifier.size(30.dp),
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+                // 字重：下拉（细体/常规/粗体/自定义）
+                FontWeightCard(
+                    fontWeight = fontWeight,
+                    onFontWeightChange = onFontWeightChange,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            // 字重自定义：跨行滑条 100~900
+            val customWeight = fontWeight !in FONT_WEIGHT_PRESETS
+            AnimatedVisibility(visible = customWeight) {
+                TypographyCard(
+                    title = stringResource(R.string.reader_settings_font_weight_custom_desc),
+                    valueText = fontWeight.toString(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Slider(
+                        value = fontWeight.toFloat(),
+                        onValueChange = { onFontWeightChange(it.roundToInt()) },
+                        valueRange = 100f..900f,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .padding(horizontal = 2.dp),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("100", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("900", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SliderCard(
+                    title = stringResource(R.string.reader_settings_indent),
+                    valueText = stringResource(R.string.reader_settings_indent_value, paragraphIndent),
+                    value = paragraphIndent.toFloat(),
+                    valueRange = 0f..4f,
+                    steps = 3,
+                    onValueChange = { onParagraphIndentChange(it.roundToInt()) },
+                    minLabel = "0",
+                    maxLabel = "4",
+                    modifier = Modifier.weight(1f),
+                )
+                SliderCard(
+                    title = stringResource(R.string.reader_settings_paragraph_spacing),
+                    valueText = formatEm(paragraphSpacing),
+                    value = paragraphSpacing,
+                    valueRange = 0f..2f,
+                    steps = 19,
+                    onValueChange = { onParagraphSpacingChange(roundStep(it, 0.1f)) },
+                    minLabel = "0",
+                    maxLabel = "2em",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SliderCard(
+                    title = stringResource(R.string.reader_settings_line_spacing),
+                    valueText = String.format(Locale.US, "%.2f", lineHeight),
+                    value = lineHeight,
+                    valueRange = -1f..1f,
+                    steps = 39,
+                    onValueChange = { onLineHeightChange(roundStep(it, 0.05f)) },
+                    minLabel = "-1.0",
+                    maxLabel = "+1.0",
+                    modifier = Modifier.weight(1f),
+                )
+                SliderCard(
+                    title = stringResource(R.string.reader_settings_letter_spacing),
+                    valueText = formatEm(letterSpacing),
+                    value = letterSpacing,
+                    valueRange = -0.5f..0.5f,
+                    steps = 19,
+                    onValueChange = { onLetterSpacingChange(roundStep(it, 0.05f)) },
+                    minLabel = "-0.5",
+                    maxLabel = "0.5em",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            // ── 亮度（联动系统真实亮度；1.0 = 跟随系统）──
+            SliderCard(
+                title = stringResource(R.string.reader_settings_brightness),
+                valueText = if (brightness >= 1f) {
+                    stringResource(R.string.reader_settings_brightness_auto)
+                } else {
+                    "${(brightness * 100).roundToInt()}%"
+                },
+                value = brightness,
+                valueRange = 0.05f..1f,
+                onValueChange = onBrightnessChange,
+                minLabel = "5%",
+                maxLabel = stringResource(R.string.reader_settings_brightness_auto),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             )
 
             SectionLabel(stringResource(R.string.reader_settings_section_font))
@@ -171,48 +317,172 @@ fun ReaderSettingsSheet(
     }
 }
 
+/** 字重预设（细体 300 / 常规 400 / 粗体 700）；不在其中的视为自定义 100..900。 */
+private val FONT_WEIGHT_PRESETS = intArrayOf(300, 400, 700)
+
+@Composable
+private fun FontWeightCard(
+    fontWeight: Int,
+    onFontWeightChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val label = when (fontWeight) {
+        300 -> stringResource(R.string.reader_settings_font_weight_thin)
+        400 -> stringResource(R.string.reader_settings_font_weight_normal)
+        700 -> stringResource(R.string.reader_settings_font_weight_bold)
+        else -> stringResource(R.string.reader_settings_font_weight_custom)
+    }
+    TypographyCard(
+        title = stringResource(R.string.reader_settings_font_weight),
+        modifier = modifier,
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+            OutlinedButton(
+                onClick = { menuOpen = true },
+                modifier = Modifier.fillMaxWidth().height(30.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+            ) {
+                Text(label, fontSize = 13.sp)
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.reader_settings_font_weight_thin)) },
+                    onClick = { onFontWeightChange(300); menuOpen = false },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.reader_settings_font_weight_normal)) },
+                    onClick = { onFontWeightChange(400); menuOpen = false },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.reader_settings_font_weight_bold)) },
+                    onClick = { onFontWeightChange(700); menuOpen = false },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.reader_settings_font_weight_custom)) },
+                    onClick = { onFontWeightChange(500); menuOpen = false },
+                )
+            }
+        }
+    }
+}
+
+/** 排版卡片：标题 + 可选值 + 内容区（surfaceContainerLow 圆角卡，紧凑高度）。 */
+@Composable
+private fun TypographyCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    valueText: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clip(AppShapes.card)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        if (valueText != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    valueText,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        } else {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        content()
+    }
+}
+
+/** 滑条卡：标题 + 值 + Slider + 范围标签（紧凑：滑条压矮、小字号）。 */
+@Composable
+private fun SliderCard(
+    title: String,
+    valueText: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+    minLabel: String,
+    maxLabel: String,
+    modifier: Modifier = Modifier,
+    steps: Int = 0,
+) {
+    TypographyCard(
+        title = title,
+        valueText = valueText,
+        modifier = modifier,
+    ) {
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .padding(horizontal = 2.dp),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                minLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+            )
+            Text(
+                maxLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+            )
+        }
+    }
+}
+
+/** 浮点值按步进拍平（避免滑条中间值抖动）。 */
+private fun roundStep(value: Float, step: Float): Float =
+    Math.round(value / step) * step
+
+/** em 值格式化：0 → "0"；+0.05 → "+0.05"；-0.05 → "-0.05"。 */
+private fun formatEm(value: Float): String {
+    val rounded = Math.round(value * 100) / 100f
+    return if (rounded == 0f) "0"
+    else if (rounded > 0) "+${String.format(Locale.US, "%.2f", rounded)}"
+    else String.format(Locale.US, "%.2f", rounded)
+}
+
 @Composable
 private fun SectionLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 18.dp, bottom = 4.dp),
+        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
     )
-}
-
-@Composable
-private fun SettingsSlider(
-    label: String,
-    valueText: String,
-    rangeStart: Float,
-    rangeEnd: Float,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.widthIn(min = 40.dp)
-        )
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = rangeStart..rangeEnd,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            valueText,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.widthIn(min = 44.dp),
-        )
-    }
 }

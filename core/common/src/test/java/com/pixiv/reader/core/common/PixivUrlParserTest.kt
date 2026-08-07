@@ -87,6 +87,59 @@ class PixivUrlParserTest {
     }
 
     @Test
+    fun `小说详情新式链接`() {
+        assertEquals(
+            PixivLink(PixivLinkType.NOVEL, 22721650L),
+            PixivUrlParser.parse("https://www.pixiv.net/novel/22721650"),
+        )
+    }
+
+    @Test
+    fun `小说详情新式链接带页码`() {
+        assertEquals(
+            PixivLink(PixivLinkType.NOVEL, 22721650L),
+            PixivUrlParser.parse("https://www.pixiv.net/novel/22721650#3"),
+        )
+    }
+
+    @Test
+    fun `插画短链 i 前缀`() {
+        assertEquals(
+            PixivLink(PixivLinkType.ILLUST, 120622017L),
+            PixivUrlParser.parse("https://www.pixiv.net/i/120622017"),
+        )
+    }
+
+    @Test
+    fun `旧式 illust_id 链接`() {
+        assertEquals(
+            PixivLink(PixivLinkType.ILLUST, 123456L),
+            PixivUrlParser.parse("https://www.pixiv.net/illust_id=123456"),
+        )
+    }
+
+    @Test
+    fun `旧式用户 member 链接`() {
+        assertEquals(
+            PixivLink(PixivLinkType.USER, 11459631L),
+            PixivUrlParser.parse("https://www.pixiv.net/member.php?id=11459631"),
+        )
+    }
+
+    @Test
+    fun `新式小说链接与系列区分`() {
+        // novel/series 仍解析为系列；novel/{id} 为单本
+        assertEquals(
+            PixivLink(PixivLinkType.SERIES, 1342417L),
+            PixivUrlParser.parse("https://www.pixiv.net/novel/series/1342417"),
+        )
+        assertEquals(
+            PixivLink(PixivLinkType.NOVEL, 555L),
+            PixivUrlParser.parse("https://www.pixiv.net/novel/555"),
+        )
+    }
+
+    @Test
     fun `普通文本返回 null`() {
         assertNull(PixivUrlParser.parse("hello world"))
     }

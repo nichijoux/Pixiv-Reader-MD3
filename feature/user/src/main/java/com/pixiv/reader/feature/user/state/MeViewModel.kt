@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.NovelDefaultTab
+import com.pixiv.reader.core.common.NovelFileNameTemplate
 import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.ViewerOrientation
@@ -80,6 +81,22 @@ class MeViewModel @Inject constructor(
     val novelExportDir: StateFlow<String> =
         userPreferences.novelExportDir.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    /** 小说导出文件名模板（占位符 {title}/{author}/{id}/{series}；默认 {series}_{id}）。 */
+    val novelFileNameTemplate: StateFlow<String> =
+        userPreferences.novelFileNameTemplate.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            NovelFileNameTemplate.DEFAULT,
+        )
+
+    /** 剪贴板 pixiv 链接识别提示（打开 App / 回前台时检测并提示跳转）。 */
+    val clipboardLinkPrompt: StateFlow<Boolean> =
+        userPreferences.clipboardLinkPrompt.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            true,
+        )
+
     /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
     val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
@@ -126,9 +143,26 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { runCatching { userPreferences.setNovelExportDir("") } }
     }
 
-    /** 设置小说 Tab 默认页（推荐 / 关注）。 */
+    /** 设置小说导出文件名模板（占位符 {title}/{author}/{id}/{series}）。 */
+    fun setNovelFileNameTemplate(value: String) {
+        viewModelScope.launch { runCatching { userPreferences.setNovelFileNameTemplate(value) } }
+    }
+
+    /** 恢复默认文件名模板（{series}_{id}）。 */
+    fun resetNovelFileNameTemplate() {
+        viewModelScope.launch {
+            runCatching { userPreferences.setNovelFileNameTemplate(NovelFileNameTemplate.DEFAULT) }
+        }
+    }
+
+    /** 设置小说默认页（推荐 / 关注）。 */
     fun setNovelDefaultTab(value: NovelDefaultTab) {
         viewModelScope.launch { userPreferences.setNovelDefaultTab(value) }
+    }
+
+    /** 设置剪贴板 pixiv 链接识别提示开关。 */
+    fun setClipboardLinkPrompt(value: Boolean) {
+        viewModelScope.launch { runCatching { userPreferences.setClipboardLinkPrompt(value) } }
     }
 
     /** 设置插画查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */

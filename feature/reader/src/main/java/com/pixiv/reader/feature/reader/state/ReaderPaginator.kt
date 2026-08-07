@@ -8,6 +8,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Constraints
@@ -32,6 +33,7 @@ class ReaderPaginator(
     private val pageHeightPx: Int,
     private val lineHeightPx: Int,
     private val imageHeightPx: Int,
+    private val paragraphSpacingPx: Int,
 ) {
     /** 图片说明文字高度余量（ReaderImageBlock：上下 4dp 内边距 + labelMedium ~16sp + 4dp 间距）。 */
     private val imageCaptionHeightPx =
@@ -41,12 +43,17 @@ class ReaderPaginator(
         fontSize = baseStyle.fontSize * 1.25f,
         lineHeight = baseStyle.lineHeight * 1.15f,
         textAlign = TextAlign.Start,
+        // 标题不缩进（正文首行缩进继承自 baseStyle）
+        textIndent = null,
     )
     private val quoteStyle = baseStyle.copy(
         color = baseStyle.color.copy(alpha = 0.72f),
         textAlign = TextAlign.Justify,
     )
-    private val separatorStyle = baseStyle.copy(textAlign = TextAlign.Center)
+    private val separatorStyle = baseStyle.copy(
+        textAlign = TextAlign.Center,
+        textIndent = null,
+    )
 
     fun paginate(document: NovelDocument): List<ReaderPage> {
         val pages = mutableListOf<ReaderPage>()
@@ -74,14 +81,15 @@ class ReaderPaginator(
             usedHeight += heightPx
         }
 
-        /** 段落/标题间的空行间距（页面顶部不空行）。 */
+        /** 段落/标题间的空行间距（页面顶部不空行；段距 0 时不加）。 */
         fun addSpacer() {
+            if (paragraphSpacingPx <= 0) return
             if (elements.isEmpty()) return
-            if (usedHeight + lineHeightPx > pageHeightPx) closePage()
+            if (usedHeight + paragraphSpacingPx > pageHeightPx) closePage()
             if (elements.isEmpty()) return // closePage 后重新检查，避免 last() 空列表崩溃
             val anchor = elements.last().endChar
-            elements.add(PageElement.TextLine("", baseStyle, anchor, anchor, lineHeightPx))
-            usedHeight += lineHeightPx
+            elements.add(PageElement.TextLine("", baseStyle, anchor, anchor, paragraphSpacingPx))
+            usedHeight += paragraphSpacingPx
         }
 
         /**
@@ -101,10 +109,13 @@ class ReaderPaginator(
         fun addTextBlock(text: String, startChar: Int, style: TextStyle) {
             if (text.isBlank()) return
             val lines = measureLines(text, style)
-            lines.forEach { line ->
+            lines.forEachIndexed { index, line ->
+                // 分页后每行是独立 Text 渲染，textIndent 对每行都视为"首行"——
+                // 仅段落首行保留缩进，后续行必须清除，否则每行都缩进
+                val lineStyle = if (index == 0) style else style.copy(textIndent = null)
                 addLine(
                     text = line.text,
-                    style = style,
+                    style = lineStyle,
                     startChar = startChar + line.startOffset,
                     endChar = startChar + line.endOffset,
                     heightPx = line.heightPx,
@@ -191,19 +202,35 @@ fun rememberReaderFontFamily(
         }
     }
 
-/** 阅读正文基础样式（字号/行距/字体族）。 */
+/** 阅读正文基础样式（字号/行距/字体族/字重/首行缩进/字距）。 */
 @Composable
 fun rememberReaderTextStyle(
     fontSizeSp: Float,
-    lineHeightMultiplier: Float,
+    lineSpacing: Float,
     fontFamily: androidx.compose.ui.text.font.FontFamily,
+    fontWeight: Int,
+    indentCount: Int,
+    letterSpacingEm: Float,
 ): TextStyle {
     val fontSize = fontSizeSp.sp
-    return remember(fontSizeSp, lineHeightMultiplier, fontFamily) {
+    return remember(
+        fontSizeSp,
+        lineSpacing,
+        fontFamily,
+        fontWeight,
+        indentCount,
+        letterSpacingEm,
+    ) {
         TextStyle(
             fontSize = fontSize,
-            lineHeight = (fontSizeSp * lineHeightMultiplier).sp,
+            // 行距增量（-1.0..1.0）：实际行高倍数 = 1.6 + 增量
+            lineHeight = (fontSizeSp * (1.6f + lineSpacing)).sp,
             fontFamily = fontFamily,
+            fontWeight = androidx.compose.ui.text.font.FontWeight(fontWeight.coerceIn(100, 900)),
+            // 首行缩进 = 全角空格宽度（全角字宽 = 字号）
+            textIndent = TextIndent(firstLine = (fontSizeSp * indentCount).sp),
+            // 字距 = 字距(em) × 字号
+            letterSpacing = (fontSizeSp * letterSpacingEm).sp,
         )
     }
 }
@@ -220,8 +247,12 @@ const val IMAGE_MAX_HEIGHT_RATIO = 0.55f
 fun rememberReaderPages(
     document: NovelDocument?,
     fontSizeSp: Float,
-    lineHeightMultiplier: Float,
+    lineSpacing: Float,
     fontFamilyName: String,
+    fontWeight: Int,
+    indentCount: Int,
+    letterSpacingEm: Float,
+    paragraphSpacingEm: Float,
     customFont: androidx.compose.ui.text.font.FontFamily? = null,
     contentWidthDp: Dp,
     pageHeightDp: Dp,
@@ -230,12 +261,21 @@ fun rememberReaderPages(
     val textMeasurer = rememberTextMeasurer()
     val density = androidx.compose.ui.platform.LocalDensity.current
     val fontFamily = rememberReaderFontFamily(fontFamilyName, customFont)
-    val baseStyle = rememberReaderTextStyle(fontSizeSp, lineHeightMultiplier, fontFamily)
+    val baseStyle = rememberReaderTextStyle(
+        fontSizeSp,
+        lineSpacing,
+        fontFamily,
+        fontWeight,
+        indentCount,
+        letterSpacingEm,
+    )
 
     val contentWidthPx = with(density) { contentWidthDp.roundToPx() }.coerceAtLeast(1)
     val pageHeightPx = with(density) { pageHeightDp.roundToPx() }.coerceAtLeast(1)
-    val lineHeightPx = with(density) { (fontSizeSp * lineHeightMultiplier).sp.toPx() }.roundToInt()
+    val lineHeightPx = with(density) { (fontSizeSp * (1.6f + lineSpacing)).sp.toPx() }.roundToInt()
         .coerceAtLeast(1)
+    val paragraphSpacingPx = with(density) { (fontSizeSp * paragraphSpacingEm).sp.toPx() }
+        .roundToInt()
     val imageHeightPx = (contentWidthPx * 0.75f).roundToInt()
         .coerceAtMost((pageHeightPx * IMAGE_MAX_HEIGHT_RATIO).roundToInt())
         .coerceAtLeast(1)
@@ -243,8 +283,12 @@ fun rememberReaderPages(
     return remember(
         document,
         fontSizeSp,
-        lineHeightMultiplier,
+        lineSpacing,
         fontFamilyName,
+        fontWeight,
+        indentCount,
+        letterSpacingEm,
+        paragraphSpacingEm,
         customFont,
         contentWidthPx,
         pageHeightPx,
@@ -258,6 +302,7 @@ fun rememberReaderPages(
                 pageHeightPx = pageHeightPx,
                 lineHeightPx = lineHeightPx,
                 imageHeightPx = imageHeightPx,
+                paragraphSpacingPx = paragraphSpacingPx,
             ).paginate(document)
         }.getOrElse { e ->
             android.util.Log.w("ReaderPaginator", "paginate failed", e)

@@ -11,6 +11,7 @@ import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.Series
 import com.pixiv.api.model.User
+import com.pixiv.reader.core.common.renderNovelFileName
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
@@ -342,7 +343,7 @@ class NovelExporter @Inject constructor(
         seriesTitle: String?,
     ): String {
         val first = chapters.first().first
-        val fileName = "${sanitizeFileName(seriesTitle ?: first.title.orEmpty())}_${first.id}.txt"
+        val fileName = "${fileNameBase(first, seriesTitle)}.txt"
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.TXT),
@@ -356,7 +357,7 @@ class NovelExporter @Inject constructor(
         coverNovel: Novel,
     ): String {
         val first = chapters.first().first
-        val fileName = "${sanitizeFileName(seriesTitle ?: first.title.orEmpty())}_${first.id}.epub"
+        val fileName = "${fileNameBase(first, seriesTitle)}.epub"
         val images = mutableListOf<EpubImage>()
         // 封面
         val coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium
@@ -386,7 +387,7 @@ class NovelExporter @Inject constructor(
         seriesTitle: String?,
     ): String {
         val first = chapters.first().first
-        val fileName = "${sanitizeFileName(seriesTitle ?: first.title.orEmpty())}_${first.id}.md"
+        val fileName = "${fileNameBase(first, seriesTitle)}.md"
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.MARKDOWN),
@@ -399,7 +400,7 @@ class NovelExporter @Inject constructor(
         seriesTitle: String?,
     ): String {
         val first = chapters.first().first
-        val fileName = "${sanitizeFileName(seriesTitle ?: first.title.orEmpty())}_${first.id}.docx"
+        val fileName = "${fileNameBase(first, seriesTitle)}.docx"
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.DOCX),
@@ -412,7 +413,7 @@ class NovelExporter @Inject constructor(
         seriesTitle: String?,
     ): String {
         val first = chapters.first().first
-        val fileName = "${sanitizeFileName(seriesTitle ?: first.title.orEmpty())}_${first.id}.pdf"
+        val fileName = "${fileNameBase(first, seriesTitle)}.pdf"
         // 复用 TXT 纯文本为排版源（插图不渲染）
         return writeExportFile(
             fileName,
@@ -429,6 +430,23 @@ class NovelExporter @Inject constructor(
      * - 未配置：Android 10+ 走 MediaStore 写入公共 Download/PixivReader（用户可在文件管理器直接看到）；
      *   Android 8-9（MediaStore.Downloads 不可用且公共目录需运行时权限）回退应用私有目录。
      */
+    /**
+     * 按用户模板渲染导出文件名主体（不含扩展名）。
+     * 模板来自「我的」页设置（占位符 {title}/{author}/{id}/{series}）。
+     */
+    private suspend fun fileNameBase(novel: Novel, seriesTitle: String?): String {
+        val template = userPreferences.novelFileNameTemplate.first()
+        return renderNovelFileName(
+            template = template,
+            title = novel.title.orEmpty(),
+            author = novel.user?.name,
+            id = novel.id,
+            seriesTitle = seriesTitle,
+            publishDate = novel.create_date,
+            favoriteCount = novel.total_bookmarks,
+        )
+    }
+
     private suspend fun writeExportFile(fileName: String, mime: String, bytes: ByteArray): String {
         val dirUri = userPreferences.novelExportDir.first()
         if (dirUri.isBlank()) {

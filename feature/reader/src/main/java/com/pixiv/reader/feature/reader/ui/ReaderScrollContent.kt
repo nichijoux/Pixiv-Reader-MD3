@@ -53,6 +53,7 @@ internal fun ScrollReaderContent(
     document: NovelDocument,
     baseStyle: TextStyle,
     imageHeight: Dp,
+    paragraphSpacing: Dp,
     restoreCharOffset: Int,
     jumpToChar: Int?,
     onScrollOffset: (Int) -> Unit,
@@ -111,7 +112,7 @@ internal fun ScrollReaderContent(
                     style = baseStyle.copy(textAlign = TextAlign.Justify),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp),
+                        .padding(bottom = paragraphSpacing),
                 )
 
                 is NovelBlock.Heading -> Text(
@@ -119,6 +120,8 @@ internal fun ScrollReaderContent(
                     style = baseStyle.copy(
                         fontSize = baseStyle.fontSize * 1.25f,
                         lineHeight = baseStyle.lineHeight * 1.15f,
+                        // 标题不缩进
+                        textIndent = null,
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -133,12 +136,15 @@ internal fun ScrollReaderContent(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp),
+                        .padding(bottom = paragraphSpacing),
                 )
 
                 is NovelBlock.Separator -> Text(
                     text = block.symbol,
-                    style = baseStyle.copy(textAlign = TextAlign.Center),
+                    style = baseStyle.copy(
+                        textAlign = TextAlign.Center,
+                        textIndent = null,
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),

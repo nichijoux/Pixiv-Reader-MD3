@@ -22,6 +22,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +53,7 @@ import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 
 /**
  * 应用唯一 Activity：装配根导航 + 主题（UserPreferences.themeMode/dynamicColor 生效）。
@@ -124,19 +126,47 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-            // 剪贴板 pixiv 链接检测：回前台（ON_RESUME）且已登录时，读取剪贴板解析
+            // 剪贴板 pixiv 链接检测：回前台（ON_RESUME）且已登录、设置开启时，读取剪贴板解析
             // pixiv URL → 弹「打开」提示，点击后才导航（避免复制旧链接被劫持）。
+            // 三层触发保证冷启动不漏检（observer 注册可能晚于首次 ON_RESUME）：
+            // ① ON_RESUME 检测（key 不含 isLoggedIn，登录态变化不重注册、不丢事件）
+            // ② 登录态就绪补检（冷启动登录恢复晚于 ON_RESUME 时兜底）
+            // ③ 启动延时兜底（首帧组合晚于 ON_RESUME 事件时兜底）
+            // lastOpenedClip 保证已点开过的链接不再提示；未点开的每次回前台都会重新提示。
+            // 开关（「我的」页设置）关闭时三层全部跳过。
+            val clipboardLinkPrompt by userPreferences.clipboardLinkPrompt.collectAsStateWithLifecycle(
+                initialValue = true
+            )
             val navController = rememberNavController()
-            val lastPromptedClip = remember { mutableStateOf<String?>(null) }
+            val lastOpenedClip = remember { mutableStateOf<String?>(null) }
             val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner, isLoggedIn) {
+            val currentIsLoggedIn by rememberUpdatedState(isLoggedIn)
+            val currentClipboardPrompt by rememberUpdatedState(clipboardLinkPrompt)
+            DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME && isLoggedIn) {
-                        checkClipboardLink(context, navController, notificationHostState, lastPromptedClip)
+                    if (event == Lifecycle.Event.ON_RESUME &&
+                        currentIsLoggedIn && currentClipboardPrompt
+                    ) {
+                        checkClipboardLink(context, navController, notificationHostState, lastOpenedClip)
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            // ② 登录态就绪且页面已 RESUMED 时补检
+            LaunchedEffect(isLoggedIn, clipboardLinkPrompt) {
+                if (isLoggedIn && clipboardLinkPrompt &&
+                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+                ) {
+                    checkClipboardLink(context, navController, notificationHostState, lastOpenedClip)
+                }
+            }
+            // ③ 冷启动兜底：延时补检一次（剪贴板未变不重复提示）
+            LaunchedEffect(Unit) {
+                delay(800)
+                if (currentIsLoggedIn && currentClipboardPrompt) {
+                    checkClipboardLink(context, navController, notificationHostState, lastOpenedClip)
+                }
             }
             PixivReaderTheme(
                 darkTheme = isDark,
@@ -187,23 +217,20 @@ class MainActivity : ComponentActivity() {
 /**
  * 读取剪贴板并解析 pixiv 链接 → 弹「打开」提示，点击后才导航到对应详情页。
  *
- * @param lastPromptedClip 记录已提示过的剪贴板文本，内容未变不重复提示
- *   （用户未点开时切走再回来，不会反复弹同一链接；重新复制即重新触发）。
+ * @param lastOpenedClip 记录**已点击打开过**的剪贴板文本：
+ *   未打开的链接每次回前台（ON_RESUME）都会重新提示（切走再回来仍可跳转）；
+ *   已点开过的链接不再提示（避免重复打扰）；重新复制新链接立即重新触发。
  */
 private fun checkClipboardLink(
     context: Context,
     navController: NavHostController,
     notificationState: NotificationHostState,
-    lastPromptedClip: MutableState<String?>,
+    lastOpenedClip: MutableState<String?>,
 ) {
-    val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager) ?: return
-    val text = clip.primaryClip
-        ?.takeIf { it.itemCount > 0 }
-        ?.getItemAt(0)?.text?.toString()
-        ?: return
-    if (text == lastPromptedClip.value) return // 剪贴板未变化，不重复提示
+    val text = readClipboardText(context) ?: return
     val link = PixivUrlParser.parse(text) ?: return
-    lastPromptedClip.value = text
+    // 该链接已点击打开过 → 不重复提示
+    if (text == lastOpenedClip.value) return
     val (messageRes, route) = when (link.type) {
         PixivLinkType.NOVEL -> R.string.clipboard_link_novel to "novel/${link.id}"
         PixivLinkType.SERIES -> R.string.clipboard_link_series to "novel_series/${link.id}"
@@ -214,8 +241,29 @@ private fun checkClipboardLink(
         text = context.getString(messageRes),
         type = NotificationType.Info,
         actionText = context.getString(R.string.clipboard_link_open),
-        onAction = { navController.navigate(route) },
+        onAction = {
+            // 点击打开后记录，避免后续回前台反复提示同一链接
+            lastOpenedClip.value = text
+            navController.navigate(route)
+        },
     )
+}
+
+/**
+ * 读取剪贴板文本：遍历全部 ClipData 项，优先取纯文本项；
+ * 部分 App 分享链接以 URI 项存在，其 uri 串本身即为链接，一并兜底。
+ */
+private fun readClipboardText(context: Context): String? {
+    val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager) ?: return null
+    val items = clip.primaryClip ?: return null
+    for (i in 0 until items.itemCount) {
+        val item = items.getItemAt(i) ?: continue
+        val text = item.text?.toString()
+        if (!text.isNullOrBlank()) return text
+        val uriText = item.uri?.toString()
+        if (!uriText.isNullOrBlank() && uriText.startsWith("http")) return uriText
+    }
+    return null
 }
 
 

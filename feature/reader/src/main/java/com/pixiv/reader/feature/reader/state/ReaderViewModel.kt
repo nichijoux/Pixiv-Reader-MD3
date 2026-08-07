@@ -96,7 +96,8 @@ class ReaderViewModel @Inject constructor(
     private val _fontSize = MutableStateFlow(17f)
     val fontSize: StateFlow<Float> = _fontSize.asStateFlow()
 
-    private val _lineHeight = MutableStateFlow(2.05f)
+    /** 行距增量（em，-1.0..1.0）；实际行高倍数 = 1.6 + 增量，默认 2.05 倍 → 0.45 */
+    private val _lineHeight = MutableStateFlow(0.45f)
     val lineHeight: StateFlow<Float> = _lineHeight.asStateFlow()
 
     private val _fontFamily = MutableStateFlow("serif")
@@ -118,6 +119,22 @@ class ReaderViewModel @Inject constructor(
     /** 自定义阅读字体文件路径（空=未设置） */
     private val _customFontPath = MutableStateFlow("")
     val customFontPath: StateFlow<String> = _customFontPath.asStateFlow()
+
+    /** 正文字重：300 细体 / 400 常规 / 700 粗体 / 其他 100..900 自定义 */
+    private val _fontWeight = MutableStateFlow(400)
+    val fontWeight: StateFlow<Int> = _fontWeight.asStateFlow()
+
+    /** 段首全角空格缩进数量（0..4） */
+    private val _paragraphIndent = MutableStateFlow(2)
+    val paragraphIndent: StateFlow<Int> = _paragraphIndent.asStateFlow()
+
+    /** 段距（em，0..2.0） */
+    private val _paragraphSpacing = MutableStateFlow(0.6f)
+    val paragraphSpacing: StateFlow<Float> = _paragraphSpacing.asStateFlow()
+
+    /** 字距（em，-0.5..0.5） */
+    private val _letterSpacing = MutableStateFlow(0f)
+    val letterSpacing: StateFlow<Float> = _letterSpacing.asStateFlow()
 
     // ── 目录 / 搜索 ──
     private val _toc = MutableStateFlow<List<ReaderTocItem>>(emptyList())
@@ -174,7 +191,7 @@ class ReaderViewModel @Inject constructor(
             runCatching { userPreferences.readerFontSize.collect { _fontSize.value = it } }
         }
         viewModelScope.launch {
-            runCatching { userPreferences.readerLineHeight.collect { _lineHeight.value = it } }
+            runCatching { userPreferences.readerLineSpacing.collect { _lineHeight.value = it } }
         }
         viewModelScope.launch {
             runCatching { userPreferences.readerFontFamily.collect { _fontFamily.value = it } }
@@ -193,6 +210,18 @@ class ReaderViewModel @Inject constructor(
         }
         viewModelScope.launch {
             runCatching { userPreferences.readerCustomFontPath.collect { _customFontPath.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerFontWeight.collect { _fontWeight.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerParagraphIndent.collect { _paragraphIndent.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerParagraphSpacing.collect { _paragraphSpacing.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerLetterSpacing.collect { _letterSpacing.value = it } }
         }
     }
 
@@ -384,12 +413,32 @@ class ReaderViewModel @Inject constructor(
 
     fun onLineHeightChange(value: Float) {
         _lineHeight.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderLineHeight(value) } }
+        viewModelScope.launch { runCatching { userPreferences.setReaderLineSpacing(value) } }
     }
 
     fun onFontFamilyChange(value: String) {
         _fontFamily.value = value
         viewModelScope.launch { runCatching { userPreferences.setReaderFontFamily(value) } }
+    }
+
+    fun onFontWeightChange(value: Int) {
+        _fontWeight.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderFontWeight(value) } }
+    }
+
+    fun onParagraphIndentChange(value: Int) {
+        _paragraphIndent.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderParagraphIndent(value) } }
+    }
+
+    fun onParagraphSpacingChange(value: Float) {
+        _paragraphSpacing.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderParagraphSpacing(value) } }
+    }
+
+    fun onLetterSpacingChange(value: Float) {
+        _letterSpacing.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderLetterSpacing(value) } }
     }
 
     fun onReaderThemeChange(value: ReaderThemeMode) {

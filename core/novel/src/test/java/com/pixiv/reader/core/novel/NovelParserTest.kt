@@ -36,7 +36,8 @@ class NovelParserTest {
         assertEquals(listOf("Paragraph", "Paragraph", "Heading", "Paragraph", "Image", "Separator", "Paragraph"), types)
 
         val first = doc.blocks[0] as NovelBlock.Paragraph
-        assertTrue(first.text.startsWith(NovelParser.PARAGRAPH_INDENT))
+        // 解析层不再硬编码缩进前缀（缩进由阅读器设置 textIndent 控制）
+        assertFalse(first.text.startsWith(NovelParser.PARAGRAPH_INDENT))
         assertTrue(first.text.contains("第一段文字"))
 
         val heading = doc.blocks[2] as NovelBlock.Heading

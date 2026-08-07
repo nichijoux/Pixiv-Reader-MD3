@@ -18,13 +18,6 @@ internal fun escapeXml(s: String): String = buildString {
     }
 }
 
-/** 文件名清洗：替换文件系统非法字符（纯函数，可测）。 */
-internal fun sanitizeFileName(name: String): String =
-    name.replace(Regex("""[\\/:*?"<>|\r\n]"""), "_")
-        .trim()
-        .ifBlank { "novel" }
-        .take(80)
-
 internal fun ZipOutputStream.writeEntry(name: String, content: String) {
     writeEntry(name, content.toByteArray(Charsets.UTF_8))
 }

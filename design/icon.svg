@@ -1,0 +1,175 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+<defs>
+    <!-- 背景渐变 -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024">
+        <stop offset="0%" stop-color="#39A9FF"/>
+        <stop offset="55%" stop-color="#1685F5"/>
+        <stop offset="100%" stop-color="#075EEA"/>
+    </linearGradient>
+
+    <!-- 页面渐变 -->
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#FFFFFF"/>
+        <stop offset="100%" stop-color="#DCEEFF"/>
+    </linearGradient>
+
+    <!-- 阴影 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow 
+            dx="0" 
+            dy="15" 
+            stdDeviation="20" 
+            flood-color="#0055CC"
+            flood-opacity="0.35"/>
+    </filter>
+
+    <filter id="soft">
+        <feGaussianBlur stdDeviation="10"/>
+    </filter>
+</defs>
+
+
+<!-- App 圆角背景 -->
+<rect 
+x="48" 
+y="48" 
+width="928" 
+height="928"
+rx="210"
+fill="url(#bg)"
+/>
+
+
+<!-- 星光 -->
+<path d="
+M810 180
+L828 225
+L873 243
+L828 261
+L810 306
+L792 261
+L747 243
+L792 225Z"
+fill="white"
+opacity="0.9"/>
+
+<path d="
+M220 470
+L232 500
+L262 512
+L232 524
+L220 554
+L208 524
+L178 512
+L208 500Z"
+fill="white"
+opacity="0.8"/>
+
+
+<!-- P 标识 -->
+<path
+d="
+M370 260
+V650
+
+M370 270
+C370 270 520 190 680 280
+C790 345 750 510 620 535
+C530 550 450 520 370 480
+"
+stroke="white"
+stroke-width="55"
+stroke-linecap="round"
+stroke-linejoin="round"
+fill="none"
+/>
+
+
+<!-- 书本底部阴影 -->
+<ellipse
+cx="512"
+cy="835"
+rx="360"
+ry="55"
+fill="#004FC7"
+opacity="0.35"
+filter="url(#soft)"
+/>
+
+
+<!-- 左侧书页 -->
+<path
+d="
+M120 670
+C260 660 390 720 512 850
+V970
+C390 850 250 820 120 830
+Z"
+fill="url(#page)"
+filter="url(#shadow)"
+/>
+
+
+<!-- 右侧书页 -->
+<path
+d="
+M512 850
+C650 720 780 660 904 670
+V830
+C780 820 640 850 512 970
+Z"
+fill="url(#page)"
+filter="url(#shadow)"
+/>
+
+
+<!-- 中央书脊 -->
+<path
+d="
+M512 850
+C480 820 470 820 430 800
+C460 860 480 900 512 970
+C544 900 564 860 594 800
+C554 820 544 820 512 850Z"
+fill="#E8F4FF"
+/>
+
+
+<!-- 右侧翻页 -->
+<path
+d="
+M620 840
+C700 760 770 720 860 710
+C790 760 720 820 650 900
+Z"
+fill="white"
+opacity="0.85"
+/>
+
+
+<!-- 高光 -->
+<path
+d="
+M110 680
+C260 660 390 720 470 800
+"
+stroke="white"
+stroke-width="18"
+opacity="0.45"
+fill="none"
+/>
+
+<path
+d="
+M914 680
+C760 660 630 720 550 800
+"
+stroke="white"
+stroke-width="18"
+opacity="0.45"
+fill="none"
+/>
+
+</svg>

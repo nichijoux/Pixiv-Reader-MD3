@@ -15,8 +15,20 @@
     <!-- 阅读设置面板 -->
     <string name="reader_settings_title">阅读设置</string>
     <string name="reader_settings_font_size">字号</string>
+    <string name="reader_settings_font_weight">字重</string>
+    <string name="reader_settings_font_weight_thin">细体</string>
+    <string name="reader_settings_font_weight_normal">常规</string>
+    <string name="reader_settings_font_weight_bold">粗体</string>
+    <string name="reader_settings_font_weight_custom">自定义</string>
+    <string name="reader_settings_font_weight_custom_desc">自定义字重</string>
+    <string name="reader_settings_indent">缩进</string>
+    <string name="reader_settings_indent_value">%1$d 字</string>
+    <string name="reader_settings_paragraph_spacing">段距</string>
     <string name="reader_settings_line_spacing">行距</string>
+    <string name="reader_settings_letter_spacing">字距</string>
+    <string name="reader_settings_section_typography">排版</string>
     <string name="reader_settings_brightness">亮度</string>
+    <string name="reader_settings_brightness_auto">自动</string>
     <string name="reader_settings_section_font">字体</string>
     <string name="reader_settings_change_custom_font">更换自定义字体</string>
     <string name="reader_settings_import_custom_font">导入自定义字体</string>

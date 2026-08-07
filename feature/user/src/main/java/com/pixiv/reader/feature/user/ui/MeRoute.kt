@@ -65,6 +65,8 @@ fun MeRoute(
     val viewerOrientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
     val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
+    val novelFileNameTemplate by viewModel.novelFileNameTemplate.collectAsStateWithLifecycle()
+    val clipboardLinkPrompt by viewModel.clipboardLinkPrompt.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     val activity = context as? Activity
@@ -74,6 +76,8 @@ fun MeRoute(
     var showClearCache by remember { mutableStateOf(false) }
     // 退出登录确认（提示类，非删除）
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    // 小说下载命名模板编辑
+    var showFileNameTemplate by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
@@ -145,8 +149,12 @@ fun MeRoute(
                 MeBrowseSection(
                     novelDefaultTab = novelDefaultTab,
                     viewerOrientation = viewerOrientation,
+                    clipboardLinkPrompt = clipboardLinkPrompt,
+                    novelFileNameTemplate = novelFileNameTemplate,
                     onSetNovelDefaultTab = viewModel::setNovelDefaultTab,
                     onSetViewerOrientation = viewModel::setViewerOrientation,
+                    onSetClipboardLinkPrompt = viewModel::setClipboardLinkPrompt,
+                    onOpenFileNameTemplate = { showFileNameTemplate = true },
                 )
 
                 // ── 系统设置（每项独立卡片：自动更新 / 存储） ──
@@ -192,6 +200,22 @@ fun MeRoute(
                 showClearCache = false
             },
             onDismiss = { showClearCache = false },
+        )
+    }
+
+    // 小说下载命名模板编辑
+    if (showFileNameTemplate) {
+        NovelFileNameTemplateDialog(
+            initialTemplate = novelFileNameTemplate,
+            onSave = { template ->
+                viewModel.setNovelFileNameTemplate(template)
+                showFileNameTemplate = false
+            },
+            onReset = {
+                viewModel.resetNovelFileNameTemplate()
+                showFileNameTemplate = false
+            },
+            onDismiss = { showFileNameTemplate = false },
         )
     }
 

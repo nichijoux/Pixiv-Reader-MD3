@@ -1,5 +1,7 @@
 package com.pixiv.reader.feature.reader.ui
 
+import android.app.Activity
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -42,11 +44,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -152,6 +154,10 @@ fun ReaderRoute(
     val fontSize by viewModel.fontSize.collectAsStateWithLifecycle()
     val lineHeight by viewModel.lineHeight.collectAsStateWithLifecycle()
     val fontFamily by viewModel.fontFamily.collectAsStateWithLifecycle()
+    val fontWeight by viewModel.fontWeight.collectAsStateWithLifecycle()
+    val paragraphIndent by viewModel.paragraphIndent.collectAsStateWithLifecycle()
+    val paragraphSpacing by viewModel.paragraphSpacing.collectAsStateWithLifecycle()
+    val letterSpacing by viewModel.letterSpacing.collectAsStateWithLifecycle()
     val readerTheme by viewModel.readerTheme.collectAsStateWithLifecycle()
     val pageMode by viewModel.pageMode.collectAsStateWithLifecycle()
     val brightness by viewModel.brightness.collectAsStateWithLifecycle()
@@ -244,6 +250,34 @@ fun ReaderRoute(
         onDispose { viewModel.flushProgress() }
     }
 
+    // 亮度联动系统（真实屏幕亮度，非遮罩）：
+    // screenBrightness 为窗口属性——滑块值直接应用（0.05~1.0），拖到最右 1.0 = 跟随系统（不覆盖）；
+    // reader 页在 MainActivity 内，离开页面需恢复进入前的窗口亮度
+    val window = (LocalContext.current as? Activity)?.window
+    val originalScreenBrightness = remember {
+        window?.attributes?.screenBrightness ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+    }
+    LaunchedEffect(brightness) {
+        val w = window ?: return@LaunchedEffect
+        val lp = w.attributes
+        lp.screenBrightness = if (brightness >= 1f) {
+            WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        } else {
+            brightness.coerceIn(0.05f, 1f)
+        }
+        w.attributes = lp
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            val w = window ?: return@onDispose
+            val lp = w.attributes
+            if (lp.screenBrightness != originalScreenBrightness) {
+                lp.screenBrightness = originalScreenBrightness
+                w.attributes = lp
+            }
+        }
+    }
+
     val readerScope = rememberCoroutineScope()
     // 翻页模式：把 pagerState 提到外层，供左右边缘点击翻页与 HorizontalPager 共用
     val pagerStateRef =
@@ -331,6 +365,7 @@ fun ReaderRoute(
                                 val navBarBottom = WindowInsets.navigationBars
                                     .asPaddingValues()
                                     .calculateBottomPadding()
+                                val density = LocalDensity.current
                                 val pageHeight =
                                     maxHeight - PAGE_V_PADDING * 2 - navBarBottom - READER_STATUS_BAR_HEIGHT
                                 val fontFamilyInstance =
@@ -338,8 +373,14 @@ fun ReaderRoute(
                                 val baseStyle = rememberReaderTextStyle(
                                     fontSize,
                                     lineHeight,
-                                    fontFamilyInstance
+                                    fontFamilyInstance,
+                                    fontWeight,
+                                    paragraphIndent,
+                                    letterSpacing,
                                 )
+                                val paragraphSpacingDp = with(density) {
+                                    (fontSize * paragraphSpacing).sp.toDp()
+                                }
                                 val imageHeight = readerImageHeight(contentWidth)
                                 val restoreOffset = if (progressRestored) charOffset else 0
 
@@ -348,6 +389,7 @@ fun ReaderRoute(
                                         document = doc,
                                         baseStyle = baseStyle,
                                         imageHeight = imageHeight,
+                                        paragraphSpacing = paragraphSpacingDp,
                                         restoreCharOffset = restoreOffset,
                                         jumpToChar = jumpToChar,
                                         onScrollOffset = viewModel::reportScrollOffset,
@@ -360,8 +402,12 @@ fun ReaderRoute(
                                     val pages: List<ReaderPage> = rememberReaderPages(
                                         document = doc,
                                         fontSizeSp = fontSize,
-                                        lineHeightMultiplier = lineHeight,
+                                        lineSpacing = lineHeight,
                                         fontFamilyName = fontFamily,
+                                        fontWeight = fontWeight,
+                                        indentCount = paragraphIndent,
+                                        letterSpacingEm = letterSpacing,
+                                        paragraphSpacingEm = paragraphSpacing,
                                         customFont = customFont,
                                         contentWidthDp = contentWidth,
                                         pageHeightDp = pageHeight,
@@ -432,15 +478,6 @@ fun ReaderRoute(
                     }
                 }
             }
-        }
-
-        // 亮度遮罩（0.3 ~ 1.0，1.0 为不遮）
-        if (brightness < 1f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 1f - brightness)),
-            )
         }
 
         // 顶栏浮层：返回 / 标题 / 更多（浮在正文之上，不挤压正文布局）
@@ -526,6 +563,10 @@ fun ReaderRoute(
             fontSize = fontSize,
             lineHeight = lineHeight,
             fontFamilyKey = fontFamily,
+            fontWeight = fontWeight,
+            paragraphIndent = paragraphIndent,
+            paragraphSpacing = paragraphSpacing,
+            letterSpacing = letterSpacing,
             theme = effectiveTheme,
             pageMode = pageMode,
             brightness = brightness,
@@ -534,6 +575,10 @@ fun ReaderRoute(
             onFontSizeChange = viewModel::onFontSizeChange,
             onLineHeightChange = viewModel::onLineHeightChange,
             onFontFamilyChange = viewModel::onFontFamilyChange,
+            onFontWeightChange = viewModel::onFontWeightChange,
+            onParagraphIndentChange = viewModel::onParagraphIndentChange,
+            onParagraphSpacingChange = viewModel::onParagraphSpacingChange,
+            onLetterSpacingChange = viewModel::onLetterSpacingChange,
             onThemeChange = viewModel::onReaderThemeChange,
             onPageModeChange = viewModel::onPageModeChange,
             onBrightnessChange = viewModel::onBrightnessChange,

@@ -1,6 +1,9 @@
 package com.pixiv.reader.feature.novel
 
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.NovelFileNameTemplate
+import com.pixiv.reader.core.common.renderNovelFileName
+import com.pixiv.reader.core.common.sanitizeFileName
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.feature.novel.data.EpubImage
@@ -12,7 +15,6 @@ import com.pixiv.reader.feature.novel.data.buildTxt
 import com.pixiv.reader.feature.novel.data.docxHeading
 import com.pixiv.reader.feature.novel.data.escapeXml
 import com.pixiv.reader.feature.novel.data.formatChapters
-import com.pixiv.reader.feature.novel.data.sanitizeFileName
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 import org.junit.Assert.assertEquals
@@ -39,6 +41,68 @@ class NovelExporterTest {
         assertEquals("novel", sanitizeFileName(""))
         assertEquals("novel", sanitizeFileName("   "))
         assertFalse(sanitizeFileName("标题/系列").contains('/'))
+    }
+
+    @Test
+    fun `renderNovelFileName 默认模板与系列回退`() {
+        // 默认模板 {series}_{id}：非系列回退本作标题
+        assertEquals(
+            "测试小说_123",
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT, "测试小说", "作者", 123L, null),
+        )
+        // 系列：用系列标题
+        assertEquals(
+            "示例系列_123",
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT, "测试小说", "作者", 123L, "示例系列"),
+        )
+    }
+
+    @Test
+    fun `renderNovelFileName 全部占位符替换`() {
+        val template = "{title}@{author}_{id}_{series}"
+        assertEquals(
+            "测试小说@作者_123_示例系列",
+            renderNovelFileName(template, "测试小说", "作者", 123L, "示例系列"),
+        )
+        // 作者缺失 → 空串
+        assertEquals(
+            "测试小说@_123_示例系列",
+            renderNovelFileName(template, "测试小说", null, 123L, "示例系列"),
+        )
+    }
+
+    @Test
+    fun `renderNovelFileName 日期与收藏数占位符`() {
+        val template = "{date}_{favcount}"
+        // 日期取 ISO 前 10 位
+        assertEquals(
+            "2023-01-15_1200",
+            renderNovelFileName(
+                template,
+                "测试小说", null, 123L, null,
+                publishDate = "2023-01-15T12:00:00+09:00",
+                favoriteCount = 1200,
+            ),
+        )
+        // 缺失 → 空串
+        assertEquals(
+            "_",
+            renderNovelFileName(template, "测试小说", null, 123L, null),
+        )
+    }
+
+    @Test
+    fun `renderNovelFileName 清洗非法字符与空白回退`() {
+        // 标题含非法字符 → 清洗
+        assertEquals(
+            "测试_小说_123",
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT, "测试/小说", null, 123L, null),
+        )
+        // 模板不含占位符且为空白 → 回退默认
+        assertEquals(
+            "测试小说_123",
+            renderNovelFileName("   ", "测试小说", null, 123L, null),
+        )
     }
 
     @Test

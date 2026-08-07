@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标前景（以 design/icon.svg 为基础）：pixiv 白 P + 翻开书页 + 星光 + 高光。
+  整体缩放 0.66（pivot 512,512）：图形落在中心 66dp 安全区内，
+  圆形 / 圆角方形等启动器遮罩下完整可见（外圈 21dp 留给遮罩视差）。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+
+    <group
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:pivotX="512"
+        android:pivotY="512">
+
+        <!-- 星光 -->
+        <path
+            android:pathData="M810,180 L828,225 L873,243 L828,261 L810,306 L792,261 L747,243 L792,225 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.9" />
+        <path
+            android:pathData="M220,470 L232,500 L262,512 L232,524 L220,554 L208,524 L178,512 L208,500 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.8" />
+
+        <!-- P 标识（pixiv） -->
+        <path
+            android:pathData="M370,260 V650 M370,270 C370,270 520,190 680,280 C790,345 750,510 620,535 C530,550 450,520 370,480"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="55"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- 书本底部阴影 -->
+        <path
+            android:pathData="M512,835 m-360,0 a360,55 0 1,0 720,0 a360,55 0 1,0 -720,0"
+            android:fillColor="#004FC7"
+            android:fillAlpha="0.35" />
+
+        <!-- 左侧书页（白 → 浅蓝渐变） -->
+        <path
+            android:pathData="M120,670 C260,660 390,720 512,850 V970 C390,850 250,820 120,830 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="120" android:startY="670"
+                    android:endX="120" android:endY="970"
+                    android:startColor="#FFFFFF"
+                    android:endColor="#DCEEFF" />
+            </aapt:attr>
+        </path>
+
+        <!-- 右侧书页 -->
+        <path
+            android:pathData="M512,850 C650,720 780,660 904,670 V830 C780,820 640,850 512,970 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="512" android:startY="850"
+                    android:endX="512" android:endY="970"
+                    android:startColor="#FFFFFF"
+                    android:endColor="#DCEEFF" />
+            </aapt:attr>
+        </path>
+
+        <!-- 中央书脊 -->
+        <path
+            android:pathData="M512,850 C480,820 470,820 430,800 C460,860 480,900 512,970 C544,900 564,860 594,800 C554,820 544,820 512,850 Z"
+            android:fillColor="#E8F4FF" />
+
+        <!-- 右侧翻页 -->
+        <path
+            android:pathData="M620,840 C700,760 770,720 860,710 C790,760 720,820 650,900 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.85" />
+
+        <!-- 高光 -->
+        <path
+            android:pathData="M110,680 C260,660 390,720 470,800"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="18"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:strokeAlpha="0.45" />
+        <path
+            android:pathData="M914,680 C760,660 630,720 550,800"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="18"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:strokeAlpha="0.45" />
+    </group>
+</vector>

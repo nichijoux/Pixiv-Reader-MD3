@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixiv Reader · 应用图标设计稿 v3</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#0B1220}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:#E7ECF2;padding:40px 20px 80px}
+  h1{font-size:24px;font-weight:700;letter-spacing:.5px}
+  h1 small{display:block;font-size:13px;font-weight:500;color:#8FA0B5;margin-top:6px;letter-spacing:.5px}
+  .stage{max-width:1200px;margin:30px auto 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:40px 26px;justify-items:center}
+
+  .card{width:430px;background:#151E2E;border-radius:18px;padding:20px 22px 22px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
+  .card .head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+  .card .badge{font-size:12px;font-weight:700;color:#0B1220;background:#7CC4F9;border-radius:6px;padding:2px 8px;letter-spacing:.4px}
+  .card h2{font-size:17px;font-weight:700}
+  .card .desc{font-size:12px;color:#8FA0B5;margin-top:3px;line-height:1.55}
+  .card .tagrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .tag{font-size:10.5px;color:#9FD4FF;background:#1E3A5C;border-radius:10px;padding:2px 9px}
+  .previews{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  .pv{text-align:center}
+  .pv .t{font-size:10.5px;color:#8FA0B5;margin-bottom:6px}
+  .wall{height:96px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+  .wall.light{background:linear-gradient(135deg,#E8F1FA,#CFE0F0)}
+  .wall.dark{background:linear-gradient(135deg,#101827,#1B2940)}
+  .wall .mask{width:64px;height:64px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .wall .mask.rounded{border-radius:14px}
+  .wall .mask.circle{border-radius:50%}
+  .wall svg{width:64px;height:64px}
+  .legend{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;font-size:12px;color:#8FA0B5;margin-top:6px}
+  .legend b{color:#C9D6E8;font-weight:600}
+</style>
+</head>
+<body>
+
+<h1>Pixiv Reader · 应用图标设计稿 v3<small>放弃字母拼贴 · 渐变蓝底（#0F6FB8→#0096FA 保留 pixiv 蓝）× 单一符号化图形 · 108dp 矢量 · 圆形 / 圆角方形遮罩</small></h1>
+
+<div class="stage"><div class="grid">
+
+<!-- ════════ v3-A：书签 + 文字线 ════════ -->
+<div class="card">
+  <div class="head"><span class="badge">A · 推荐</span><h2>书签 + 文字线</h2></div>
+  <div class="desc">白色书签（底部 V 缺口）居中，书签上是三条蓝色圆角文字线——「阅读中」+「文本排版」一体，饱满、直观、小尺寸清晰。</div>
+  <div class="tagrow"><span class="tag">pixiv 渐变蓝底</span><span class="tag">白色书签</span><span class="tag">文字线 = 排版</span></div>
+  <div class="previews">
+    <div class="pv"><div class="t">圆角方形 · 浅</div><div class="wall light"><div class="mask rounded"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="ga" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" rx="26" fill="url(#ga)"/>
+      <path d="M41,26 h26 a5,5 0 0 1 5,5 v25 c0,6 -5,10 -12,12 l-6,7 l-6,-7 c-7,-2 -12,-6 -12,-12 v-25 a5,5 0 0 1 5,-5 z" fill="#FFFFFF"/>
+      <rect x="47" y="35" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="44" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="53" width="10" height="4.2" rx="2.1" fill="#0096FA"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆形 · 浅</div><div class="wall light"><div class="mask circle"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" fill="url(#gb)"/>
+      <path d="M41,26 h26 a5,5 0 0 1 5,5 v25 c0,6 -5,10 -12,12 l-6,7 l-6,-7 c-7,-2 -12,-6 -12,-12 v-25 a5,5 0 0 1 5,-5 z" fill="#FFFFFF"/>
+      <rect x="47" y="35" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="44" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="53" width="10" height="4.2" rx="2.1" fill="#0096FA"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆角方形 · 深</div><div class="wall dark"><div class="mask rounded"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" rx="26" fill="url(#gc)"/>
+      <path d="M41,26 h26 a5,5 0 0 1 5,5 v25 c0,6 -5,10 -12,12 l-6,7 l-6,-7 c-7,-2 -12,-6 -12,-12 v-25 a5,5 0 0 1 5,-5 z" fill="#FFFFFF"/>
+      <rect x="47" y="35" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="44" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="53" width="10" height="4.2" rx="2.1" fill="#0096FA"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆形 · 深</div><div class="wall dark"><div class="mask circle"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" fill="url(#gd)"/>
+      <path d="M41,26 h26 a5,5 0 0 1 5,5 v25 c0,6 -5,10 -12,12 l-6,7 l-6,-7 c-7,-2 -12,-6 -12,-12 v-25 a5,5 0 0 1 5,-5 z" fill="#FFFFFF"/>
+      <rect x="47" y="35" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="44" width="14" height="4.2" rx="2.1" fill="#0096FA"/>
+      <rect x="47" y="53" width="10" height="4.2" rx="2.1" fill="#0096FA"/>
+    </svg></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ v3-B：文本线 + 书签条 ════════ -->
+<div class="card">
+  <div class="head"><span class="badge">B</span><h2>文本线 + 书签条</h2></div>
+  <div class="desc">极简线条构成：三条左对齐的白色圆角文字线（像书页正文），右侧一条红色书签条垂在行尾——「正在读到这里」。留白多、气质现代。</div>
+  <div class="tagrow"><span class="tag">pixiv 渐变蓝底</span><span class="tag">文本线</span><span class="tag">红书签 = 进度</span></div>
+  <div class="previews">
+    <div class="pv"><div class="t">圆角方形 · 浅</div><div class="wall light"><div class="mask rounded"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gba" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" rx="26" fill="url(#gba)"/>
+      <rect x="32" y="38" width="40" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="52" width="32" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="66" width="24" height="5" rx="2.5" fill="#FFFFFF"/>
+      <path d="M64,24 h7 v30 l-3.5,-4.5 l-3.5,4.5 z" fill="#FF4D4F"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆形 · 浅</div><div class="wall light"><div class="mask circle"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gbb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" fill="url(#gbb)"/>
+      <rect x="32" y="38" width="40" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="52" width="32" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="66" width="24" height="5" rx="2.5" fill="#FFFFFF"/>
+      <path d="M64,24 h7 v30 l-3.5,-4.5 l-3.5,4.5 z" fill="#FF4D4F"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆角方形 · 深</div><div class="wall dark"><div class="mask rounded"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gbc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" rx="26" fill="url(#gbc)"/>
+      <rect x="32" y="38" width="40" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="52" width="32" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="66" width="24" height="5" rx="2.5" fill="#FFFFFF"/>
+      <path d="M64,24 h7 v30 l-3.5,-4.5 l-3.5,4.5 z" fill="#FF4D4F"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆形 · 深</div><div class="wall dark"><div class="mask circle"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gbd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" fill="url(#gbd)"/>
+      <rect x="32" y="38" width="40" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="52" width="32" height="5" rx="2.5" fill="#FFFFFF"/>
+      <rect x="32" y="66" width="24" height="5" rx="2.5" fill="#FFFFFF"/>
+      <path d="M64,24 h7 v30 l-3.5,-4.5 l-3.5,4.5 z" fill="#FF4D4F"/>
+    </svg></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ v3-C：翻页纸 ════════ -->
+<div class="card">
+  <div class="head"><span class="badge">C</span><h2>翻页纸</h2></div>
+  <div class="desc">白色纸页 + 右上角掀起（露出蓝底折角 + 白色折痕线）+ 三条浅蓝文字线——「正在翻页/阅读中」的动态瞬间，纸页意象最完整。</div>
+  <div class="tagrow"><span class="tag">pixiv 渐变蓝底</span><span class="tag">纸页 + 翻页角</span><span class="tag">文字线</span></div>
+  <div class="previews">
+    <div class="pv"><div class="t">圆角方形 · 浅</div><div class="wall light"><div class="mask rounded"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gca" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" rx="26" fill="url(#gca)"/>
+      <rect x="30" y="32" width="48" height="46" rx="4" fill="#FFFFFF"/>
+      <path d="M70,32 L78,32 L78,40 Z" fill="#0096FA"/>
+      <path d="M70,32 L78,40" stroke="#0F6FB8" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <rect x="38" y="42" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="51" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="60" width="22" height="3.4" rx="1.7" fill="#7CC4F9"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆形 · 浅</div><div class="wall light"><div class="mask circle"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gcb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" fill="url(#gcb)"/>
+      <rect x="30" y="32" width="48" height="46" rx="4" fill="#FFFFFF"/>
+      <path d="M70,32 L78,32 L78,40 Z" fill="#0096FA"/>
+      <path d="M70,32 L78,40" stroke="#0F6FB8" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <rect x="38" y="42" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="51" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="60" width="22" height="3.4" rx="1.7" fill="#7CC4F9"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆角方形 · 深</div><div class="wall dark"><div class="mask rounded"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gcc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" rx="26" fill="url(#gcc)"/>
+      <rect x="30" y="32" width="48" height="46" rx="4" fill="#FFFFFF"/>
+      <path d="M70,32 L78,32 L78,40 Z" fill="#0096FA"/>
+      <path d="M70,32 L78,40" stroke="#0F6FB8" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <rect x="38" y="42" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="51" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="60" width="22" height="3.4" rx="1.7" fill="#7CC4F9"/>
+    </svg></div></div></div>
+    <div class="pv"><div class="t">圆形 · 深</div><div class="wall dark"><div class="mask circle"><svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gcd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F6FB8"/><stop offset="1" stop-color="#0096FA"/></linearGradient></defs>
+      <rect x="0" y="0" width="108" height="108" fill="url(#gcd)"/>
+      <rect x="30" y="32" width="48" height="46" rx="4" fill="#FFFFFF"/>
+      <path d="M70,32 L78,32 L78,40 Z" fill="#0096FA"/>
+      <path d="M70,32 L78,40" stroke="#0F6FB8" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <rect x="38" y="42" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="51" width="30" height="3.4" rx="1.7" fill="#7CC4F9"/>
+      <rect x="38" y="60" width="22" height="3.4" rx="1.7" fill="#7CC4F9"/>
+    </svg></div></div></div>
+  </div>
+</div>
+
+</div>
+<div class="legend">
+  <b>说明</b>：全新方向——不再使用字母拼贴；背景统一 pixiv 渐变蓝（#0F6FB8→#0096FA），前景单一符号（书签 / 文本线+书签条 / 翻页纸）。选定后产出 Android vector drawable（含 linearGradient，可直接落地）替换 ic_launcher.xml 并重打包。
+</div>
+</div>
+</body>
+</html>
