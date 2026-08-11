@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.feature.reader.R
@@ -25,13 +24,13 @@ import com.pixiv.reader.feature.reader.state.pageIndexForChar
 internal fun PagerReaderContent(
     pagerState: PagerState,
     pages: List<ReaderPage>,
-    baseStyle: TextStyle,
-    imageHeight: Dp,
+    pageHeight: Dp,
     restoreCharOffset: Int,
     onPageChange: (Int) -> Unit,
     onPageInfo: (Int, Int) -> Unit,
     jumpToChar: Int?,
     modifier: Modifier = Modifier,
+
 ) {
     var restored by remember { mutableStateOf(false) }
 
@@ -63,10 +62,11 @@ internal fun PagerReaderContent(
     HorizontalPager(state = pagerState, modifier = modifier) { index ->
         RenderReaderPage(
             pages[index],
-            baseStyle,
+            pageHeight,
             Modifier
                 .fillMaxSize()
-                .padding(PAGE_H_PADDING, PAGE_V_PADDING)
+                .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+
         )
     }
 }

@@ -72,6 +72,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderViewModel
 import com.pixiv.reader.feature.reader.state.ReaderPage
+import com.pixiv.reader.feature.reader.state.rememberReaderElements
 import com.pixiv.reader.feature.reader.state.rememberReaderFontFamily
 import com.pixiv.reader.feature.reader.state.rememberReaderPages
 import com.pixiv.reader.feature.reader.state.rememberReaderTextStyle
@@ -365,7 +366,6 @@ fun ReaderRoute(
                                 val navBarBottom = WindowInsets.navigationBars
                                     .asPaddingValues()
                                     .calculateBottomPadding()
-                                val density = LocalDensity.current
                                 val pageHeight =
                                     maxHeight - PAGE_V_PADDING * 2 - navBarBottom - READER_STATUS_BAR_HEIGHT
                                 val fontFamilyInstance =
@@ -377,19 +377,22 @@ fun ReaderRoute(
                                     fontWeight,
                                     paragraphIndent,
                                     letterSpacing,
+                                    // 阅读器主题文字色（NIGHT/DEEP_BLACK 下正文可读）
+                                    textColor = themeColors.text,
                                 )
-                                val paragraphSpacingDp = with(density) {
-                                    (fontSize * paragraphSpacing).sp.toDp()
-                                }
-                                val imageHeight = readerImageHeight(contentWidth)
                                 val restoreOffset = if (progressRestored) charOffset else 0
 
                                 if (pageMode == ReaderPageMode.SCROLL) {
-                                    ScrollReaderContent(
+                                    // 行元素流：与分页模式共用同一排版引擎（行是元素，段落只是排版输入）
+                                    val elements = rememberReaderElements(
                                         document = doc,
                                         baseStyle = baseStyle,
-                                        imageHeight = imageHeight,
-                                        paragraphSpacing = paragraphSpacingDp,
+                                        paragraphSpacingEm = paragraphSpacing,
+                                        contentWidthDp = contentWidth,
+                                        imageHeightDp = readerImageHeight(contentWidth),
+                                    )
+                                    ScrollReaderContent(
+                                        elements = elements,
                                         restoreCharOffset = restoreOffset,
                                         jumpToChar = jumpToChar,
                                         onScrollOffset = viewModel::reportScrollOffset,
@@ -401,14 +404,8 @@ fun ReaderRoute(
                                 } else {
                                     val pages: List<ReaderPage> = rememberReaderPages(
                                         document = doc,
-                                        fontSizeSp = fontSize,
-                                        lineSpacing = lineHeight,
-                                        fontFamilyName = fontFamily,
-                                        fontWeight = fontWeight,
-                                        indentCount = paragraphIndent,
-                                        letterSpacingEm = letterSpacing,
+                                        baseStyle = baseStyle,
                                         paragraphSpacingEm = paragraphSpacing,
-                                        customFont = customFont,
                                         contentWidthDp = contentWidth,
                                         pageHeightDp = pageHeight,
                                     )
@@ -416,8 +413,7 @@ fun ReaderRoute(
                                         // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
                                         SimulationPageContent(
                                             pages = pages,
-                                            baseStyle = baseStyle,
-                                            imageHeight = imageHeight,
+                                            pageHeight = pageHeight,
                                             backgroundColor = themeColors.background,
                                             restoreCharOffset = restoreOffset,
                                             jumpToChar = jumpToChar,
@@ -444,8 +440,7 @@ fun ReaderRoute(
                                         PagerReaderContent(
                                             pagerState = pagerState,
                                             pages = pages,
-                                            baseStyle = baseStyle,
-                                            imageHeight = imageHeight,
+                                            pageHeight = pageHeight,
                                             restoreCharOffset = restoreOffset,
                                             jumpToChar = jumpToChar,
                                             onPageChange = { index ->

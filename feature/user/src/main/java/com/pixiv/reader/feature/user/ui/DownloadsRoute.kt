@@ -211,7 +211,7 @@ private fun IllustDownloadList(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalItemSpacing = 8.dp,
     ) {
-        items(entries, key = { it.targetId }) { entry ->
+        items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
             Box {
                 IllustCard(
                     illust = entry.toDownloadIllust(),
@@ -255,7 +255,7 @@ private fun NovelDownloadList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items(entries, key = { it.targetId }) { entry ->
+        items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
             Column {
                 Box {
                     val card = entry.toDownloadNovelCard(context)

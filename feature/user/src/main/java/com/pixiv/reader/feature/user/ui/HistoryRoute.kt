@@ -299,11 +299,30 @@ private fun BrowseHistoryEntity.toIllust(): Illust {
 }
 
 private fun BrowseHistoryEntity.toNovelCardData(context: Context): NovelCardData {
-    // 优先解析完整 payloadJson（新记录）；旧记录/失败回退最小数据
+    // 优先解析完整 payloadJson（新记录）；旧记录/失败回退最小数据。
+    // Gson 对 Kotlin data class 用 UnsafeAllocator 绕过构造器：JSON 缺失的非空字段
+    // 会被置为 null 且不抛异常——必须字段级补默认值，否则 NovelCard 渲染 NPE 闪退
     val parsed = payloadJson?.let {
         runCatching { Gson().fromJson(it, NovelCardData::class.java) }.getOrNull()
     }
-    if (parsed != null) return parsed
+    if (parsed != null) {
+        return NovelCardData(
+            id = if (parsed.id != 0L) parsed.id else targetId,
+            title = parsed.title?.takeIf { it.isNotBlank() }
+                ?: (title ?: context.getString(R.string.untitled)),
+            coverUrl = parsed.coverUrl ?: coverUrl,
+            authorId = parsed.authorId,
+            authorName = parsed.authorName ?: "",
+            authorAvatarUrl = parsed.authorAvatarUrl,
+            publishDate = parsed.publishDate,
+            seriesTitle = parsed.seriesTitle,
+            seriesId = parsed.seriesId,
+            favoriteCount = parsed.favoriteCount,
+            wordCount = parsed.wordCount,
+            tags = parsed.tags,
+            isFavorite = parsed.isFavorite,
+        )
+    }
     return NovelCardData(
         id = targetId,
         title = title ?: context.getString(R.string.untitled),

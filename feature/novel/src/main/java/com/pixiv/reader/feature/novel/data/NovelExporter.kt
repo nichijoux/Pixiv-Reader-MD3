@@ -565,38 +565,47 @@ class NovelExporter @Inject constructor(
             y -= leading
         }
 
+        fun newPage() {
+            content.endText()
+            content.close()
+            page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            content = PDPageContentStream(doc, page)
+            y = page.mediaBox.height - margin
+            content.beginText()
+            if (font != null) content.setFont(font, fontSize)
+            content.newLineAtOffset(margin, y)
+        }
+
         for (line in text.lines()) {
             if (line.isBlank()) {
                 // 空行保持占位，避免段落粘连
-                if (y < margin + leading) {
-                    content.endText()
-                    content.close()
-                    page = PDPage(PDRectangle.A4)
-                    doc.addPage(page)
-                    content = PDPageContentStream(doc, page)
-                    y = page.mediaBox.height - margin
-                    content.beginText()
-                    if (font != null) content.setFont(font, fontSize)
-                    content.newLineAtOffset(margin, y)
-                }
+                if (y < margin + leading) newPage()
                 finishLine()
                 continue
             }
             val lines =
                 if (font != null) wrapPdfLine(font, fontSize, line, usableWidth) else listOf(line)
             for (wl in lines) {
-                if (y < margin + leading) {
-                    content.endText()
-                    content.close()
-                    page = PDPage(PDRectangle.A4)
-                    doc.addPage(page)
-                    content = PDPageContentStream(doc, page)
-                    y = page.mediaBox.height - margin
-                    content.beginText()
-                    if (font != null) content.setFont(font, fontSize)
-                    content.newLineAtOffset(margin, y)
+                if (y < margin + leading) newPage()
+                // showText 内部处理 () \ 转义，勿再手动转义；
+                // 个别字符字体无法编码（如特殊符号/Helvetica 下的中文）会抛异常——
+                // 整行失败时逐字符降级为 '?'，保证导出不中断
+                try {
+                    content.showText(wl)
+                } catch (e: Exception) {
+                    content.showText(
+                        wl.map { ch ->
+                            if (font != null &&
+                                runCatching { font.encode(ch.toString()) }.isSuccess
+                            ) {
+                                ch
+                            } else {
+                                '?'
+                            }
+                        }.joinToString(""),
+                    )
                 }
-                content.showText(pdfEscape(wl))
                 finishLine()
             }
         }
@@ -604,7 +613,7 @@ class NovelExporter @Inject constructor(
         content.close()
     }
 
-    /** 按显示宽度断行（宽度 = font.getStringWidth * fontSize / 1000）。 */
+    /** 按显示宽度断行（字符级增量累加宽度，大文本 O(n) 而非 O(n²)）。 */
     private fun wrapPdfLine(
         font: PDFont,
         fontSize: Float,
@@ -615,31 +624,21 @@ class NovelExporter @Inject constructor(
         val lines = mutableListOf<String>()
         var start = 0
         var lastGood = 0
+        var width = 0f
         for (i in 1..line.length) {
-            val width = font.getStringWidth(line.substring(start, i)) * fontSize / 1000f
+            width += font.getStringWidth(line[i - 1].toString()) * fontSize / 1000f
             if (width > maxWidth) {
                 if (lastGood == start) lastGood = i // 单字超宽也断，避免死循环
                 lines.add(line.substring(start, lastGood))
                 start = lastGood
                 lastGood = start
+                width = 0f
             } else {
                 lastGood = i
             }
         }
         if (start < line.length) lines.add(line.substring(start))
         return lines
-    }
-
-    /** PDF 文本串转义（`\` `(` `)`）。 */
-    private fun pdfEscape(s: String): String = buildString {
-        for (c in s) {
-            when (c) {
-                '\\' -> append("\\\\")
-                '(' -> append("\\(")
-                ')' -> append("\\)")
-                else -> append(c)
-            }
-        }
     }
 
     /** 下载图片字节（带 Referer 的 imageClient；失败返回 null）。 */

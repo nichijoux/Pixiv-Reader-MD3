@@ -13,9 +13,9 @@ data class ReaderTocItem(
     val charOffset: Int = 0,
 )
 
-/** 页内元素：一行文本 或 一张图片。 */
+/** 页内元素：一行文本 / 段距空隙 / 一张图片。 */
 sealed class PageElement {
-    /** 该元素对应的全文字符区间（图片恒为 0,0）。 */
+    /** 该元素对应的全文字符区间（空隙/图片恒为 0,0）。 */
     abstract val startChar: Int
     abstract val endChar: Int
 
@@ -24,9 +24,24 @@ sealed class PageElement {
         val style: TextStyle,
         override val startChar: Int,
         override val endChar: Int,
-        /** 渲染行高（px），空行（段落间距）也按行高占位 */
+        /** 渲染行高（px） */
         val heightPx: Int,
+        /**
+         * 两端对齐富余宽度（px，0 = 不拉伸）：
+         * 段落中间行按 legado textFullJustify 语义把「内容宽 - 行宽」记到行上，
+         * 渲染期用词距/字距拉伸补足（末行/标题/分隔线恒为 0）。
+         */
+        val justifyExtraPx: Float = 0f,
     ) : PageElement()
+
+    /** 段距空隙（legado paragraphSpacing：段落之后的显式间距，不参与两端对齐拉伸）。 */
+    data class Gap(
+        /** 空隙高度（px） */
+        val heightPx: Int,
+    ) : PageElement() {
+        override val startChar: Int = 0
+        override val endChar: Int = 0
+    }
 
     data class Image(
         val url: String,
@@ -55,4 +70,6 @@ internal data class MeasuredLine(
     val startOffset: Int,
     val endOffset: Int,
     val heightPx: Int,
+    /** 两端对齐富余宽度（px），见 [PageElement.TextLine.justifyExtraPx]。 */
+    val justifyExtraPx: Float = 0f,
 )

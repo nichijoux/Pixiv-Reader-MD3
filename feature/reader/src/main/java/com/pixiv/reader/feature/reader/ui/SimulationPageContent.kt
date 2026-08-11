@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.EmptyBox
@@ -62,8 +61,7 @@ private const val TAG = "SimulationPage"
 @Composable
 fun SimulationPageContent(
     pages: List<ReaderPage>,
-    baseStyle: TextStyle,
-    imageHeight: Dp,
+    pageHeight: Dp,
     backgroundColor: Color,
     restoreCharOffset: Int,
     jumpToChar: Int?,
@@ -363,10 +361,10 @@ fun SimulationPageContent(
             ) {
                 RenderReaderPage(
                     reveal,
-                    baseStyle,
+                    pageHeight,
                     Modifier
                         .fillMaxSize()
-                        .padding(PAGE_H_PADDING, PAGE_V_PADDING)
+                        .padding(PAGE_H_PADDING, PAGE_V_PADDING),
                 )
             }
         }
@@ -390,10 +388,10 @@ fun SimulationPageContent(
         ) {
             RenderReaderPage(
                 current,
-                baseStyle,
+                pageHeight,
                 Modifier
                     .fillMaxSize()
-                    .padding(PAGE_H_PADDING, PAGE_V_PADDING)
+                    .padding(PAGE_H_PADDING, PAGE_V_PADDING),
             )
         }
 
@@ -442,10 +440,10 @@ fun SimulationPageContent(
             ) {
                 RenderReaderPage(
                     current,
-                    baseStyle,
+                    pageHeight,
                     Modifier
                         .fillMaxSize()
-                        .padding(PAGE_H_PADDING, PAGE_V_PADDING)
+                        .padding(PAGE_H_PADDING, PAGE_V_PADDING),
                 )
             }
         }

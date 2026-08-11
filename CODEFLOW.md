@@ -276,7 +276,7 @@ ReaderRoute(novelId, localDocument?, localTitle?)
 ```
 
 **翻页模式**（`pageMode`：0滑动/1翻页/2仿真）：
-- 滑动（`ScrollReaderContent`）：`LazyColumn` 按块渲染（Paragraph/Heading/Quote/Separator/Image），滚动进度 = 首可见块字符偏移 + 块内滚动比例。
+- 滑动（`ScrollReaderContent`）：`rememberReaderElements` 产出行元素流（`ReaderLineEngine`，与分页共用）→ `LazyColumn` **逐行渲染**（行是元素，段落只是排版输入；段距 = `PageElement.Gap`，图片/分隔线/两端对齐同翻页模式），滚动进度 = 首可见**行**字符偏移 + 行内滚动比例。
 - 翻页（`PagerReaderContent`）：`rememberReaderPages` 预分页 → `HorizontalPager`。左右边缘点击翻页（与中间 1/3 透明覆盖层切换工具栏配合）。
 - 仿真（`SimulationPageContent`）：位置驱动贝塞尔卷页（legado 移植）。折痕 = 角落↔手指的垂直平分线；纸背**不绘制镜像文字**（仅纸色 + 边缘渐变阴影，第 8 轮修正）；下一页仅在「露出三角」内绘制。
 

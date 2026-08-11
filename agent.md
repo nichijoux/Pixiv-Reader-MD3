@@ -891,6 +891,58 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 ### 设计规范文档：design.md
 - 新建 `F:\pixiv-mateiral3\design.md`：整理全项目设计规范唯一权威文档——色板（Color.kt 静态 M3 + 语义色 + 阅读器 4 主题）、字体（Type.kt Typography 档位 + 页面级派生样式约定）、间距 Spacing、形状 AppShapes（全圆仅 pill）、时长 Durations、主题机制（动态色/深浅）、模式枚举 AppModes、通用组件模式（收藏浮层 28/18、ReplyPill 胶囊、竖排按钮、子评论 3 条展开、沉浸 banner 无视差等）、i18n 约定、design/*.html 原型基准。后续新增 UI 一律引用该文档与 Token。
 
+### 第六十六轮：阅读器段落渲染完全重写（参考 legado-with-MD3）
+- **背景**：`RenderReaderPage` 渲染代码处于坏态——硬编码 `TextStyle(fontSize=20.sp, lineHeight=200.sp)` + 调试 Log（onTextLayout/onGloballyPositioned），完全忽略分页器算好的行样式；字号/行距/字距/缩进全部失效。用户要求按 legado-with-MD3 重写段落显示方式，保证段距/行距/字号/缩进（正文空格剔除、只留设置缩进）/字距五要素。
+- **排版引擎（ReaderPaginator.kt）**：
+  - 新增 `stripParagraphIndent(text)` 纯函数：排版前剔除段首/段尾空白（含全角空格 U+3000），缩进只由设置 `TextIndent` 驱动；段首字符数返回用于保持 fullText 字符偏移映射（startChar + leading + line.startOffset）；
+  - 段距从「空行 TextLine 占位」改为显式 `PageElement.Gap(heightPx)`（legado paragraphSpacing 语义：字号 × 段距 em）；
+  - `measureLines` 用 `textAlign=Start` 自然测量取真实行宽，段落中间行富余 = `contentWidthPx - getLineRight(i)`（用行右缘而非行宽差：首行缩进使行右缘右移，拉伸后正好贴齐右缘），记到 `TextLine.justifyExtraPx`；
+  - `rememberReaderPages` 签名重构：收 6 个分散样式参数为单个 `baseStyle: TextStyle` + `paragraphSpacingEm`（样式源唯一，避免两处构造不一致）；
+  - `rememberReaderTextStyle` 新增 `textColor`（阅读器 NIGHT/DEEP_BLACK 主题正文可读，此前正文跟随 App 主题导致深色主题不可读）；缩进宽度按 legado upStyle 语义计入字距（`字号 × 缩进数 × (1+字距em)`）。
+- **渲染（RenderReaderPage.kt 完全重写）**：
+  - 删除全部硬编码样式/调试 Log；每行按 `el.style` 渲染（字号/行距/字距/缩进来自设置）；
+  - 两端对齐（legado textFullJustify）：`justifyLine()` 把 `justifyExtraPx` 分布到行内空隙——有空格按词距（每个空格 +富余/空格数）、纯中文行按字距（前 n-1 字符 span，末字不加）；SpanStyle 覆盖基础字距，跨度值 = 基础 em + 富余 em（防御 letterSpacing 为 em 单位时不重复除以字号）；
+  - 底部对齐（legado textBottomJustify）：仅页内文本行 >1 且确有富余时把剩余空间均分行距（单行页跳过，对齐 legado upLinesPosition）；
+  - `PageElement.Gap` 渲染为 Spacer 不参与拉伸；图片块不变。
+- **接线**：`ReaderRoute` 传 `textColor=themeColors.text`；`PagerReaderContent`/`SimulationPageContent` 移除不再使用的 `baseStyle`/`imageHeight` 参数；`ScrollReaderContent` 段落/引用文本改 `trim()`（同去空格缩进契约，滑动模式与翻页模式一致）。
+- **测试**：新增 `ReaderRenderContractTest` 9 用例（stripParagraphIndent 5 + justifyLine 4：词距拉伸/纯中文行拉伸/单字符/基础字距计入）。
+- 验证：`:app:compileDebugKotlin` + `:feature:reader:testDebugUnitTest`（13 用例全绿）通过。**未提交**。
+
+### 第六十六轮补充：行距失效修复（翻页/仿真）
+- **Bug**：用户反馈行距设置怎么改行间距离都不变（滑动模式正常，翻页/仿真失效）。
+- **根因**：`RenderReaderPage` 底部对齐**无条件拉伸**——`extraPerLine = (页高 - 行数×行高)/行数` 加到每行行距上，渲染行距 = 行高 + extra = **页高/行数**，与行距设置完全无关；小步调行距（0.05 步进）行数不变 → 行距恒定。滑动模式无拉伸故正常。
+- **修复**：改为 legado upLinesPosition 精确语义——抽纯函数 `bottomJustifyGapPx(surplus, lastLineHeightPx, gapCount)`：**仅当剩余空间 < 一行高**才把富余均分到文本行间空隙（末行贴底），剩余 ≥ 一行时不拉伸；渲染时行间微调用行前 Spacer 实现（首个文本行贴顶，Gap/图片周围不加），行高本身不再被改写，行距 = `el.style.lineHeight`（设置直接决定）。
+- **测试**：`ReaderRenderContractTest` 新增 3 用例（剩余不足一行均分 / 剩余 ≥ 行高不拉伸 / 单行页与负富余不微调），共 12 用例。
+- 验证：`:app:compileDebugKotlin` + `:feature:reader:testDebugUnitTest`（16 用例全绿）通过。**未提交**。
+
+### 第六十六轮补充②：滑动模式行级化（滚动不再以段为元素）
+- **背景**：第六十六轮后翻页/仿真已按行渲染（`PageElement.TextLine` 独立元素），但滑动模式 `ScrollReaderContent` 仍是 `LazyColumn` **逐块**渲染（一个 `NovelBlock` = 一个 item），段落是滚动模式的最小渲染元素——与 legado-with-MD3"行是元素"的设计不一致（进度锚点粗、行样式无法逐行控制）。
+- **重构（ReaderPaginator.kt 拆分）**：
+  - 拆出 `ReaderLineEngine`（internal）：段落 → 行元素流唯一换行测量点——样式（paragraph/heading/quote/separator）、`stripParagraphIndent`、`measureLines`、段尾 `PageElement.Gap`、图片插入；`buildElements(document)` 返回**不换页**的行元素流，分隔线锚点 = 排版游标（此前 startChar=0 会污染分页页首/页尾字符区间）；
+  - `ReaderPaginator` 改为 `(engine, pageHeightPx)` 纯切页器：把行元素流按行高切页（换页规则原样保留：行放不下换页 / Gap 不落页首 / 图片后不足一行立即换页 + caption 高度预留）；
+  - 新增 `rememberReaderLineEngine` + `rememberReaderElements`（Compose 版，滚动与分页共用引擎，换行/样式/锚点完全一致）。
+- **滚动渲染（ReaderScrollContent.kt 重写）**：`ScrollItem(element: PageElement, anchorStart, anchorEnd)` 行级锚点（文本行 = 自身字符区间；Gap/图片 = 上一个文本行结束处 = 排版游标）；LazyColumn **逐行元素**渲染（两端对齐复用 `justifyLine`，段距 = Gap 渲染为 Spacer，图片/标题/分隔线样式与分页同源）；恢复/跳转/进度全部按行级锚点（进度 = 首可见行 startChar + 行内滚动比例，粒度细于段落）。
+- **行为变化（与翻页对齐）**：标题间距由固定 14/6dp 改为段距 Gap；分隔线由固定 8dp 上下内边距改为 gap+行+gap；图片高度不变（宽×0.75）。
+- **测试**：新增 `ReaderScrollItemsTest` 5 用例（行锚点推进 / Gap 锚点取游标 / 图片不推进游标 / 分隔线零区间 / 开头 Gap 锚点 0）。
+- 验证：`:app:compileDebugKotlin` + `:feature:reader:testDebugUnitTest`（21 用例全绿）通过。**未提交**。
+
+### 第六十六轮补充③：底部对齐——行距"永远不变"根因与修复（最终形态：必备功能、无切换开关）
+- **Bug**：翻页/仿真模式行距设置怎么改行与行之间的距离都不变（滑动模式正常）。
+- **根因**：`RenderReaderPage` **无条件执行底部对齐**（legado upLinesPosition/textBottomJustify），而分页器是"放不下才换页"——每页内容高 ∈ (页高-行高, 页高]，**页底剩余恒 < 一行高**；`bottomJustifyGapPx` 的拉伸条件 `surplus < lastLineHeightPx` 恒成立 → 行间空隙恒被拉伸。渲染行距 = 行高 + 富余/(行数-1) ≈ **页高均分**，与行距设置无关；行距设置变化若每页行数不变（小步调 0.05 常见），视觉行距完全不变。第六十六轮补充"剩余 ≥ 一行不拉伸"的修复在分页模式下几乎永不触发（分页保证剩余恒 < 一行），未真正解决问题。
+- **修复**：行距问题由补充④彻底解决（Box 显式撑行高后拉伸只是不足一行的微调）；**末行贴底 = 必备功能、无切换开关**（用户决策）：
+  - `RenderReaderPage` **无条件**执行 `bottomJustifyGapPx`（无参数/无开关），基础行距 = `el.style.lineHeight` 仍由「行距」滑条直接决定，拉伸只把不足一行的剩余微调均分、不替换行距设置；
+  - `bottomJustifyGapPx` 纯函数与测试保留（legado upLinesPosition 语义）。
+- 验证：`:app:compileDebugKotlin` + `:feature:reader:testDebugUnitTest`（21 用例全绿）通过。**未提交**。
+
+### 第六十六轮补充④：行距失效/溢出根因——单行 Text 渲染高度只到字形底，行高必须显式撑起
+- **Bug 反馈**：① 仿真/翻页模式行距设置越高内容越远离底部；② 行距为负时下一页内容显示在下面超出底部；③ 滑动模式行距怎么改行与行之间距离都不变。
+- **根因（自查 Compose ui-text 1.7 字节码确认，非库问题）**：`TextLayout.getHeight() = Layout.getHeight() + topPadding + bottomPadding + lastLineExtra`，其中 `lastLineExtra = lastLineFontMetrics.bottom - lineHeight`——**Text 测量高度对最后一行（单行 Text 的唯一一行）只算到字形底（descent），不含 lineHeight**；多行 Text 高度 = (行数-1)×lineHeight + 字形底。本项目逐行渲染（每行一个 Text），分页器却假设"每行高度 = lineHeight"：
+  - 滑动模式：每行 Text 高度 = 字形底（固定），lineHeight 完全不参与 → 行距设置无效；
+  - 翻页/仿真：分页按 lineHeight 切页、渲染每行只有字形底高 → 行距高时每页行数按大行高切、渲染内容堆在顶部远离底部；行距负时（lineHeight < 字形底）渲染行高反超分页行高 → 内容溢出页面底部、下一页内容露在下面。
+  - 第六十六轮之前"滑动模式正常"：当时整段一个 Text（多行），行距 = lineHeight 确实生效，掩盖了此问题。
+- **修复**：行元素高度由 **Box 显式撑起**（`Box(height = el.heightPx.toDp())`，heightPx = 分页行高 = style.lineHeight），**Text 自身去掉 lineHeight**（`style.copy(lineHeight = TextUnit.Unspecified)`，字形顶贴 Box 顶）——行距 = Box 高度，随「行距」滑条变化；分页（按 lineHeight 切）与渲染（Box 高 = lineHeight）重新一致。负行距 = Box 高 < 字形 → 文本溢出与下行重叠（legado 语义）。`RenderReaderPage` 与 `ScrollReaderContent` 两处同步修改；分页器/测量/`bottomJustify` 数学不变。
+- 验证：`:app:compileDebugKotlin` + `:feature:reader:testDebugUnitTest`（21 用例全绿）通过。**未提交**。
+
 ---
 
 ## 文档更正记录（与代码现状对齐）
