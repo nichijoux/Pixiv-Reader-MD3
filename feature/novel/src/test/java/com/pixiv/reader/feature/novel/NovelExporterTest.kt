@@ -6,6 +6,7 @@ import com.pixiv.reader.core.common.renderNovelFileName
 import com.pixiv.reader.core.common.sanitizeFileName
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.feature.novel.data.DocxImage
 import com.pixiv.reader.feature.novel.data.EpubImage
 import com.pixiv.reader.feature.novel.data.buildDocx
 import com.pixiv.reader.feature.novel.data.buildEpub
@@ -13,8 +14,11 @@ import com.pixiv.reader.feature.novel.data.buildMarkdown
 import com.pixiv.reader.feature.novel.data.buildTocHierarchy
 import com.pixiv.reader.feature.novel.data.buildTxt
 import com.pixiv.reader.feature.novel.data.docxHeading
+import com.pixiv.reader.feature.novel.data.docxImage
 import com.pixiv.reader.feature.novel.data.escapeXml
 import com.pixiv.reader.feature.novel.data.formatChapters
+import com.pixiv.reader.feature.novel.data.imageDimensions
+import com.pixiv.reader.feature.novel.data.mimeFromUrl
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 import org.junit.Assert.assertEquals
@@ -179,7 +183,7 @@ class NovelExporterTest {
                 if (entry.name == "word/styles.xml") stylesXml = content
             }
             assertEquals(
-                listOf("[Content_Types].xml", "_rels/.rels", "word/document.xml", "word/styles.xml"),
+                listOf("[Content_Types].xml", "_rels/.rels", "word/document.xml", "word/_rels/document.xml.rels", "word/styles.xml"),
                 names,
             )
             // 单本：书名 Title 样式（无独立章节标题）
@@ -518,6 +522,107 @@ p { text-indent: 2em; }"""
         assertTrue(quote.text.contains("quote， ok！"))
     }
 
+    // ── 内嵌图片（PDF/DOCX） ────────────────────────────────────────────────
+
+    @Test
+    fun `imageDimensions 解析 PNG 头宽高`() {
+        // 最小 PNG：签名 8 字节 + IHDR（宽高 @16..23 = 100×50）
+        val png = ByteArray(24).apply {
+            set(0, 0x89.toByte()); set(1, 'P'.code.toByte()); set(2, 'N'.code.toByte()); set(3, 'G'.code.toByte())
+            set(16, 0); set(17, 0); set(18, 0); set(19, 100)
+            set(20, 0); set(21, 0); set(22, 0); set(23, 50)
+        }
+        assertEquals(100 to 50, imageDimensions(png))
+    }
+
+    @Test
+    fun `imageDimensions 解析 JPEG SOF 宽高`() {
+        // SOI + SOF0（length=17：高 60 宽 120，3 分量）
+        val jpeg = byteArrayOf(
+            0xFF.toByte(), 0xD8.toByte(),
+            0xFF.toByte(), 0xC0.toByte(), 0x00, 0x11,
+            0x08, 0x00, 0x3C, 0x00, 0x78, 0x03,
+            0x01, 0x22, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+        )
+        assertEquals(120 to 60, imageDimensions(jpeg))
+    }
+
+    @Test
+    fun `imageDimensions 无法识别返回 null`() {
+        assertEquals(null, imageDimensions(ByteArray(4) { 0 }))
+    }
+
+    @Test
+    fun `mimeFromUrl 按扩展名推断`() {
+        assertEquals("image/jpeg", mimeFromUrl("https://i.pximg.net/img-master/img/1/2/a.jpg"))
+        assertEquals("image/png", mimeFromUrl("https://example.com/a.PNG?x=1"))
+        assertEquals("image/webp", mimeFromUrl("https://example.com/a.webp"))
+        assertEquals("image/jpeg", mimeFromUrl("https://example.com/noext"))
+    }
+
+    @Test
+    fun `docxImage 生成 drawing 与缩放`() {
+        val maxCx = 9026L * 635L
+        // 1000×500px → 像素×9525 EMU 后超可用宽 → 缩放到可用宽，cy 等比例
+        val img = DocxImage("image1.jpg", ByteArray(4), "image/jpeg", 1000, 500)
+        val xml = docxImage(img, "rId2")
+        assertTrue(xml.contains("""r:embed="rId2""""))
+        assertTrue(xml.contains("""<wp:extent cx="$maxCx" cy="${maxCx / 2}""""))
+        // 小图（20×10px）不缩放：cx = 20×9525
+        val small = DocxImage("image2.jpg", ByteArray(4), "image/jpeg", 20, 10)
+        val xmlSmall = docxImage(small, "rId3")
+        assertTrue(xmlSmall.contains("""<wp:extent cx="${20L * 9525L}" cy="${10L * 9525L}""""))
+    }
+
+    @Test
+    fun `buildDocx 内嵌插图写入 media 与关系`() {
+        val chapters = listOf(
+            sampleNovel(1L) to document(
+                NovelBlock.Paragraph("第一段。"),
+                NovelBlock.Image("https://example.com/1.jpg"),
+            ),
+        )
+        val img = DocxImage("image1.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte()), "image/jpeg", 100, 50)
+        val bytes = buildDocx(chapters, seriesTitle = null, images = listOf(img))
+        var docXml = ""
+        var docRels = ""
+        var contentTypes = ""
+        var hasMedia = false
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                val content = zip.readBytes().toString(Charsets.UTF_8)
+                when (entry.name) {
+                    "word/document.xml" -> docXml = content
+                    "word/_rels/document.xml.rels" -> docRels = content
+                    "[Content_Types].xml" -> contentTypes = content
+                    "word/media/image1.jpg" -> hasMedia = true
+                }
+            }
+        }
+        assertTrue(hasMedia)
+        assertTrue(docXml.contains("""r:embed="rId2""""))
+        assertTrue(docXml.contains("wp:extent"))
+        assertTrue("图片关系应在文档级 rels", docRels.contains("""Target="media/image1.jpg""""))
+        assertTrue(contentTypes.contains("""Extension="jpg""""))
+    }
+
+    @Test
+    fun `buildMarkdown 插图以 data URI 内嵌`() {
+        val chapters = listOf(
+            sampleNovel(1L) to document(
+                NovelBlock.Paragraph("第一段。"),
+                NovelBlock.Image("https://example.com/1.jpg"),
+                NovelBlock.Paragraph("第二段。"),
+            ),
+        )
+        val img = DocxImage("image1.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte()), "image/jpeg", 10, 5)
+        val md = buildMarkdown(chapters, seriesTitle = null, images = listOf(img))
+        assertTrue("md 应含 data URI 图片", md.contains("""![插图](data:image/jpeg;base64,/9g=)"""))
+        // 无图片时不输出 data URI
+        assertFalse(buildMarkdown(chapters, null).contains("data:"))
+    }
+
     /** 读取指定章节 xhtml。 */
     private fun readChapter(bytes: ByteArray, section: Int): String {
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
@@ -530,3 +635,4 @@ p { text-indent: 2em; }"""
         return ""
     }
 }
+

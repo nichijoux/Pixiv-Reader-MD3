@@ -28,7 +28,6 @@ private const val DOCX_CONTENT_TYPES = """<?xml version="1.0" encoding="UTF-8" s
 private const val DOCX_RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="word/styles.xml"/>
 </Relationships>"""
 
 /** Word 样式表：Title（书名）+ Heading1/Heading2（导航窗格目录层级）。 */
@@ -56,6 +55,75 @@ private const val DOCX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalo
     <w:rPr><w:b/><w:sz w:val="28"/></w:rPr>
   </w:style>
 </w:styles>"""
+
+/** DOCX 内嵌插图（字节 + mime + 原始宽高；ref 为 word/media/ 下文件名）。 */
+internal data class DocxImage(
+    val ref: String,
+    val bytes: ByteArray,
+    val mime: String,
+    val width: Int,
+    val height: Int,
+)
+
+/**
+ * 从图片字节解析原始宽高（PNG/JPEG 文件头，纯 JVM 可测）；无法解析返回 null。
+ * 供 PDF/DOCX 内嵌图片按比例缩放用（避免依赖 Android BitmapFactory）。
+ */
+internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
+    val isPng = bytes.size >= 24 &&
+        bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() &&
+        bytes[2] == 'N'.code.toByte() && bytes[3] == 'G'.code.toByte()
+    if (isPng) {
+        // PNG: 8 字节签名 + IHDR 数据块（宽高 @16..23，big-endian）
+        val w = bigEndian4(bytes, 16)
+        val h = bigEndian4(bytes, 20)
+        return if (w > 0 && h > 0) w to h else null
+    }
+    val isJpeg = bytes.size >= 4 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()
+    if (isJpeg) return jpegDimensions(bytes)
+    return null
+}
+
+private fun bigEndian4(bytes: ByteArray, offset: Int): Int =
+    ((bytes[offset].toInt() and 0xFF) shl 24) or
+        ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
+        ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
+        (bytes[offset + 3].toInt() and 0xFF)
+
+/** JPEG：扫描段标记定位 SOF（宽高 @SOF+5/+7）。 */
+private fun jpegDimensions(bytes: ByteArray): Pair<Int, Int>? {
+    var i = 2
+    while (i + 9 < bytes.size) {
+        if (bytes[i].toInt() and 0xFF != 0xFF) {
+            i++
+            continue
+        }
+        val marker = bytes[i + 1].toInt() and 0xFF
+        // 无长度段标记：SOI / TEM / RSTn
+        if (marker == 0xD8 || marker == 0x01 || marker in 0xD0..0xD7) {
+            i += 2
+            continue
+        }
+        val segLen = ((bytes[i + 2].toInt() and 0xFF) shl 8) or (bytes[i + 3].toInt() and 0xFF)
+        if (segLen < 2) return null
+        // SOF0-15（排除 DHT=C4 / JPG=C8 / DAC=CC）
+        if (marker in 0xC0..0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
+            val h = ((bytes[i + 5].toInt() and 0xFF) shl 8) or (bytes[i + 6].toInt() and 0xFF)
+            val w = ((bytes[i + 7].toInt() and 0xFF) shl 8) or (bytes[i + 8].toInt() and 0xFF)
+            return if (w > 0 && h > 0) w to h else null
+        }
+        i += 2 + segLen
+    }
+    return null
+}
+
+/** 图片 URL 推断 mime（pixiv 图片扩展名 jpg/png/webp）。 */
+internal fun mimeFromUrl(url: String): String = when (url.substringBefore('?').substringAfterLast('.', "").lowercase()) {
+    "png" -> "image/png"
+    "webp" -> "image/webp"
+    "gif" -> "image/gif"
+    else -> "image/jpeg" // jpg/jpeg 及未知一律按 jpeg 尝试
+}
 
 // ── TXT ─────────────────────────────────────────────────────────────────────
 
@@ -104,11 +172,14 @@ internal fun buildTxt(
 
 /**
  * 生成 Markdown 全文（纯函数，可测）。
- * 标题保留 `#` 层级、引用保留 `>`、分隔线用 `---`；插图跳过。
+ * 标题保留 `#` 层级、引用保留 `>`、分隔线用 `---`；
+ * 插图以 data URI（base64）内嵌（[images] 顺序与块序一致，缺失跳过），
+ * 任何 Markdown 阅读器（Typora/Obsidian/手机 App）无需目录结构即可显示。
  */
 internal fun buildMarkdown(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
+    images: List<DocxImage> = emptyList(),
 ): String {
     return buildString {
         val first = chapters.first().first
@@ -119,6 +190,7 @@ internal fun buildMarkdown(
             appendLine("> 简介：${htmlToPlainText(it)}")
         }
         appendLine()
+        var imgIdx = 0
         chapters.forEach { (novel, document) ->
             if (chapters.size > 1) {
                 appendLine("---")
@@ -138,7 +210,14 @@ internal fun buildMarkdown(
                     )
 
                     is NovelBlock.Quote -> appendLine("> ${block.text}")
-                    is NovelBlock.Image -> Unit // Markdown 无法内嵌 pixiv 图，跳过
+                    is NovelBlock.Image -> {
+                        val img = images.getOrNull(imgIdx)
+                        imgIdx++
+                        if (img != null) {
+                            appendLine("![插图](data:${img.mime};base64,${java.util.Base64.getEncoder().encodeToString(img.bytes)})")
+                        }
+                    }
+
                     is NovelBlock.Separator -> appendLine("---")
                 }
             }
@@ -152,12 +231,29 @@ internal fun buildMarkdown(
 /**
  * 生成 .docx 字节（纯函数，可测）。
  * 书名用 Title 样式；系列按卷/章层级：卷 Heading1、卷下章节 Heading2、无卷归属章节 Heading1，
- * Word 导航窗格呈现 卷 ▸ 章 层级；正文内部标题保持加粗+字号（不进目录）；插图跳过。
+ * Word 导航窗格呈现 卷 ▸ 章 层级；正文内部标题保持加粗+字号（不进目录）；
+ * 插图按块顺序内嵌（[images]，ref 与块顺序一一对应；缺失即跳过该图）。
  */
 internal fun buildDocx(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
+    images: List<DocxImage> = emptyList(),
 ): ByteArray {
+    // 图片 relId：rId2 起（文档级 rId1=styles）
+    val imageRels = images.mapIndexed { i, img -> img to "rId${2 + i}" }
+    // 块 → OOXML（插图按全局块序取 [imageRels]，文本块走 docxBlock）
+    var imgIdx = 0
+    fun docxBlocks(blocks: List<NovelBlock>): String = buildString {
+        blocks.forEach { block ->
+            if (block is NovelBlock.Image) {
+                val entry = imageRels.getOrNull(imgIdx)
+                imgIdx++
+                if (entry != null) append(docxImage(entry.first, entry.second))
+            } else {
+                append(docxBlock(block))
+            }
+        }
+    }
     val body = buildString {
         val first = chapters.first().first
         append(docxTitle(seriesTitle ?: first.title.orEmpty()))
@@ -171,30 +267,74 @@ internal fun buildDocx(
                 append(docxParagraph(null))
                 append(docxChapterTitle(entry.title, 1))
                 append(docxParagraph(null))
-                chapters[entry.sectionIndex - 1].second.blocks.forEach { append(docxBlock(it)) }
+                append(docxBlocks(chapters[entry.sectionIndex - 1].second.blocks))
                 entry.children.forEach { (childIdx, childTitle) ->
                     append(docxParagraph(null))
                     append(docxChapterTitle(childTitle, 2))
                     append(docxParagraph(null))
-                    chapters[childIdx - 1].second.blocks.forEach { append(docxBlock(it)) }
+                    append(docxBlocks(chapters[childIdx - 1].second.blocks))
                 }
             }
         } else {
             // 单本：书名 Title 样式，正文直接输出（不再重复章节标题）
-            chapters.first().second.blocks.forEach { append(docxBlock(it)) }
+            append(docxBlocks(chapters.first().second.blocks))
         }
         append("<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\"/></w:sectPr>")
     }
     val docXml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>$body</w:body></w:document>"""
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+ xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+ xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+ xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
+ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>$body</w:body></w:document>"""
+    // 动态 content-types（图片扩展名 Default）与 rels（image relationships）
+    val imageExtTypes = images.map { it.ref.substringAfterLast('.', "") to it.mime }.distinctBy { it.first }
+        .joinToString("") { (ext, mime) -> """<Default Extension="$ext" ContentType="$mime"/>""" }
+    val contentTypes = DOCX_CONTENT_TYPES.replace(
+        "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>",
+        "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>$imageExtTypes"
+    )
+    val imageRelsXml = imageRels.joinToString("") { (img, relId) ->
+        """<Relationship Id="$relId" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${img.ref}"/>"""
+    }
+    // 文档级 relationships（word/_rels/document.xml.rels）：styles + 图片
+    // 注意：图片关系必须在文档级，Word/mammoth 从 document.xml.rels 解析 r:embed
+    val docRels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+$imageRelsXml</Relationships>"""
     val bytes = ByteArrayOutputStream()
     ZipOutputStream(bytes).use { zip ->
-        zip.writeEntry("[Content_Types].xml", DOCX_CONTENT_TYPES)
+        zip.writeEntry("[Content_Types].xml", contentTypes)
         zip.writeEntry("_rels/.rels", DOCX_RELS)
         zip.writeEntry("word/document.xml", docXml)
+        zip.writeEntry("word/_rels/document.xml.rels", docRels)
         zip.writeEntry("word/styles.xml", DOCX_STYLES)
+        images.forEach { img -> zip.writeEntry("word/media/${img.ref}", img.bytes) }
     }
     return bytes.toByteArray()
+}
+
+/**
+ * 插图段落（OOXML drawing，居中，按可用页宽缩放）。
+ * 页面宽 11906 twips - 左右边距 1440×2 = 9026 twips；1 twip = 635 EMU。
+ * 像素 → EMU：1px = 9525 EMU（96dpi，1in = 914400 EMU = 96px）。
+ */
+internal fun docxImage(img: DocxImage, relId: String): String {
+    val pxToEmu = 9525L
+    val maxCx = 9026L * 635L
+    val scale = if (img.width > 0) minOf(1.0, maxCx.toDouble() / (img.width * pxToEmu)) else 1.0
+    val cx = (img.width * pxToEmu * scale).toLong().coerceAtLeast(1L)
+    val cy = (img.height * pxToEmu * scale).toLong().coerceAtLeast(1L)
+    val id = img.ref.substringAfter("image").substringBefore(".")
+    return """<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">""" +
+        """<wp:extent cx="$cx" cy="$cy"/><wp:docPr id="$id" name="${img.ref}"/>""" +
+        """<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">""" +
+        """<pic:pic><pic:nvPicPr><pic:cNvPr id="$id" name="${img.ref}"/><pic:cNvPicPr/></pic:nvPicPr>""" +
+        """<pic:blipFill><a:blip r:embed="$relId"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>""" +
+        """<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm>""" +
+        """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>""" +
+        """</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"""
 }
 
 /** 书名段落：Word Title 样式（居中大标题，不进导航目录）。 */
@@ -500,7 +640,6 @@ $authorLine
 }
 
 /** 去除段落首部全角缩进（CSS text-indent:2em 已承担缩进，避免双重缩进）。 */
-private fun stripIndent(text: String): String = text.removePrefix("\u3000\u3000")
 
 /** 生成单章 xhtml（blocks → 样书语义化 HTML；插图成功下载才嵌 div>img）。 */
 internal fun buildChapterXhtml(

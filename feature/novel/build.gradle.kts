@@ -16,6 +16,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    // pdfbox 内部会调 android.util.Log（JVM 单测 stub 默认抛异常），放行返回默认值
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

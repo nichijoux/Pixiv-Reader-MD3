@@ -171,7 +171,7 @@ private fun formatNovelDocument(
 }
 
 /** 去除段落首部应用自带的全角缩进（HTML 解析器添加的 `\u3000\u3000`）。 */
-private fun stripIndent(text: String): String = text.removePrefix(NovelParser.PARAGRAPH_INDENT)
+internal fun stripIndent(text: String): String = text.removePrefix(NovelParser.PARAGRAPH_INDENT)
 
 /**
  * 文本规范化（对齐 `format_novel` 后半段）：
