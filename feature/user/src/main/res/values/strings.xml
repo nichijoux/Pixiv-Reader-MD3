@@ -41,6 +41,11 @@
     <string name="me_viewer_orientation_horizontal">横向滑动</string>
     <string name="me_viewer_orientation_vertical">竖向翻页</string>
     <string name="me_viewer_orientation_seamless">无缝竖向</string>
+    <string name="me_follow_sort">关注页排序</string>
+    <string name="me_follow_sort_follow_time">关注时间</string>
+    <string name="me_follow_sort_name_asc">名称升序</string>
+    <string name="me_follow_sort_name_desc">名称降序</string>
+    <string name="me_follow_sort_latest_work">最新发布</string>
     <string name="me_novel_file_name_template">小说下载命名</string>
     <string name="me_file_name_template_hint">文件名模板</string>
     <string name="me_file_name_placeholder_desc">点击下方占位符插入：{title} 标题 · {author} 作者 · {id} 作品ID · {series} 系列名（非系列用标题）· {date} 发布日期 · {favcount} 收藏数</string>

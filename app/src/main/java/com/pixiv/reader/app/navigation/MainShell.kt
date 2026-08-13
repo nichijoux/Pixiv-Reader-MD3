@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
@@ -25,6 +26,7 @@ import com.pixiv.reader.app.R
 import com.pixiv.reader.core.ui.component.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.AdaptiveNavScaffold
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
+import com.pixiv.reader.feature.follow.ui.FollowRoute
 import com.pixiv.reader.feature.home.HomeRoute
 import com.pixiv.reader.feature.manga.MangaRoute
 import com.pixiv.reader.feature.novel.ui.NovelRoute
@@ -34,6 +36,7 @@ import com.pixiv.reader.feature.user.ui.MeRoute
 @Composable
 private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
     AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
+    AdaptiveNavItem("follow_tab", stringResource(R.string.main_tab_follow), Icons.Filled.Favorite),
     AdaptiveNavItem("discover_tab", stringResource(R.string.main_tab_discover), Icons.Filled.Explore),
     AdaptiveNavItem("manga_tab", stringResource(R.string.main_tab_manga), Icons.Filled.Collections),
     AdaptiveNavItem("novel_tab", stringResource(R.string.main_tab_novel), Icons.AutoMirrored.Filled.MenuBook),
@@ -115,6 +118,15 @@ fun MainShell(
                     },
                     onOpenIllust = onOpenIllust,
                     onOpenUser = onOpenUser,
+                )
+            }
+            composable("follow_tab") {
+                FollowRoute(
+                    onOpenIllust = onOpenIllust,
+                    onOpenNovel = onOpenNovel,
+                    onOpenUser = onOpenUser,
+                    onOpenCover = onOpenCover,
+                    onOpenSeries = onOpenSeries,
                 )
             }
             composable("discover_tab") {

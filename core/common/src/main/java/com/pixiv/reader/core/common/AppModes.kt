@@ -61,3 +61,15 @@ enum class ReaderThemeMode(val value: Int) {
         fun from(value: Int): ReaderThemeMode = entries.firstOrNull { it.value == value } ?: PAPER
     }
 }
+
+/** 关注页左列用户排序：关注时间（官方序）/ 名称升序 / 名称降序 / 代表作最新发布。 */
+enum class FollowSortMode(val value: Int) {
+    FOLLOW_TIME(0),
+    NAME_ASC(1),
+    NAME_DESC(2),
+    LATEST_WORK(3);
+
+    companion object {
+        fun from(value: Int): FollowSortMode = entries.firstOrNull { it.value == value } ?: FOLLOW_TIME
+    }
+}

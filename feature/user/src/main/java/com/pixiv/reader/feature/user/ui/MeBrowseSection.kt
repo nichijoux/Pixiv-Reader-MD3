@@ -17,19 +17,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.common.FollowSortMode
 import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.feature.user.R
 
-/** 我的页「浏览设置」：小说默认页 / 插画查看方向 / 剪贴板链接提示 / 小说下载命名（内容/浏览类偏好）。 */
+/** 我的页「浏览设置」：小说默认页 / 插画查看方向 / 关注页排序 / 剪贴板链接提示 / 小说下载命名（内容/浏览类偏好）。 */
 @Composable
 internal fun MeBrowseSection(
     novelDefaultTab: NovelDefaultTab,
     viewerOrientation: ViewerOrientation,
+    followSortMode: FollowSortMode,
     clipboardLinkPrompt: Boolean,
     novelFileNameTemplate: String,
     onSetNovelDefaultTab: (NovelDefaultTab) -> Unit,
     onSetViewerOrientation: (ViewerOrientation) -> Unit,
+    onSetFollowSortMode: (FollowSortMode) -> Unit,
     onSetClipboardLinkPrompt: (Boolean) -> Unit,
     onOpenFileNameTemplate: () -> Unit,
 ) {
@@ -77,6 +80,33 @@ internal fun MeBrowseSection(
                 PillSelectButton(
                     selected = viewerOrientation == value,
                     onClick = { onSetViewerOrientation(value) },
+                    text = stringResource(labelRes),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+    CardSpacer()
+    // 关注页排序（关注 Tab 左列用户列表的排列方式）
+    MeSettingCard {
+        Text(
+            text = stringResource(R.string.me_follow_sort),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                FollowSortMode.FOLLOW_TIME to R.string.me_follow_sort_follow_time,
+                FollowSortMode.NAME_ASC to R.string.me_follow_sort_name_asc,
+                FollowSortMode.NAME_DESC to R.string.me_follow_sort_name_desc,
+                FollowSortMode.LATEST_WORK to R.string.me_follow_sort_latest_work,
+            ).forEach { (value, labelRes) ->
+                PillSelectButton(
+                    selected = followSortMode == value,
+                    onClick = { onSetFollowSortMode(value) },
                     text = stringResource(labelRes),
                     modifier = Modifier.weight(1f),
                 )

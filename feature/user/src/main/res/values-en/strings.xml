@@ -41,6 +41,11 @@
     <string name="me_viewer_orientation_horizontal">Horizontal</string>
     <string name="me_viewer_orientation_vertical">Vertical pages</string>
     <string name="me_viewer_orientation_seamless">Seamless vertical</string>
+    <string name="me_follow_sort">Following page sort</string>
+    <string name="me_follow_sort_follow_time">Time</string>
+    <string name="me_follow_sort_name_asc">A–Z</string>
+    <string name="me_follow_sort_name_desc">Z–A</string>
+    <string name="me_follow_sort_latest_work">Newest</string>
     <string name="me_novel_file_name_template">Novel download naming</string>
     <string name="me_file_name_template_hint">File name template</string>
     <string name="me_file_name_placeholder_desc">Tap placeholders to insert: {title} title · {author} author · {id} work ID · {series} series (falls back to title) · {date} publish date · {favcount} bookmarks</string>

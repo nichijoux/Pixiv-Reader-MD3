@@ -1,0 +1,7 @@
+<resources>
+    <string name="follow_tab_all">All</string>
+    <string name="follow_tab_novel">Novels</string>
+    <string name="follow_tab_illust">Illustrations</string>
+    <string name="follow_all_users">All</string>
+    <string name="follow_empty">No updates yet</string>
+</resources>

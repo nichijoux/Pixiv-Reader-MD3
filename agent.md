@@ -943,6 +943,25 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 - **修复**：行元素高度由 **Box 显式撑起**（`Box(height = el.heightPx.toDp())`，heightPx = 分页行高 = style.lineHeight），**Text 自身去掉 lineHeight**（`style.copy(lineHeight = TextUnit.Unspecified)`，字形顶贴 Box 顶）——行距 = Box 高度，随「行距」滑条变化；分页（按 lineHeight 切）与渲染（Box 高 = lineHeight）重新一致。负行距 = Box 高 < 字形 → 文本溢出与下行重叠（legado 语义）。`RenderReaderPage` 与 `ScrollReaderContent` 两处同步修改；分页器/测量/`bottomJustify` 数学不变。
 - 验证：`:app:compileDebugKotlin` + `:feature:reader:testDebugUnitTest`（21 用例全绿）通过。**未提交**。
 
+### 第六十七轮：关注 Tab（第六个底部导航，原型确认后开发）
+- **原型**：`design/follow-ui.html`（v5，用户逐版确认：复用组件 / 左列选中高亮未选灰低亮 / 类型段滑动切换 / 手机左列 76px / 平板瀑布流）。截图验证渲染。
+- **新模块 `feature:follow`**（app 依赖已加；settings.gradle 注册）：
+  - 数据层：三 `PagedState`——关注用户 `getFollowingUsers(loggedInUid,"public")`+`getNextUsers`（左列）、插画流 `getFollowingIllusts("all")`+`getNextIllusts`、小说流 `getFollowingNovels("all")`+`getNextNovels`（右列）；
+  - `FollowFeedMerger`（纯函数）：双流按 `create_date` 倒序合并（`FollowFeedItem` sealed：IllustItem/NovelItem，null 时间排最后）+ 类型/用户过滤——**官方无按用户/类型服务端接口 → 客户端本地过滤**；
+  - 混合流触底：交替推进两流下一页（新页更旧、稳定落在时间线尾部）；
+  - UI `FollowRoute`：左右结构——左列 `FollowUserColumn`（手机窄版 76dp 头像+小字名 / 平板宽版 208dp 头像+完整名；「全部」项 + 触底加载更多用户；选中 primaryContainer 底+primary 左条+全彩头像，未选中头像降透明+outline 名称）；右列 `ScrollableTabRow`（全部/小说/插画）+ `HorizontalPager` 三段，每页独立类型流（数据驻留 VM、滑动切回不重复请求）；
+  - 卡片完全复用 `IllustCard`/`NovelCard`：手机单列 `LazyColumn`，平板 `LazyVerticalStaggeredGrid(Adaptive(240.dp))`（240 下限保证 NovelCard 横版信息区不挤压——用户 v5 宽度要求）；
+  - 收藏切换：illust/novel bookmark API（静默，失败不发消息，与首页一致）；标签点击暂空（未来接跨 Tab 搜索）。
+- **接线**：`MainShell` 底部 Tab 第 2 位新增「关注」（`Icons.Filled.Favorite`，app 补 icons-extended 依赖），`follow_tab` → `FollowRoute`（回调 onOpenIllust/Novel/User/Cover/Series 上抛）。
+- **测试**：`FollowFeedMergerTest` 9 用例（混合排序/空时间/空输入/类型过滤/用户过滤/组合过滤）。
+- 验证：`:app:compileDebugKotlin` + `:feature:follow:testDebugUnitTest`（9 用例）+ 六模块回归单测 + `:app:assembleDebug` 全绿。
+
+### 第六十七轮补充：关注 Tab 三处 UI/数据 bug 修复
+- **Bug① 永远「暂无动态」**：`FollowRoute` 的 `itemsByType = remember { mapOf(...) }` 无 key，捕获**首次组合时的空 List 快照**，数据加载后永不更新 → 三页永远空。修复：去掉 remember，重组时直接构建 map（取三流最新值）。
+- **Bug② 左列选中项四边蓝框**：`UserColumnItem` 选中态误用 `border(3.dp, RectangleShape)`（四边全框，非原型左侧指示条）。修复：删除 border，选中态仅保留 primaryContainer 底 + 文字加粗（原型左指示条用户不想要）。
+- **Bug③ 类型 Tab 未占满**：`ScrollableTabRow` 内容自适应左对齐留白。修复：改 `TabRow`（均分占满右列宽）。
+- 验证：`:app:compileDebugKotlin` + `:feature:follow:testDebugUnitTest` 通过。**已提交**（`11f8c16` 后补丁）。
+
 ---
 
 ## 文档更正记录（与代码现状对齐）

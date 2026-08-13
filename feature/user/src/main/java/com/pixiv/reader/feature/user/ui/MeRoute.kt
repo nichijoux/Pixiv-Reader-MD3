@@ -63,6 +63,7 @@ fun MeRoute(
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
     val novelDefaultTab by viewModel.novelDefaultTab.collectAsStateWithLifecycle()
     val viewerOrientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
+    val followSortMode by viewModel.followSortMode.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
     val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
     val novelFileNameTemplate by viewModel.novelFileNameTemplate.collectAsStateWithLifecycle()
@@ -149,10 +150,12 @@ fun MeRoute(
                 MeBrowseSection(
                     novelDefaultTab = novelDefaultTab,
                     viewerOrientation = viewerOrientation,
+                    followSortMode = followSortMode,
                     clipboardLinkPrompt = clipboardLinkPrompt,
                     novelFileNameTemplate = novelFileNameTemplate,
                     onSetNovelDefaultTab = viewModel::setNovelDefaultTab,
                     onSetViewerOrientation = viewModel::setViewerOrientation,
+                    onSetFollowSortMode = viewModel::setFollowSortMode,
                     onSetClipboardLinkPrompt = viewModel::setClipboardLinkPrompt,
                     onOpenFileNameTemplate = { showFileNameTemplate = true },
                 )

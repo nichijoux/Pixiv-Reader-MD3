@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import com.pixiv.api.model.User
+import com.pixiv.reader.core.common.FollowSortMode
 import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.NovelFileNameTemplate
 import com.pixiv.reader.core.common.ThemeMode
@@ -76,6 +77,10 @@ class MeViewModel @Inject constructor(
     /** 插画查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向。 */
     val viewerOrientation: StateFlow<ViewerOrientation> =
         userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerOrientation.HORIZONTAL)
+
+    /** 关注页左列用户排序：关注时间 / 名称升序 / 名称降序 / 代表作最新。 */
+    val followSortMode: StateFlow<FollowSortMode> =
+        userPreferences.followSortMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FollowSortMode.FOLLOW_TIME)
 
     /** 小说导出目录（SAF tree uri；空 = 应用默认私有目录）。 */
     val novelExportDir: StateFlow<String> =
@@ -168,6 +173,11 @@ class MeViewModel @Inject constructor(
     /** 设置插画查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */
     fun setViewerOrientation(value: ViewerOrientation) {
         viewModelScope.launch { userPreferences.setViewerOrientation(value) }
+    }
+
+    /** 设置关注页左列用户排序。 */
+    fun setFollowSortMode(value: FollowSortMode) {
+        viewModelScope.launch { userPreferences.setFollowSortMode(value) }
     }
 
     /** 检查更新（暂为占位：无发布渠道，提示已是最新）。TODO：接入远程版本检查 */

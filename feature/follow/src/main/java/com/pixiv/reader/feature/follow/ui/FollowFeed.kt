@@ -1,0 +1,322 @@
+package com.pixiv.reader.feature.follow.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.ui.component.EmptyBox
+import com.pixiv.reader.core.ui.component.ErrorBox
+import com.pixiv.reader.core.ui.component.IllustCard
+import com.pixiv.reader.core.ui.component.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.NovelCard
+import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.SkeletonBlock
+import com.pixiv.reader.core.ui.component.skeletonPulseColor
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.feature.follow.R
+import com.pixiv.reader.feature.follow.data.FollowFeedItem
+
+/**
+ * 右列单个类型段的动态流。
+ *
+ * - 手机（[isCompact]）：单列流（LazyColumn，卡片全宽）
+ * - 平板：masonry 瀑布流（`StaggeredGridCells.Adaptive(240.dp)`：列宽 ≥240dp 时自动多列，
+ *   保证 NovelCard 横版信息区不被挤压——用户 v5 确认的宽度下限）
+ * - 触底：列表尾部加载 item 自动触发 [onLoadMore]（混合流交替推进两流下一页）
+ *
+ * 插画 / 小说卡片完全复用 core:ui 的 [IllustCard] / [NovelCard] 组件。
+ */
+@Composable
+internal fun FollowFeed(
+    items: List<FollowFeedItem>,
+    isLoading: Boolean,
+    isLoadingMore: Boolean,
+    hasError: Boolean,
+    isCompact: Boolean,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+    onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    onToggleIllustFavorite: (Long, Boolean) -> Unit,
+    onToggleNovelFavorite: (Long, Boolean) -> Unit,
+) {
+    when {
+        isLoading && items.isEmpty() -> if (isCompact) FollowFeedListSkeleton() else IllustWaterfallSkeleton(
+            minColumnWidth = 240.dp,
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
+        )
+        hasError && items.isEmpty() -> ErrorBox(message = null, onRetry = onRetry)
+        items.isEmpty() -> EmptyBox(stringResource(R.string.follow_empty))
+        else -> if (isCompact) {
+            FollowFeedList(
+                items = items,
+                isLoadingMore = isLoadingMore,
+                onLoadMore = onLoadMore,
+                onOpenIllust = onOpenIllust,
+                onOpenNovel = onOpenNovel,
+                onOpenUser = onOpenUser,
+                onOpenCover = onOpenCover,
+                onOpenSeries = onOpenSeries,
+                onToggleIllustFavorite = onToggleIllustFavorite,
+                onToggleNovelFavorite = onToggleNovelFavorite,
+            )
+        } else {
+            FollowFeedGrid(
+                items = items,
+                isLoadingMore = isLoadingMore,
+                onLoadMore = onLoadMore,
+                onOpenIllust = onOpenIllust,
+                onOpenNovel = onOpenNovel,
+                onOpenUser = onOpenUser,
+                onOpenCover = onOpenCover,
+                onOpenSeries = onOpenSeries,
+                onToggleIllustFavorite = onToggleIllustFavorite,
+                onToggleNovelFavorite = onToggleNovelFavorite,
+            )
+        }
+    }
+}
+
+/** 手机单列流。 */
+@Composable
+private fun FollowFeedList(
+    items: List<FollowFeedItem>,
+    isLoadingMore: Boolean,
+    onLoadMore: () -> Unit,
+    onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    onToggleIllustFavorite: (Long, Boolean) -> Unit,
+    onToggleNovelFavorite: (Long, Boolean) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        lazyItems(items, key = { it.key }) { item ->
+            FollowFeedItemCard(
+                item = item,
+                onOpenIllust = onOpenIllust,
+                onOpenNovel = onOpenNovel,
+                onOpenUser = onOpenUser,
+                onOpenCover = onOpenCover,
+                onOpenSeries = onOpenSeries,
+                onToggleIllustFavorite = onToggleIllustFavorite,
+                onToggleNovelFavorite = onToggleNovelFavorite,
+            )
+        }
+        item(key = "load_more") {
+            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+        }
+    }
+}
+
+/** 平板瀑布流。 */
+@Composable
+private fun FollowFeedGrid(
+    items: List<FollowFeedItem>,
+    isLoadingMore: Boolean,
+    onLoadMore: () -> Unit,
+    onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    onToggleIllustFavorite: (Long, Boolean) -> Unit,
+    onToggleNovelFavorite: (Long, Boolean) -> Unit,
+) {
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Adaptive(240.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalItemSpacing = Spacing.sm,
+    ) {
+        gridItems(items, key = { it.key }) { item ->
+            FollowFeedItemCard(
+                item = item,
+                modifier = Modifier.fillMaxWidth(),
+                onOpenIllust = onOpenIllust,
+                onOpenNovel = onOpenNovel,
+                onOpenUser = onOpenUser,
+                onOpenCover = onOpenCover,
+                onOpenSeries = onOpenSeries,
+                onToggleIllustFavorite = onToggleIllustFavorite,
+                onToggleNovelFavorite = onToggleNovelFavorite,
+            )
+        }
+        item(span = StaggeredGridItemSpan.FullLine, key = "load_more") {
+            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+        }
+    }
+}
+
+/** 手机单列流骨架：封面块 + 标题 2 行 + 作者行（对齐单列卡片布局，脉冲动画）。 */
+@Composable
+private fun FollowFeedListSkeleton() {
+    val color = skeletonPulseColor(label = "followFeedSkeleton")
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(count = 3) {
+            Column(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer),
+            ) {
+                SkeletonBlock(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
+                    color = color,
+                )
+                Column(modifier = Modifier.padding(10.dp)) {
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        color = color,
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .fillMaxWidth(0.55f)
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        color = color,
+                    )
+                    Row(
+                        modifier = Modifier.padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SkeletonBlock(
+                            modifier = Modifier.size(20.dp).clip(CircleShape),
+                            color = color,
+                        )
+                        SkeletonBlock(
+                            modifier = Modifier.padding(start = 6.dp).width(80.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                            color = color,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 触底加载 item：进入可视区即触发 [onLoadMore]。 */
+@Composable
+private fun LoadMoreItem(isLoadingMore: Boolean, onLoadMore: () -> Unit) {
+    LaunchedEffect(Unit) { onLoadMore() }
+    Box(
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoadingMore) {
+            CircularProgressIndicator(strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+/** 单条卡片：插画 → IllustCard，小说 → NovelCard（组件复用）。 */
+@Composable
+private fun FollowFeedItemCard(
+    item: FollowFeedItem,
+    modifier: Modifier = Modifier,
+    onOpenIllust: (Long) -> Unit,
+    onOpenNovel: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
+    onOpenSeries: (Long) -> Unit,
+    onToggleIllustFavorite: (Long, Boolean) -> Unit,
+    onToggleNovelFavorite: (Long, Boolean) -> Unit,
+) {
+    when (item) {
+        is FollowFeedItem.IllustItem -> {
+            val illust = item.illust
+            IllustCard(
+                illust = illust,
+                onClick = { onOpenIllust(illust.id) },
+                modifier = modifier,
+                onToggleFavorite = { fav -> onToggleIllustFavorite(illust.id, fav) },
+                onOpenAuthor = { illust.user?.id?.let(onOpenUser) },
+            )
+        }
+        is FollowFeedItem.NovelItem -> {
+            val novel = item.novel
+            NovelCard(
+                novel = novel.toCardData(),
+                onClick = { onOpenNovel(novel.id) },
+                onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
+                onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                onToggleFavorite = { fav -> onToggleNovelFavorite(novel.id, fav) },
+                onTagClick = {},
+                onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                modifier = modifier,
+            )
+        }
+    }
+}
+
+/** 列表 key（插画 / 小说前缀区分，避免混合流内 id 冲突）。 */
+private val FollowFeedItem.key: String
+    get() = when (this) {
+        is FollowFeedItem.IllustItem -> "i_${illust.id}"
+        is FollowFeedItem.NovelItem -> "n_${novel.id}"
+    }
+
+/** Novel → NovelCardData 映射（与其他 feature 内联映射保持一致）。 */
+private fun Novel.toCardData(): NovelCardData = NovelCardData(
+    id = id,
+    title = title.orEmpty(),
+    coverUrl = image_urls?.square_medium ?: image_urls?.medium,
+    authorId = user?.id ?: 0L,
+    authorName = user?.name.orEmpty(),
+    authorAvatarUrl = user?.profile_image_urls?.best(),
+    publishDate = create_date,
+    seriesTitle = series?.title,
+    seriesId = series?.id,
+    favoriteCount = total_bookmarks ?: 0,
+    wordCount = text_length ?: 0,
+    tags = tags.orEmpty()
+        .take(6)
+        .map { it.translated_name ?: it.name ?: "" }
+        .filter { it.isNotBlank() },
+    isFavorite = is_bookmarked == true,
+)

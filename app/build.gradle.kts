@@ -89,12 +89,14 @@ dependencies {
     implementation(project(":feature:manga"))
     implementation(project(":feature:download"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:follow"))
 
     // 基础设施
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.hilt.android)
     implementation(libs.coil)
     implementation(libs.androidx.work.runtime.ktx)

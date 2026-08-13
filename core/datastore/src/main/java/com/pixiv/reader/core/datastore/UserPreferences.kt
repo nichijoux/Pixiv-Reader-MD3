@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pixiv.reader.core.common.AppLanguage
+import com.pixiv.reader.core.common.FollowSortMode
 import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.ReaderPageMode
 import com.pixiv.reader.core.common.ReaderThemeMode
@@ -88,6 +89,8 @@ class UserPreferences @Inject constructor(
     val novelDefaultTab: Flow<NovelDefaultTab> = context.dataStore.data.map { NovelDefaultTab.from(it[KEY_NOVEL_DEFAULT_TAB] ?: NovelDefaultTab.RECOMMEND.value) }
     /** 插画查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向（我的页-浏览设置可改） */
     val viewerOrientation: Flow<ViewerOrientation> = context.dataStore.data.map { ViewerOrientation.from(it[KEY_VIEWER_ORIENTATION] ?: ViewerOrientation.HORIZONTAL.value) }
+    /** 关注页左列用户排序：关注时间 / 名称升序 / 名称降序 / 代表作最新（我的页-浏览设置可改） */
+    val followSortMode: Flow<FollowSortMode> = context.dataStore.data.map { FollowSortMode.from(it[KEY_FOLLOW_SORT_MODE] ?: FollowSortMode.FOLLOW_TIME.value) }
     /** 热门搜索缓存（展示名列表，\n 分隔；配合 updatedAt 控制刷新） */
     val hotTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
         prefs[KEY_HOT_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
@@ -123,6 +126,7 @@ class UserPreferences @Inject constructor(
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
     suspend fun setNovelDefaultTab(value: NovelDefaultTab) = context.dataStore.edit { it[KEY_NOVEL_DEFAULT_TAB] = value.value }
     suspend fun setViewerOrientation(value: ViewerOrientation) = context.dataStore.edit { it[KEY_VIEWER_ORIENTATION] = value.value }
+    suspend fun setFollowSortMode(value: FollowSortMode) = context.dataStore.edit { it[KEY_FOLLOW_SORT_MODE] = value.value }
     suspend fun setAppLanguage(value: String) = context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
     suspend fun setClipboardLinkPrompt(value: Boolean) =
         context.dataStore.edit { it[KEY_CLIPBOARD_LINK_PROMPT] = value }
@@ -154,6 +158,7 @@ class UserPreferences @Inject constructor(
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
         val KEY_NOVEL_DEFAULT_TAB = intPreferencesKey("novel_default_tab")
         val KEY_VIEWER_ORIENTATION = intPreferencesKey("viewer_orientation")
+        val KEY_FOLLOW_SORT_MODE = intPreferencesKey("follow_sort_mode")
         val KEY_HOT_TAGS = stringPreferencesKey("hot_tags")
         val KEY_HOT_TAGS_AT = longPreferencesKey("hot_tags_updated_at")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
