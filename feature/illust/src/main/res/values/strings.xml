@@ -9,8 +9,15 @@
     <string name="illust_menu_download_original">下载原图</string>
     <string name="illust_menu_unbookmark">取消收藏</string>
     <string name="illust_menu_bookmark">收藏</string>
-    <string name="illust_menu_report">举报</string>
-    <string name="illust_page_count">共 %1$d P</string>
+    <string name="illust_bookmarked">已收藏</string>
+    <string name="illust_action_fullscreen">全屏</string>
+    <string name="illust_follow">关注</string>
+    <string name="illust_followed">已关注</string>
+    <string name="illust_expand">展开</string>
+    <string name="illust_collapse">收起</string>
+    <string name="illust_msg_followed">已关注作者</string>
+    <string name="illust_msg_unfollowed">已取消关注</string>
+    <string name="illust_stat_pages">页数</string>
     <string name="illust_stat_view">浏览</string>
     <string name="illust_stat_bookmark">收藏</string>
     <string name="illust_section_related">相关作品</string>
@@ -21,7 +28,6 @@
     <string name="illust_msg_download_started">开始下载…</string>
     <string name="illust_msg_download_done">下载完成</string>
     <string name="illust_msg_download_failed">下载失败：%1$s</string>
-    <string name="illust_msg_report_wip">举报功能开发中</string>
 
     <!-- 下载 worker 错误（IllustDownloadWorker） -->
     <string name="illust_error_work_not_found">作品不存在</string>

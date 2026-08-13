@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.formatCount
+import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
@@ -70,6 +73,7 @@ import kotlin.math.roundToInt
  * @param coverHeight 无宽高数据时的回退封面高度
  * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
  * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
+ * @param ugoiraLoader 动图加载器；非空且作品为 ugoira 时封面播放动图动画（帧未就绪露出静态封面）；null 恒静态
  * @param progress 下载进度 0~1；非 null 时信息区标题栏显示进度条代替标题（下载管理用）
  * @param failed 下载失败标记（配合 [progress]：进度条与文案变红色）
  */
@@ -81,6 +85,7 @@ fun IllustCard(
     coverHeight: Dp = 150.dp,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
     onOpenAuthor: () -> Unit = {},
+    ugoiraLoader: UgoiraLoader? = null,
     progress: Float? = null,
     failed: Boolean = false,
 ) {
@@ -94,7 +99,9 @@ fun IllustCard(
             .clickable(onClick = onClick),
     ) {
         // ── 封面区（Box 内浮层用 align 定位） ──
-        Box(modifier = Modifier.fillMaxWidth()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            // 封面宽度（px）：动图帧采样解码上限（避免解码 zip 原图尺寸浪费内存）
+            val coverMaxSize = with(LocalDensity.current) { maxWidth.roundToPx() }
             // 封面：有宽高比按原比例完整显示，否则回退固定高度
             val ratio = if (illust.width > 0 && illust.height > 0) {
                 illust.width.toFloat() / illust.height.toFloat()
@@ -112,6 +119,15 @@ fun IllustCard(
                     ),
                 contentScale = ContentScale.Crop,
             )
+            // 动图：ugoira 卡片播放（zip 帧动画覆盖静态封面；帧未就绪透明露出封面）
+            if (ugoiraLoader != null && illust.isGif()) {
+                UgoiraCardPlayer(
+                    loader = ugoiraLoader,
+                    illustId = illust.id,
+                    maxDecodeSize = coverMaxSize,
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
             // 左上角：AI 标识 + 页码（多 P），中性黑底白字（与收藏角标统一，不鲜艳）
             Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),

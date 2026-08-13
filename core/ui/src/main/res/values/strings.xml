@@ -14,4 +14,5 @@
     <string name="common_delete">删除</string>
     <string name="download_progress">%1$d%%</string>
     <string name="download_failed">下载失败</string>
+    <string name="ugoira_cd">动图</string>
 </resources>

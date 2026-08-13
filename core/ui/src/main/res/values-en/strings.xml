@@ -14,4 +14,5 @@
     <string name="common_delete">Delete</string>
     <string name="download_progress">%1$d%%</string>
     <string name="download_failed">Download failed</string>
+    <string name="ugoira_cd">Animation</string>
 </resources>

@@ -1,6 +1,21 @@
 <resources>
-    <string name="manga_title">Manga</string>
+    <string name="manga_content_manga">Manga</string>
+    <string name="manga_content_illust">Illustration</string>
+    <string name="manga_content_ugoira">Ugoira</string>
+    <string name="manga_cd_switch_type">Switch content type</string>
     <string name="manga_cd_ranking">Manga ranking</string>
+    <string name="illust_cd_ranking">Illustration ranking</string>
+    <string name="illust_ranking_title">Illustration ranking</string>
+    <string name="illust_ranking_banner">Illustration ranking</string>
+    <string name="illust_ranking_banner_desc">Updated daily · Daily / Weekly / Monthly / Male / Female / Rookie / R18</string>
+    <string name="illust_ranking_day">Daily</string>
+    <string name="illust_ranking_week">Weekly</string>
+    <string name="illust_ranking_month">Monthly</string>
+    <string name="illust_ranking_male">Male</string>
+    <string name="illust_ranking_female">Female</string>
+    <string name="illust_ranking_rookie">Rookie</string>
+    <string name="illust_ranking_r18">R18</string>
+    <string name="illust_ranking_empty">No ranking data</string>
     <string name="manga_ranking_banner">Manga ranking</string>
     <string name="manga_ranking_banner_desc">Updated daily · Daily / Weekly / Monthly / Rookie / R18</string>
     <string name="manga_ranking_title">Manga ranking</string>
@@ -10,6 +25,8 @@
     <string name="manga_ranking_rookie">Rookie</string>
     <string name="manga_ranking_r18">R18</string>
     <string name="manga_empty">No manga recommendations yet</string>
+    <string name="manga_illust_empty">No illustration recommendations yet</string>
+    <string name="manga_ugoira_empty">No ugoira content yet</string>
     <string name="manga_ranking_empty">No ranking data</string>
     <string name="manga_cd_back">Back</string>
     <string name="manga_cd_more">More</string>

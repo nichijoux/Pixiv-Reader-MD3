@@ -43,6 +43,12 @@ class PagedState<T> {
     private var nextFetch: (suspend (String) -> Pageable<T>)? = null
 
     /**
+     * 加载代次：[reset] 自增使旧代次作废——旧请求完成时丢弃结果且不复位 isLoading，
+     * 防止下拉刷新（reset + 重新 loadInitial）期间旧请求返回覆盖新数据。
+     */
+    private var generation = 0
+
+    /**
      * 首次加载：拉取第一页并缓存 fetch 函数。
      * 加载中重复调用直接忽略；失败时置 error 并停用加载更多（hasMore=false）。
      */
@@ -51,21 +57,25 @@ class PagedState<T> {
         fetchNext: suspend (String) -> Pageable<T>,
     ) {
         if (_isLoading.value) return
+        val gen = generation
         initialFetch = fetch
         nextFetch = fetchNext
         _isLoading.value = true
         _error.value = null
         try {
             val page = fetch()
+            if (gen != generation) return
             _items.value = page.items
             next = page.nextPageUrl
             _hasMore.value = page.nextPageUrl != null
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            if (gen != generation) return
             _error.value = e.message
             _hasMore.value = false
         } finally {
-            _isLoading.value = false
+            // 过期代次不复位 isLoading（新代次的加载由新调用自己管理）
+            if (gen == generation) _isLoading.value = false
         }
     }
 
@@ -91,12 +101,18 @@ class PagedState<T> {
         }
     }
 
-    /** 清空并重新加载（下次 loadInitial 生效；游标与列表归零）。 */
+    /**
+     * 清空并重新加载（下次 loadInitial 生效；游标与列表归零）。
+     * 同时复位 isLoading 并作废旧代次——保证「下拉刷新」（reset + loadInitial）
+     * 在任意状态下（含首载未完成）都真正重新拉取，而不是被幂等忽略。
+     */
     fun reset() {
+        generation++
         next = null
         _items.value = emptyList()
         _error.value = null
         _hasMore.value = true
+        _isLoading.value = false
     }
 
     /** 手动注入错误（如分页失败后由调用方补充文案）。 */

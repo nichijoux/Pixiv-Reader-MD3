@@ -17,6 +17,8 @@ import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
 import com.pixiv.reader.core.network.download.ProgressDownloader
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.network.ugoira.UgoiraFrame
+import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

@@ -2,6 +2,5 @@
     <string name="home_recommend">Recommend</string>
     <string name="home_follow">Following</string>
     <string name="home_for_you">For you</string>
-    <string name="home_notifications">Notifications</string>
     <string name="home_search">Search</string>
 </resources>

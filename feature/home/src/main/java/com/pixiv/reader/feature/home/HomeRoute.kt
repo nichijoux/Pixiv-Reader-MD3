@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,9 +68,6 @@ fun HomeRoute(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { /* 通知（P7） */ }) {
-                        Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.home_notifications))
-                    }
                     IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_search))
                     }

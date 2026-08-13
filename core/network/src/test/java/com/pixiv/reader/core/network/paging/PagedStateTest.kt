@@ -1,6 +1,10 @@
 package com.pixiv.reader.core.network.paging
 
 import com.pixiv.api.Pageable
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,6 +17,7 @@ private data class FakePage<T>(
     override val nextPageUrl: String? = null,
 ) : Pageable<T>
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PagedStateTest {
 
     @Test
@@ -83,5 +88,40 @@ class PagedStateTest {
         assertEquals(emptyList<Int>(), state.items.value)
         assertTrue(state.hasMore.value)
         assertNull(state.error.value)
+        assertFalse(state.isLoading.value)
+    }
+
+    @Test
+    fun `reset during in-flight load allows immediate reload and discards stale result`() = runTest {
+        val state = PagedState<Int>()
+        // 首载 fetch 挂起（模拟慢请求，isLoading 已置位）
+        val releaseFirst = CompletableDeferred<Unit>()
+        val firstLoad = launch {
+            state.loadInitial(
+                fetch = {
+                    releaseFirst.await()
+                    FakePage(listOf(1, 2))
+                },
+                fetchNext = { _ -> FakePage(emptyList()) },
+            )
+        }
+        runCurrent() // 推进到 fetch 挂起
+        assertTrue(state.isLoading.value)
+
+        // 下拉刷新语义：首载未完成时 reset + 重新 loadInitial 必须真正重拉（不被 isLoading 幂等忽略）
+        state.reset()
+        assertFalse(state.isLoading.value)
+        state.loadInitial(
+            fetch = { FakePage(listOf(7, 8, 9)) },
+            fetchNext = { _ -> FakePage(emptyList()) },
+        )
+        assertEquals(listOf(7, 8, 9), state.items.value)
+        assertFalse(state.isLoading.value)
+
+        // 放行旧请求：过期代次结果必须丢弃，不能覆盖新数据
+        releaseFirst.complete(Unit)
+        runCurrent()
+        assertEquals(listOf(7, 8, 9), state.items.value)
+        firstLoad.join()
     }
 }

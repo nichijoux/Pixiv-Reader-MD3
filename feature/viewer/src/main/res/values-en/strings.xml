@@ -10,7 +10,6 @@
     <string name="viewer_cd_download_original">Download original</string>
     <string name="viewer_cd_set_wallpaper">Set as wallpaper</string>
     <string name="viewer_cd_view_original">View original</string>
-    <string name="viewer_cd_ugoira">Animation</string>
     <string name="viewer_ugoira_loading">Loading animation…</string>
     <string name="viewer_msg_load_failed_reason">Failed to load: %1$s</string>
     <string name="viewer_msg_ugoira_load_failed">Failed to load animation</string>

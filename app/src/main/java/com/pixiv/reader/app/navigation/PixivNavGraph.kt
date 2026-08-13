@@ -32,6 +32,7 @@ import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.illust.IllustDownloadWorker
+import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
@@ -85,6 +86,8 @@ const val ROUTE_BLOCKED = "blocked"
 const val ROUTE_DOWNLOADS = "downloads"
 /** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
+/** 插画排行榜（全屏页，从漫画 Tab 插画类型顶部入口进入）。 */
+const val ROUTE_ILLUST_RANKING = "illust_ranking"
 /** 小说排行榜（全屏页，从小说 Tab 推荐页顶部入口进入）。 */
 const val ROUTE_NOVEL_RANKING = "novel_ranking"
 /** 全屏图片查看（URL 直入，如小说封面大图），全屏路由隐藏底部导航。 */
@@ -182,6 +185,9 @@ fun PixivNavGraph(
                 onOpenMangaRanking = {
                     navController.navigate(ROUTE_MANGA_RANKING)
                 },
+                onOpenIllustRanking = {
+                    navController.navigate(ROUTE_ILLUST_RANKING)
+                },
                 onOpenNovelRanking = {
                     navController.navigate(ROUTE_NOVEL_RANKING)
                 },
@@ -197,6 +203,10 @@ fun PixivNavGraph(
             val illustId = backStackEntry.arguments?.getLong("illustId") ?: 0L
             IllustDetailRoute(
                 onBack = { navController.safeBack() },
+                onOpenIllust = { id ->
+                    // 相关作品等：跳对应作品详情（叠栈，返回回到当前详情）
+                    navController.navigate("illust/$id")
+                },
                 onOpenViewer = { id, page ->
                     // 打开全屏查看器并定位到指定页
                     navController.navigate("viewer/$id?page=$page")
@@ -207,6 +217,10 @@ fun PixivNavGraph(
                 onOpenComments = { id ->
                     // 评论独立页（通用）：illust 类型
                     navController.navigate("comments/illust/$id")
+                },
+                onSearchTag = { tag ->
+                    // 标签搜索：切到发现页并搜索（main?search= 顶层通道）
+                    navController.navigate("main?search=${Uri.encode(tag)}")
                 },
             )
         }
@@ -529,6 +543,15 @@ fun PixivNavGraph(
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情
         composable(ROUTE_MANGA_RANKING) {
             MangaRankingRoute(
+                onBack = { navController.safeBack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+            )
+        }
+        // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情
+        composable(ROUTE_ILLUST_RANKING) {
+            IllustRankingRoute(
                 onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")

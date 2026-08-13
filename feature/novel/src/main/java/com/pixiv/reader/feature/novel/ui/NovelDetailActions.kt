@@ -1,15 +1,16 @@
 package com.pixiv.reader.feature.novel.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Download
@@ -25,34 +26,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
-import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.component.VerticalActionButton
+import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 
-/** 操作区：阅读主按钮（AutoStories 图标）+ 4 个竖排卡片按钮（icon 上 / label 下）。 */
+/** 操作区（内容区）：阅读主按钮（AutoStories 图标）+ 下载进度；四个竖排按钮固定在底部见 [NovelActionBar]。 */
 @Composable
 internal fun NovelActions(
     novel: Novel,
     progress: ReadingProgressEntity?,
-    isBookmarked: Boolean,
-    isBookmarking: Boolean,
-    isWatchlisted: Boolean,
-    isWatchlisting: Boolean,
     downloading: Boolean,
     downloadProgress: String?,
-    onBookmark: () -> Unit,
-    onWatchlist: () -> Unit,
-    onDownload: () -> Unit,
     onRead: () -> Unit,
-    onComments: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
         val readLabel = if (progress != null && (progress.percentage ?: 0) > 0) {
@@ -68,8 +59,46 @@ internal fun NovelActions(
                 modifier = Modifier.padding(start = 6.dp),
             )
         }
+        if (downloading && !downloadProgress.isNullOrBlank()) {
+            Text(
+                text = downloadProgress,
+                style = novelMetaStyle(),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+    }
+}
+
+/**
+ * 底部固定操作条：收藏 / 追更 / 下载 / 评论 四个竖排 icon+文字按钮（对齐插画详情页风格，
+ * 复用 core:ui [VerticalActionButton]），Scaffold 外 Box 底部固定，限宽居中（平板与内容对齐）。
+ */
+@Composable
+internal fun NovelActionBar(
+    seriesId: Long?,
+    isBookmarked: Boolean,
+    isBookmarking: Boolean,
+    isWatchlisted: Boolean,
+    isWatchlisting: Boolean,
+    downloading: Boolean,
+    onBookmark: () -> Unit,
+    onWatchlist: () -> Unit,
+    onDownload: () -> Unit,
+    onComments: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .navigationBarsPadding(),
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = MAX_CONTENT_WIDTH_DP.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             VerticalActionButton(
@@ -79,12 +108,14 @@ internal fun NovelActions(
                 enabled = !isBookmarking,
                 onClick = onBookmark,
                 modifier = Modifier.weight(1f),
+                // 收藏激活用红心（与插画详情页一致）
+                activeIconTint = FavoriteRed,
             )
             VerticalActionButton(
                 icon = if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
                 label = if (isWatchlisted) stringResource(R.string.novel_watchlisted) else stringResource(R.string.novel_watch),
                 active = isWatchlisted,
-                enabled = !isWatchlisting && novel.series?.id?.let { it > 0L } == true,
+                enabled = !isWatchlisting && seriesId != null && seriesId > 0L,
                 onClick = onWatchlist,
                 modifier = Modifier.weight(1f),
             )
@@ -105,57 +136,5 @@ internal fun NovelActions(
                 modifier = Modifier.weight(1f),
             )
         }
-        if (downloading && !downloadProgress.isNullOrBlank()) {
-            Text(
-                text = downloadProgress,
-                style = novelMetaStyle(),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-    }
-}
-
-/** 竖排卡片按钮（HTML `.abtn`）：icon 上 / label 下，52dp 高，圆角 12，激活态 primaryContainer。 */
-@Composable
-internal fun VerticalActionButton(
-    icon: ImageVector,
-    label: String,
-    active: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .height(52.dp)
-            .clip(AppShapes.card)
-            .border(
-                width = 1.dp,
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                shape = AppShapes.card,
-            )
-            .background(
-                if (active) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceContainerLow,
-            )
-            .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.45f),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(19.dp),
-            // 图标始终主色（对齐 HTML `.abtn .ic{fill:var(--primary)}`），仅 disabled 置灰
-            tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = label,
-            style = novelSmallLabelStyle().copy(fontWeight = FontWeight.SemiBold),
-            color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = NovelIconLabelGap),
-        )
     }
 }

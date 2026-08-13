@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixiv Reader · 插画/漫画/动图详情页重构 · Material 3 设计预览</title>
+<style>
+  :root{
+    --primary:#00639B; --on-primary:#FFFFFF;
+    --primary-container:#CDE5FF; --on-primary-container:#001D33;
+    --secondary:#52606F; --secondary-container:#D6E3F2; --on-secondary-container:#0E1D29;
+    --surface:#FDFCFF; --surface-container-low:#F7F9FB; --surface-container:#F0F4F8; --surface-container-h:#E4EAF0;
+    --on-surface:#1A1C1E; --on-surface-variant:#42474D;
+    --outline:#73777E; --outline-variant:#C3C7CF;
+    --error:#BA1A1A; --error-container:#FFDAD6;
+    --shadow:0 1px 3px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.10);
+    --favorite:#E53935;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#0B1220}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:#E7ECF2;padding:40px 20px 80px;display:flex;flex-direction:column;align-items:center}
+  .ic{width:22px;height:22px;fill:currentColor;display:block;flex:none}
+  h1{font-size:23px;font-weight:700;letter-spacing:.5px;text-align:center}
+  h1 small{display:block;font-size:13px;font-weight:500;color:#8FA0B5;margin-top:6px}
+  .hint{margin-top:12px;font-size:12.5px;color:#8FA0B5;background:#131d2e;border:1px solid #22304a;
+    border-radius:10px;padding:10px 18px;line-height:1.8;max-width:700px}
+  .hint b{color:#4fc3f7}
+  .pillrow{display:flex;gap:10px;margin-top:20px}
+  .pill{padding:8px 18px;border-radius:18px;border:1px solid #2a3548;background:#131d2e;color:#8FA0B5;
+    font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+  .pill.on{background:var(--primary);border-color:var(--primary);color:#fff}
+  .wrap{display:flex;gap:34px;flex-wrap:wrap;justify-content:center;margin-top:26px;align-items:flex-start}
+  .phone{width:372px;height:820px;background:var(--surface);border-radius:46px;overflow:hidden;
+    box-shadow:0 0 0 2px #2a3548,0 24px 60px rgba(0,0,0,.55);position:relative;color:var(--on-surface);
+    display:flex;flex-direction:column;flex:none}
+  .tablet{width:880px;height:820px;background:var(--surface);border-radius:46px;overflow:hidden;
+    box-shadow:0 0 0 2px #2a3548,0 24px 60px rgba(0,0,0,.55);position:relative;color:var(--on-surface);
+    display:flex;flex-direction:column;flex:none}
+  .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:112px;height:22px;background:#111;border-radius:12px;z-index:60}
+  .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;background:var(--surface)}
+  .frame-label{position:absolute;top:14px;left:24px;z-index:70;font-size:11px;font-weight:700;color:#fff;
+    background:rgba(0,0,0,.5);padding:3px 10px;border-radius:10px;letter-spacing:.3px}
+  .hidden{display:none!important}
+
+  .view{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+  .dscroll{flex:1;overflow-y:auto;scrollbar-width:none}
+  .dscroll::-webkit-scrollbar{display:none}
+
+  /* ── 顶部栏 ── */
+  .topbar{flex:none;height:58px;background:var(--surface);display:flex;align-items:center;
+    padding:0 8px;box-shadow:0 1px 0 var(--outline-variant)}
+  .tb-btn{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;color:var(--on-surface)}
+  .tb-title{flex:1;text-align:center;font-size:16px;font-weight:600}
+
+  /* ── 图区 ── */
+  .stage{flex:none;position:relative;background:#0A0A0A}
+  .stage .cover-img{width:100%;height:100%;object-fit:contain;display:block;background:
+    linear-gradient(140deg,#4f9ef0 0%,#8fd3be 55%,#6a5fb8 100%)}
+  .stage .page-badge{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;align-items:center}
+  .page-badge .num{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:12px;
+    background:rgba(0,0,0,.5);color:#fff;font-size:12px;font-weight:600}
+  .page-badge .fs{width:32px;height:32px;border-radius:12px;background:rgba(0,0,0,.5);
+    display:flex;align-items:center;justify-content:center;color:#fff}
+  .page-badge .fs .ic{width:18px;height:18px}
+  /* 动图加载中：转圈 + 百分比 */
+  .ugoira-load{position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;
+    align-items:center;justify-content:center;color:#fff}
+  .ugoira-load .inner{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .spinner{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.25);
+    border-top-color:#fff;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ugoira-load .pct{font-size:14px;font-weight:700}
+
+  /* ── 信息区（限宽 760 居中） ── */
+  .content{flex:1;overflow-y:auto;scrollbar-width:none}
+  .content::-webkit-scrollbar{display:none}
+  .info{max-width:760px;margin:0 auto;padding:18px 18px 12px}
+  .title{font-size:22px;font-weight:700;line-height:1.35}
+
+  /* 作者行：头像 + 昵称 › 关注胶囊顶右（整行可点击进用户主页） */
+  .author{display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;border-radius:10px;
+    padding:4px 6px;margin-left:-6px;transition:background .15s}
+  .author:hover{background:var(--surface-container)}
+  .avatar{width:40px;height:40px;border-radius:20px;flex:none;
+    background:linear-gradient(135deg,#8fd3be,#4f9ef0);display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:16px;font-weight:700}
+  .author .name{flex:1;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .follow-pill{flex:none;height:32px;padding:0 14px;border-radius:16px;font-size:13px;font-weight:600;
+    display:flex;align-items:center;gap:6px;cursor:pointer;border:1px solid transparent}
+  .follow-pill.off{background:var(--primary);color:#fff}
+  .follow-pill.on{background:var(--primary-container);color:var(--on-primary-container);border-color:var(--primary)}
+  .follow-pill .ic{width:16px;height:16px}
+
+  /* 统计行：纯文字均分（无卡片背景） */
+  .stats{display:flex;margin-top:16px}
+  .stat{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .stat .val{font-size:16px;font-weight:700;display:flex;align-items:center;gap:5px}
+  .stat .val .ic{width:16px;height:16px;color:var(--on-surface-variant)}
+  .stat .lbl{font-size:11.5px;color:var(--on-surface-variant)}
+
+  /* 标签胶囊（可点击跳搜索） */
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  .tag{font-size:12px;font-weight:600;color:var(--primary);background:var(--secondary-container);
+    border-radius:12px;padding:5px 10px;cursor:pointer;transition:filter .15s}
+  .tag:hover{filter:brightness(.92)}
+
+  /* 简介：首行缩进 + 6 行截断 + 居中展开/收起（对齐小说详情页） */
+  .intro{margin-top:14px;font-size:13.5px;line-height:1.75;color:var(--on-surface)}
+  .intro p{text-indent:2em}
+  .intro.clamped p{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+  .intro-toggle{width:100%;text-align:center;font-size:12.5px;font-weight:600;color:var(--primary);
+    padding:6px 0;margin-top:2px;cursor:pointer;background:none;border:none}
+
+  /* 底部操作条：竖排 icon+文字 卡片按钮（对齐小说详情页 abtn） */
+  .actions{flex:none;background:var(--surface);box-shadow:0 -1px 0 var(--outline-variant);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+  .actions .row{max-width:760px;margin:0 auto;display:flex;gap:10px}
+  .abtn{flex:1;height:58px;border-radius:12px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:4px;cursor:pointer;border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);color:var(--on-surface)}
+  .abtn .ic{width:20px;height:20px;color:var(--primary)}
+  .abtn .lb{font-size:11px;font-weight:600}
+  .abtn.active{background:var(--primary-container);border-color:var(--primary)}
+  .abtn.active .ic{color:var(--primary)}
+  .abtn.active .lb{color:var(--on-primary-container)}
+  .abtn.fav.active .ic{color:var(--favorite)}
+  .abtn.disabled{opacity:.45;pointer-events:none}
+
+  /* ── 相关推荐 ── */
+  .related{max-width:760px;margin:0 auto;padding:4px 18px 20px}
+  .rel-title{font-size:16px;font-weight:700;margin-bottom:12px}
+  .rel-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+  .rel-row::-webkit-scrollbar{display:none}
+  .rel-card{flex:none;width:132px;border-radius:14px;overflow:hidden;background:var(--surface-container);
+    box-shadow:var(--shadow);cursor:pointer}
+  .rel-card .thumb{width:132px;aspect-ratio:4/3;background:linear-gradient(140deg,#b3cbe5,#8fd3be 60%,#c9a7e8)}
+  .rel-card .rt{margin:0;padding:7px 8px;font-size:12px;font-weight:600;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .rel-card .ra{font-size:10.5px;color:var(--on-surface-variant);padding:0 8px 8px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+
+  /* 平板：内容限宽居中 */
+  .tablet .stage{display:flex;justify-content:center}
+  .tablet .stage-wrap{width:100%;max-width:760px;position:relative}
+</style>
+</head>
+<body>
+
+<h1>插画 / 漫画 / 动图详情页重构<small>Material 3 · 手机 + 平板双画框 · 按钮 icon+文字化（对齐小说详情页）</small></h1>
+<div class="hint">
+  <b>设计要点</b>：① 图区（多 P Pager / 动图播放+下载进度）不变；② 作者行 = 头像 + 昵称 + <b>关注/取关胶囊同行</b>（顶行最右，对齐小说 AuthorFollowPill），<b>整行可点击进用户主页</b>；③ 统计行 = 浏览 / 收藏 / 页数<b>均分撑满</b>（纯文字，无卡片背景）；④ 底部操作条 = <b>竖排 icon+文字卡片按钮</b>（全屏 / 收藏 / 下载 / 评论，对齐小说 abtn）；⑤ <b>标签可点击（跳发现页搜索该 tag）</b>、简介（首行缩进+展开）、相关推荐（缩略图按真实宽高比）保留。
+</div>
+
+<div class="pillrow">
+  <div class="pill on" data-view="illust">插画详情</div>
+  <div class="pill" data-view="ugoira">动图加载中</div>
+</div>
+
+<div class="wrap">
+
+<!-- ══════════ 手机画框 ══════════ -->
+<div class="phone" id="phone">
+  <div class="notch"></div>
+  <div class="frame-label">手机 · 390dp</div>
+  <div class="screen">
+    <div class="view">
+      <div class="dscroll">
+        <!-- 图区 -->
+        <div class="stage" style="height:280px">
+          <div class="cover-img"></div>
+          <div class="ugoira-load hidden" data-ugoira="1">
+            <div class="inner"><div class="spinner"></div><div class="pct">62%</div></div>
+          </div>
+          <div class="page-badge"><div class="num">3 / 24</div><div class="fs"><svg class="ic" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></div></div>
+        </div>
+        <!-- 信息区 -->
+        <div class="info">
+          <div class="title">少女的夏日祭 · 浴衣篇</div>
+          <div class="author">
+            <div class="avatar">み</div>
+            <div class="name">みやび（miyabi_illust）</div>
+            <div class="follow-pill off" data-follow="1"><svg class="ic" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg><span>关注</span></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="val"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>2.3万</div><div class="lbl">浏览</div></div>
+            <div class="stat"><div class="val"><svg class="ic" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>1,285</div><div class="lbl">收藏</div></div>
+            <div class="stat"><div class="val"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>24P</div><div class="lbl">页数</div></div>
+          </div>
+          <div class="tags">
+            <span class="tag">#夏</span><span class="tag">#浴衣</span><span class="tag">#少女</span><span class="tag">#祭り</span><span class="tag">#オリジナル</span><span class="tag">#2026</span>
+          </div>
+          <div class="intro clamped" data-intro="1">
+            <p>夏日祭的最后一天，换上浴衣的少女在灯火下回眸。烟花升空的声音淹没在人潮里，她笑着说"明年也要一起来"。这张图是祭典系列的第三张，尝试了新的配色与光影表现——灯笼的暖光、夜空的深蓝、以及浴衣上流动的花纹。祭典的尾声，她拉着我的手穿过人群，奔向河边最后一场烟火。人声鼎沸中，只有她回头时眼里的光最亮。这张图的构图反复调整了很久，最终决定把烟火放在背景里虚化，让视线集中在她的侧脸与浴衣的纹样上。</p>
+          </div>
+          <button class="intro-toggle" data-toggle="1">展开</button>
+        </div>
+        <!-- 相关推荐 -->
+        <div class="related">
+          <div class="rel-title">相关推荐</div>
+          <div class="rel-row">
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:3/4"></div><p class="rt">花火大会</p><p class="ra">しろくま</p></div>
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:4/3"></div><p class="rt">夏夜の約束</p><p class="ra">あおい</p></div>
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:2/3"></div><p class="rt">金魚すくい</p><p class="ra">mochi</p></div>
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:3/4"></div><p class="rt">浴衣少女</p><p class="ra">nyanco</p></div>
+          </div>
+        </div>
+      </div>
+      <!-- 底部操作条 -->
+      <div class="actions">
+        <div class="row">
+          <div class="abtn"><svg class="ic" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><span class="lb">全屏</span></div>
+          <div class="abtn fav active"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span class="lb">已收藏</span></div>
+          <div class="abtn"><svg class="ic" viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg><span class="lb">下载</span></div>
+          <div class="abtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/></svg><span class="lb">评论</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 平板画框 ══════════ -->
+<div class="tablet" id="tablet">
+  <div class="frame-label">平板 · 880dp（内容限宽 760 居中）</div>
+  <div class="screen">
+    <div class="view">
+      <div class="dscroll">
+        <div class="stage" style="height:340px">
+          <div class="stage-wrap">
+            <div class="cover-img" style="height:340px"></div>
+            <div class="ugoira-load hidden" data-ugoira="1">
+              <div class="inner"><div class="spinner"></div><div class="pct">62%</div></div>
+            </div>
+            <div class="page-badge"><div class="num">3 / 24</div><div class="fs"><svg class="ic" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></div></div>
+          </div>
+        </div>
+        <div class="info">
+          <div class="title">少女的夏日祭 · 浴衣篇</div>
+          <div class="author">
+            <div class="avatar">み</div>
+            <div class="name">みやび（miyabi_illust）</div>
+            <div class="follow-pill off" data-follow="1"><svg class="ic" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg><span>关注</span></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="val"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>2.3万</div><div class="lbl">浏览</div></div>
+            <div class="stat"><div class="val"><svg class="ic" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>1,285</div><div class="lbl">收藏</div></div>
+            <div class="stat"><div class="val"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>24P</div><div class="lbl">页数</div></div>
+          </div>
+          <div class="tags">
+            <span class="tag">#夏</span><span class="tag">#浴衣</span><span class="tag">#少女</span><span class="tag">#祭り</span><span class="tag">#オリジナル</span><span class="tag">#2026</span>
+          </div>
+          <div class="intro clamped" data-intro="1">
+            <p>夏日祭的最后一天，换上浴衣的少女在灯火下回眸。烟花升空的声音淹没在人潮里，她笑着说"明年也要一起来"。这张图是祭典系列的第三张，尝试了新的配色与光影表现——灯笼的暖光、夜空的深蓝、以及浴衣上流动的花纹。祭典的尾声，她拉着我的手穿过人群，奔向河边最后一场烟火。人声鼎沸中，只有她回头时眼里的光最亮。这张图的构图反复调整了很久，最终决定把烟火放在背景里虚化，让视线集中在她的侧脸与浴衣的纹样上。</p>
+          </div>
+          <button class="intro-toggle" data-toggle="1">展开</button>
+        </div>
+        <div class="related">
+          <div class="rel-title">相关推荐</div>
+          <div class="rel-row">
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:3/4"></div><p class="rt">花火大会</p><p class="ra">しろくま</p></div>
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:4/3"></div><p class="rt">夏夜の約束</p><p class="ra">あおい</p></div>
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:2/3"></div><p class="rt">金魚すくい</p><p class="ra">mochi</p></div>
+            <div class="rel-card"><div class="thumb" style="aspect-ratio:3/4"></div><p class="rt">浴衣少女</p><p class="ra">nyanco</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <div class="row">
+          <div class="abtn"><svg class="ic" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><span class="lb">全屏</span></div>
+          <div class="abtn fav active"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span class="lb">已收藏</span></div>
+          <div class="abtn"><svg class="ic" viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg><span class="lb">下载</span></div>
+          <div class="abtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/></svg><span class="lb">评论</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+  // 视图切换：插画详情 / 动图加载中
+  document.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
+    document.querySelectorAll('.pill').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    const ugoira = p.dataset.view === 'ugoira';
+    document.querySelectorAll('[data-ugoira="1"]').forEach(el => el.classList.toggle('hidden', !ugoira));
+  }));
+  // 简介 展开 / 收起（对齐小说详情页：居中按钮，短简介不显示）
+  document.querySelectorAll('[data-toggle="1"]').forEach(btn => btn.addEventListener('click', () => {
+    const intro = btn.previousElementSibling;
+    const expanded = !intro.classList.contains('clamped');
+    intro.classList.toggle('clamped', !expanded);
+    btn.textContent = expanded ? '收起' : '展开';
+  }));
+  document.querySelectorAll('.follow-pill').forEach(f => f.addEventListener('click', () => {
+    const on = f.classList.toggle('on');
+    f.classList.toggle('off', !on);
+    f.querySelector('span').textContent = on ? '已关注' : '关注';
+    f.querySelector('.ic').innerHTML = on
+      ? '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>'
+      : '<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>';
+  }));
+</script>
+</body>
+</html>

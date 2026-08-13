@@ -101,10 +101,6 @@ fun NovelDetailRoute(
                     detail = detail,
                     seriesNovels = seriesNovels,
                     progress = progress,
-                    isBookmarked = isBookmarked,
-                    isBookmarking = isBookmarking,
-                    isWatchlisted = isWatchlisted,
-                    isWatchlisting = isWatchlisting,
                     isAuthorFollowed = isAuthorFollowed,
                     isAuthorFollowing = isAuthorFollowing,
                     downloading = downloading,
@@ -114,13 +110,26 @@ fun NovelDetailRoute(
                     onOpenReader = onOpenReader,
                     onOpenUser = onOpenUser,
                     onOpenSeries = onOpenSeries,
-                    onOpenComments = onOpenComments,
-                    onBookmark = viewModel::toggleBookmark,
-                    onWatchlist = viewModel::toggleWatchlist,
                     onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                    onDownload = { showDownloadDialog = true },
                 )
             }
+        }
+        // 底部固定操作条：收藏 / 追更 / 下载 / 评论（详情加载完成后显示）
+        val actionNovel = novel
+        if (actionNovel != null) {
+            NovelActionBar(
+                seriesId = actionNovel.series?.id,
+                isBookmarked = isBookmarked,
+                isBookmarking = isBookmarking,
+                isWatchlisted = isWatchlisted,
+                isWatchlisting = isWatchlisting,
+                downloading = downloading,
+                onBookmark = viewModel::toggleBookmark,
+                onWatchlist = viewModel::toggleWatchlist,
+                onDownload = { showDownloadDialog = true },
+                onComments = { onOpenComments(actionNovel.id) },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
         val dialogNovel = novel
         if (showDownloadDialog && dialogNovel != null) {
@@ -150,10 +159,6 @@ private fun NovelDetailContent(
     detail: Novel,
     seriesNovels: List<Novel>,
     progress: ReadingProgressEntity?,
-    isBookmarked: Boolean,
-    isBookmarking: Boolean,
-    isWatchlisted: Boolean,
-    isWatchlisting: Boolean,
     isAuthorFollowed: Boolean,
     isAuthorFollowing: Boolean,
     downloading: Boolean,
@@ -163,11 +168,7 @@ private fun NovelDetailContent(
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
-    onOpenComments: (Long) -> Unit,
-    onBookmark: () -> Unit,
-    onWatchlist: () -> Unit,
     onToggleFollowAuthor: () -> Unit,
-    onDownload: () -> Unit,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
     val seriesId = detail.series?.id
@@ -197,22 +198,14 @@ private fun NovelDetailContent(
                             NovelActions(
                                 novel = detail,
                                 progress = progress,
-                                isBookmarked = isBookmarked,
-                                isBookmarking = isBookmarking,
-                                isWatchlisted = isWatchlisted,
-                                isWatchlisting = isWatchlisting,
                                 downloading = downloading,
                                 downloadProgress = downloadProgress,
-                                onBookmark = onBookmark,
-                                onWatchlist = onWatchlist,
-                                onDownload = onDownload,
                                 onRead = { onOpenReader(detail.id) },
-                                onComments = { onOpenComments(detail.id) },
                             )
                         }
                     }
                 }
-                item(key = "bottom_space") { Spacer(Modifier.height(24.dp)) }
+                item(key = "bottom_space") { Spacer(Modifier.height(96.dp)) }
             }
             // 左侧目录浮层：从 banner 底部开始固定（不随正文滚、不影响 banner）
             Box(
@@ -239,10 +232,6 @@ private fun NovelDetailContent(
             detail = detail,
             seriesNovels = seriesNovels,
             progress = progress,
-            isBookmarked = isBookmarked,
-            isBookmarking = isBookmarking,
-            isWatchlisted = isWatchlisted,
-            isWatchlisting = isWatchlisting,
             isAuthorFollowed = isAuthorFollowed,
             isAuthorFollowing = isAuthorFollowing,
             downloading = downloading,
@@ -252,11 +241,7 @@ private fun NovelDetailContent(
             onOpenReader = onOpenReader,
             onOpenUser = onOpenUser,
             onOpenSeries = onOpenSeries,
-            onOpenComments = onOpenComments,
-            onBookmark = onBookmark,
-            onWatchlist = onWatchlist,
             onToggleFollowAuthor = onToggleFollowAuthor,
-            onDownload = onDownload,
         )
     }
 }
@@ -267,10 +252,6 @@ private fun PhoneNovelDetail(
     detail: Novel,
     seriesNovels: List<Novel>,
     progress: ReadingProgressEntity?,
-    isBookmarked: Boolean,
-    isBookmarking: Boolean,
-    isWatchlisted: Boolean,
-    isWatchlisting: Boolean,
     isAuthorFollowed: Boolean,
     isAuthorFollowing: Boolean,
     downloading: Boolean,
@@ -280,11 +261,7 @@ private fun PhoneNovelDetail(
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
-    onOpenComments: (Long) -> Unit,
-    onBookmark: () -> Unit,
-    onWatchlist: () -> Unit,
     onToggleFollowAuthor: () -> Unit,
-    onDownload: () -> Unit,
 ) {
     val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
     val seriesId = detail.series?.id
@@ -308,17 +285,9 @@ private fun PhoneNovelDetail(
                         NovelActions(
                             novel = detail,
                             progress = progress,
-                            isBookmarked = isBookmarked,
-                            isBookmarking = isBookmarking,
-                            isWatchlisted = isWatchlisted,
-                            isWatchlisting = isWatchlisting,
                             downloading = downloading,
                             downloadProgress = downloadProgress,
-                            onBookmark = onBookmark,
-                            onWatchlist = onWatchlist,
-                            onDownload = onDownload,
                             onRead = { onOpenReader(detail.id) },
-                            onComments = { onOpenComments(detail.id) },
                         )
                     }
                 }

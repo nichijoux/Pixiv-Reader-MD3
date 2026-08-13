@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.ViewerOrientation
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.NotificationHost
+import com.pixiv.reader.core.ui.component.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.ZoomableImage
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.toNotificationType
@@ -122,6 +123,12 @@ fun ViewerRoute(
             UgoiraPlayer(
                 frames = ugoiraFrames,
                 modifier = Modifier.fillMaxSize(),
+                loadingContent = {
+                    Text(
+                        text = stringResource(R.string.viewer_ugoira_loading),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
             )
         } else {
             // 页内容（放大 / 预览·原图切换），三种方向共用

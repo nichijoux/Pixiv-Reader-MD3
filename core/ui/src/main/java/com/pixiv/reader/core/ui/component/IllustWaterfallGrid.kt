@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 瀑布流封面高度循环（模拟不同纵横比，仅用于无宽高数据时的回退）。 */
@@ -42,6 +43,7 @@ private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp
  * @param minColumnWidth 每列最小宽度（决定自适应列数）
  * @param onToggleFavorite 收藏切换回调（参数为 id + 目标状态）；null 则卡片不显示收藏按钮
  * @param onOpenUser 作者行点击回调（参数为作者用户 id；null 则卡片作者行不可点）
+ * @param ugoiraLoader 动图加载器；非空时网格内 ugoira 卡片封面播放动画（透传 [IllustCard]）；null 恒静态
  * @param header 网格头部内容（整行跨列，随列表滚动，如排行榜入口 banner）；null 不显示
  */
 @Composable
@@ -56,6 +58,7 @@ fun IllustWaterfallGrid(
     minColumnWidth: Dp = 140.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
     onOpenUser: ((Long) -> Unit)? = null,
+    ugoiraLoader: UgoiraLoader? = null,
     header: (@Composable () -> Unit)? = null,
 ) {
     LazyVerticalStaggeredGrid(
@@ -83,6 +86,7 @@ fun IllustWaterfallGrid(
                 onOpenAuthor = onOpenUser?.let { cb ->
                     { illust.user?.id?.let(cb); Unit }
                 } ?: {},
+                ugoiraLoader = ugoiraLoader,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

@@ -67,6 +67,7 @@ fun MainShell(
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenMangaRanking: () -> Unit,
+    onOpenIllustRanking: () -> Unit,
     onOpenNovelRanking: () -> Unit,
     initialSearch: String? = null,
 ) {
@@ -143,6 +144,7 @@ fun MainShell(
                 MangaRoute(
                     onOpenIllust = onOpenIllust,
                     onOpenMangaRanking = onOpenMangaRanking,
+                    onOpenIllustRanking = onOpenIllustRanking,
                     onOpenUser = onOpenUser,
                 )
             }

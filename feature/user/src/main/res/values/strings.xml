@@ -144,6 +144,8 @@
     <string name="user_following">已关注</string>
     <string name="user_block">拉黑</string>
     <string name="user_unblock">取消拉黑</string>
+    <string name="user_comment_expand">展开</string>
+    <string name="user_comment_collapse">收起</string>
     <string name="user_stat_illust">插画</string>
     <string name="user_stat_novel">小说</string>
     <string name="user_stat_bookmark">收藏</string>

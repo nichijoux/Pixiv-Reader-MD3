@@ -9,8 +9,15 @@
     <string name="illust_menu_download_original">Download original</string>
     <string name="illust_menu_unbookmark">Remove bookmark</string>
     <string name="illust_menu_bookmark">Bookmark</string>
-    <string name="illust_menu_report">Report</string>
-    <string name="illust_page_count">Total %1$d P</string>
+    <string name="illust_bookmarked">Bookmarked</string>
+    <string name="illust_action_fullscreen">Fullscreen</string>
+    <string name="illust_follow">Follow</string>
+    <string name="illust_followed">Following</string>
+    <string name="illust_expand">Show more</string>
+    <string name="illust_collapse">Collapse</string>
+    <string name="illust_msg_followed">Followed the author</string>
+    <string name="illust_msg_unfollowed">Unfollowed the author</string>
+    <string name="illust_stat_pages">Pages</string>
     <string name="illust_stat_view">Views</string>
     <string name="illust_stat_bookmark">Bookmarks</string>
     <string name="illust_section_related">Related works</string>
@@ -21,7 +28,6 @@
     <string name="illust_msg_download_started">Downloading…</string>
     <string name="illust_msg_download_done">Download complete</string>
     <string name="illust_msg_download_failed">Download failed: %1$s</string>
-    <string name="illust_msg_report_wip">Report feature is under development</string>
 
     <!-- Download worker errors (IllustDownloadWorker) -->
     <string name="illust_error_work_not_found">Work not found</string>

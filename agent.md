@@ -981,3 +981,117 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 9. **小说导出**：`NovelExporter` 支持 TXT/EPUB/PDF/MD/DOCX 单本/系列/部分分册（第 66 轮前后升级：导出前统一格式化 + OpenCC 繁转简 + DOCX/EPUB 样式），默认输出系统 `Download/PixivReader`（MediaStore，Android 8-9 回退私有目录）。
 10. **阅读器翻页**：仿真翻页纸背经第 8 轮修正后**不绘制镜像文字**（仅纸色 + 边缘渐变阴影）。
 11. **数据库迁移清理**：`PixivDatabase` version **7 → 1（最终结构）**——原 `MIGRATION_1_2`~`MIGRATION_6_7` 六条迁移全部删除，新装直接按最终 schema 建库（4 实体不变），旧版本数据经 `fallbackToDestructiveMigration()` 重建；后续加实体/字段从 1 开始写新迁移。AGENTS.md/CODEFLOW.md/NEW_AGENT_PROMPT.md 已同步。
+
+### 第六十八轮：漫画 Tab 三流切换——漫画 / 插画 / 动图（左上角切换）
+- **需求**：漫画底栏 Tab 改为「漫画 + 插画 + 动图」共用，该界面左上角按钮切换显示类型（用户先称"动画"，经澄清为插画，并追加动图）。
+- **API 分析（lib:pixivapi 零改动）**：Pixiv **无"动画"分类**，内容类型仅 `illust/manga/ugoira/novel` 四种；**无动图推荐/排行/最新接口**（`recommended`/`ranking`/`new` 均无 ugoira 档），唯一纯动图流是搜索 `v1/search/illust?content_type=ugoira`（`content_type=ugoira` 已在发现页 FilterSheet 验证可用）；动图流默认搜索词「動画」（Pixiv 动图高频 tag），避免空词搜索。
+- **MangaViewModel**：新增 `MangaContentType { MANGA, ILLUST, UGOIRA }` 枚举 + `tab: StateFlow`；三独立 `PagedState`——漫画 `v1/manga/recommended`（原有）、插画 `v1/illust/recommended`（首页同款）、动图 `searchIllusts(word=動画, contentType=ugoira)`；`selectTab` 切类型懒加载（数据驻留 VM，切回不重复请求）、`loadMore/retry/pullRefresh` 按当前类型分发（与 HomeViewModel 双流模式一致）。
+- **MangaRoute**：TopAppBar title 区改为**限宽居中 TextButton（当前类型名 + ArrowDropDown）+ DropdownMenu 三选**（替代原静态标题，`manga_title` 删除）；内容区抽私有 `MangaContentList(paged, ...)` 按 `PagedState` 三态渲染，`when(tab)` 传各自流；**排行榜入口（右上奖杯按钮 + 网格头 banner）仅漫画类型显示**（插画/动图无对应榜单页）。
+- **strings**（zh/en）：新增 `manga_content_manga/illust/ugoira`、`manga_cd_switch_type`、`manga_illust_empty`、`manga_ugoira_empty`；删除 `manga_title`。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充①：插画排行榜 + 切换按钮 icon+文字（去蓝色）
+- **需求**：① 插画类型也加排行榜（与漫画一致）；② 左上角切换按钮改 icon + 文字；③ 切换按钮不要蓝色文字。
+- **插画排行榜**（复用通用组件，lib:pixivapi 零改动）：新建 `IllustRankingViewModel`（feature:manga，结构与 MangaRankingViewModel 完全一致）——**7 段**：日 `day`/周 `week`/月 `month`/男性向 `day_male`/女性向 `day_female`/新人 `week_rookie`/R18 `day_r18`（插画专属 mode `day`/`day_male`/`day_female`，其余通用）；新建 `IllustRankingRoute` 全屏页（RankingList + RankingRow，标题「插画排行榜」）；`PixivNavGraph` 新增 `ROUTE_ILLUST_RANKING` + composable；`MainShell` 新增 `onOpenIllustRanking` 回调链（同 onOpenMangaRanking 模式）。
+- **MangaRoute 入口分发**：右上角奖杯按钮 + 网格头 banner 按类型显示——MANGA → 漫画榜（原逻辑）、ILLUST → 插画榜（新）、UGOIRA → 无（动图无榜单页）；`MangaRankingBanner` 泛化为 `RankingBanner(title, desc, onClick)`（漫画/插画共用，`illust_ranking_banner(_desc)` 文案）。
+- **切换按钮**（icon + 文字 + 去蓝）：TextButton 内容 = 类型 icon（MANGA `Collections` / ILLUST `Image` / UGOIRA `GifBox`）+ 当前类型名（SemiBold）+ `ArrowDropDown`；`ButtonDefaults.textButtonColors(contentColor = onSurface)` —— 默认 TextButton 文字/图标是 primary（App 蓝 #00639B），改 onSurface 跟随主题明暗；DropdownMenu 菜单项加 `leadingIcon` 同类型图标。新增 `MangaContentType.icon(): ImageVector` 映射。
+- **strings**（zh/en）：新增 `illust_cd_ranking`、`illust_ranking_title/banner/banner_desc/day/week/month/male/female/rookie/r18/empty`（共 13 键）。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充②：动图卡片真正播放（Ugoira 能力下沉共享层）
+- **需求**：动图 Tab 卡片是静态封面，要真正动起来。
+- **能力下沉（依赖方向硬约束驱动）**：原 `UgoiraLoader`/`UgoiraPlayer` 在 feature:viewer，feature 间禁止互依 → 下沉共享层：
+  - `UgoiraLoader` + `UgoiraFrame` → **core:network** `network/ugoira/UgoiraLoader.kt`（@Singleton 原逻辑 + **进程内缓存**：`ConcurrentHashMap<Long, Deferred<List<UgoiraFrame>?>>` in-flight 去重，成功结果驻留——瀑布流卡片滚动反复进出直接命中；失败/取消从缓存移除允许重试）。
+  - `UgoiraPlayer` → **core:ui** `component/UgoiraPlayer.kt`：新增 `maxDecodeSize`（采样解码最长边 px，`inSampleSize` 2 的幂，避免解码 zip 原图尺寸）+ `contentScale`（查看器 Fit / 卡片 Crop）+ `loadingContent`（空帧占位，null 透明露出底层封面）。
+  - 新建 **`UgoiraCardPlayer`**（core:ui）：卡片场景组合——`LaunchedEffect(illustId)` 调 `loader.prepare`（缓存命中立即播放），帧就绪前透明；**LazyGrid item 离开视口自动 dispose → 协程取消、自动停止播放**，无需手动可见性判断。
+- **IllustCard/IllustWaterfallGrid**：新增 `ugoiraLoader: UgoiraLoader? = null`（默认 null 恒静态，不影响首页/发现/排行/历史等既有网格）；IllustCard 封面区 `Box → BoxWithConstraints`（量封面宽 px 作采样上限）+ `if (ugoiraLoader != null && illust.isGif()) UgoiraCardPlayer(...)` 叠加（浮层之下）。
+- **动图 Tab 开启**：`MangaViewModel` 注入 `UgoiraLoader` 暴露 `ugoiraLoader`；`MangaRoute` 仅 UGOIRA 分支传 loader（漫画/插画流里的 ugoira 保持静态——范围受控，避免全网格 zip 下载）。
+- **feature:viewer 迁移**：删除 UgoiraLoader.kt/UgoiraPlayer.kt（单文件 rm）；ViewerViewModel/ViewerRoute import 改 core 层；ViewerRoute 传 `loadingContent`（"动图加载中…"文字保留 feature:viewer）；`viewer_cd_ugoira` string 删除（core:ui 新增 `ugoira_cd` 中英）。
+- 验证：`:app:compileDebugKotlin` 通过（75 tasks 执行）。
+
+### 第六十八轮补充③：动图「一直加载中」修复——取消污染 Deferred 缓存
+- **Bug**：动图卡片不动（静态封面）、全屏查看器永久显示「动图加载中…」（无失败提示）。
+- **根因（UgoiraLoader 缓存实现缺陷）**：`prepare()` 用 `prepared[id] = deferred` **先放入缓存再 await**（in-flight 去重）。动图 Tab 卡片滚出视口 → `LaunchedEffect` 协程取消 → `supervisorScope` 取消 async → **prepared 残留已取消的 Deferred**。之后同 id 任何调用（如点开全屏查看器）命中 → `Deferred.await()` 对已取消 job **立即抛 CancellationException** → ViewerViewModel `loadUgoira()` 协程取消 → `ugoiraFrames` 永为空 → 「加载中」永久显示；卡片场景 frames 恒 null → 静态封面。`awaitOrNull` 的 CancellationException 分支未 remove 加重残留。
+- **修复（完成结果缓存替代 in-flight Deferred 共享）**：`prepared: ConcurrentHashMap<Long, Deferred<...>>` → `completed: ConcurrentHashMap<Long, List<UgoiraFrame>>`——**只缓存完成的成功结果**，命中时校验首帧 `file.exists()`（「清除缓存」清 cacheDir/ugoira 后自动失效重载）；失败不缓存（可重试）；取消只影响调用方自身协程，不污染、不传播。并发同 id 重复加载概率极低（LazyGrid key=id 单实例），zip 有磁盘缓存兜底。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充④：作品详情页动图播放
+- **需求**：详情页动图作品显示静态帧 → 要播放动画（与查看器/瀑布流一致）。
+- **IllustViewModel**：注入 `UgoiraLoader`（core:network @Singleton）；新增 `ugoiraFrames: StateFlow<List<UgoiraFrame>>`；`load()` onSuccess 里 `if (ill.isGif()) loadUgoira()`（`prepare(illustId).orEmpty()`，失败帧空则详情页保持静态封面，查看器有失败提示）。
+- **IllustDetailRoute.PagePager**：新增 `ugoiraFrames` 参数（手机单列 / 平板 TwoPaneContent 两处调用传 VM 状态）；当前页分支包 `Box`——静态封面 `AsyncImage` 保留（onSuccess 量比例驱动容器高度自适应 + 帧未就绪兜底显示），`ugoiraFrames 非空 && index == 0` 时叠加 `UgoiraPlayer(fillMaxSize, Fit, maxDecodeSize = 容器宽 px)`（动图作品仅 1 页，index 恒 0）；采样上限用 `BoxWithConstraints.maxWidth` **提前捕获局部变量**（踩坑：pager item 嵌套 lambda 无法隐式访问 BoxWithConstraints receiver，直接引用 `maxWidth` 编译报错 "cannot be called in this context"）。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑤：动图播放流畅性——双缓冲预解码
+- **问题**：`UgoiraPlayer` 原循环串行阻塞「decode 帧 → delay → decode 下一帧」，帧周期 = 解码 + 延迟；解码 200ms、delay 80ms 时实际每帧 200ms（慢 2.5 倍）且解码期间旧帧不动。
+- **优化（UgoiraPlayer 重写播放循环）**：**双缓冲预解码**——首帧先解码显示，随后循环：`async(Dispatchers.IO)` 后台预解码下一帧 **与 `delay(当前帧 delayMs)` 并行**，延迟到点 `await()` 交换（bitmap 状态更新触发重组显示）。帧周期 = `max(解码, 延迟)`：解码 < 帧延迟时完全按 delay 帧率；解码超时退化为解码速度（不更差）。内存峰值 = 2 帧采样 Bitmap；`LaunchedEffect(frames)` 单一协程 + while(true)，取消（item 离开视口/离开页面）自动取消预解码。
+- 未来方向（未做）：N 帧环形缓冲 + `withFrameNanos` 精确时钟、`inBitmap` 同尺寸 Bitmap 复用、多线程并行预解码。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑥：动图下拉刷新失效——PagedState.reset 不清 isLoading
+- **Bug**：动图 Tab 下拉刷新无效（漫画/插画正常）。
+- **根因**：`PagedState.reset()` **不复位 `_isLoading`**。动图流是搜索接口（三流中最慢），首载未完成时用户下拉 → `pullRefresh` → `reset()`（items 清空）→ `loadInitial()` **因 `isLoading=true` 被幂等忽略** → 刷新不重拉，items 又已被清空，等旧请求完成才恢复——表现为「不能刷新」（首载完成后下拉则内容几乎不变 + 骨架一闪，感知也差）。reset 后不清 isLoading 是 PagedState 从 P2 起的既有设计，动图因首载慢最先暴露。
+- **修复（PagedState 通用，全模块受益）**：`generation` 加载代次——`reset()` 自增代次 + 复位 `_isLoading=false`；`loadInitial()` 调用时捕获代次，完成/失败时**过期代次丢弃结果且不复位 isLoading**（finally 加代次检查），防止旧请求返回覆盖新数据、或旧 finally 提前复位新加载的 isLoading。
+- **测试**：`PagedStateTest` 新增 `reset during in-flight load allows immediate reload and discards stale result`（CompletableDeferred 挂起首载 fetch → reset+重载不忽略 → 放行旧请求验证过期结果被丢弃）；类加 `@OptIn(ExperimentalCoroutinesApi)`（runCurrent）。
+- 验证：`:app:compileDebugKotlin` + `:core:network:testDebugUnitTest`（5 用例）通过。
+
+### 第六十八轮补充⑦：动图下拉刷新后内容不变——搜索排序未显式指定
+- **现象**：下拉刷新有反应（指示器出现）但列表还是之前的动图。
+- **根因（两部分）**：
+  1. **动图流 `searchIllusts` 未传 `sort`**（发现页默认显式 `date_desc`）：服务端默认排序不确定（非最新）→ 刷新返回稳定排序的相同结果。已修复：`loadUgoira` 与 `pullRefresh` 的 UGOIRA 分支 fetch 均显式 `sort = "date_desc"`（最新，与发现页一致）。
+  2. **平台特性（无法代码修复）**：Pixiv **搜索索引非实时**——新发布作品延迟（分钟~小时级）进入搜索结果；且「動画」tag 内容池固定。即使 date_desc，短时间内刷新第一页通常仍是同一批作品。搜索流固有特性，与推荐流（每次刷新内容不同）不同。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑧：动图/详情响应日志（排查视频格式动图，临时）
+- **背景**：用户称 Pixiv 可能存在视频格式的动图；lib:pixivapi 模型无任何 video 字段（Gson 忽略未知字段，解析后拿不到原始结构）。
+- **实现（临时排查用，确认后移除）**：`PixivClient.kt` 新增 `UgoiraSearchLogInterceptor`（**app + web 两个 client 都挂**），`peekBody(2MB)` 读原始 JSON（不消费响应体），拦截并打印：
+  - `GET /v1/search/illust?content_type=ugoira`（动图流搜索/翻页）：id/type/title，`video_urls` 非空或标题含 MP4 时 ★ 标记
+  - `GET /v1/illust/detail`（详情）：**全部字段 key 列表** + video 相关字段 + meta_single_page/meta_pages（探测 video_urls 是否在详情接口返回）
+  - `GET /v1/ugoira/metadata`：zip_urls + 帧数
+  - `GET /ajax/illust/{id}/pages`（web 每 P 宽高）：body
+  - tag = `UgoiraSearch`。**初版误报**：`contains("video")` 匹配到 tag `動画` 的翻译 "video"——已改为只查 `video_urls` 字段 + 标题 MP4。
+- **结论（日志实抓）**：搜索流 30 条全部 `type="ugoira"` 且**无 video_urls**（列表接口不含视频字段）；大量作品标题带【MP4】——疑似视频作品，视频 URL 可能在**详情接口**返回（待详情日志确认）。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑨：动图 zip 下载进度提示（转圈 + 百分比）+ 缓存恢复
+- **需求**：动图 zip 下载期间用户无反馈（详情页"一直不动"）→ 下载中显示百分比转圈，直到帧就绪。
+- **UgoiraLoader**：`prepare(illustId, onProgress)` 新增 zip 下载进度回调（0..1，按整百分比降频避免每 8KB 重组）；**恢复进程内 completed 缓存命中分支**（临时调试跳过已还原——否则每次进详情都重新下载，进度条反而常驻）；下载循环改手动 `read/write` 计算 `read/total`（contentLength 可能 -1，>0 才回调）；保留 zip 下载调试日志。
+- **UgoiraCardPlayer**（卡片）：进度用 `MutableStateFlow<Float?>`（**IO 线程回调写 Compose mutableStateOf 会抛异常，StateFlow 线程安全**）+ `collectAsState`；下载中显示半透明黑底（0.35）+ 白转圈 22dp + 百分比；帧就绪切换播放，失败/未开始透明露出静态封面。
+- **IllustDetailRoute**：`IllustViewModel` 新增 `ugoiraProgress: StateFlow<Float?>`（loadUgoira 传 onProgress，完成/失败置 null）；`PagePager` 新增 `ugoiraProgress` 参数，动图首页分支三态——帧就绪 `UgoiraPlayer` 播放 / 下载中半透明黑底 + 转圈 32dp + 百分比 / 否则静态封面（AsyncImage 兜底）。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑩：排查日志全部移除
+- **删除**：`PixivClient.kt` 的 `UgoiraSearchLogInterceptor`（app/web 两处挂载 + 类定义 + 相关 import）；`UgoiraLoader.kt` 的 zip 下载调试日志（Log import、下载开始/失败/完成/帧就绪 4 处）与 companion TAG。
+- **保留**：`UgoiraLoader.prepare(illustId, onProgress)` 进度回调（正式功能，转圈百分比依赖它）。
+- **视频排查结论（定论）**：app-api 搜索/详情/元数据三接口均**无 `video_urls` 字段**（日志实抓确认）——Pixiv 不存在"视频格式动图"（【MP4】标题只是作者命名）；动图统一为 zip 帧序列。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑪：插画/漫画/动图详情页重构（HTML 设计稿确认后实现）
+- **原型**：`design/illust-detail-ui.html`（手机 390dp + 平板 880dp 双画框、可交互 pills 切换插画/动图加载中、关注胶囊切换、简介展开收起）。用户确认要点：统计行**不要浮动卡片**、相关推荐缩略图**固定 4:3**（先否真实宽高）、标签/用户**可点击**、简介展开收起**参考小说详情页**（6 行截断 + 居中按钮）。
+- **IllustViewModel**：新增作者关注——`isAuthorFollowed`/`isAuthorFollowing` + `toggleFollowAuthor`（`getUserDetail` 权威刷新关注态，仿 NovelViewModel：乐观翻转 + 防连点 + UiMessage 通知）。
+- **IllustDetailRoute 重构**：
+  - 签名新增 `onSearchTag: (String) -> Unit`；PixivNavGraph 接线 `navigate("main?search=${Uri.encode(tag)}")`（顶层搜索通道，小说同款机制）。
+  - **作者行**：头像 40dp + 昵称（weight 1f fill=false 超长省略）› **关注/取关胶囊顶右**（私有 AuthorFollowPill：未关注 = 实心 primary 胶囊白字，已关注 = primaryContainer 底 + primary 边框；与小说浅底风格不同故未下沉共享）；整行 clickable 进用户主页。
+  - **统计行**：浏览/收藏/页数三格 `weight(1f)` 均分，私有 StatBlock（图标 + 数值 + 标签，无卡片背景）。
+  - **标签**：`#tag` 胶囊 clickable → `onSearchTag(tagName)`（displayName 优先）。
+  - **简介**：`style.copy(textIndent = TextIndent(firstLine = 2.em))`（**踩坑**：该 Compose 版本 Text 无 textIndent 参数，放 style）；手机 6 行截断 + `onTextLayout.hasVisualOverflow` 检测 + 居中 TextButton 展开/收起（短简介无按钮）+ `animateContentSize`；平板完整显示（expandableIntro=false）。
+  - **bottomBar**：4 个竖排 icon+文字按钮（私有 IllustActionButton：56dp、圆角 12、激活 primaryContainer + primary 边框）：全屏/收藏/下载/评论，weight(1f) 均分；收藏激活**红心 FavoriteRed**（保留 App 收藏色习惯）；`Button` import 移除。
+  - **RelatedSection**：缩略图 `aspectRatio(4f/3f)`（原固定 120x110 近方形）。
+- **strings**（zh/en）：新增 `illust_bookmarked`、`illust_action_fullscreen`、`illust_follow`/`illust_followed`、`illust_expand`/`illust_collapse`、`illust_msg_followed`/`illust_msg_unfollowed`、`illust_stat_pages`；删除未用的 `illust_page_count`（作者行副标题移除后无引用）。
+- **补充调整**：① 作者行关注胶囊**顶到行最右**——`Text(name, weight(1f, fill=false))` 改 `weight(1f)`：fill=false 时剩余空间按 Arrangement 分布（默认 Start 留在行尾），胶囊会紧贴名字；fill=true 槽占满剩余 → 胶囊必然行最右。② 相关推荐卡片 `width(120.dp)` → **150dp**（放大）。③ **相关作品点击跳对应详情**：`RelatedSection` 加 `onOpenIllust: (Long) -> Unit`（手机/平板两条链路透传），`IllustDetailRoute` 签名新增 `onOpenIllust`，PixivNavGraph 接线 `navigate("illust/$id")`（同路由叠栈，返回回到原详情）。④ **删除举报**：topBar 更多菜单"举报"项 + `Icons.Filled.Report` import + `IllustViewModel.report()` 占位方法 + `illust_menu_report`/`illust_msg_report_wip` strings（zh/en）；顺手修复中文 strings.xml 误合并行。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑫：小说详情页四按钮——插画风格重写 + 底部固定
+- **需求**：小说详情页四个竖排按钮（收藏/追更/下载/评论）按插画详情页风格重写，并固定在页面底部（不随内容滚动）。
+- **core:ui 新增通用 `VerticalActionButton`**（`component/VerticalActionButton.kt`）：icon 上/label 下、**56dp**、圆角 12、未激活 surfaceContainerLow + outlineVariant 边框 + primary 图标、激活 primaryContainer + primary 边框、disabled 0.45 alpha；新增 `activeIconTint: Color?`（激活图标色，默认 primary，收藏传 FavoriteRed 红心——**注意默认参数不能调 @Composable**，故用可空参数）。
+- **feature:illust**：删私有 `IllustActionButton` → 改用 core:ui 版（4 处调用，收藏传 `activeIconTint = FavoriteRed`）；清理 `draw.alpha` import。
+- **feature:novel**：
+  - `NovelDetailActions.kt` 重写：`NovelActions` 精简为**阅读按钮 + 下载进度**（内容区，随滚动）；新增 `NovelActionBar`（4 按钮 + core:ui VerticalActionButton，收藏红心、追更 enabled = 有系列且 >0、限宽 760 居中 + navigationBarsPadding + surface 底）。
+  - `NovelDetailRoute`：外层 Box（when 之后）`NovelActionBar(align = BottomCenter)` **详情加载完成后固定显示**（Loading/Error 态不显示）；`NovelDetailContent`/`PhoneNovelDetail` 签名精简（isBookmarked/isBookmarking/isWatchlisted/isWatchlisting/onOpenComments/onBookmark/onWatchlist/onDownload 移出）；底部 `bottom_space` 24dp → **96dp**（防内容被操作条遮挡）。
+  - 删私有 `VerticalActionButton`（旧 52dp 版）。
+- 验证：`:app:compileDebugKotlin` 通过。
+
+### 第六十八轮补充⑬：用户主页简介过长挤压分区内容修复
+- **Bug**：用户主页布局 `Column { UserHeader(无权重) + PrimaryTabRow + HorizontalPager(weight 1f) }`——简介（user.comment）无限制渲染，过长时头部自然高度撑大，挤压 Pager 剩余空间，下方插画/漫画/小说内容显示不完整。
+- **修复（UserProfileHeader）**：简介**默认 4 行截断 + 展开/收起**（与详情页同模式）——`MAX_COMMENT_LINES = 4`、clamped 时 `onTextLayout.hasVisualOverflow` 检测真溢出、短简介无按钮、`animateContentSize` 平滑过渡、展开/收起居中 TextButton；`rememberSaveable` 保展开态（旋转/进程重建保留）。默认态头部高度可控（头像行 + 简介 4 行 + 统计格 ≈ 200dp），Pager 剩余空间充足。
+- **strings**（zh/en）：`user_comment_expand`（展开/Show more）、`user_comment_collapse`（收起/Collapse）。
+- 验证：`:app:compileDebugKotlin` 通过。

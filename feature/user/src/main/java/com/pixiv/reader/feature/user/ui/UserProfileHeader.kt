@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.user.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,11 +21,18 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +42,9 @@ import com.pixiv.reader.core.ui.component.UserAvatar
 import com.pixiv.reader.core.ui.component.skeletonPulseColor
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
+
+/** 简介默认截断行数（防过长简介挤压下方分区内容）。 */
+private const val MAX_COMMENT_LINES = 4
 
 /** 用户主页头部：头像 / 名称 / @account / 关注·拉黑按钮 / 签名 / 统计格（可点击）。 */
 @Composable
@@ -97,12 +108,34 @@ internal fun UserHeader(
         }
         val comment = user.comment
         if (!comment.isNullOrBlank()) {
+            // 简介限高：默认 4 行截断 + 展开/收起（防过长简介挤压下方分区内容；短简介无按钮）
+            var expanded by rememberSaveable { mutableStateOf(false) }
+            var truncated by remember { mutableStateOf(false) }
+            val clamped = !expanded
             Text(
                 text = comment,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 10.dp),
+                maxLines = if (clamped) MAX_COMMENT_LINES else Int.MAX_VALUE,
+                overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
+                modifier = Modifier
+                    .padding(top = 10.dp)
+                    .animateContentSize(),
+                onTextLayout = { layout: TextLayoutResult ->
+                    if (clamped) truncated = layout.hasVisualOverflow
+                },
             )
+            if (truncated || expanded) {
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(if (expanded) R.string.user_comment_collapse else R.string.user_comment_expand),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                }
+            }
         }
         // 统计格：插画 / 小说 / 收藏 / 关注（可点击）
         Row(

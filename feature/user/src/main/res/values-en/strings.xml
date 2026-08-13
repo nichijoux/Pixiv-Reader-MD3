@@ -144,6 +144,8 @@
     <string name="user_following">Following</string>
     <string name="user_block">Block</string>
     <string name="user_unblock">Unblock</string>
+    <string name="user_comment_expand">Show more</string>
+    <string name="user_comment_collapse">Collapse</string>
     <string name="user_stat_illust">Illusts</string>
     <string name="user_stat_novel">Novels</string>
     <string name="user_stat_bookmark">Bookmarks</string>
