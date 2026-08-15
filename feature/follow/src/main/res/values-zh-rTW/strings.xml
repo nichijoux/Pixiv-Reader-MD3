@@ -1,0 +1,7 @@
+<resources>
+    <string name="follow_tab_all">全部</string>
+    <string name="follow_tab_novel">小說</string>
+    <string name="follow_tab_illust">插畫</string>
+    <string name="follow_all_users">全部</string>
+    <string name="follow_empty">暫無動態</string>
+</resources>

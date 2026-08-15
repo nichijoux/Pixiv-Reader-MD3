@@ -39,6 +39,10 @@
     <string name="reader_settings_follow_system">跟随系统</string>
     <string name="reader_settings_follow_system_desc">按系统深色模式自动切换夜间/纸张</string>
     <string name="reader_settings_section_page_mode">翻页模式</string>
+    <string name="reader_settings_chinese_convert">简繁转换</string>
+    <string name="reader_settings_convert_off">不转换</string>
+    <string name="reader_settings_convert_s2t">简体 → 繁体</string>
+    <string name="reader_settings_convert_t2s">繁体 → 简体</string>
 
     <!-- 阅读器顶栏 / 菜单 -->
     <string name="reader_title_default">阅读</string>

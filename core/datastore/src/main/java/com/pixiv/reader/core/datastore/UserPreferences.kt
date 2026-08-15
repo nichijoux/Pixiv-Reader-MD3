@@ -64,6 +64,9 @@ class UserPreferences @Inject constructor(
     val readerCustomFontPath: Flow<String> = context.dataStore.data.map { it[KEY_CUSTOM_FONT_PATH] ?: "" }
     /** 正文字重：300 细体 / 400 常规 / 700 粗体 / 100..900 自定义可变字重 */
     val readerFontWeight: Flow<Int> = context.dataStore.data.map { it[KEY_FONT_WEIGHT] ?: 400 }
+    /** 简繁转换：0 关闭 / 1 简体→繁体 / 2 繁体→简体（仅应用语言为中文时在设置面板显示） */
+    val readerChineseConvert: Flow<Int> =
+        context.dataStore.data.map { it[KEY_CHINESE_CONVERT] ?: 0 }
     /** 段首全角空格缩进数量（0..4） */
     val readerParagraphIndent: Flow<Int> = context.dataStore.data.map { it[KEY_PARAGRAPH_INDENT] ?: 2 }
     /** 段距（em，0..2.0）：段落间空白高度 = 段距 × 字号 */
@@ -134,6 +137,8 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderFollowSystem(value: Boolean) = context.dataStore.edit { it[KEY_FOLLOW_SYSTEM] = value }
     suspend fun setReaderCustomFontPath(value: String) = context.dataStore.edit { it[KEY_CUSTOM_FONT_PATH] = value }
     suspend fun setReaderFontWeight(value: Int) = context.dataStore.edit { it[KEY_FONT_WEIGHT] = value }
+    suspend fun setReaderChineseConvert(value: Int) =
+        context.dataStore.edit { it[KEY_CHINESE_CONVERT] = value }
     suspend fun setReaderParagraphIndent(value: Int) = context.dataStore.edit { it[KEY_PARAGRAPH_INDENT] = value }
     suspend fun setReaderParagraphSpacing(value: Float) = context.dataStore.edit { it[KEY_PARAGRAPH_SPACING] = value }
     suspend fun setReaderLetterSpacing(value: Float) = context.dataStore.edit { it[KEY_LETTER_SPACING] = value }
@@ -176,6 +181,7 @@ class UserPreferences @Inject constructor(
         val KEY_FOLLOW_SYSTEM = booleanPreferencesKey("reader_follow_system")
         val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")
         val KEY_FONT_WEIGHT = intPreferencesKey("reader_font_weight")
+        val KEY_CHINESE_CONVERT = intPreferencesKey("reader_chinese_convert")
         val KEY_PARAGRAPH_INDENT = intPreferencesKey("reader_paragraph_indent")
         val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
         val KEY_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")

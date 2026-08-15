@@ -1,0 +1,175 @@
+<resources>
+    <!-- 通用 contentDescription -->
+    <string name="cd_back">返回</string>
+    <string name="cd_more">更多</string>
+    <string name="cd_add">新增</string>
+    <string name="cd_delete">刪除</string>
+    <string name="cd_delete_tag">刪除 %1$s</string>
+    <string name="untitled">無標題</string>
+    <string name="unknown_user">未知使用者</string>
+
+    <!-- 历史 HistoryFilter -->
+    <string name="history_filter_illust">插畫</string>
+    <string name="history_filter_novel">小說</string>
+    <string name="history_filter_user">使用者</string>
+
+    <!-- 下载 DownloadFilter -->
+    <string name="downloads_filter_illust">插畫</string>
+    <string name="downloads_filter_novel">小說</string>
+
+    <!-- 用户分区 UserSection -->
+    <string name="user_section_illust">插畫</string>
+    <string name="user_section_manga">漫畫</string>
+    <string name="user_section_novel">小說</string>
+    <string name="user_section_series">系列</string>
+
+    <!-- 我的页 MeRoute -->
+    <string name="me_logout">退出登入</string>
+    <string name="me_logout_confirm_title">退出登入？</string>
+    <string name="me_logout_confirm_message">退出後需要重新登入才能繼續使用。</string>
+    <string name="me_section_content">使用者內容管理</string>
+    <string name="me_section_appearance">外觀設定</string>
+    <string name="me_section_browse">瀏覽設定</string>
+    <string name="me_section_system">系統設定</string>
+    <string name="me_section_about">關於資訊</string>
+    <string name="me_novel_default_tab">小說預設頁</string>
+    <string name="me_novel_default_recommend">推薦</string>
+    <string name="me_novel_default_follow">關注</string>
+    <string name="me_viewer_orientation">插畫檢視方向</string>
+    <string name="me_clipboard_link_prompt">剪貼簿連結提示</string>
+    <string name="me_clipboard_link_prompt_desc">從剪貼簿識別 pixiv 連結並提示開啟</string>
+    <string name="me_viewer_orientation_horizontal">橫向滑動</string>
+    <string name="me_viewer_orientation_vertical">豎向翻頁</string>
+    <string name="me_viewer_orientation_seamless">無縫豎向</string>
+    <string name="me_follow_sort">關注頁排序</string>
+    <string name="me_follow_sort_follow_time">關注時間</string>
+    <string name="me_follow_sort_name_asc">名稱升序</string>
+    <string name="me_follow_sort_name_desc">名稱降序</string>
+    <string name="me_follow_sort_latest_work">最新發布</string>
+    <string name="me_novel_file_name_template">小說下載命名</string>
+    <string name="me_file_name_template_hint">檔名模板</string>
+    <string name="me_file_name_placeholder_desc">點選下方佔位符插入：{title} 標題 · {author} 作者 · {id} 作品ID · {series} 系列名（非系列用標題）· {date} 釋出日期 · {favcount} 收藏數</string>
+    <string name="me_file_name_preview">預覽：</string>
+    <string name="me_file_name_preview_title">示例小說</string>
+    <string name="me_file_name_preview_author">示例作者</string>
+    <string name="me_file_name_preview_series">示例系列</string>
+    <string name="me_save">儲存</string>
+    <string name="me_cancel">取消</string>
+    <string name="me_reset_default">恢復預設</string>
+    <string name="me_bookmarks_title">我的收藏</string>
+    <string name="me_bookmarks_desc">收藏的作品</string>
+    <string name="me_history_title">瀏覽歷史</string>
+    <string name="me_history_desc">瀏覽過的作品</string>
+    <string name="me_downloads_title">下載管理</string>
+    <string name="me_downloads_desc">已下載的內容</string>
+    <string name="me_blocked_title">遮蔽管理</string>
+    <string name="me_blocked_desc">已遮蔽的使用者與標籤</string>
+    <string name="me_theme_mode">主題模式</string>
+    <string name="me_theme_follow_system">跟隨系統</string>
+    <string name="me_theme_light">淺色</string>
+    <string name="me_theme_dark">深色</string>
+    <string name="me_dynamic_color">動態取色</string>
+    <string name="me_dynamic_color_desc">Android 12+ 使用桌布取色</string>
+    <string name="me_language">語言</string>
+    <string name="me_language_follow_system">跟隨系統</string>
+    <string name="me_language_chinese">簡體中文</string>
+    <string name="me_language_chinese_traditional">繁體中文</string>
+    <string name="me_language_english">English</string>
+    <string name="me_auto_update">自動更新</string>
+    <string name="me_auto_update_desc">啟動時檢查新版本（更新邏輯待接入）</string>
+    <string name="me_export_dir">下載位置</string>
+    <string name="me_export_dir_value">當前：%1$s</string>
+    <string name="me_export_dir_default">下載/PixivReader</string>
+    <string name="me_export_dir_pick">選擇目錄</string>
+    <string name="me_export_dir_reset">恢復預設</string>
+    <string name="me_storage_title">儲存</string>
+    <string name="me_clear_cache">清除快取</string>
+    <string name="me_cache_size">當前佔用 %1$s（圖片/除錯檔案）</string>
+    <string name="me_cache_calculating">計算中…</string>
+    <string name="me_clear">清除</string>
+    <string name="me_cache_clear_title">清除快取？</string>
+    <string name="me_cache_clear_message">將刪除全部快取檔案（圖片快取、動圖幀等），此操作不可撤銷。</string>
+    <string name="me_check_update">檢查更新</string>
+    <string name="me_already_latest">當前已是最新版本</string>
+    <string name="me_cache_cleared">快取已清除</string>
+    <string name="me_version">版本 %1$s</string>
+    <string name="me_about_description">一款開源 Pixiv Android 客戶端：瀏覽推薦/排行/發現，檢視插畫與小說，支援收藏、評論、下載匯出、離線閱讀等能力。資料來自 pixiv 官方介面，僅供學習交流使用。</string>
+    <string name="me_open_source_repo">開源倉庫</string>
+    <string name="me_open_source_license">開源許可</string>
+    <string name="me_open_source_license_desc">專案基於 pixiv 開放介面，僅供學習與交流使用。</string>
+
+    <!-- HistoryRoute -->
+    <string name="history_title">瀏覽歷史</string>
+    <string name="history_clear">清空</string>
+    <string name="history_clear_title">清空瀏覽歷史？</string>
+    <string name="history_clear_message">將刪除全部瀏覽記錄，此操作不可撤銷。</string>
+    <string name="history_empty_illust">暫無插畫瀏覽記錄</string>
+    <string name="history_empty_novel">暫無小說瀏覽記錄</string>
+    <string name="history_empty_user">暫無使用者瀏覽記錄</string>
+
+    <!-- DownloadsRoute -->
+    <string name="downloads_title">下載管理</string>
+    <string name="downloads_empty_illust">暫無插畫下載</string>
+    <string name="downloads_empty">暫無下載</string>
+    <string name="downloads_local_novel">本地小說</string>
+    <string name="downloads_delete_title">刪除下載？</string>
+    <string name="downloads_delete_message">將刪除「%1$s」，此操作不可撤銷。</string>
+    <string name="downloads_downloading">下載中 %1$d%%</string>
+    <string name="downloads_failed">下載失敗</string>
+    <string name="downloads_retry">重試</string>
+    <string name="downloads_format_txt">TXT</string>
+    <string name="downloads_format_epub">EPUB</string>
+    <string name="downloads_format_pdf">PDF</string>
+    <string name="downloads_format_markdown">Markdown</string>
+    <string name="downloads_format_docx">Word</string>
+
+    <!-- BlockedRoute -->
+    <string name="blocked_title">遮蔽管理</string>
+    <string name="blocked_clear">清空</string>
+    <string name="blocked_clear_title">清空本地過濾標籤？</string>
+    <string name="blocked_clear_message">將刪除全部本地過濾標籤，此操作不可撤銷。</string>
+    <string name="blocked_delete_title">刪除過濾標籤？</string>
+    <string name="blocked_delete_message">將刪除過濾標籤「%1$s」。</string>
+    <string name="blocked_local_tags_title">本地過濾標籤</string>
+    <string name="blocked_local_tags_desc">在推薦與搜尋中過濾的標籤</string>
+    <string name="blocked_local_tags_input_hint">輸入標籤後新增</string>
+    <string name="blocked_local_tags_empty">暫無本地過濾標籤，可在上方新增</string>
+    <string name="blocked_server_title">服務端遮蔽</string>
+    <string name="blocked_server_desc">pixiv 賬號級遮蔽</string>
+    <string name="blocked_server_empty">暫無服務端遮蔽</string>
+    <string name="blocked_unblock">取消遮蔽</string>
+
+    <!-- UserRoute -->
+    <string name="user_title_default">使用者主頁</string>
+    <string name="user_not_found">沒有找到該使用者</string>
+    <string name="user_follow">關注</string>
+    <string name="user_following">已關注</string>
+    <string name="user_block">拉黑</string>
+    <string name="user_unblock">取消拉黑</string>
+    <string name="user_comment_expand">展開</string>
+    <string name="user_comment_collapse">收起</string>
+    <string name="user_stat_illust">插畫</string>
+    <string name="user_stat_novel">小說</string>
+    <string name="user_stat_bookmark">收藏</string>
+    <string name="user_stat_follow">關注</string>
+    <string name="user_empty_illust">暫無作品</string>
+    <string name="user_empty_novel">暫無小說</string>
+    <string name="user_empty_series">暫無系列小說</string>
+    <string name="user_stat_series">系列</string>
+    <string name="user_bookmarks_title">該使用者的收藏</string>
+    <string name="user_bookmarks_empty">暫無公開收藏</string>
+    <string name="user_following_title">該使用者的關注</string>
+    <string name="user_following_empty">暫無關注</string>
+
+    <!-- ViewModel 消息 -->
+    <string name="user_load_failed">載入失敗：%1$s</string>
+    <string name="user_followed">已關注</string>
+    <string name="user_unfollowed">已取消關注</string>
+    <string name="user_blocked">已拉黑</string>
+    <string name="user_unblocked_user">已取消拉黑</string>
+    <string name="user_csrf_unavailable">無法獲取 CSRF Token，拉黑暫不可用</string>
+    <string name="operation_failed">操作失敗：%1$s</string>
+    <string name="blocked_load_failed">載入失敗：%1$s</string>
+    <string name="blocked_csrf_unavailable">無法獲取 CSRF Token，操作不可用</string>
+    <string name="blocked_unblocked">已取消遮蔽</string>
+</resources>

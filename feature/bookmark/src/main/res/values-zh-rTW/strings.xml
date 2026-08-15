@@ -1,0 +1,8 @@
+<resources>
+    <string name="cd_back">返回</string>
+    <string name="bookmark_title">我的收藏</string>
+    <string name="bookmark_type_illust">插畫</string>
+    <string name="bookmark_type_novel">小說</string>
+    <string name="bookmark_tag_all">全部</string>
+    <string name="bookmark_empty">暫無收藏</string>
+</resources>

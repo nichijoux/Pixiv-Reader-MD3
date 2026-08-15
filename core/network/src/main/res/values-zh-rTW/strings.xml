@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 下载错误（ProgressDownloader） -->
+    <string name="download_error_empty_body">空響應體</string>
+</resources>

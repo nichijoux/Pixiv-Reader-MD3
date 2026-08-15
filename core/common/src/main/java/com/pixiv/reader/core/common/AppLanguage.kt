@@ -8,6 +8,7 @@ import java.util.Locale
  * 存储值（[com.pixiv.reader.core.datastore.UserPreferences.appLanguage]）：
  * - [SYSTEM] 跟随系统
  * - [ZH] 简体中文
+ * - [ZH_TW] 繁体中文
  * - [EN] 英语
  *
  * 网络语言由 [pixivLanguageCode] 映射为 pixiv 接口所需的 `accept-language`/`lang` 值。
@@ -16,6 +17,7 @@ import java.util.Locale
 object AppLanguage {
     const val SYSTEM = "system"
     const val ZH = "zh"
+    const val ZH_TW = "zh-TW"
     const val EN = "en"
 }
 
@@ -24,6 +26,7 @@ object AppLanguage {
  */
 fun localeFor(appLanguage: String): Locale? = when (appLanguage) {
     AppLanguage.ZH -> Locale("zh")
+    AppLanguage.ZH_TW -> Locale("zh", "TW")
     AppLanguage.EN -> Locale("en")
     else -> null
 }
@@ -33,6 +36,8 @@ fun localeFor(appLanguage: String): Locale? = when (appLanguage) {
  * 未匹配的语言回退为 英语，保证接口可用。
  */
 fun pixivLanguageCode(locale: Locale): String = when {
+    // 繁体中文（zh-TW / zh-Hant 区域）→ zh-TW；其余中文 → zh-CN
+    locale.language.equals("zh", ignoreCase = true) && locale.country.equals("TW", ignoreCase = true) -> "zh-TW"
     locale.language.equals("zh", ignoreCase = true) -> "zh-CN"
     locale.language.equals("ja", ignoreCase = true) -> "ja"
     else -> "en"

@@ -1,0 +1,24 @@
+<resources>
+    <string name="load_failed">載入失敗</string>
+    <string name="retry">重試</string>
+    <string name="comment_placeholder">說點什麼…</string>
+    <string name="comment_send">釋出</string>
+    <string name="not_logged_in">未登入</string>
+    <string name="follow">關注</string>
+    <string name="following">已關注</string>
+    <string name="favorite">收藏</string>
+    <string name="unfavorite">取消收藏</string>
+    <string name="ranking_bookmarks">%1$s 收藏</string>
+    <string name="fullscreen_image_cd_back">返回</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_delete">刪除</string>
+    <string name="download_progress">%1$d%%</string>
+    <string name="download_failed">下載失敗</string>
+    <string name="ugoira_cd">動圖</string>
+    <!-- 系列卡片（SeriesCard，用户页系列列表 / 追更列表共用） -->
+    <string name="series_parts">%1$d 篇</string>
+    <string name="series_chars">%1$s 字</string>
+    <string name="series_ongoing">連載中</string>
+    <string name="series_concluded">已完結</string>
+    <string name="series_watchlisted">已追更</string>
+</resources>

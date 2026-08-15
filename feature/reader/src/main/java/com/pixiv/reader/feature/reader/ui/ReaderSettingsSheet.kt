@@ -73,6 +73,9 @@ fun ReaderSettingsSheet(
     brightness: Float,
     followSystem: Boolean,
     hasCustomFont: Boolean,
+    chineseConvert: Int,
+    showChineseConvert: Boolean,
+    onChineseConvertChange: (Int) -> Unit,
     onFontSizeChange: (Float) -> Unit,
     onLineHeightChange: (Float) -> Unit,
     onFontFamilyChange: (String) -> Unit,
@@ -313,6 +316,23 @@ fun ReaderSettingsSheet(
                     ) { Text(stringResource(res)) }
                 }
             }
+
+            // 简繁转换（仅应用语言为中文时显示；OpenCC 转换正文文本块）
+            if (showChineseConvert) {
+                SectionLabel(stringResource(R.string.reader_settings_chinese_convert))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    CHINESE_CONVERT_OPTIONS.forEachIndexed { index, (value, labelRes) ->
+                        SegmentedButton(
+                            selected = chineseConvert == value,
+                            onClick = { onChineseConvertChange(value) },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = CHINESE_CONVERT_OPTIONS.size
+                            ),
+                        ) { Text(stringResource(labelRes)) }
+                    }
+                }
+            }
         }
     }
 }
@@ -486,3 +506,10 @@ private fun SectionLabel(text: String) {
         modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
     )
 }
+
+/** 简繁转换三档：(值, 文案)。0 关闭 / 1 简体→繁体 / 2 繁体→简体。 */
+private val CHINESE_CONVERT_OPTIONS = listOf(
+    0 to R.string.reader_settings_convert_off,
+    1 to R.string.reader_settings_convert_s2t,
+    2 to R.string.reader_settings_convert_t2s,
+)

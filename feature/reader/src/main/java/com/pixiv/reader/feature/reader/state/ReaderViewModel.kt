@@ -14,6 +14,7 @@ import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.percentageAt
 import com.pixiv.reader.feature.reader.R
@@ -21,17 +22,27 @@ import com.pixiv.reader.feature.reader.data.NovelTextSearch
 import com.pixiv.reader.feature.reader.data.ReaderChapterCache
 import com.pixiv.reader.feature.reader.data.ReaderDataLoader
 import com.pixiv.reader.feature.reader.data.ReaderSeriesToc
+import com.zqc.opencc.android.lib.ChineseConverter
+import com.zqc.opencc.android.lib.ConversionType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -128,6 +139,38 @@ class ReaderViewModel @Inject constructor(
     private val _paragraphIndent = MutableStateFlow(2)
     val paragraphIndent: StateFlow<Int> = _paragraphIndent.asStateFlow()
 
+    /** 简繁转换：0 关闭 / 1 简体→繁体 / 2 繁体→简体 */
+    private val _chineseConvert = MutableStateFlow(0)
+    val chineseConvert: StateFlow<Int> = _chineseConvert.asStateFlow()
+
+    /** 应用语言（system/zh/en）：设置面板据此决定是否显示简繁转换区 */
+    private val _appLanguage = MutableStateFlow("system")
+    val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
+    /**
+     * 渲染用正文（按 [chineseConvert] 转换文本块；[startChar]/[endChar] 与 [textLength]
+     * 保留原始值，阅读进度/全文搜索锚点不受转换影响；fullText 保持原文供搜索匹配）。
+     *
+     * 转换策略（修复「重进显示无正文」/「切换不即时」）：
+     * - document 就绪时**先发射原始文档**，转换完成后再发射转换结果——转换耗时期间
+     *   显示原文而非空白（杜绝 stateIn 缓存 null + isLoading=false 落入 EmptyBox）
+     * - 转换结果按 (novelId, mode) 缓存，切换设置/重复进入不重复转换整章
+     * - 转换在 [Dispatchers.Default] 执行，不阻塞 UI
+     */
+    val displayDocument: StateFlow<NovelDocument?> =
+        combine(_document, _chineseConvert) { doc, mode -> doc to mode }
+            .flatMapLatest { (doc, mode) ->
+                when {
+                    doc == null -> flowOf(null)
+                    mode == 0 -> flowOf(doc)
+                    else -> flow {
+                        emit(doc) // 先显示原文，避免转换空窗
+                        emit(convertedDocument(doc, mode))
+                    }.flowOn(Dispatchers.Default)
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** 段距（em，0..2.0） */
     private val _paragraphSpacing = MutableStateFlow(0.6f)
     val paragraphSpacing: StateFlow<Float> = _paragraphSpacing.asStateFlow()
@@ -222,6 +265,12 @@ class ReaderViewModel @Inject constructor(
         }
         viewModelScope.launch {
             runCatching { userPreferences.readerLetterSpacing.collect { _letterSpacing.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerChineseConvert.collect { _chineseConvert.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.appLanguage.collect { _appLanguage.value = it } }
         }
     }
 
@@ -439,6 +488,54 @@ class ReaderViewModel @Inject constructor(
     fun onLetterSpacingChange(value: Float) {
         _letterSpacing.value = value
         viewModelScope.launch { runCatching { userPreferences.setReaderLetterSpacing(value) } }
+    }
+
+    /** 简繁转换切换：0 关闭 / 1 简体→繁体 / 2 繁体→简体。 */
+    fun onChineseConvertChange(value: Int) {
+        _chineseConvert.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderChineseConvert(value) } }
+    }
+
+    /** 转换结果缓存：文档实例 + 模式 → 转换后文档（VM 存活期内避免重复全章转换）。 */
+    private val convertCache = HashMap<Pair<Int, Int>, NovelDocument>()
+
+    /** 转换（带实例级缓存）：先查缓存，未命中转换后写入。 */
+    private fun convertedDocument(document: NovelDocument, mode: Int): NovelDocument {
+        if (mode == 0) return document
+        val key = System.identityHashCode(document) to mode
+        synchronized(convertCache) {
+            convertCache[key]?.let { return it }
+        }
+        val converted = convertDocument(document, mode)
+        synchronized(convertCache) {
+            convertCache[key] = converted
+        }
+        return converted
+    }
+
+    /**
+     * 按转换模式重建正文文本块（Paragraph/Heading/Quote 的 text 转换；Image/Separator 原样）。
+     * startChar/endChar/textLength/fullText 全部保留原始值——阅读进度、全文搜索锚点不随转换漂移。
+     */
+    private fun convertDocument(document: NovelDocument, mode: Int): NovelDocument {
+        if (mode == 0) return document
+        val type = if (mode == 1) ConversionType.S2T else ConversionType.T2S
+        val convert: (String) -> String = { text ->
+            runCatching { ChineseConverter.convert(text, type, context) }.getOrDefault(text)
+        }
+        val newBlocks = document.blocks.map { block ->
+            when (block) {
+                is NovelBlock.Paragraph -> block.copy(text = convert(block.text))
+                is NovelBlock.Heading -> block.copy(text = convert(block.text))
+                is NovelBlock.Quote -> block.copy(text = convert(block.text))
+                else -> block
+            }
+        }
+        return NovelDocument(
+            blocks = newBlocks,
+            fullText = document.fullText,
+            textLength = document.textLength,
+        )
     }
 
     fun onReaderThemeChange(value: ReaderThemeMode) {

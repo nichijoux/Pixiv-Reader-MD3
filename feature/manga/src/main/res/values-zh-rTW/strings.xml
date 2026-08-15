@@ -1,0 +1,33 @@
+<resources>
+    <string name="manga_content_manga">漫畫</string>
+    <string name="manga_content_illust">插畫</string>
+    <string name="manga_content_ugoira">動圖</string>
+    <string name="manga_cd_switch_type">切換內容型別</string>
+    <string name="manga_cd_ranking">漫畫排行榜</string>
+    <string name="illust_cd_ranking">插畫排行榜</string>
+    <string name="illust_ranking_title">插畫排行榜</string>
+    <string name="illust_ranking_banner">插畫排行榜</string>
+    <string name="illust_ranking_banner_desc">每日更新 · 日榜 / 周榜 / 月榜 / 男性向 / 女性向 / 新人 / R18</string>
+    <string name="illust_ranking_day">日榜</string>
+    <string name="illust_ranking_week">周榜</string>
+    <string name="illust_ranking_month">月榜</string>
+    <string name="illust_ranking_male">男性向</string>
+    <string name="illust_ranking_female">女性向</string>
+    <string name="illust_ranking_rookie">新人</string>
+    <string name="illust_ranking_r18">R18</string>
+    <string name="illust_ranking_empty">暫無榜單資料</string>
+    <string name="manga_ranking_banner">漫畫排行榜</string>
+    <string name="manga_ranking_banner_desc">每日更新 · 日榜 / 周榜 / 月榜 / 新人 / R18</string>
+    <string name="manga_ranking_title">漫畫排行榜</string>
+    <string name="manga_ranking_day">日榜</string>
+    <string name="manga_ranking_week">周榜</string>
+    <string name="manga_ranking_month">月榜</string>
+    <string name="manga_ranking_rookie">新人</string>
+    <string name="manga_ranking_r18">R18</string>
+    <string name="manga_empty">暫無漫畫推薦</string>
+    <string name="manga_illust_empty">暫無插畫推薦</string>
+    <string name="manga_ugoira_empty">暫無動圖內容</string>
+    <string name="manga_ranking_empty">暫無榜單資料</string>
+    <string name="manga_cd_back">返回</string>
+    <string name="manga_cd_more">更多</string>
+</resources>

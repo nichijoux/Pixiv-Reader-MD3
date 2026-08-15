@@ -1,0 +1,35 @@
+<resources>
+    <string name="illust_title">作品詳情</string>
+    <string name="illust_cd_back">返回</string>
+    <string name="illust_cd_more">更多</string>
+    <string name="illust_cd_download">下載</string>
+    <string name="illust_cd_comments">評論</string>
+    <string name="illust_btn_fullscreen">全屏檢視</string>
+    <string name="illust_cd_fullscreen">全屏檢視</string>
+    <string name="illust_menu_download_original">下載原圖</string>
+    <string name="illust_menu_unbookmark">取消收藏</string>
+    <string name="illust_menu_bookmark">收藏</string>
+    <string name="illust_bookmarked">已收藏</string>
+    <string name="illust_action_fullscreen">全屏</string>
+    <string name="illust_follow">關注</string>
+    <string name="illust_followed">已關注</string>
+    <string name="illust_expand">展開</string>
+    <string name="illust_collapse">收起</string>
+    <string name="illust_msg_followed">已關注作者</string>
+    <string name="illust_msg_unfollowed">已取消關注</string>
+    <string name="illust_stat_pages">頁數</string>
+    <string name="illust_stat_view">瀏覽</string>
+    <string name="illust_stat_bookmark">收藏</string>
+    <string name="illust_section_related">相關作品</string>
+    <string name="illust_error_load_failed">載入失敗</string>
+    <string name="illust_error_load_failed_reason">載入失敗：%1$s</string>
+    <string name="illust_msg_action_failed">操作失敗：%1$s</string>
+    <string name="illust_msg_saved_to_downloads">已儲存到下載目錄</string>
+    <string name="illust_msg_download_started">開始下載…</string>
+    <string name="illust_msg_download_done">下載完成</string>
+    <string name="illust_msg_download_failed">下載失敗：%1$s</string>
+
+    <!-- 下载 worker 错误（IllustDownloadWorker） -->
+    <string name="illust_error_work_not_found">作品不存在</string>
+    <string name="illust_error_page_no_image">該頁無圖片地址</string>
+</resources>

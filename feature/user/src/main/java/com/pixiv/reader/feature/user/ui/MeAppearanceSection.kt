@@ -5,10 +5,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -18,6 +27,7 @@ import com.pixiv.reader.core.common.ThemeMode
 import com.pixiv.reader.feature.user.R
 
 /** 我的页「外观」设置：主题模式 / 动态取色 / 语言（各独立卡片）。 */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MeAppearanceSection(
     themeMode: ThemeMode,
@@ -79,35 +89,56 @@ internal fun MeAppearanceSection(
         }
     }
     CardSpacer()
-    // 语言（切换后重建 Activity 生效）
+    // 语言（下拉选择框；切换后重建 Activity 生效）
     MeSettingCard {
         Text(
             text = stringResource(R.string.me_language),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        var expanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = expanded && !switchingLanguage,
+            onExpandedChange = { if (!switchingLanguage) expanded = it },
         ) {
-            listOf(
-                AppLanguage.SYSTEM to R.string.me_language_follow_system,
-                AppLanguage.ZH to R.string.me_language_chinese,
-                AppLanguage.EN to R.string.me_language_english,
-            ).forEach { (value, labelRes) ->
-                PillSelectButton(
-                    selected = appLanguage == value,
-                    enabled = !switchingLanguage,
-                    onClick = {
-                        // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
-                        if (!switchingLanguage && appLanguage != value) {
-                            onSetAppLanguage(value, onLanguageApplied)
-                        }
-                    },
-                    text = stringResource(labelRes),
-                    modifier = Modifier.weight(1f),
-                )
+            OutlinedTextField(
+                value = languageLabel(appLanguage),
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).menuAnchor(),
+            )
+            ExposedDropdownMenu(
+                expanded = expanded && !switchingLanguage,
+                onDismissRequest = { expanded = false },
+            ) {
+                LANG_OPTIONS.forEach { (value, labelRes) ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(labelRes)) },
+                        onClick = {
+                            expanded = false
+                            // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
+                            if (!switchingLanguage && appLanguage != value) {
+                                onSetAppLanguage(value, onLanguageApplied)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
 }
+
+/** 语言选项（存储值, 显示文案）；按本地名显示（与系统语言设置一致）。 */
+private val LANG_OPTIONS = listOf(
+    AppLanguage.SYSTEM to R.string.me_language_follow_system,
+    AppLanguage.ZH to R.string.me_language_chinese,
+    AppLanguage.ZH_TW to R.string.me_language_chinese_traditional,
+    AppLanguage.EN to R.string.me_language_english,
+)
+
+/** 当前语言显示名。 */
+@Composable
+private fun languageLabel(value: String): String =
+    stringResource(LANG_OPTIONS.firstOrNull { it.first == value }?.second ?: R.string.me_language_follow_system)

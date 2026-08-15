@@ -1,0 +1,17 @@
+<resources>
+    <!-- 通用评论列表页（novel / illust 共用） -->
+    <string name="comment_title">評論（%1$d）</string>
+    <string name="comment_cd_back">返回</string>
+    <string name="comment_loading">評論載入中…</string>
+    <string name="comment_empty">暫無評論</string>
+    <string name="comment_retry">點選重試</string>
+    <string name="comment_anonymous_user">匿名使用者</string>
+    <string name="comment_reply_prefix">回覆 @%1$s：</string>
+    <string name="comment_reply">回覆</string>
+    <string name="comment_reply_cancel">取消回覆</string>
+    <string name="comment_reply_expand">檢視全部 %1$d 條回覆</string>
+    <string name="comment_msg_published">評論已釋出</string>
+    <string name="comment_msg_failed">評論失敗：%1$s</string>
+    <string name="comment_stamp_cd">評論貼紙</string>
+    <string name="comment_emoji_cd">評論表情</string>
+</resources>

@@ -31,6 +31,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    // 简繁转换（OpenCC JNI，词典内置于 aar assets）
+    implementation(libs.android.opencc)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

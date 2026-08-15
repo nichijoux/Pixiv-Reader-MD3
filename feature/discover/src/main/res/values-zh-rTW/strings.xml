@@ -1,0 +1,121 @@
+<resources>
+    <!-- 搜索类型 Tab -->
+    <string name="search_type_illust">插畫</string>
+    <string name="search_type_novel">小說</string>
+    <string name="search_type_user">使用者</string>
+
+    <!-- 搜索栏 / 初始态 / 联想 -->
+    <string name="search_placeholder">搜尋作品、畫師、標籤</string>
+    <string name="search_clear">清除</string>
+    <string name="search_action">搜尋</string>
+    <string name="search_filter">篩選</string>
+    <string name="search_history_title">搜尋歷史</string>
+    <string name="search_history_clear">清空</string>
+    <string name="search_history_clear_title">清空搜尋歷史？</string>
+    <string name="search_history_clear_message">將刪除全部搜尋歷史記錄，此操作不可撤銷。</string>
+    <string name="search_history_delete_title">刪除搜尋歷史？</string>
+    <string name="search_history_delete_message">將刪除搜尋歷史「%1$s」。</string>
+    <string name="search_hot_title">熱門搜尋</string>
+    <string name="search_hint">輸入關鍵詞以搜尋</string>
+    <string name="search_no_hot">暫無熱門作品</string>
+
+    <!-- 筛选面板 -->
+    <string name="filter_title_user">篩選 · 使用者</string>
+    <string name="filter_title_illust">高階篩選 · 插畫</string>
+    <string name="filter_title_novel">高階篩選 · 小說</string>
+    <string name="filter_title_default">高階篩選</string>
+    <string name="filter_user_hint">使用者搜尋僅支援關鍵詞匹配，暫無高階篩選條件。</string>
+    <string name="filter_popular_preview">熱門預覽</string>
+    <string name="filter_latest">最新</string>
+    <string name="filter_oldest">最舊</string>
+    <string name="filter_popular">收藏多</string>
+    <string name="filter_match_partial">標籤部分一致</string>
+    <string name="filter_match_exact">標籤完全一致</string>
+    <string name="filter_match_title">標題簡介</string>
+    <string name="filter_match_text">正文</string>
+    <string name="filter_match_keyword">關鍵詞</string>
+    <string name="filter_date_range">時間範圍</string>
+    <string name="filter_unlimited">不限</string>
+    <string name="filter_ai">AI 作品</string>
+    <string name="filter_all">全部</string>
+    <string name="filter_ai_human">僅人繪</string>
+    <string name="filter_ai_only">僅 AI</string>
+    <string name="filter_ratio_landscape">橫版</string>
+    <string name="filter_ratio_portrait">豎版</string>
+    <string name="filter_ratio_square">正方</string>
+    <string name="filter_content_illust">插畫</string>
+    <string name="filter_content_manga">漫畫</string>
+    <string name="filter_content_ugoira">動圖</string>
+    <string name="filter_original_only">僅原創</string>
+    <string name="filter_replaceable_only">僅可轉載</string>
+    <string name="filter_reset">重置</string>
+
+    <!-- 通用按钮 -->
+    <string name="common_close">關閉</string>
+    <string name="common_confirm">確定</string>
+    <string name="common_cancel">取消</string>
+
+    <!-- V3 行式筛选 -->
+    <string name="filter_row_target">檢索範圍</string>
+    <string name="filter_row_sort">排序方式</string>
+    <string name="filter_row_content_type">作品類別</string>
+    <string name="filter_row_duration">投稿期間</string>
+    <string name="filter_row_bookmark">收藏數</string>
+    <string name="filter_row_keyword_bookmark">收藏標籤</string>
+    <string name="filter_row_genre">型別</string>
+    <string name="filter_row_lang">語種</string>
+    <string name="filter_row_ratio">長寬比</string>
+    <string name="filter_row_resolution">解析度</string>
+    <string name="filter_row_body_length">正文長度</string>
+    <string name="filter_row_other">其他條件</string>
+    <string name="filter_row_tool">繪製工具</string>
+    <string name="filter_row_novel_switches">小說專屬</string>
+    <string name="filter_sort_preview">熱度預覽</string>
+    <string name="filter_sort_male">男性向人氣</string>
+    <string name="filter_sort_female">女性向人氣</string>
+    <string name="filter_content_default">插畫、漫畫、動圖</string>
+    <string name="filter_content_illust_ugoira">插畫、動圖</string>
+    <string name="filter_duration_all">不限</string>
+    <string name="filter_duration_24h">24 小時內</string>
+    <string name="filter_duration_week">一週內</string>
+    <string name="filter_duration_month">一月內</string>
+    <string name="filter_duration_half_year">半年內</string>
+    <string name="filter_duration_year">一年內</string>
+    <string name="filter_duration_custom">指定期間</string>
+    <string name="filter_bookmark_min_fmt">≥%1$d</string>
+    <string name="filter_keyword_bucket_fmt">%1$d 收藏標籤</string>
+    <string name="filter_all_summary">不限</string>
+    <string name="filter_date_start">開始日期</string>
+    <string name="filter_date_end">結束日期</string>
+    <string name="filter_min_hint">最小</string>
+    <string name="filter_max_hint">最大</string>
+    <string name="filter_resolution_above_3000">3000px 以上</string>
+    <string name="filter_resolution_1000_2999">1000~2999px</string>
+    <string name="filter_resolution_below_1000">999px 以下</string>
+    <string name="filter_body_length_all">不限</string>
+    <string name="filter_body_length_section_char">文字數</string>
+    <string name="filter_body_length_section_word">單詞數</string>
+    <string name="filter_body_length_section_time">閱讀預計用時</string>
+    <string name="filter_body_length_custom_char">指定文字數</string>
+    <string name="filter_body_length_custom_word">指定單詞數</string>
+    <string name="filter_reading_time_custom">指定閱讀預計用時</string>
+    <string name="filter_body_length_custom_char_fmt">指定：%1$s 字</string>
+    <string name="filter_body_length_custom_word_fmt">指定：%1$s 詞</string>
+    <string name="filter_reading_time_custom_fmt">指定：%1$s 分鐘</string>
+    <string name="filter_char_micro">微型小說（4,999 字以下）</string>
+    <string name="filter_char_short">短篇小說（5,000~19,999 字）</string>
+    <string name="filter_char_medium">中篇小說（20,000~79,999 字）</string>
+    <string name="filter_char_long">長篇小說（80,000 字以上）</string>
+    <string name="filter_word_below_5000">4,999 詞以下</string>
+    <string name="filter_word_5000_19999">5,000~19,999 詞</string>
+    <string name="filter_word_20000_79999">20,000~79,999 詞</string>
+    <string name="filter_word_above_80000">80,000 詞以上</string>
+    <string name="filter_time_under_10">10 分鐘以內</string>
+    <string name="filter_time_10_59">10~59 分鐘</string>
+    <string name="filter_time_60_179">1~3 小時</string>
+    <string name="filter_time_above_180">3 小時以上</string>
+    <string name="filter_r18">R-18 限制</string>
+    <string name="filter_r18_safe">僅全年齡</string>
+    <string name="filter_r18_only">僅 R-18</string>
+    <string name="filter_other_none">未設定</string>
+</resources>

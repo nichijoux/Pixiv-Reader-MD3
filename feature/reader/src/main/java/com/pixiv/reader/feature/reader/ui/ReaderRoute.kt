@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -141,9 +142,20 @@ fun ReaderRoute(
 ) {
     val novel by viewModel.novel.collectAsStateWithLifecycle()
     val document by viewModel.document.collectAsStateWithLifecycle()
+    val displayDocument by viewModel.displayDocument.collectAsStateWithLifecycle()
+    val chineseConvert by viewModel.chineseConvert.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
+
+    // 简繁转换区仅应用语言为中文（简体/繁体）时显示
+    val systemLanguage = LocalConfiguration.current.locales[0].language
+    val showChineseConvert = when (appLanguage) {
+        "zh", "zh-TW" -> true
+        "en" -> false
+        else -> systemLanguage.startsWith("zh")
+    }
 
     // 本地文件阅读（TXT/EPUB 解析后直接渲染，跳过网络）
     LaunchedEffect(localDocument) {
@@ -345,8 +357,9 @@ fun ReaderRoute(
                 ),
         ) {
             // Crossfade：加载完成（Loading/Error/空态 → 正文）淡入过渡，
-            // 缓存命中的章节秒开时也有内容动画（与慢加载观感一致）
-            Crossfade(targetState = document, animationSpec = tween(200)) { doc ->
+            // 缓存命中的章节秒开时也有内容动画（与慢加载观感一致）。
+            // 渲染用 displayDocument（按简繁转换设置转换文本块）；进度/搜索锚点仍在原始 document 上。
+            Crossfade(targetState = displayDocument, animationSpec = tween(200)) { doc ->
                 when {
                     doc == null && isLoading -> LoadingBox()
                     doc == null && error != null ->
@@ -578,6 +591,9 @@ fun ReaderRoute(
             onPageModeChange = viewModel::onPageModeChange,
             onBrightnessChange = viewModel::onBrightnessChange,
             onFollowSystemChange = viewModel::onFollowSystemChange,
+            chineseConvert = chineseConvert,
+            showChineseConvert = showChineseConvert,
+            onChineseConvertChange = viewModel::onChineseConvertChange,
             onImportFont = {
                 fontPicker.launch(
                     arrayOf(

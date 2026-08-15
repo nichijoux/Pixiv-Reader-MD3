@@ -1,0 +1,103 @@
+<resources>
+    <!-- 小说 Tab 推荐流 -->
+    <string name="novel_title">小說</string>
+    <string name="novel_cd_refresh">重新整理</string>
+    <string name="novel_cd_ranking">排行榜</string>
+    <string name="novel_feed_empty">暫時沒有推薦小說</string>
+    <string name="novel_load_more">上滑載入更多</string>
+
+    <!-- 小说 Tab 推荐/关注 + 排行榜（第五十三轮） -->
+    <string name="novel_tab_recommend">推薦</string>
+    <string name="novel_tab_follow">關注</string>
+    <string name="novel_tab_watchlist">追更</string>
+    <string name="novel_watchlist_empty">暫無追更，去系列小說詳情頁點「追更」吧</string>
+    <string name="novel_watchlist_masked">已隱藏的系列</string>
+    <string name="novel_follow_empty">暫無關注動態，先去關注喜歡的作者吧</string>
+    <string name="novel_ranking_title">小說排行榜</string>
+    <string name="novel_ranking_empty">榜單暫無內容</string>
+    <string name="novel_ranking_banner">小說排行榜</string>
+    <string name="novel_ranking_banner_desc">日榜 · 周榜 · 男性向 · 女性向 · 新人 · R18</string>
+    <string name="novel_ranking_day">日榜</string>
+    <string name="novel_ranking_week">周榜</string>
+    <string name="novel_ranking_male">男性向</string>
+    <string name="novel_ranking_female">女性向</string>
+    <string name="novel_ranking_rookie">新人</string>
+    <string name="novel_ranking_r18">R18</string>
+
+    <!-- 小说详情 -->
+    <string name="novel_not_found">沒有找到該小說</string>
+    <string name="novel_cd_back">返回</string>
+    <string name="novel_publish_date">釋出於 %1$s</string>
+    <string name="novel_toc_title">系列目錄</string>
+    <string name="novel_series_view_all">檢視完整系列</string>
+    <string name="novel_intro_expand">展開</string>
+    <string name="novel_intro_collapse">收起</string>
+    <string name="novel_comment_button">評論</string>
+
+    <!-- 小说系列详情页 -->
+    <string name="novel_series_title">系列</string>
+    <string name="novel_series_eyebrow">系列作品</string>
+    <string name="novel_series_empty">系列暫無分冊</string>
+    <string name="novel_series_parts">%1$d 篇</string>
+    <string name="novel_series_ongoing">連載中</string>
+    <string name="novel_series_concluded">已完結</string>
+    <string name="novel_series_total_chars">總字數 %1$s</string>
+    <string name="novel_series_volumes_section">分冊（%1$d）</string>
+    <string name="novel_stat_word">字數</string>
+    <string name="novel_stat_bookmark">收藏</string>
+    <string name="novel_stat_view">瀏覽</string>
+    <string name="novel_chapter_word">字數 %1$s</string>
+    <string name="novel_chapter_bookmark">收藏 %1$s</string>
+    <string name="novel_chapter_current">當前</string>
+    <string name="novel_continue_reading">繼續閱讀 %1$d%%</string>
+    <string name="novel_start_reading">開始閱讀</string>
+    <string name="novel_follow">關注</string>
+    <string name="novel_following">已關注</string>
+    <string name="novel_msg_followed">已關注作者</string>
+    <string name="novel_msg_unfollowed">已取消關注</string>
+    <string name="novel_bookmarked">已收藏</string>
+    <string name="novel_bookmark">收藏</string>
+    <string name="novel_watchlisted">已追更</string>
+    <string name="novel_watch">追更</string>
+    <string name="novel_download">下載</string>
+
+    <!-- 下载底部弹窗 -->
+    <string name="novel_download_title">下載小說</string>
+    <string name="novel_download_scope_single">單個檔案</string>
+    <string name="novel_download_scope_series">整個系列</string>
+    <string name="novel_download_scope_partial">選取部分</string>
+    <string name="novel_download_select_hint">已選 %1$d/%2$d 本</string>
+    <string name="novel_download_group_export">匯出檔案</string>
+    <string name="novel_download_txt_current">TXT</string>
+    <string name="novel_download_txt_current_desc">純文本，不包含插圖</string>
+    <string name="novel_download_epub_current">EPUB</string>
+    <string name="novel_download_epub_current_desc">標準電子書，內嵌插圖</string>
+    <string name="novel_download_pdf_current">PDF</string>
+    <string name="novel_download_pdf_current_desc">便攜文件，適合列印分享</string>
+    <string name="novel_download_markdown_current">Markdown</string>
+    <string name="novel_download_markdown_current_desc">純文本，保留標題層級</string>
+    <string name="novel_download_docx_current">Word</string>
+    <string name="novel_download_docx_current_desc">Office 文件，可編輯排版</string>
+
+    <!-- ViewModel 消息 / 错误 -->
+    <string name="novel_error_load_failed">載入失敗</string>
+    <string name="novel_error_load_failed_reason">載入失敗：%1$s</string>
+    <string name="novel_msg_bookmarked">已收藏</string>
+    <string name="novel_msg_unbookmarked">已取消收藏</string>
+    <string name="novel_msg_action_failed">操作失敗：%1$s</string>
+    <string name="novel_msg_watching_added">已加入追更</string>
+    <string name="novel_msg_watching_removed">已取消追更</string>
+    <string name="novel_msg_downloading">正在下載…</string>
+    <string name="novel_msg_preparing">準備中…</string>
+    <string name="novel_msg_downloading_chapter">正在下載第 %1$d/%2$d 章…</string>
+    <string name="novel_msg_exported">已匯出：%1$s</string>
+    <string name="novel_msg_export_queued">已加入匯出佇列</string>
+    <string name="novel_msg_export_failed">匯出失敗：%1$s</string>
+
+    <!-- 导出引擎错误（NovelExporter） -->
+    <string name="novel_export_no_chapters">沒有可匯出的章節</string>
+    <string name="novel_export_series_empty">系列中沒有可下載的分冊</string>
+    <string name="novel_export_dir_unavailable">匯出目錄不可用</string>
+    <string name="novel_export_create_failed">無法建立匯出檔案</string>
+    <string name="novel_export_write_failed">無法寫入匯出檔案</string>
+</resources>

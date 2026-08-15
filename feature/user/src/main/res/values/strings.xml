@@ -72,7 +72,8 @@
     <string name="me_dynamic_color_desc">Android 12+ 使用壁纸取色</string>
     <string name="me_language">语言</string>
     <string name="me_language_follow_system">跟随系统</string>
-    <string name="me_language_chinese">中文</string>
+    <string name="me_language_chinese">简体中文</string>
+    <string name="me_language_chinese_traditional">繁體中文</string>
     <string name="me_language_english">English</string>
     <string name="me_auto_update">自动更新</string>
     <string name="me_auto_update_desc">启动时检查新版本（更新逻辑待接入）</string>

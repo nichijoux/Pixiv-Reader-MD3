@@ -1,0 +1,8 @@
+<resources>
+    <string name="cd_back">返回</string>
+    <string name="watchlist_title">追更</string>
+    <string name="watchlist_empty">暫無追更</string>
+    <string name="watchlist_masked_series">已隱藏的系列</string>
+    <string name="watchlist_chapters">%1$d 章</string>
+    <string name="watchlist_view">檢視</string>
+</resources>
