@@ -15,7 +15,8 @@ import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.session.SeriesCoverCache
+import com.pixiv.reader.core.network.session.SeriesDetailCache
+import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -41,7 +42,7 @@ enum class UserSection(@StringRes val labelRes: Int) {
 class UserViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
-    private val seriesCoverCache: SeriesCoverCache,
+    private val seriesDetailCache: SeriesDetailCache,
     private val browseHistoryDao: BrowseHistoryDao,
 ) : ViewModel() {
 
@@ -83,9 +84,9 @@ class UserViewModel @Inject constructor(
     val novelPaged = PagedState<Novel>()
     val seriesPaged = PagedState<NovelSeriesItem>()
 
-    /** 系列封面缓存（seriesId → 封面 URL）；列表项无封面，逐个经 SeriesCoverCache 取第一册 medium。 */
-    private val _seriesCovers = MutableStateFlow<Map<Long, String>>(emptyMap())
-    val seriesCovers: StateFlow<Map<Long, String>> = _seriesCovers.asStateFlow()
+    /** 系列详情缓存（seriesId → 封面/简介/连载状态/字数/更新时间）；列表项无这些字段，逐个经 SeriesDetailCache 取。 */
+    private val _seriesInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
+    val seriesInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _seriesInfos.asStateFlow()
 
     init {
         load()
@@ -173,7 +174,7 @@ class UserViewModel @Inject constructor(
                         fetch = { pixivRepository.api.getUserNovelSeries(userId) },
                         fetchNext = { pixivRepository.api.getNextNovelSeries(it) },
                     )
-                    loadSeriesCovers(seriesPaged.items.value.map { it.id })
+                    loadSeriesInfos(seriesPaged.items.value.map { it.id })
                 }
             }
         }
@@ -187,31 +188,39 @@ class UserViewModel @Inject constructor(
                 UserSection.NOVEL -> novelPaged.loadMore()
                 UserSection.SERIES -> {
                     seriesPaged.loadMore()
-                    loadSeriesCovers(seriesPaged.items.value.map { it.id })
+                    loadSeriesInfos(seriesPaged.items.value.map { it.id })
                 }
             }
         }
     }
 
     /**
-     * 为系列列表批量取封面（SeriesCoverCache 内存缓存 + in-flight 去重）。
-     * 列表项无封面字段，逐个经缓存取第一册 `image_urls.medium`；已缓存的零请求。
+     * 为系列列表批量取详情（SeriesDetailCache 内存缓存 + in-flight 去重，
+     * 封面/简介/连载状态/字数/更新时间同源自一次 getNovelSeries）。
+     * 列表项无这些字段，逐个经缓存取；已缓存的零请求。
      * 并发限 6，避免首屏一批详情请求打满连接池。
      */
-    private fun loadSeriesCovers(seriesIds: List<Long>) {
-        val missing = seriesIds.filter { seriesCoverCache.get(it) == null }
+    private fun loadSeriesInfos(seriesIds: List<Long>) {
+        val missing = seriesIds.filter { seriesDetailCache.get(it) == null }
         if (missing.isEmpty()) return
         viewModelScope.launch {
             missing.chunked(6).forEach { batch ->
                 val results = batch.map { id ->
-                    id to seriesCoverCache.getOrFetch(id) {
-                        pixivRepository.api.getNovelSeries(id)
-                            .novel_series_first_novel?.image_urls?.medium
+                    id to seriesDetailCache.getOrFetch(id) {
+                        pixivRepository.api.getNovelSeries(id).let { resp ->
+                            SeriesDetailInfo(
+                                coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
+                                caption = resp.novel_series_detail?.caption,
+                                isConcluded = resp.novel_series_detail?.is_concluded,
+                                totalChars = resp.novel_series_detail?.total_character_count ?: 0,
+                                updatedAt = resp.novel_series_latest_novel?.create_date,
+                            )
+                        }
                     }
                 }
-                val newMap = _seriesCovers.value.toMutableMap()
-                results.forEach { (id, url) -> if (url != null) newMap[id] = url }
-                _seriesCovers.value = newMap
+                val newMap = _seriesInfos.value.toMutableMap()
+                results.forEach { (id, info) -> if (info != null) newMap[id] = info }
+                _seriesInfos.value = newMap
             }
         }
     }

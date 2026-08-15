@@ -94,7 +94,8 @@
     <string name="me_version">版本 %1$s</string>
     <string name="me_about_description">一款开源 Pixiv Android 客户端：浏览推荐/排行/发现，查看插画与小说，支持收藏、评论、下载导出、离线阅读等能力。数据来自 pixiv 官方接口，仅供学习交流使用。</string>
     <string name="me_open_source_repo">开源仓库</string>
-    <string name="me_open_source_license">开源许可：项目基于 pixiv 开放接口，仅供学习与交流使用。</string>
+    <string name="me_open_source_license">开源许可</string>
+    <string name="me_open_source_license_desc">项目基于 pixiv 开放接口，仅供学习与交流使用。</string>
 
     <!-- HistoryRoute -->
     <string name="history_title">浏览历史</string>
@@ -153,11 +154,6 @@
     <string name="user_empty_illust">暂无作品</string>
     <string name="user_empty_novel">暂无小说</string>
     <string name="user_empty_series">暂无系列小说</string>
-    <string name="user_series_parts">%1$d 篇</string>
-    <string name="user_series_chars">%1$s 字</string>
-    <string name="user_series_ongoing">连载中</string>
-    <string name="user_series_concluded">已完结</string>
-    <string name="user_series_watchlisted">已追更</string>
     <string name="user_stat_series">系列</string>
     <string name="user_bookmarks_title">该用户的收藏</string>
     <string name="user_bookmarks_empty">暂无公开收藏</string>

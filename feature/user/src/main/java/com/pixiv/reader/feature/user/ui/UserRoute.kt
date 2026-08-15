@@ -77,7 +77,7 @@ fun UserRoute(
     val isBlocked by viewModel.isBlocked.collectAsStateWithLifecycle()
     val isBlocking by viewModel.isBlocking.collectAsStateWithLifecycle()
     val section by viewModel.section.collectAsStateWithLifecycle()
-    val seriesCovers by viewModel.seriesCovers.collectAsStateWithLifecycle()
+    val seriesInfos by viewModel.seriesInfos.collectAsStateWithLifecycle()
 
     val sections = UserSection.entries
     val pagerState = rememberPagerState(
@@ -192,7 +192,7 @@ fun UserRoute(
                             )
                             UserSection.SERIES -> SectionSeries(
                                 paged = viewModel.seriesPaged,
-                                covers = seriesCovers,
+                                infos = seriesInfos,
                                 onOpenSeries = onOpenSeries,
                                 onRetry = viewModel::load,
                                 onLoadMore = viewModel::loadMore,

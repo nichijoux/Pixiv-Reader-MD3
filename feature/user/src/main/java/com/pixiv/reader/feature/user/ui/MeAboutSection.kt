@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
@@ -26,7 +27,10 @@ import com.pixiv.reader.feature.user.R
 /** 开源仓库地址。 */
 private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Material"
 
-/** 我的页「关于」：应用信息 / 开源仓库 / 检查更新。 */
+/** 开源许可地址（作者主页，含各开源组件许可说明）。 */
+private const val OPEN_SOURCE_LICENSE_URL = "https://github.com/nichijoux"
+
+/** 我的页「关于」：应用信息 / 开源仓库 / 开源许可 / 检查更新。 */
 @Composable
 internal fun MeAboutSection(
     versionName: String,
@@ -60,12 +64,6 @@ internal fun MeAboutSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 10.dp),
         )
-        Text(
-            text = stringResource(R.string.me_open_source_license),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 10.dp),
-        )
     }
     CardSpacer()
     // 开源仓库
@@ -77,6 +75,21 @@ internal fun MeAboutSection(
             onClick = {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_URL)))
+                }
+            },
+        ),
+    )
+    CardSpacer()
+    // 开源许可（独立入口，与开源仓库同款按钮；描述说明放在标题下方）
+    SettingsCard(
+        SettingsCardItem(
+            icon = Icons.Filled.Code,
+            title = stringResource(R.string.me_open_source_license),
+            description = stringResource(R.string.me_open_source_license_desc),
+            trailingIcon = Icons.Filled.OpenInNew,
+            onClick = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_LICENSE_URL)))
                 }
             },
         ),

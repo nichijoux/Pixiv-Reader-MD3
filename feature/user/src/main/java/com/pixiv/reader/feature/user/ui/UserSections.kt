@@ -1,50 +1,36 @@
 package com.pixiv.reader.feature.user.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesItem
-import com.pixiv.reader.core.common.formatCountForNovel
 import com.pixiv.reader.core.network.paging.PagedState
+import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.core.ui.component.EmptyBox
 import com.pixiv.reader.core.ui.component.ErrorBox
 import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.LoadingBox
 import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
-import com.pixiv.reader.core.ui.component.PixivImage
-import com.pixiv.reader.core.ui.component.SeriesBookCover
-import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.component.SeriesCard
+import com.pixiv.reader.core.ui.component.SeriesCardData
 import com.pixiv.reader.feature.user.R
 
 /** 插画 / 漫画分区内容：三态 + 瀑布流（漫画复用同一组件）。 */
@@ -157,7 +143,7 @@ internal fun SectionNovel(
 @Composable
 internal fun SectionSeries(
     paged: PagedState<NovelSeriesItem>,
-    covers: Map<Long, String>,
+    infos: Map<Long, SeriesDetailInfo>,
     onOpenSeries: (Long) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -178,9 +164,20 @@ internal fun SectionSeries(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(items, key = { it.id }) { series ->
+                val info = infos[series.id]
                 SeriesCard(
-                    series = series,
-                    coverUrl = covers[series.id],
+                    data = SeriesCardData(
+                        title = series.title.orEmpty(),
+                        caption = series.caption,
+                        coverUrl = info?.coverUrl,
+                        partsCount = series.content_count,
+                        totalChars = series.total_character_count,
+                        isConcluded = series.is_concluded,
+                        // 与追更页一致：作者行显示最近更新时间（最新册发布日期），不显示已追更徽章
+                        updatedAt = info?.updatedAt?.take(10),
+                        authorName = series.user?.name,
+                        authorAvatarUrl = series.user?.profile_image_urls?.best(),
+                    ),
                     onClick = { onOpenSeries(series.id) },
                 )
             }
@@ -201,121 +198,5 @@ internal fun SectionSeries(
     }
 }
 
-/** 系列卡片：封面（真实图/图标兜底）+ 标题/简介 + N 篇/总字数 + 连载状态/已追更徽章。 */
-@Composable
-internal fun SeriesCard(
-    series: NovelSeriesItem,
-    coverUrl: String?,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // 封面：有 URL 显示真实封面（3:4，自动 Referer），无则 MD3 图标容器兜底
-        if (!coverUrl.isNullOrBlank()) {
-            PixivImage(
-                url = coverUrl,
-                contentDescription = series.title,
-                modifier = Modifier
-                    .width(72.dp)
-                    .aspectRatio(3f / 4f)
-                    .clip(RoundedCornerShape(12.dp)),
-            )
-        } else {
-            SeriesBookCover(
-                modifier = Modifier.size(width = 72.dp, height = 96.dp),
-                iconSize = 36.dp,
-            )
-        }
-        Column(modifier = Modifier.padding(start = 14.dp).weight(1f)) {
-            Text(
-                text = series.title.orEmpty(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val caption = series.caption
-            if (!caption.isNullOrBlank()) {
-                Text(
-                    text = caption,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 篇数 + 总字数（text 弱化）
-                Text(
-                    text = stringResource(R.string.user_series_parts, series.content_count),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (series.total_character_count > 0) {
-                    Text(
-                        text = stringResource(
-                            R.string.user_series_chars,
-                            formatCountForNovel(series.total_character_count),
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                // 连载状态徽章（药丸）
-                SeriesStatusBadge(
-                    text = stringResource(
-                        if (series.is_concluded) R.string.user_series_concluded else R.string.user_series_ongoing,
-                    ),
-                    container = if (series.is_concluded) {
-                        MaterialTheme.colorScheme.errorContainer
-                    } else {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    },
-                    content = if (series.is_concluded) {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    },
-                )
-                // 已追更标记（次要）
-                if (series.watchlist_added) {
-                    SeriesStatusBadge(
-                        text = stringResource(R.string.user_series_watchlisted),
-                        container = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        content = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
+/** 系列卡片已上移至 core:ui（SeriesCard + SeriesCardData），用户页 / 追更列表共用。 */
 
-/** MD3 药丸徽章（AssistChip 视觉，扁平无交互）。 */
-@Composable
-private fun SeriesStatusBadge(
-    text: String,
-    container: androidx.compose.ui.graphics.Color,
-    content: androidx.compose.ui.graphics.Color,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = content,
-        modifier = Modifier
-            .clip(AppShapes.pill)
-            .background(container)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
-    )
-}

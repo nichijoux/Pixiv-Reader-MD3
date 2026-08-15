@@ -3,11 +3,14 @@ package com.pixiv.reader.feature.novel.state
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
+import com.pixiv.api.model.WatchlistSeries
 import com.pixiv.reader.core.common.NovelDefaultTab
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.network.session.SeriesDetailCache
+import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.novel.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -29,6 +32,7 @@ import kotlinx.coroutines.launch
 class NovelFeedViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val userPreferences: UserPreferences,
+    private val seriesDetailCache: SeriesDetailCache,
 ) : ViewModel() {
 
     /** 推荐 Tab：v1/novel/recommended 游标分页。 */
@@ -40,6 +44,16 @@ class NovelFeedViewModel @Inject constructor(
     /** 关注流是否已触发首次加载（防切回重复请求）。 */
     private var followInitialized = false
 
+    /** 追更 Tab：v1/watchlist/novel 已追更小说系列游标分页（数据驻留 VM，切回不重复请求）。 */
+    val watchlist = PagedState<WatchlistSeries>()
+
+    /** 追更流是否已触发首次加载（防切回重复请求）。 */
+    private var watchlistInitialized = false
+
+    /** 追更列表系列详情：seriesId → 封面/简介/连载状态（SeriesDetailCache 内存缓存 + in-flight 去重）。 */
+    private val _watchlistInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
+    val watchlistInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _watchlistInfos.asStateFlow()
+
     /** 推荐流下拉刷新指示。 */
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -47,6 +61,10 @@ class NovelFeedViewModel @Inject constructor(
     /** 关注流下拉刷新指示。 */
     private val _isFollowRefreshing = MutableStateFlow(false)
     val isFollowRefreshing: StateFlow<Boolean> = _isFollowRefreshing.asStateFlow()
+
+    /** 追更流下拉刷新指示。 */
+    private val _isWatchlistRefreshing = MutableStateFlow(false)
+    val isWatchlistRefreshing: StateFlow<Boolean> = _isWatchlistRefreshing.asStateFlow()
 
     /** 小说 Tab 默认页偏好（我的页-浏览设置）：推荐 / 关注。 */
     val novelDefaultTab: StateFlow<NovelDefaultTab> = userPreferences.novelDefaultTab
@@ -132,6 +150,86 @@ class NovelFeedViewModel @Inject constructor(
             } finally {
                 _isFollowRefreshing.value = false
             }
+        }
+    }
+
+    /** 追更 Tab 首次进入时加载（幂等）；失败可重试。 */
+    fun ensureWatchlistLoaded() {
+        if (watchlistInitialized) return
+        watchlistInitialized = true
+        viewModelScope.launch {
+            watchlist.loadInitial(
+                fetch = { pixivRepository.api.getWatchlistNovel() },
+                fetchNext = { pixivRepository.api.getNextWatchlist(it) },
+            )
+            loadWatchlistInfos()
+        }
+    }
+
+    /** 追更流重试 / 下拉刷新重拉第一页（非刷新手势入口）。 */
+    fun refreshWatchlist() {
+        watchlistInitialized = true
+        viewModelScope.launch {
+            watchlist.reset()
+            watchlist.loadInitial(
+                fetch = { pixivRepository.api.getWatchlistNovel() },
+                fetchNext = { pixivRepository.api.getNextWatchlist(it) },
+            )
+            loadWatchlistInfos()
+        }
+    }
+
+    /** 追更流下拉刷新：重拉第一页，结束后复位指示（防重入）。 */
+    fun pullRefreshWatchlist() {
+        if (_isWatchlistRefreshing.value) return
+        viewModelScope.launch {
+            _isWatchlistRefreshing.value = true
+            try {
+                watchlist.reset()
+                watchlist.loadInitial(
+                    fetch = { pixivRepository.api.getWatchlistNovel() },
+                    fetchNext = { pixivRepository.api.getNextWatchlist(it) },
+                )
+                loadWatchlistInfos()
+            } finally {
+                _isWatchlistRefreshing.value = false
+            }
+        }
+    }
+
+    fun loadMoreWatchlist() {
+        viewModelScope.launch {
+            watchlist.loadMore()
+            loadWatchlistInfos()
+        }
+    }
+
+    /**
+     * 为追更列表批量取系列详情（复用 SeriesDetailCache 内存缓存 + in-flight 去重，
+     * 与用户页系列列表同一缓存；封面/简介/连载状态同源自一次 `getNovelSeries`）。
+     * 列表项无这些字段，已缓存的零请求；并发限 6，避免首屏一批详情请求打满连接池。
+     */
+    private suspend fun loadWatchlistInfos() {
+        val missing = watchlist.items.value.map { it.id }
+            .filter { seriesDetailCache.get(it) == null }
+        if (missing.isEmpty()) return
+        missing.chunked(6).forEach { batch ->
+            val results = batch.map { id ->
+                id to seriesDetailCache.getOrFetch(id) {
+                    pixivRepository.api.getNovelSeries(id).let { resp ->
+                        SeriesDetailInfo(
+                            coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
+                            caption = resp.novel_series_detail?.caption,
+                            isConcluded = resp.novel_series_detail?.is_concluded,
+                            totalChars = resp.novel_series_detail?.total_character_count ?: 0,
+                            updatedAt = resp.novel_series_latest_novel?.create_date,
+                        )
+                    }
+                }
+            }
+            val newMap = _watchlistInfos.value.toMutableMap()
+            results.forEach { (id, info) -> if (info != null) newMap[id] = info }
+            _watchlistInfos.value = newMap
         }
     }
 

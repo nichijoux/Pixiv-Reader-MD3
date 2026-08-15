@@ -9,6 +9,9 @@
     <!-- 小说 Tab 推荐/关注 + 排行榜（第五十三轮） -->
     <string name="novel_tab_recommend">推荐</string>
     <string name="novel_tab_follow">关注</string>
+    <string name="novel_tab_watchlist">追更</string>
+    <string name="novel_watchlist_empty">暂无追更，去系列小说详情页点「追更」吧</string>
+    <string name="novel_watchlist_masked">已隐藏的系列</string>
     <string name="novel_follow_empty">暂无关注动态，先去关注喜欢的作者吧</string>
     <string name="novel_ranking_title">小说排行榜</string>
     <string name="novel_ranking_empty">榜单暂无内容</string>

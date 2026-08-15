@@ -9,6 +9,9 @@
     <!-- Novel tabs (recommend/follow) + ranking (Round 53) -->
     <string name="novel_tab_recommend">Recommended</string>
     <string name="novel_tab_follow">Following</string>
+    <string name="novel_tab_watchlist">Watchlist</string>
+    <string name="novel_watchlist_empty">No watchlist yet — tap "Watch" on a series detail page</string>
+    <string name="novel_watchlist_masked">Hidden series</string>
     <string name="novel_follow_empty">Nothing from authors you follow yet. Go follow some!</string>
     <string name="novel_ranking_title">Novel Ranking</string>
     <string name="novel_ranking_empty">No ranking data</string>

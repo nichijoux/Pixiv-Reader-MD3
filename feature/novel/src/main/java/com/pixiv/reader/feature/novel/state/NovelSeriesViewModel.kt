@@ -14,7 +14,8 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.session.SeriesCoverCache
+import com.pixiv.reader.core.network.session.SeriesDetailCache
+import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
@@ -31,7 +32,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 小说系列详情页 ViewModel：系列信息 + 分册列表（`/v2/novel/series` 分页）。
- * 系列封面（第一册 medium）走 [SeriesCoverCache]，与用户主页系列列表共享缓存。
+ * 系列封面（第一册 medium）走 [SeriesDetailCache]，与用户主页系列列表共享缓存。
  * 关注作者：内嵌 `user.is_followed` 初始 + `getUserDetail` 权威刷新（与详情页一致）。
  * 导出（worker）：整系列 / 部分分册（合并为一个文件），完成/失败观察下载索引发应用内通知。
  */
@@ -40,7 +41,7 @@ class NovelSeriesViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
-    private val seriesCoverCache: SeriesCoverCache,
+    private val seriesDetailCache: SeriesDetailCache,
     private val downloadEntryDao: DownloadEntryDao,
 ) : ViewModel() {
 
@@ -88,11 +89,17 @@ class NovelSeriesViewModel @Inject constructor(
                 fetch = {
                     pixivRepository.api.getNovelSeries(seriesId).also { resp ->
                         _detail.value = resp.novel_series_detail
-                        // 走进程级缓存：用户主页列表已取过封面则零请求
-                        _firstNovelCover.value = seriesCoverCache.getOrFetch(seriesId) {
-                            resp.novel_series_first_novel?.image_urls?.medium
-                                ?: resp.novel_series_first_novel?.image_urls?.square_medium
-                        }
+                        // 走进程级缓存：用户主页列表已取过系列详情则零请求
+                        _firstNovelCover.value = seriesDetailCache.getOrFetch(seriesId) {
+                            SeriesDetailInfo(
+                                coverUrl = resp.novel_series_first_novel?.image_urls?.medium
+                                    ?: resp.novel_series_first_novel?.image_urls?.square_medium,
+                                caption = resp.novel_series_detail?.caption,
+                                isConcluded = resp.novel_series_detail?.is_concluded,
+                                totalChars = resp.novel_series_detail?.total_character_count ?: 0,
+                                updatedAt = resp.novel_series_latest_novel?.create_date,
+                            )
+                        }?.coverUrl
                         val seriesDetail = resp.novel_series_detail
                         seriesDetail?.user?.id?.let { userId ->
                             _isAuthorFollowed.value = seriesDetail.user?.is_followed == true

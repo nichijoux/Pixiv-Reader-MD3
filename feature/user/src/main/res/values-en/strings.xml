@@ -94,7 +94,8 @@
     <string name="me_version">Version %1$s</string>
     <string name="me_about_description">An open-source Pixiv Android client: browse recommendations, rankings and discovery, view illustrations and novels, with bookmarking, comments, download/export and offline reading. Data comes from pixiv\'s official API, for learning purposes only.</string>
     <string name="me_open_source_repo">Open-source repository</string>
-    <string name="me_open_source_license">License: based on pixiv\'s open API, for learning and exchange only.</string>
+    <string name="me_open_source_license">Open-source license</string>
+    <string name="me_open_source_license_desc">Based on pixiv\'s open API, for learning and exchange only.</string>
 
     <!-- History -->
     <string name="history_title">Browse history</string>
@@ -153,11 +154,6 @@
     <string name="user_empty_illust">No works yet</string>
     <string name="user_empty_novel">No novels yet</string>
     <string name="user_empty_series">No novel series yet</string>
-    <string name="user_series_parts">%1$d parts</string>
-    <string name="user_series_chars">%1$s characters</string>
-    <string name="user_series_ongoing">Ongoing</string>
-    <string name="user_series_concluded">Completed</string>
-    <string name="user_series_watchlisted">Following</string>
     <string name="user_stat_series">Series</string>
     <string name="user_bookmarks_title">User\'s bookmarks</string>
     <string name="user_bookmarks_empty">No public bookmarks</string>

@@ -14,5 +14,11 @@
     <string name="common_delete">Delete</string>
     <string name="download_progress">%1$d%%</string>
     <string name="download_failed">Download failed</string>
-    <string name="ugoira_cd">Animation</string>
+    <string name="ugoira_cd">Animated</string>
+    <!-- 系列卡片（SeriesCard） -->
+    <string name="series_parts">%1$d parts</string>
+    <string name="series_chars">%1$s characters</string>
+    <string name="series_ongoing">Ongoing</string>
+    <string name="series_concluded">Completed</string>
+    <string name="series_watchlisted">Watching</string>
 </resources>
