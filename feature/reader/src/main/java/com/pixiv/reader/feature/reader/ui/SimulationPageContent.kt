@@ -156,8 +156,8 @@ fun SimulationPageContent(
         animY.snapTo(t.y)
         if (!passed) {
             Log.d(TAG, "settle: => 回弹 corner")
-            animX.animateTo(cx, tween(250)) { touch = Offset(animX.value, animY.value) }
-            animY.animateTo(cy, tween(250)) { touch = Offset(animX.value, animY.value) }
+            animX.animateTo(cx, tween(170)) { touch = Offset(animX.value, animY.value) }
+            animY.animateTo(cy, tween(170)) { touch = Offset(animX.value, animY.value) }
             touch = null
             animating = false
         } else {
@@ -172,8 +172,8 @@ fun SimulationPageContent(
             val tx = t.x + dx * scale
             val ty = t.y + dy * scale
             Log.d(TAG, "settle: => 翻过 目标=($tx,$ty) scale=$scale")
-            animX.animateTo(tx, tween(250)) { touch = Offset(animX.value, animY.value) }
-            animY.animateTo(ty, tween(250)) { touch = Offset(animX.value, animY.value) }
+            animX.animateTo(tx, tween(170)) { touch = Offset(animX.value, animY.value) }
+            animY.animateTo(ty, tween(170)) { touch = Offset(animX.value, animY.value) }
             finishTurn()
         }
     }
@@ -183,7 +183,7 @@ fun SimulationPageContent(
      * - 角落 = 点击点象限（上一页固定左下角 (0,h)）
      * - touch 起手：下一页 (0.9w, 0.9h|1)，上一页 (0,h)；目标：下一页飞出左缘 x=-w，上一页飞出右缘 x=w
      *   （y 落回角落所在水平线）→ 卷页水平扫过整页（从右向左翻 / 从左向右翻），无对角上翻
-     * - 时长 = animationSpeed(300) × |dx| / w，LinearInterpolator 线性插值（单轴进度驱动直线路径）
+     * - 时长 = animationSpeed(200) × |dx| / w，LinearInterpolator 线性插值（单轴进度驱动直线路径）
      * - 动画结束瞬间切页（legado fillPage）
      */
     suspend fun turnTo(forward: Boolean, tapPoint: Offset) {
@@ -203,8 +203,8 @@ fun SimulationPageContent(
         val dy = if (cy > 0f) (h - startY) else (1f - startY)
         val tx = startX + dx
         val ty = startY + dy
-        // 时长 = animationSpeed × |dx| / w（legado startScroll，animationSpeed=300）
-        val duration = (300f * abs(dx) / w).toInt().coerceAtLeast(1)
+        // 时长 = animationSpeed × |dx| / w（legado startScroll，animationSpeed=200，比默认 300 更快）
+        val duration = (200f * abs(dx) / w).toInt().coerceAtLeast(1)
         Log.d(TAG, "turnTo forward=$forward tap=(${tapPoint.x},${tapPoint.y}) corner=($cx,$cy) " +
             "start=($startX,$startY) 目标=($tx,$ty) duration=$duration")
         animating = true

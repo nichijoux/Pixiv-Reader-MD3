@@ -1,20 +1,17 @@
 package com.pixiv.reader.feature.novel.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -82,19 +79,45 @@ fun NovelDetailRoute(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
-    ) {
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
+        // 顶部 inset 置 0：沉浸式 banner 贴顶设计保持不变（FloatingBackButton 自带 statusBarsPadding）；
+        // 底部由 bottomBar 承担（NovelActionBar 自带 navigationBarsPadding），innerPadding 不重复计
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            // 底部操作条：收藏 / 追更 / 下载 / 评论（详情加载完成后显示）
+            val actionNovel = novel
+            if (actionNovel != null) {
+                NovelActionBar(
+                    seriesId = actionNovel.series?.id,
+                    isBookmarked = isBookmarked,
+                    isBookmarking = isBookmarking,
+                    isWatchlisted = isWatchlisted,
+                    isWatchlisting = isWatchlisting,
+                    downloading = downloading,
+                    onBookmark = viewModel::toggleBookmark,
+                    onWatchlist = viewModel::toggleWatchlist,
+                    onDownload = { showDownloadDialog = true },
+                    onComments = { onOpenComments(actionNovel.id) },
+                )
+            }
+        },
+        snackbarHost = { NotificationHost(notificationHostState) },
+        modifier = Modifier.fillMaxSize(),
+    ) { padding ->
+        // Scaffold innerPadding 已排除 bottomBar 高度：内容滚不到操作条下方（对齐插画详情页）
         when {
-            isLoading && novel == null -> LoadingBox()
+            isLoading && novel == null -> LoadingBox(modifier = Modifier.padding(padding))
             error != null && novel == null -> ErrorBox(
                 message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
                 onRetry = viewModel::load,
+                modifier = Modifier.padding(padding),
             )
 
-            novel == null -> EmptyBox(stringResource(R.string.novel_not_found))
+            novel == null -> EmptyBox(
+                stringResource(R.string.novel_not_found),
+                modifier = Modifier.padding(padding),
+            )
             else -> {
                 val detail = checkNotNull(novel)
                 NovelDetailContent(
@@ -111,25 +134,9 @@ fun NovelDetailRoute(
                     onOpenUser = onOpenUser,
                     onOpenSeries = onOpenSeries,
                     onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                    modifier = Modifier.padding(padding),
                 )
             }
-        }
-        // 底部固定操作条：收藏 / 追更 / 下载 / 评论（详情加载完成后显示）
-        val actionNovel = novel
-        if (actionNovel != null) {
-            NovelActionBar(
-                seriesId = actionNovel.series?.id,
-                isBookmarked = isBookmarked,
-                isBookmarking = isBookmarking,
-                isWatchlisted = isWatchlisted,
-                isWatchlisting = isWatchlisting,
-                downloading = downloading,
-                onBookmark = viewModel::toggleBookmark,
-                onWatchlist = viewModel::toggleWatchlist,
-                onDownload = { showDownloadDialog = true },
-                onComments = { onOpenComments(actionNovel.id) },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
         }
         val dialogNovel = novel
         if (showDownloadDialog && dialogNovel != null) {
@@ -143,12 +150,6 @@ fun NovelDetailRoute(
                 onDismiss = { showDownloadDialog = false },
             )
         }
-        NotificationHost(
-            state = notificationHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding(),
-        )
     }
 }
 
@@ -169,12 +170,13 @@ private fun NovelDetailContent(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleFollowAuthor: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
     val seriesId = detail.series?.id
     if (isTablet && seriesNovels.isNotEmpty()) {
         // 平板双栏：banner 随正文滚动，左目录固定（sticky 等效），滚动互不影响
-        Box(Modifier.fillMaxSize()) {
+        Box(modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize()) {
                 item(key = "banner") {
                     NovelBanner(detail = detail, height = NOVEL_BANNER_TABLET_HEIGHT)
@@ -205,7 +207,6 @@ private fun NovelDetailContent(
                         }
                     }
                 }
-                item(key = "bottom_space") { Spacer(Modifier.height(96.dp)) }
             }
             // 左侧目录浮层：从 banner 底部开始固定（不随正文滚、不影响 banner）
             Box(
@@ -242,6 +243,7 @@ private fun NovelDetailContent(
             onOpenUser = onOpenUser,
             onOpenSeries = onOpenSeries,
             onToggleFollowAuthor = onToggleFollowAuthor,
+            modifier = modifier,
         )
     }
 }
@@ -262,11 +264,12 @@ private fun PhoneNovelDetail(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleFollowAuthor: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
     val seriesId = detail.series?.id
 
-    Box(Modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize()) {
             item(key = "banner") {
                 NovelBanner(detail = detail, height = NOVEL_BANNER_HEIGHT)
@@ -307,7 +310,6 @@ private fun PhoneNovelDetail(
                     }
                 }
             }
-            item(key = "bottom_space") { Spacer(Modifier.height(24.dp)) }
         }
         // 手机返回按钮：左上角
         FloatingBackButton(onBack = onBack, modifier = Modifier.align(Alignment.TopStart))

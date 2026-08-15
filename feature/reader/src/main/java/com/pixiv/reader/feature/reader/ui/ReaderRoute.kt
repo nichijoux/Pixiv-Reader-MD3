@@ -314,14 +314,14 @@ fun ReaderRoute(
                             val ps = pagerStateRef.value ?: return@detectTapGestures
                             if (offset.x < third) {
                                 if (ps.currentPage > 0) {
-                                    readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1) }
+                                    readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1, animationSpec = tween(220)) }
                                 } else {
                                     // 当前章首页向前翻：系列跳上一章尾页，非系列无操作
                                     onPrevChapterRequest()
                                 }
                             } else if (offset.x > w - third) {
                                 if (ps.currentPage < ps.pageCount - 1) {
-                                    readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1) }
+                                    readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1, animationSpec = tween(220)) }
                                 } else {
                                     // 当前章末页向后翻：系列跳下一章开头，非系列无操作
                                     onNextChapterRequest()

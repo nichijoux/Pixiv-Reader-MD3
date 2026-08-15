@@ -1,8 +1,10 @@
 package com.pixiv.reader.feature.reader.ui
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,7 +61,14 @@ internal fun PagerReaderContent(
         return
     }
 
-    HorizontalPager(state = pagerState, modifier = modifier) { index ->
+    // 吸附动画比默认弹簧（StiffnessMediumLow）更快：滑动翻页松手后页面快速到位，点击翻页（外层
+    // animateScrollToPage 同用 tween(220)）与滑动手感一致
+    val flingBehavior = PagerDefaults.flingBehavior(
+        state = pagerState,
+        snapAnimationSpec = tween(220),
+    )
+
+    HorizontalPager(state = pagerState, flingBehavior = flingBehavior, modifier = modifier) { index ->
         RenderReaderPage(
             pages[index],
             pageHeight,
