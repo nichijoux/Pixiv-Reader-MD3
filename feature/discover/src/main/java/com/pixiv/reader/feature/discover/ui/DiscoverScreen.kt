@@ -46,6 +46,8 @@ fun DiscoverRoute(
     val history by viewModel.searchHistory.collectAsStateWithLifecycle()
     val toolOptions by viewModel.toolOptions.collectAsStateWithLifecycle()
     val genreOptions by viewModel.genreOptions.collectAsStateWithLifecycle()
+    val langOptions by viewModel.langOptions.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
 
     var showFilter by remember { mutableStateOf(false) }
 
@@ -122,7 +124,8 @@ fun DiscoverRoute(
             type = type,
             toolOptions = toolOptions,
             genreOptions = genreOptions,
-            detailed = hasSearched,
+            langOptions = langOptions,
+            isPremium = isPremium,
             onDismiss = { showFilter = false },
             onApply = {
                 viewModel.applyFilters(it)

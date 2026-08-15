@@ -101,6 +101,23 @@ class UserPreferences @Inject constructor(
         prefs[KEY_MUTED_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
 
+    // ── 发现页搜索筛选（记住上次应用的条件，对齐 Pixiv-Shaft 全局默认语义）──
+    /** 搜索排序（date_desc / date_asc / popular_desc；默认按热度） */
+    val searchFilterSort: Flow<String> =
+        context.dataStore.data.map { it[KEY_SEARCH_SORT] ?: "popular_desc" }
+    /** 搜索匹配方式（partial_match_for_tags / exact_match_for_tags / title_and_caption） */
+    val searchFilterTarget: Flow<String> =
+        context.dataStore.data.map { it[KEY_SEARCH_TARGET] ?: "partial_match_for_tags" }
+    /** 收藏数下限（官方 bookmark_num_min 参数；0=不限） */
+    val searchFilterBookmarkMin: Flow<Int> =
+        context.dataStore.data.map { it[KEY_SEARCH_BOOKMARK_MIN] ?: 0 }
+    /** Xusers入り 关键字后缀档（0=不限） */
+    val searchFilterKeywordUsers: Flow<Int> =
+        context.dataStore.data.map { it[KEY_SEARCH_KEYWORD_USERS] ?: 0 }
+    /** AI 筛选（0 全部 / 1 仅人绘 / 2 仅 AI） */
+    val searchFilterAiType: Flow<Int> =
+        context.dataStore.data.map { it[KEY_SEARCH_AI_TYPE] ?: 0 }
+
     // ── 下载 ──
     /** 小说导出目录（SAF tree uri；空 = 应用私有目录 filesDir/Downloads/novels）。 */
     val novelExportDir: Flow<String> = context.dataStore.data.map { it[KEY_NOVEL_EXPORT_DIR] ?: "" }
@@ -135,6 +152,16 @@ class UserPreferences @Inject constructor(
     suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
+    suspend fun setSearchFilterSort(value: String) =
+        context.dataStore.edit { it[KEY_SEARCH_SORT] = value }
+    suspend fun setSearchFilterTarget(value: String) =
+        context.dataStore.edit { it[KEY_SEARCH_TARGET] = value }
+    suspend fun setSearchFilterBookmarkMin(value: Int) =
+        context.dataStore.edit { it[KEY_SEARCH_BOOKMARK_MIN] = value }
+    suspend fun setSearchFilterKeywordUsers(value: Int) =
+        context.dataStore.edit { it[KEY_SEARCH_KEYWORD_USERS] = value }
+    suspend fun setSearchFilterAiType(value: Int) =
+        context.dataStore.edit { it[KEY_SEARCH_AI_TYPE] = value }
     suspend fun setNovelExportDir(value: String) = context.dataStore.edit { it[KEY_NOVEL_EXPORT_DIR] = value }
     suspend fun setNovelFileNameTemplate(value: String) =
         context.dataStore.edit { it[KEY_NOVEL_FILE_NAME_TEMPLATE] = value }
@@ -165,5 +192,10 @@ class UserPreferences @Inject constructor(
         val KEY_NOVEL_EXPORT_DIR = stringPreferencesKey("novel_export_dir")
         val KEY_NOVEL_FILE_NAME_TEMPLATE = stringPreferencesKey("novel_file_name_template")
         val KEY_CLIPBOARD_LINK_PROMPT = booleanPreferencesKey("clipboard_link_prompt")
+        val KEY_SEARCH_SORT = stringPreferencesKey("search_filter_sort")
+        val KEY_SEARCH_TARGET = stringPreferencesKey("search_filter_target")
+        val KEY_SEARCH_BOOKMARK_MIN = intPreferencesKey("search_filter_bookmark_min")
+        val KEY_SEARCH_KEYWORD_USERS = intPreferencesKey("search_filter_keyword_users")
+        val KEY_SEARCH_AI_TYPE = intPreferencesKey("search_filter_ai_type")
     }
 }

@@ -27,7 +27,6 @@ import com.pixiv.reader.core.ui.component.NovelCard
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
-import com.pixiv.reader.feature.discover.state.SearchMode
 import com.pixiv.reader.feature.discover.state.SearchType
 import kotlinx.coroutines.launch
 
@@ -70,12 +69,12 @@ internal fun SearchResultPager(
         }
         HorizontalPager(state = pagerState) { page ->
             when (SearchType.entries.getOrNull(page)) {
-                SearchType.ILLUST -> if (filters.mode == SearchMode.HOT) {
+                SearchType.ILLUST -> if (filters.sort == "popular_preview") {
                     HotIllustGrid(viewModel, onOpenIllust, onOpenUser)
                 } else {
                     IllustSearchResults(viewModel, onOpenIllust, onOpenUser)
                 }
-                SearchType.NOVEL -> if (filters.mode == SearchMode.HOT) {
+                SearchType.NOVEL -> if (filters.sort == "popular_preview") {
                     HotNovelList(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
                 } else {
                     NovelSearchResults(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)

@@ -124,4 +124,41 @@ class PagedStateTest {
         assertEquals(listOf(7, 8, 9), state.items.value)
         firstLoad.join()
     }
+
+    @Test
+    fun `reset during in-flight loadMore discards stale append and unblocks new loadMore`() = runTest {
+        val state = PagedState<Int>()
+        // 第 2 页 fetch 挂起（模拟慢请求，isLoadingMore 已置位）
+        val releaseSecond = CompletableDeferred<Unit>()
+        state.loadInitial(
+            fetch = { FakePage(listOf(1, 2), nextPageUrl = "u1") },
+            fetchNext = { _ ->
+                releaseSecond.await()
+                FakePage(listOf(3, 4))
+            },
+        )
+        val stale = launch { state.loadMore() }
+        runCurrent() // 推进到 fetch 挂起
+        assertTrue(state.isLoadingMore.value)
+
+        // 新搜索语义：reset 作废旧代次并清掉旧 loadMore 标志
+        state.reset()
+        assertFalse(state.isLoadingMore.value)
+        state.loadInitial(
+            fetch = { FakePage(listOf(7, 8, 9), nextPageUrl = "u2") },
+            fetchNext = { _ -> FakePage(listOf(5, 6)) },
+        )
+        assertEquals(listOf(7, 8, 9), state.items.value)
+
+        // 放行旧代次 loadMore：过期结果必须丢弃，不能混入新列表
+        releaseSecond.complete(Unit)
+        runCurrent()
+        assertEquals(listOf(7, 8, 9), state.items.value)
+
+        // 新代次 loadMore 不被旧请求卡死，正常追加
+        state.loadMore()
+        assertEquals(listOf(7, 8, 9, 5, 6), state.items.value)
+        assertFalse(state.isLoadingMore.value)
+        stale.join()
+    }
 }
