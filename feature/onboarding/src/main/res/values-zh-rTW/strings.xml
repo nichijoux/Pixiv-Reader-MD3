@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_skip">跳過</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_start">開始使用</string>
+    <string name="onboarding_title_discover">發現精選內容</string>
+    <string name="onboarding_desc_discover">瀏覽熱門插畫、漫畫與小說，使用多維度篩選搜尋喜愛的作品</string>
+    <string name="onboarding_title_reader">沉浸式閱讀體驗</string>
+    <string name="onboarding_desc_reader">自訂字型與排版，支援簡繁轉換，還可匯入本機 TXT 與 EPUB</string>
+    <string name="onboarding_title_bookmark">收藏與關注</string>
+    <string name="onboarding_desc_bookmark">收藏作品、關注繪師、追更連載，隨時隨地下載離線閱讀</string>
+</resources>

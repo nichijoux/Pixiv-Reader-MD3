@@ -31,6 +31,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.pixiv.api.network.PixivLang
@@ -43,6 +44,7 @@ import com.pixiv.reader.core.common.localeFor
 import com.pixiv.reader.core.common.pixivLanguageCode
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.datastore.readAppLanguageSync
+import com.pixiv.reader.core.datastore.readOnboardingCompleteSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.ui.component.NotificationHost
@@ -54,6 +56,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 应用唯一 Activity：装配根导航 + 主题（UserPreferences.themeMode/dynamicColor 生效）。
@@ -190,6 +193,13 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         PixivNavGraph(
                             isLoggedIn = isLoggedIn,
+                            // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
+                            onboardingComplete = readOnboardingCompleteSync(context),
+                            onCompleteOnboarding = {
+                                lifecycleScope.launch {
+                                    runCatching { userPreferences.setOnboardingComplete(true) }
+                                }
+                            },
                             onLogout = { sessionRepository.logout() },
                             navController = navController,
                         )

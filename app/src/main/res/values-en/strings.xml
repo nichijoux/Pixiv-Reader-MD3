@@ -2,7 +2,6 @@
     <string name="app_name">Pixiv Reader</string>
     <string name="main_tab_home">Home</string>
     <string name="main_tab_follow">Following</string>
-    <string name="main_tab_discover">Discover</string>
     <string name="main_tab_manga">Artworks</string>
     <string name="main_tab_novel">Novels</string>
     <string name="main_tab_me">Me</string>

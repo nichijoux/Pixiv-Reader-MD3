@@ -3,4 +3,5 @@
     <string name="home_follow">Following</string>
     <string name="home_for_you">For you</string>
     <string name="home_search">Search</string>
+    <string name="home_search_placeholder">Search illustrations, manga and novels</string>
 </resources>

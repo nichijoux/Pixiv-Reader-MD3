@@ -2,8 +2,7 @@
     <string name="app_name">Pixiv Reader</string>
     <string name="main_tab_home">首頁</string>
     <string name="main_tab_follow">關注</string>
-    <string name="main_tab_discover">發現</string>
-    <string name="main_tab_manga">畫作</string>
+    <string name="main_tab_manga">漫畫</string>
     <string name="main_tab_novel">小說</string>
     <string name="main_tab_me">我的</string>
     <string name="network_disconnected">網路連線已斷開</string>

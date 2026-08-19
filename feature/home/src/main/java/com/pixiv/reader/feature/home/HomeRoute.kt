@@ -1,21 +1,19 @@
 package com.pixiv.reader.feature.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,7 +41,9 @@ import com.pixiv.reader.feature.home.R
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
  *
- * @param onOpenSearch 点击搜索图标跳转发现页
+ * @param onOpenSearch 点击搜索框跳转发现页
+ * @param onSearchTag 点击热门标签跳发现页搜索该标签（对齐小说页约定：传显示名）
+ * @param searchBarModifier 搜索框共享元素修饰（MainShell 在 NavHost 过渡内构造，hero 过渡用；默认空）
  * @param onOpenIllust 点击作品卡片打开详情
  * @param onOpenUser 点击作者行打开用户主页
  */
@@ -51,6 +51,8 @@ import com.pixiv.reader.feature.home.R
 @Composable
 fun HomeRoute(
     onOpenSearch: () -> Unit,
+    onSearchTag: (String) -> Unit,
+    searchBarModifier: Modifier = Modifier,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -67,11 +69,7 @@ fun HomeRoute(
                         text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(R.string.home_follow),
                     )
                 },
-                actions = {
-                    IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_search))
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -80,13 +78,20 @@ fun HomeRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            androidx.compose.foundation.layout.Column(
+            Column(
                 modifier = Modifier.fillMaxSize(),
             ) {
+                // 搜索框：点击进入发现页；外层共享元素修饰（MainShell 构造）驱动 hero 过渡
+                HomeSearchBar(
+                    onClick = onOpenSearch,
+                    modifier = searchBarModifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                )
                 // 分区 + 热门标签
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
                 ) {
                     item {
                         FilterChip(
@@ -104,7 +109,7 @@ fun HomeRoute(
                     }
                     items(trendingTags, key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
                         AssistChip(
-                            onClick = { /* 点击标签跳搜索（P3） */ },
+                            onClick = { onSearchTag(tag.displayName()) },
                             label = { Text(tag.displayName()) },
                         )
                     }

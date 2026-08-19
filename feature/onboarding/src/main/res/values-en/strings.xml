@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get Started</string>
+    <string name="onboarding_title_discover">Discover Great Content</string>
+    <string name="onboarding_desc_discover">Browse popular illustrations, manga and novels; search with multi-dimensional filters</string>
+    <string name="onboarding_title_reader">Immersive Reading</string>
+    <string name="onboarding_desc_reader">Customize fonts and layout, simplified/traditional conversion, import local TXT and EPUB</string>
+    <string name="onboarding_title_bookmark">Bookmark &amp; Follow</string>
+    <string name="onboarding_desc_bookmark">Bookmark works, follow artists, keep up with serials, download for offline reading</string>
+</resources>

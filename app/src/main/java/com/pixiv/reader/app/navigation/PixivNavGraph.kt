@@ -39,6 +39,7 @@ import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
+import com.pixiv.reader.feature.onboarding.ui.OnboardingRoute
 import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.ui.BlockedRoute
 import com.pixiv.reader.feature.user.ui.DownloadsRoute
@@ -51,6 +52,8 @@ import com.pixiv.reader.feature.watchlist.WatchlistRoute
 
 /** 登录页（未登录时的导航起点）。 */
 const val ROUTE_AUTH = "auth"
+/** 首次启动引导页（onboardingComplete=false 时的导航起点；完成后跳 auth/main）。 */
+const val ROUTE_ONBOARDING = "onboarding"
 /**
  * 主壳（底部导航五 Tab）。
  * 可通过 `main?search={search}` 携带搜索词跨 Tab 直达发现页搜索。
@@ -100,14 +103,19 @@ const val ROUTE_LOCAL_READER = "local_reader/{novelId}"
 
 /**
  * 应用根导航。
- * 未登录 → auth（登录页）；已登录 → main（底部导航主壳）。
+ * 未完成引导 → onboarding（首次启动引导页）；未登录 → auth（登录页）；已登录 → main（底部导航主壳）。
  * illust/viewer 为全屏路由（隐藏底部导航）；其余为全屏页路由。
  * 深链 scheme: `pixiv://`（illust/novel/reader/user 支持，OAuth 回调走 `pixiv://account/login`）。
  * 导航约定：顶层路由回调统一在此接线；内层 Tab 无法直达顶层路由，必须经 MainShell 回调上抛。
+ *
+ * @param onboardingComplete 首次引导是否已完成（启动时同步读取，完成后经 [onCompleteOnboarding] 写回）
+ * @param onCompleteOnboarding 引导完成/跳过回调：调用方写 DataStore 标记（本函数负责随后跳转）
  */
 @Composable
 fun PixivNavGraph(
     isLoggedIn: Boolean,
+    onboardingComplete: Boolean,
+    onCompleteOnboarding: () -> Unit,
     onLogout: () -> Unit,
     navController: NavHostController = rememberNavController(),
 ) {
@@ -116,7 +124,10 @@ fun PixivNavGraph(
     // 注意：不能在 NavHost 组合前访问 navController.graph（会 IllegalStateException），故用 route pattern 判断。
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val startRoutePattern = if (isLoggedIn) "main?search={search}" else ROUTE_AUTH
+    val startRoutePattern =
+        if (!onboardingComplete) ROUTE_ONBOARDING
+        else if (isLoggedIn) "main?search={search}"
+        else ROUTE_AUTH
     val activity = LocalContext.current as? Activity
     BackHandler(enabled = currentRoute == startRoutePattern) {
         activity?.finish()
@@ -124,8 +135,24 @@ fun PixivNavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = if (isLoggedIn) ROUTE_MAIN else ROUTE_AUTH,
+        startDestination = when {
+            !onboardingComplete -> ROUTE_ONBOARDING
+            isLoggedIn -> ROUTE_MAIN
+            else -> ROUTE_AUTH
+        },
     ) {
+        composable(ROUTE_ONBOARDING) {
+            OnboardingRoute(
+                onFinished = {
+                    // 先写完成标记（失败不影响本次跳转，下次启动兜底重新引导）
+                    onCompleteOnboarding()
+                    navController.navigate(if (isLoggedIn) ROUTE_MAIN else ROUTE_AUTH) {
+                        // 清空引导页栈，返回键不回到引导页
+                        popUpTo(ROUTE_ONBOARDING) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(ROUTE_AUTH) {
             AuthRoute(
                 onLoginSuccess = {

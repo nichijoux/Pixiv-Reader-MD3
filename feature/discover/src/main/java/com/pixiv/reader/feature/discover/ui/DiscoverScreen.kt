@@ -1,7 +1,9 @@
 package com.pixiv.reader.feature.discover.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -35,6 +37,7 @@ fun DiscoverRoute(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     initialQuery: String? = null,
+    searchFieldModifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -81,19 +84,22 @@ fun DiscoverRoute(
         }
     }
 
-    // 平板限宽居中：搜索栏 + TabRow + 结果列表不超过 MAX_CONTENT_WIDTH_DP
+    // 平板限宽居中：搜索栏 + TabRow + 结果列表不超过 MAX_CONTENT_WIDTH_DP。
+    // 发现页为全屏页（MainShell 隐藏底栏），底部需自行避让系统导航栏
     AdaptiveContentBox {
         Column(
-            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
         ) {
-            // 搜索栏（聚焦高亮 + 清除/搜索按钮）
-            SearchField(
-                query = query,
-                onQueryChange = viewModel::onQueryChange,
-                onSearch = submitSearch,
-                onClear = viewModel::clearSearch,
-                onOpenFilter = { showFilter = true },
-            )
+            // 搜索栏（聚焦高亮 + 清除/搜索按钮）；外层共享元素修饰（MainShell 构造）驱动 hero 过渡
+            Box(modifier = searchFieldModifier) {
+                SearchField(
+                    query = query,
+                    onQueryChange = viewModel::onQueryChange,
+                    onSearch = submitSearch,
+                    onClear = viewModel::clearSearch,
+                    onOpenFilter = { showFilter = true },
+                )
+            }
 
             when {
                 hasSearched && query.isNotBlank() -> SearchResultPager(

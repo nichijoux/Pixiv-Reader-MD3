@@ -28,6 +28,7 @@ import javax.inject.Singleton
 internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "pixiv_prefs")
 
 internal val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
+internal val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
 
 /**
  * 同步读取应用语言设置（供 MainActivity.attachBaseContext 在 Hilt 装配前调用）。
@@ -36,6 +37,13 @@ internal val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
  */
 fun readAppLanguageSync(context: Context): String =
     runBlocking { context.dataStore.data.first()[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
+
+/**
+ * 同步读取引导页完成标记（供 MainActivity 启动时决定导航起点）。
+ * 与 [readAppLanguageSync] 同模式：DataStore 文件极小，冷启动一次性读取为毫秒级。
+ */
+fun readOnboardingCompleteSync(context: Context): Boolean =
+    runBlocking { context.dataStore.data.first()[KEY_ONBOARDING_COMPLETE] ?: false }
 
 /**
  * 应用偏好（DataStore Preferences）。
@@ -83,6 +91,9 @@ class UserPreferences @Inject constructor(
     // ── 通用 ──
     /** 应用语言：system 跟随系统 / zh 简体中文 / en 英语 */
     val appLanguage: Flow<String> = context.dataStore.data.map { it[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
+    /** 首次启动引导页是否已完成（false = 下次启动先展示引导页） */
+    val onboardingComplete: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_ONBOARDING_COMPLETE] ?: false }
     /** 剪贴板 pixiv 链接识别提示（打开 App / 回前台时检测并提示跳转） */
     val clipboardLinkPrompt: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_CLIPBOARD_LINK_PROMPT] ?: true }
@@ -150,6 +161,8 @@ class UserPreferences @Inject constructor(
     suspend fun setViewerOrientation(value: ViewerOrientation) = context.dataStore.edit { it[KEY_VIEWER_ORIENTATION] = value.value }
     suspend fun setFollowSortMode(value: FollowSortMode) = context.dataStore.edit { it[KEY_FOLLOW_SORT_MODE] = value.value }
     suspend fun setAppLanguage(value: String) = context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
+    suspend fun setOnboardingComplete(value: Boolean) =
+        context.dataStore.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     suspend fun setClipboardLinkPrompt(value: Boolean) =
         context.dataStore.edit { it[KEY_CLIPBOARD_LINK_PROMPT] = value }
     suspend fun setHotTags(value: List<String>) =

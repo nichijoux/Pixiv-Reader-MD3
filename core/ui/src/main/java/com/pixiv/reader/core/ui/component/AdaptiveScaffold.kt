@@ -56,6 +56,7 @@ fun currentWindowSizeClass(): WindowSizeClass =
  * @param items 导航项列表（route 用于选中匹配）
  * @param selectedRoute 当前选中的路由（与 `currentBackStackEntry.route` 比对）
  * @param onSelect 点击导航项回调（通常 `navigate(route)` + popUpTo/restoreState）
+ * @param showBottomBar 是否显示底栏/侧栏（全屏类内层页如发现页设为 false，隐藏导航栏）
  * @param content 内容区（接收壳的 `PaddingValues`）
  */
 @Composable
@@ -63,6 +64,7 @@ fun AdaptiveNavScaffold(
     items: List<AdaptiveNavItem>,
     selectedRoute: String?,
     onSelect: (String) -> Unit,
+    showBottomBar: Boolean = true,
     content: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit,
 ) {
     val size = currentWindowSizeClass()
@@ -71,7 +73,7 @@ fun AdaptiveNavScaffold(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (!useRail) {
+            if (!useRail && showBottomBar) {
                 NavigationBar {
                     items.forEach { item ->
                         NavigationBarItem(
@@ -100,7 +102,7 @@ fun AdaptiveNavScaffold(
                 .fillMaxSize()
                 .consumeWindowInsets(padding),
         ) {
-            if (useRail) {
+            if (useRail && showBottomBar) {
                 NavigationRail(
                     modifier = Modifier.width(84.dp).fillMaxHeight().statusBarsPadding(),
                 ) {

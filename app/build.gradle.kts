@@ -90,6 +90,7 @@ dependencies {
     implementation(project(":feature:download"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:follow"))
+    implementation(project(":feature:onboarding"))
 
     // 基础设施
     implementation(libs.androidx.core.ktx)

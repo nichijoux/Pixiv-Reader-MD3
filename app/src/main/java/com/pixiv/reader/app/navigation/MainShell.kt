@@ -1,11 +1,15 @@
 package com.pixiv.reader.app.navigation
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Collections
-import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -32,14 +36,16 @@ import com.pixiv.reader.feature.manga.MangaRoute
 import com.pixiv.reader.feature.novel.ui.NovelRoute
 import com.pixiv.reader.feature.user.ui.MeRoute
 
-/** 底部导航五项：首页 / 发现 / 漫画 / 小说 / 我的。 */
+/** 搜索栏共享元素 key：首页搜索框 ↔ 发现页搜索栏（hero 过渡配对）。 */
+private const val SEARCH_BAR_KEY = "search_bar"
+
+/** 底部导航五项：首页 / 漫画 / 小说 / 关注 / 我的（发现页由首页搜索框等入口进入，不在底栏）。 */
 @Composable
 private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
     AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
-    AdaptiveNavItem("follow_tab", stringResource(R.string.main_tab_follow), Icons.Filled.Favorite),
-    AdaptiveNavItem("discover_tab", stringResource(R.string.main_tab_discover), Icons.Filled.Explore),
     AdaptiveNavItem("manga_tab", stringResource(R.string.main_tab_manga), Icons.Filled.Collections),
     AdaptiveNavItem("novel_tab", stringResource(R.string.main_tab_novel), Icons.AutoMirrored.Filled.MenuBook),
+    AdaptiveNavItem("follow_tab", stringResource(R.string.main_tab_follow), Icons.Filled.Favorite),
     AdaptiveNavItem("me_tab", stringResource(R.string.main_tab_me), Icons.Filled.Person),
 )
 
@@ -53,6 +59,7 @@ private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
  *
  * @param onOpenIllust 打开作品详情（由外层导航处理，底部导航自动隐藏）
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainShell(
     onLogout: () -> Unit,
@@ -100,11 +107,19 @@ fun MainShell(
         }
     }
 
-    AdaptiveNavScaffold(
-        items = tabs,
-        selectedRoute = currentRoute,
-        onSelect = { route -> navigateToTab(route) },
-    ) { padding ->
+    // 官方共享元素（hero）过渡：SharedTransitionLayout 包住 NavHost，
+    // 首页搜索框 ↔ 发现页搜索栏以同一 key（SEARCH_BAR_KEY）配对，跨 destination 无缝形变。
+    // Navigation 2.8 的 destination content receiver 是 AnimatedContentScope（extends AnimatedVisibilityScope），
+    // 可直接作为 Modifier.sharedElement 的 animatedVisibilityScope 参数。
+    SharedTransitionLayout {
+        val heroScope = this@SharedTransitionLayout
+        AdaptiveNavScaffold(
+            items = tabs,
+            selectedRoute = currentRoute,
+            onSelect = { route -> navigateToTab(route) },
+            // 发现页全屏化：隐藏底栏（由首页搜索框进入，返回走系统返回键）
+            showBottomBar = currentRoute != "discover_tab",
+        ) { padding ->
         NavHost(
             navController = navController,
             startDestination = "home_tab",
@@ -112,14 +127,27 @@ fun MainShell(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            composable("home_tab") {
-                HomeRoute(
-                    onOpenSearch = {
-                        navigateToTab("discover_tab")
-                    },
-                    onOpenIllust = onOpenIllust,
-                    onOpenUser = onOpenUser,
-                )
+            // 首页：退出淡出；搜索框标共享元素（与发现页搜索栏配对 hero）
+            composable(
+                route = "home_tab",
+                exitTransition = { fadeOut(animationSpec = tween(160)) },
+            ) {
+                val animatedScope = this
+                with(heroScope) {
+                    val searchBarState = rememberSharedContentState(SEARCH_BAR_KEY)
+                    HomeRoute(
+                        onOpenSearch = {
+                            navigateToTab("discover_tab")
+                        },
+                        onSearchTag = { tag ->
+                            pendingSearch = tag
+                            navigateToTab("discover_tab")
+                        },
+                        searchBarModifier = Modifier.sharedElement(searchBarState, animatedScope),
+                        onOpenIllust = onOpenIllust,
+                        onOpenUser = onOpenUser,
+                    )
+                }
             }
             composable("follow_tab") {
                 FollowRoute(
@@ -130,15 +158,29 @@ fun MainShell(
                     onOpenSeries = onOpenSeries,
                 )
             }
-            composable("discover_tab") {
-                DiscoverRoute(
-                    onOpenIllust = onOpenIllust,
-                    onOpenNovel = onOpenNovel,
-                    onOpenCover = onOpenCover,
-                    onOpenUser = onOpenUser,
-                    onOpenSeries = onOpenSeries,
-                    initialQuery = pendingSearch?.also { pendingSearch = null },
-                )
+            // 发现页：首页搜索框 / 跨 Tab 标签 / main?search 深链进入。
+            // 进入动画 pivot 对齐首页搜索框位置（顶部 ~8% 高度）——从搜索框放大上移展开成搜索页，
+            // 视觉连续（「搜索栏上移变成搜索页搜索栏」）；返回时同 pivot 收缩。
+            // 发现页：首页搜索框（hero）/ 跨 Tab 标签 / main?search 深链进入。
+            // 过渡纯淡入淡出——搜索栏形态/位移动画由官方共享元素承担
+            composable(
+                route = "discover_tab",
+                enterTransition = { fadeIn(animationSpec = tween(220)) },
+                exitTransition = { fadeOut(animationSpec = tween(180)) },
+            ) {
+                val animatedScope = this
+                with(heroScope) {
+                    val searchFieldState = rememberSharedContentState(SEARCH_BAR_KEY)
+                    DiscoverRoute(
+                        onOpenIllust = onOpenIllust,
+                        onOpenNovel = onOpenNovel,
+                        onOpenCover = onOpenCover,
+                        onOpenUser = onOpenUser,
+                        onOpenSeries = onOpenSeries,
+                        initialQuery = pendingSearch?.also { pendingSearch = null },
+                        searchFieldModifier = Modifier.sharedElement(searchFieldState, animatedScope),
+                    )
+                }
             }
             composable("manga_tab") {
                 MangaRoute(
@@ -172,6 +214,7 @@ fun MainShell(
                     onOpenUser = onOpenUser,
                 )
             }
+        }
         }
     }
 }
