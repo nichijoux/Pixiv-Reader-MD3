@@ -23,9 +23,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.common.WindowSizeClass
-import com.pixiv.reader.core.common.classifyWindowWidth
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.common.ui.WindowSizeClass
+import com.pixiv.reader.core.common.ui.classifyWindowWidth
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.feature.follow.R
 import com.pixiv.reader.feature.follow.data.FollowType
 import com.pixiv.reader.feature.follow.state.FollowViewModel

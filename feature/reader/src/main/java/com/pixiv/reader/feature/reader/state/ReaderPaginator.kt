@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.pixiv.reader.core.novel.NovelBlock
-import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
 import kotlin.math.roundToInt
 
 /**

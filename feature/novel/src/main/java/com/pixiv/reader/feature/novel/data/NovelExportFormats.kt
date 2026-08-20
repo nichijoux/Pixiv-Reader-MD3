@@ -1,9 +1,9 @@
 package com.pixiv.reader.feature.novel.data
 
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.novel.NovelBlock
-import com.pixiv.reader.core.novel.NovelDocument
-import com.pixiv.reader.core.novel.htmlToPlainText
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
+import com.pixiv.reader.core.novel.util.htmlToPlainText
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream

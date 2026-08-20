@@ -1,7 +1,6 @@
 package com.pixiv.reader.app.navigation
 
 import android.app.Activity
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -21,21 +20,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
-import com.pixiv.reader.core.database.entity.DownloadEntryEntity
-import com.pixiv.reader.core.novel.LocalReaderStore
-import com.pixiv.reader.core.ui.component.FullscreenImageRoute
+import com.pixiv.reader.app.download.retryDownload
+import com.pixiv.reader.core.novel.store.LocalReaderStore
+import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
-import com.pixiv.reader.feature.illust.IllustDownloadWorker
 import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
-import com.pixiv.reader.feature.novel.data.NovelExportFormat
-import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
@@ -52,49 +45,70 @@ import com.pixiv.reader.feature.watchlist.WatchlistRoute
 
 /** 登录页（未登录时的导航起点）。 */
 const val ROUTE_AUTH = "auth"
+
 /** 首次启动引导页（onboardingComplete=false 时的导航起点；完成后跳 auth/main）。 */
 const val ROUTE_ONBOARDING = "onboarding"
+
 /**
  * 主壳（底部导航五 Tab）。
  * 可通过 `main?search={search}` 携带搜索词跨 Tab 直达发现页搜索。
  */
 const val ROUTE_MAIN = "main"
+
 /** 插画详情（全屏路由，隐藏底部导航）。 */
 const val ROUTE_ILLUST = "illust/{illustId}"
+
 /** 全屏查看器（多图翻页），可选 page 参数指定起始页。 */
 const val ROUTE_VIEWER = "viewer/{illustId}?page={page}"
+
 /** 小说详情（沉浸式 banner + 系列目录 + 操作）。评论走通用页 ROUTE_COMMENTS。 */
 const val ROUTE_NOVEL = "novel/{novelId}"
+
 /** 通用评论列表页（novel / illust 共用）：comments/{type}/{targetId}，type ∈ novel|illust。 */
 const val ROUTE_COMMENTS = "comments/{type}/{targetId}"
+
 /** 小说阅读器（在线 / 离线缓存共用同一路由）。toEnd=true 时定位到文档末尾（系列上一章尾页进入）。 */
 const val ROUTE_READER = "reader/{novelId}?toEnd={toEnd}"
+
 /** 用户主页（插画 / 小说 / 收藏 Tab）。 */
 const val ROUTE_USER = "user/{userId}"
+
 /** 用户公开收藏（该用户公开收藏的插画，从用户主页统计格进入）。 */
 const val ROUTE_USER_BOOKMARKS = "user_bookmarks/{userId}"
+
 /** 用户关注列表（该用户关注的作者，从用户主页统计格进入）。 */
 const val ROUTE_USER_FOLLOWING = "user_following/{userId}"
+
 /** 小说系列详情（系列信息 + 分册列表）。 */
 const val ROUTE_NOVEL_SERIES = "novel_series/{seriesId}"
+
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
+
 /** 收藏列表（插画 / 小说），可带 type + tag 过滤。 */
 const val ROUTE_BOOKMARKS = "bookmarks"
+
 /** 追更小说列表。 */
 const val ROUTE_WATCHLIST = "watchlist"
+
 /** 屏蔽名单（屏蔽标签按卡片分组展示）。 */
 const val ROUTE_BLOCKED = "blocked"
+
 /** 下载管理（图片 / 小说 / 本地文件三类，支持删除）。 */
 const val ROUTE_DOWNLOADS = "downloads"
+
 /** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
+
 /** 插画排行榜（全屏页，从漫画 Tab 插画类型顶部入口进入）。 */
 const val ROUTE_ILLUST_RANKING = "illust_ranking"
+
 /** 小说排行榜（全屏页，从小说 Tab 推荐页顶部入口进入）。 */
 const val ROUTE_NOVEL_RANKING = "novel_ranking"
+
 /** 全屏图片查看（URL 直入，如小说封面大图），全屏路由隐藏底部导航。 */
 const val ROUTE_IMAGE_PREVIEW = "image_preview?url={url}&title={title}"
+
 /**
  * 本地文件阅读（TXT / EPUB 解析后直接渲染，跳过网络）。
  * novelId 对应 LocalReaderStore 的存储键，正文经 `LocalReaderStore.consume()` 单次取走。
@@ -167,7 +181,9 @@ fun PixivNavGraph(
         composable(
             route = "main?search={search}",
             arguments = listOf(
-                navArgument("search") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("search") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
             ),
         ) { backStackEntry ->
             val initialSearch = backStackEntry.arguments?.getString("search")
@@ -265,8 +281,12 @@ fun PixivNavGraph(
         composable(
             route = ROUTE_IMAGE_PREVIEW,
             arguments = listOf(
-                navArgument("url") { type = NavType.StringType; nullable = true; defaultValue = null },
-                navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("url") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+                navArgument("title") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
             ),
         ) { backStackEntry ->
             FullscreenImageRoute(
@@ -486,8 +506,12 @@ fun PixivNavGraph(
         composable(
             route = "bookmarks?type={type}&tag={tag}",
             arguments = listOf(
-                navArgument("type") { type = NavType.StringType; nullable = true; defaultValue = null },
-                navArgument("tag") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("type") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+                navArgument("tag") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
             ),
         ) {
             BookmarkRoute(
@@ -622,33 +646,5 @@ private fun NavHostController.safeBack() {
         navigateUp()
     } else {
         Log.d("PixivNavGraph", "safeBack: 栈底忽略（穿透/误触/越界返回），避免空栈")
-    }
-}
-
-/**
- * 重试下载（下载管理页 failed 条目）：按 targetType 重建对应后台任务。
- * 断点续传：已下载部分（插画 `.part` 文件 / 小说导出章节缓存）由各 Worker 自动复用，只补缺失部分。
- */
-private fun retryDownload(context: Context, entry: DownloadEntryEntity) {
-    when (entry.targetType) {
-        "illust" -> WorkManager.getInstance(context).enqueue(
-            OneTimeWorkRequestBuilder<IllustDownloadWorker>()
-                .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to entry.targetId))
-                .build(),
-        )
-        "novel" -> {
-            val format = runCatching { NovelExportFormat.valueOf(entry.format) }
-                .getOrDefault(NovelExportFormat.TXT)
-            val data = mutableListOf<Pair<String, Any?>>()
-            data += NovelExportWorker.KEY_NOVEL_ID to entry.targetId
-            entry.seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
-            data += NovelExportWorker.KEY_FORMAT to format.name
-            WorkManager.getInstance(context).enqueue(
-                OneTimeWorkRequestBuilder<NovelExportWorker>()
-                    .setInputData(workDataOf(*data.toTypedArray()))
-                    .build(),
-            )
-        }
-        // ugoira / 其他类型暂不支持重试
     }
 }

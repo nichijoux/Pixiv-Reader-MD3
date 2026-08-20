@@ -1,6 +1,5 @@
 package com.pixiv.reader.app
 
-import com.pixiv.reader.app.R
 import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao

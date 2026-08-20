@@ -29,9 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.MAX_CONTENT_WIDTH_DP
+import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
-import com.pixiv.reader.core.ui.component.VerticalActionButton
+import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R

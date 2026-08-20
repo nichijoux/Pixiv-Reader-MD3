@@ -1,9 +1,9 @@
 package com.pixiv.reader.feature.novel.data
 
 import android.util.Log
-import com.pixiv.reader.core.novel.NovelBlock
-import com.pixiv.reader.core.novel.NovelDocument
-import com.pixiv.reader.core.novel.NovelParser
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
+import com.pixiv.reader.core.novel.parser.NovelParser
 
 /**
  * 标题/分卷正则（对齐 `format_novel`）：组 1 为前缀（序章/第N章/第N卷/终章/后记/番外 等），组 2 为剩余标题。

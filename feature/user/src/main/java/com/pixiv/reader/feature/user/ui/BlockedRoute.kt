@@ -54,13 +54,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.BlockedViewModel
 import com.pixiv.reader.feature.user.R
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.ConfirmDialog
-import com.pixiv.reader.core.ui.component.LoadingBox
-import com.pixiv.reader.core.ui.component.NotificationHost
-import com.pixiv.reader.core.ui.component.UserAvatar
-import com.pixiv.reader.core.ui.component.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 
 /**
  * 屏蔽管理：卡片分组 + pill 标签——

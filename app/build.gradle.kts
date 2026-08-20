@@ -68,7 +68,6 @@ android {
 dependencies {
     // core 层
     implementation(project(":core:common"))
-    implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
@@ -87,8 +86,6 @@ dependencies {
     implementation(project(":feature:bookmark"))
     implementation(project(":feature:watchlist"))
     implementation(project(":feature:manga"))
-    implementation(project(":feature:download"))
-    implementation(project(":feature:settings"))
     implementation(project(":feature:follow"))
     implementation(project(":feature:onboarding"))
 

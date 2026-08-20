@@ -18,7 +18,6 @@ android {
 
 dependencies {
     api(project(":core:common"))
-    api(project(":core:model"))
     api(project(":core:network"))
 
     api(platform(libs.androidx.compose.bom))

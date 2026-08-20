@@ -27,9 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.common.FollowSortMode
-import com.pixiv.reader.core.common.NovelDefaultTab
-import com.pixiv.reader.core.common.ViewerOrientation
+import com.pixiv.reader.core.common.config.FollowSortMode
+import com.pixiv.reader.core.common.config.NovelDefaultTab
+import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.feature.user.R
 
 /** 我的页「浏览设置」：小说默认页 / 插画查看方向 / 关注页排序 / 剪贴板链接提示 / 小说下载命名（内容/浏览类偏好）。 */

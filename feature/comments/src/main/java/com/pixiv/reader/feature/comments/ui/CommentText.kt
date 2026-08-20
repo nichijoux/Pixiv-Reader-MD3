@@ -15,7 +15,7 @@ import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.feature.comments.R
 
 // ── 评论文本表情（(xxx) → 行内图片）─────────────────────────────────────

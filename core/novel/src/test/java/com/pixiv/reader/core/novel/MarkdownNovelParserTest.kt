@@ -1,5 +1,7 @@
-package com.pixiv.reader.core.novel
+package com.pixiv.reader.core.novel.parser
 
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.percentageAt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

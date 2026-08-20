@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.novel.state
 
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.RankingModeInfo
+import com.pixiv.reader.core.common.ui.RankingModeInfo
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState

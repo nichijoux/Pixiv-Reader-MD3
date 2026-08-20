@@ -23,11 +23,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.UserBookmarksViewModel
 import com.pixiv.reader.feature.user.R
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 
 /**
  * 用户公开收藏页：拉取指定用户公开收藏的插画瀑布流。

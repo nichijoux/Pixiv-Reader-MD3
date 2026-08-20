@@ -38,11 +38,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.WatchlistSeries
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.LoadingBox
-import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.card.UserAvatar
 
 /**
  * 追更（P5）：已追更的小说系列列表。
@@ -96,18 +97,7 @@ fun WatchlistRoute(
                     }
                     if (hasMore) {
                         item(key = "load_more") {
-                            LaunchedEffect(Unit) { viewModel.loadMore() }
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isLoadingMore) {
-                                    CircularProgressIndicator(
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
+                            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
                         }
                     }
                 }

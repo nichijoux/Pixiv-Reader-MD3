@@ -1,11 +1,11 @@
 package com.pixiv.reader.feature.novel
 
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.NovelFileNameTemplate
-import com.pixiv.reader.core.common.renderNovelFileName
-import com.pixiv.reader.core.common.sanitizeFileName
-import com.pixiv.reader.core.novel.NovelBlock
-import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.core.common.format.NovelFileNameTemplate
+import com.pixiv.reader.core.common.format.renderNovelFileName
+import com.pixiv.reader.core.common.format.sanitizeFileName
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
 import com.pixiv.reader.feature.novel.data.DocxImage
 import com.pixiv.reader.feature.novel.data.EpubImage
 import com.pixiv.reader.feature.novel.data.buildDocx

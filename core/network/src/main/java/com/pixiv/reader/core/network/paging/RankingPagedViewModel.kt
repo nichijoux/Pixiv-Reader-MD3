@@ -2,7 +2,7 @@ package com.pixiv.reader.core.network.paging
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pixiv.reader.core.common.RankingModeInfo
+import com.pixiv.reader.core.common.ui.RankingModeInfo
 import kotlinx.coroutines.launch
 
 /**

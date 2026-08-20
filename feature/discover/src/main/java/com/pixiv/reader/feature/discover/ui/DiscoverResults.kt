@@ -17,13 +17,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.ui.component.CreatorProfile
-import com.pixiv.reader.core.ui.component.CreatorProfileCard
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.card.CreatorProfileCard
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
+import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 
 /** 插画搜索结果（普通模式，分页瀑布流）。 */
 @Composable
@@ -92,7 +94,7 @@ internal fun NovelSearchResults(
             }
             if (hasMore) {
                 item(key = "load_more") {
-                    LaunchedLoadMore(isLoadingMore, viewModel::loadMore)
+                    LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
                 }
             }
         }
@@ -110,24 +112,7 @@ private fun NovelRow(
     onSeriesClick: (Long) -> Unit = {},
 ) {
     NovelCard(
-        novel = NovelCardData(
-            id = novel.id,
-            title = novel.title.orEmpty(),
-            coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
-            authorId = novel.user?.id ?: 0L,
-            authorName = novel.user?.name.orEmpty(),
-            authorAvatarUrl = novel.user?.profile_image_urls?.best(),
-            publishDate = novel.create_date,
-            seriesTitle = novel.series?.title,
-            seriesId = novel.series?.id,
-            favoriteCount = novel.total_bookmarks ?: 0,
-            wordCount = novel.text_length ?: 0,
-            tags = novel.tags.orEmpty()
-                .take(6)
-                .map { it.translated_name ?: it.name ?: "" }
-                .filter { it.isNotBlank() },
-            isFavorite = novel.is_bookmarked == true,
-        ),
+        novel = novel.toCardData(),
         onClick = onClick,
         onOpenCover = onOpenCover,
         onOpenAuthor = onOpenAuthor,
@@ -174,29 +159,9 @@ private fun UserRow(
     onClick: () -> Unit,
     onToggleFollow: (Boolean) -> Unit,
 ) {
-    val user = preview.user
     CreatorProfileCard(
-        profile = CreatorProfile(
-            id = user?.id ?: 0L,
-            name = user?.name.orEmpty(),
-            avatarUrl = user?.profile_image_urls?.best(),
-            covers = preview.illusts.take(3).mapNotNull {
-                it.image_urls?.square_medium ?: it.image_urls?.medium
-            },
-            isFollowed = user?.is_followed == true,
-        ),
+        profile = preview.toCreatorProfile(),
         onToggleFollow = onToggleFollow,
         onClick = onClick,
     )
-}
-
-/** 触底加载更多：进入可视区触发一次加载并显示加载中。 */
-@Composable
-internal fun LaunchedLoadMore(isLoadingMore: Boolean, onLoadMore: () -> Unit) {
-    LaunchedEffect(Unit) { onLoadMore() }
-    if (isLoadingMore) {
-        Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp)
-        }
-    }
 }

@@ -16,7 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
-import com.pixiv.reader.core.ui.component.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderPage
 import com.pixiv.reader.feature.reader.state.pageIndexForChar

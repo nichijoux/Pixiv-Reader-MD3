@@ -20,7 +20,6 @@ android {
 
 dependencies {
     api(project(":core:ui"))
-    api(project(":core:model"))
     api(project(":core:network"))
     api(libs.androidx.navigation.compose)
 

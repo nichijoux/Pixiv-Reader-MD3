@@ -20,8 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.ui.component.SkeletonBlock
-import com.pixiv.reader.core.ui.component.skeletonPulseColor
+import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 
 /**
  * 评论列表加载骨架：仿评论行布局（36dp 圆头像 + 昵称/时间条 + 正文 2 行 + 分隔线）

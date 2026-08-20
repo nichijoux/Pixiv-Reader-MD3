@@ -4,13 +4,12 @@ import android.content.Context
 import com.pixiv.reader.core.network.R
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
-import okio.buffer
+import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * 分块下载工具：下载文件到 `filesDir/Downloads`，分块读取并回调字节进度（供插画原图下载）。

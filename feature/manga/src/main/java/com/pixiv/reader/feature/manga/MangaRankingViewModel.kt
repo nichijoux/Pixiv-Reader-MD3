@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.manga
 
 import com.pixiv.api.model.Illust
-import com.pixiv.reader.core.common.RankingModeInfo
+import com.pixiv.reader.core.common.ui.RankingModeInfo
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.paging.RankingPagedViewModel
 import com.pixiv.reader.core.network.session.PixivRepository

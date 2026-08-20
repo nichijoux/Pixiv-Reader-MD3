@@ -7,8 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.ReaderPageMode
-import com.pixiv.reader.core.common.ReaderThemeMode
+import com.pixiv.reader.core.common.config.ReaderPageMode
+import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
@@ -17,9 +17,9 @@ import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.novel.NovelContentLoader
 import com.pixiv.reader.core.network.novel.fetchAllSeriesChapters
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.novel.NovelBlock
-import com.pixiv.reader.core.novel.NovelDocument
-import com.pixiv.reader.core.novel.percentageAt
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
+import com.pixiv.reader.core.novel.model.percentageAt
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.data.NovelTextSearch
 import com.pixiv.reader.feature.reader.data.ReaderChapterCache

@@ -7,8 +7,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
-import com.pixiv.reader.core.model.IllustPageInfo
-import com.pixiv.reader.core.model.toPages
+import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.download.DownloadWorkerEntryPoint
 import com.pixiv.reader.feature.illust.R
 import dagger.hilt.android.EntryPointAccessors
@@ -85,6 +85,7 @@ class IllustDownloadWorker(
             // 首次写入即带作品宽高：下载中卡片按真实比例完整显示（避免回退固定高度）
             width = illust.width,
             height = illust.height,
+            payloadJson = illustPayload(illust),
         )
         var lastWritten = base
         // 共享下载器：正式文件已完整 → 直接成功跳过；否则下载 .part（存在则 Range 续传）并 rename
@@ -115,6 +116,7 @@ class IllustDownloadWorker(
             height = if (page.height > 0) page.height else fileHeight,
             title = illust.title.orEmpty(),
             coverUrl = illust.image_urls?.medium ?: illust.image_urls?.square_medium,
+            payloadJson = illustPayload(illust),
         )
     }
 
@@ -129,6 +131,7 @@ class IllustDownloadWorker(
         height: Int = 0,
         title: String = "",
         coverUrl: String? = null,
+        payloadJson: String? = null,
     ) {
         runCatching {
             dao.upsert(
@@ -143,10 +146,23 @@ class IllustDownloadWorker(
                     pageCount = pageCount,
                     width = width,
                     height = height,
+                    payloadJson = payloadJson,
                 ),
             )
         }.onFailure { Log.w(TAG, "写下载索引失败 id=$id status=$status", it) }
     }
+
+    /** 完整卡片快照（与浏览历史 payloadJson 同格式，下载管理页完整显示用）。 */
+    private fun illustPayload(illust: Illust): String = org.json.JSONObject().apply {
+        put("id", illust.id)
+        put("title", illust.title.orEmpty())
+        put("coverUrl", illust.image_urls?.medium ?: illust.image_urls?.square_medium)
+        put("width", illust.width)
+        put("height", illust.height)
+        put("bookmarks", illust.total_bookmarks ?: 0)
+        put("pageCount", illust.page_count ?: 0)
+        put("isBookmarked", illust.is_bookmarked == true)
+    }.toString()
 
     companion object {
         private const val TAG = "IllustDownloadWorker"

@@ -25,8 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Comment
-import com.pixiv.reader.core.ui.component.PixivImage
-import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.feature.comments.R
 

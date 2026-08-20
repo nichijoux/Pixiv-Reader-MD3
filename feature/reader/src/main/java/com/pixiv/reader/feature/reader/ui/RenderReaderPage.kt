@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
-import com.pixiv.reader.core.ui.component.PixivImage
+import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.feature.reader.state.PageElement
 import com.pixiv.reader.feature.reader.state.ReaderPage
 

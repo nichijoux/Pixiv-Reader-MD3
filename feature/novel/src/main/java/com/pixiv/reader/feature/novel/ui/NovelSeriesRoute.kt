@@ -38,14 +38,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.UiMessage
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.LoadingBox
-import com.pixiv.reader.core.ui.component.NotificationHost
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
-import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
@@ -166,24 +168,7 @@ fun NovelSeriesRoute(
                         }
                         items(items, key = { it.id }) { novel ->
                             NovelCard(
-                                novel = NovelCardData(
-                                    id = novel.id,
-                                    title = novel.title.orEmpty(),
-                                    coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
-                                    authorId = novel.user?.id ?: 0L,
-                                    authorName = novel.user?.name.orEmpty(),
-                                    authorAvatarUrl = novel.user?.profile_image_urls?.best(),
-                                    publishDate = novel.create_date,
-                                    seriesTitle = novel.series?.title,
-                                    seriesId = novel.series?.id,
-                                    favoriteCount = novel.total_bookmarks ?: 0,
-                                    wordCount = novel.text_length ?: 0,
-                                    tags = novel.tags.orEmpty()
-                                        .take(6)
-                                        .map { it.translated_name ?: it.name ?: "" }
-                                        .filter { it.isNotBlank() },
-                                    isFavorite = novel.is_bookmarked == true,
-                                ),
+                                novel = novel.toCardData(),
                                 onClick = { onOpenNovel(novel.id) },
                                 onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
@@ -196,18 +181,7 @@ fun NovelSeriesRoute(
                         }
                         if (hasMore) {
                             item(key = "load_more") {
-                                LaunchedEffect(Unit) { viewModel.loadMore() }
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (isLoadingMore) {
-                                        CircularProgressIndicator(
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
-                                }
+                                LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
                             }
                         }
                         // 底部沉浸式收尾：导航栏区域 padding（背景已延伸，内容避让手势条）

@@ -7,10 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
-import com.pixiv.reader.core.novel.EpubNovelParser
-import com.pixiv.reader.core.novel.LocalReaderStore
-import com.pixiv.reader.core.novel.MarkdownNovelParser
-import com.pixiv.reader.core.novel.TxtNovelParser
+import com.pixiv.reader.core.novel.parser.EpubNovelParser
+import com.pixiv.reader.core.novel.parser.MarkdownNovelParser
+import com.pixiv.reader.core.novel.parser.TxtNovelParser
+import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext

@@ -20,7 +20,6 @@ android {
 dependencies {
     api(project(":lib:pixivapi"))
     api(project(":core:common"))
-    api(project(":core:model"))
     api(project(":core:novel"))
     // 下载 worker 的 EntryPoint 需要下载索引 DAO
     api(project(":core:database"))

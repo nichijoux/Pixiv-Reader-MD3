@@ -38,8 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Profile
 import com.pixiv.api.model.User
-import com.pixiv.reader.core.ui.component.UserAvatar
-import com.pixiv.reader.core.ui.component.skeletonPulseColor
+import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
 

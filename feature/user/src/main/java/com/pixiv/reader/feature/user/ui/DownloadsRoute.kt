@@ -68,12 +68,13 @@ import com.pixiv.reader.feature.user.R
 import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.ConfirmDialog
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.IllustCard
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.card.IllustCard
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.google.gson.Gson
 import com.pixiv.reader.core.ui.theme.AppShapes
 import java.io.File
 import kotlinx.coroutines.launch
@@ -364,27 +365,71 @@ private fun RetryOverlay(
 
 // ── 数据转换 ────────────────────────────────────────────────────────────────
 
-private fun DownloadEntryEntity.toDownloadIllust(): Illust = Illust(
-    id = targetId,
-    title = title,
-    image_urls = ImageUrls(medium = coverUrl),
-    width = width,
-    height = height,
-)
+private fun DownloadEntryEntity.toDownloadIllust(): Illust {
+    // 优先解析完整 payloadJson（含宽高，避免固定高度裁剪中间）；旧条目回退结构字段
+    val parsed = payloadJson?.let {
+        runCatching { org.json.JSONObject(it) }.getOrNull()
+    }
+    if (parsed != null) {
+        return Illust(
+            id = parsed.optLong("id", targetId),
+            title = parsed.optString("title").ifEmpty { title.orEmpty() },
+            image_urls = ImageUrls(medium = parsed.optString("coverUrl").ifEmpty { coverUrl.orEmpty() }),
+            width = parsed.optInt("width") ?: 0,
+            height = parsed.optInt("height") ?: 0,
+            total_bookmarks = parsed.optInt("bookmarks").takeIf { it != 0 },
+            page_count = parsed.optInt("pageCount") ?: 0,
+            is_bookmarked = if (parsed.has("isBookmarked")) parsed.optBoolean("isBookmarked") else null,
+        )
+    }
+    return Illust(
+        id = targetId,
+        title = title,
+        image_urls = ImageUrls(medium = coverUrl),
+        width = width,
+        height = height,
+    )
+}
 
-private fun DownloadEntryEntity.toDownloadNovelCard(context: Context): NovelCardData = NovelCardData(
-    id = targetId,
-    title = title ?: context.getString(R.string.untitled),
-    coverUrl = coverUrl,
-    authorId = 0,
-    authorName = authorName ?: "",
-    authorAvatarUrl = authorAvatarUrl,
-    publishDate = publishDate,
-    seriesTitle = seriesTitle,
-    seriesId = seriesId,
-    favoriteCount = favoriteCount,
-    wordCount = wordCount,
-)
+private fun DownloadEntryEntity.toDownloadNovelCard(context: Context): NovelCardData {
+    // 优先解析完整 payloadJson（新记录）；旧条目/失败回退结构字段。
+    // Gson 对 Kotlin data class 用 UnsafeAllocator 绕过构造器：JSON 缺失的非空字段
+    // 会被置为 null 且不抛异常——必须字段级补默认值，否则 NovelCard 渲染 NPE 闪退
+    val parsed = payloadJson?.let {
+        runCatching { Gson().fromJson(it, NovelCardData::class.java) }.getOrNull()
+    }
+    if (parsed != null) {
+        return NovelCardData(
+            id = if (parsed.id != 0L) parsed.id else targetId,
+            title = parsed.title?.takeIf { it.isNotBlank() }
+                ?: (title ?: context.getString(R.string.untitled)),
+            coverUrl = parsed.coverUrl ?: coverUrl,
+            authorId = parsed.authorId,
+            authorName = parsed.authorName ?: authorName ?: "",
+            authorAvatarUrl = parsed.authorAvatarUrl ?: authorAvatarUrl,
+            publishDate = parsed.publishDate ?: publishDate,
+            seriesTitle = parsed.seriesTitle ?: seriesTitle,
+            seriesId = parsed.seriesId ?: seriesId,
+            favoriteCount = parsed.favoriteCount,
+            wordCount = parsed.wordCount,
+            tags = parsed.tags,
+            isFavorite = parsed.isFavorite,
+        )
+    }
+    return NovelCardData(
+        id = targetId,
+        title = title ?: context.getString(R.string.untitled),
+        coverUrl = coverUrl,
+        authorId = 0,
+        authorName = authorName ?: "",
+        authorAvatarUrl = authorAvatarUrl,
+        publishDate = publishDate,
+        seriesTitle = seriesTitle,
+        seriesId = seriesId,
+        favoriteCount = favoriteCount,
+        wordCount = wordCount,
+    )
+}
 
 /** 下载类型胶囊（封面右上角浮层）：图标 + 格式文字，深色半透明底 + 白色内容（浅色封面上可读）。 */
 @Composable

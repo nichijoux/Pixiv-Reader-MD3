@@ -5,9 +5,9 @@ import android.util.Log
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.network.BuildConfig
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.novel.NovelBlock
-import com.pixiv.reader.core.novel.NovelDocument
-import com.pixiv.reader.core.novel.NovelParser
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
+import com.pixiv.reader.core.novel.parser.NovelParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject

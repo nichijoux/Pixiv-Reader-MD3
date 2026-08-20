@@ -40,10 +40,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.formatCount
-import com.pixiv.reader.core.common.formatCountForNovel
-import com.pixiv.reader.core.novel.htmlToPlainText
-import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.common.format.formatCount
+import com.pixiv.reader.core.common.format.formatCountForNovel
+import com.pixiv.reader.core.novel.util.htmlToPlainText
+import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R

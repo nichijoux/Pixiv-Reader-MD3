@@ -17,9 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
-import com.pixiv.reader.core.ui.component.RankingList
-import com.pixiv.reader.core.ui.component.RankingRow
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
+import com.pixiv.reader.core.ui.component.list.RankingList
+import com.pixiv.reader.core.ui.component.card.RankingRow
 
 /**
  * 插画排行榜全屏页：分段 Tab + 左右滑动切换（复用通用 [RankingList]），排名列表行点击打开作品详情。

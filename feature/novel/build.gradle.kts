@@ -24,7 +24,6 @@ android {
 
 dependencies {
     api(project(":core:ui"))
-    api(project(":core:model"))
     api(project(":core:network"))
     api(project(":core:database"))
     api(project(":core:novel"))

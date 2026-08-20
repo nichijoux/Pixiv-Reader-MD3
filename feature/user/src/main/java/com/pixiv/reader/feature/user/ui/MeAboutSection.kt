@@ -20,8 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.ui.component.SettingsCard
-import com.pixiv.reader.core.ui.component.SettingsCardItem
+import com.pixiv.reader.core.ui.component.input.SettingsCard
+import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.feature.user.R
 
 /** 开源仓库地址。 */

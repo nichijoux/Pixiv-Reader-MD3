@@ -19,13 +19,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
-import com.pixiv.reader.core.ui.component.NotificationHost
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
-import com.pixiv.reader.core.ui.component.RankingList
-import com.pixiv.reader.core.ui.component.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.component.list.RankingList
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelRankingViewModel
 
@@ -96,24 +97,7 @@ fun NovelRankingRoute(
             skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
         ) { item, rank ->
             NovelCard(
-                novel = NovelCardData(
-                    id = item.id,
-                    title = item.title.orEmpty(),
-                    coverUrl = item.image_urls?.square_medium ?: item.image_urls?.medium,
-                    authorId = item.user?.id ?: 0L,
-                    authorName = item.user?.name.orEmpty(),
-                    authorAvatarUrl = item.user?.profile_image_urls?.best(),
-                    publishDate = item.create_date,
-                    seriesTitle = item.series?.title,
-                    seriesId = item.series?.id,
-                    favoriteCount = item.total_bookmarks ?: 0,
-                    wordCount = item.text_length ?: 0,
-                    tags = item.tags.orEmpty()
-                        .take(6)
-                        .map { it.translated_name ?: it.name ?: "" }
-                        .filter { it.isNotBlank() },
-                    isFavorite = item.is_bookmarked == true,
-                ),
+                novel = item.toCardData(),
                 rank = rank,
                 onClick = { onOpenNovel(item.id) },
                 onOpenCover = { (item.image_urls?.square_medium ?: item.image_urls?.medium)?.let(onOpenCover) },

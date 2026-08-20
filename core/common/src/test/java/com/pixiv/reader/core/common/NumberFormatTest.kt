@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.common
+package com.pixiv.reader.core.common.format
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

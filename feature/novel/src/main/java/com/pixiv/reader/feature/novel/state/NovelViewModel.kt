@@ -16,7 +16,8 @@ import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.google.gson.Gson
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
@@ -129,24 +130,7 @@ class NovelViewModel @Inject constructor(
     private fun recordHistory(detail: Novel) {
         viewModelScope.launch {
             runCatching {
-                val card = NovelCardData(
-                    id = detail.id,
-                    title = detail.title.orEmpty(),
-                    coverUrl = detail.image_urls?.square_medium ?: detail.image_urls?.medium,
-                    authorId = detail.user?.id ?: 0L,
-                    authorName = detail.user?.name.orEmpty(),
-                    authorAvatarUrl = detail.user?.profile_image_urls?.best(),
-                    publishDate = detail.create_date,
-                    seriesTitle = detail.series?.title,
-                    seriesId = detail.series?.id,
-                    favoriteCount = detail.total_bookmarks ?: 0,
-                    wordCount = detail.text_length ?: 0,
-                    tags = detail.tags.orEmpty()
-                        .take(6)
-                        .map { it.translated_name ?: it.name ?: "" }
-                        .filter { it.isNotBlank() },
-                    isFavorite = detail.is_bookmarked == true,
-                )
+                val card = detail.toCardData()
                 browseHistoryDao.deleteByTarget("novel", detail.id)
                 browseHistoryDao.upsert(
                     BrowseHistoryEntity(

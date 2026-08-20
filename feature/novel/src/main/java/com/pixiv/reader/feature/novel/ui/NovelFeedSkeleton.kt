@@ -26,9 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.ui.component.RankingBannerSkeleton
-import com.pixiv.reader.core.ui.component.SkeletonBlock
-import com.pixiv.reader.core.ui.component.skeletonPulseColor
+import com.pixiv.reader.core.ui.component.feedback.RankingBannerSkeleton
+import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 
 /**
  * 小说列表加载骨架：仿 [NovelCard] 布局（封面 104dp 3:4 + 标题/系列/作者行 + 底部标签胶囊）

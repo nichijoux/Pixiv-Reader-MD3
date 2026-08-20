@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.WatchlistSeries
-import com.pixiv.reader.core.common.NovelDefaultTab
+import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.paging.PagedState

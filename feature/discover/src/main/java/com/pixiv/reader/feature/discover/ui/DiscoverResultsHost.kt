@@ -21,10 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
@@ -127,24 +128,7 @@ private fun HotNovelList(
     ) {
         items(popular, key = { it.id }) { novel ->
             NovelCard(
-                novel = NovelCardData(
-                    id = novel.id,
-                    title = novel.title.orEmpty(),
-                    coverUrl = novel.image_urls?.square_medium ?: novel.image_urls?.medium,
-                    authorId = novel.user?.id ?: 0L,
-                    authorName = novel.user?.name.orEmpty(),
-                    authorAvatarUrl = novel.user?.profile_image_urls?.best(),
-                    publishDate = novel.create_date,
-                    seriesTitle = novel.series?.title,
-                    seriesId = novel.series?.id,
-                    favoriteCount = novel.total_bookmarks ?: 0,
-                    wordCount = novel.text_length ?: 0,
-                    tags = novel.tags.orEmpty()
-                        .take(6)
-                        .map { it.translated_name ?: it.name ?: "" }
-                        .filter { it.isNotBlank() },
-                    isFavorite = novel.is_bookmarked == true,
-                ),
+                novel = novel.toCardData(),
                 onClick = { onOpenNovel(novel.id) },
                 onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },

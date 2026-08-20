@@ -25,16 +25,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.ConfirmDialog
-import com.pixiv.reader.core.ui.component.ConfirmDialogVariant
-import com.pixiv.reader.core.ui.component.NotificationHost
-import com.pixiv.reader.core.ui.component.ProfileHeader
-import com.pixiv.reader.core.ui.component.ProfileHeaderData
-import com.pixiv.reader.core.ui.component.SettingsCard
-import com.pixiv.reader.core.ui.component.SettingsCardItem
-import com.pixiv.reader.core.ui.component.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.card.ProfileHeader
+import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
+import com.pixiv.reader.core.ui.component.input.SettingsCard
+import com.pixiv.reader.core.ui.component.input.SettingsCardItem
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
 

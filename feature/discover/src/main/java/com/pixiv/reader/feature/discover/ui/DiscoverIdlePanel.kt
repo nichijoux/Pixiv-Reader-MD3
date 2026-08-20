@@ -39,7 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
-import com.pixiv.reader.core.ui.component.ConfirmDialog
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 

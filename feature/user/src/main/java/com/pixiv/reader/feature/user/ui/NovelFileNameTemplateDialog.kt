@@ -24,8 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.common.NovelFileNameTemplate
-import com.pixiv.reader.core.common.renderNovelFileName
+import com.pixiv.reader.core.common.format.NovelFileNameTemplate
+import com.pixiv.reader.core.common.format.renderNovelFileName
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.feature.user.R
 

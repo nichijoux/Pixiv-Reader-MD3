@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.follow.data
 
 import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.common.FollowSortMode
+import com.pixiv.reader.core.common.config.FollowSortMode
 import java.text.Collator
 import java.util.Locale
 

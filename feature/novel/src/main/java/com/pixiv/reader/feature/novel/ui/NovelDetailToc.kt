@@ -33,8 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.formatCount
-import com.pixiv.reader.core.common.formatCountForNovel
+import com.pixiv.reader.core.common.format.formatCount
+import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R

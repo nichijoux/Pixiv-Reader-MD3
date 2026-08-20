@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.reader.data
 
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.novel.NovelDocument
+import com.pixiv.reader.core.novel.model.NovelDocument
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject

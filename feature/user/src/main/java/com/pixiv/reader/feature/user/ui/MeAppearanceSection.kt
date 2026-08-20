@@ -22,8 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.common.AppLanguage
-import com.pixiv.reader.core.common.ThemeMode
+import com.pixiv.reader.core.common.config.AppLanguage
+import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.feature.user.R
 
 /** 我的页「外观」设置：主题模式 / 动态取色 / 语言（各独立卡片）。 */

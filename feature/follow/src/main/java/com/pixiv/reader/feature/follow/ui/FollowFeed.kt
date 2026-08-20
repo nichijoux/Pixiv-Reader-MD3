@@ -30,14 +30,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.IllustCard
-import com.pixiv.reader.core.ui.component.IllustWaterfallSkeleton
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
-import com.pixiv.reader.core.ui.component.SkeletonBlock
-import com.pixiv.reader.core.ui.component.skeletonPulseColor
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.card.IllustCard
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.follow.R
 import com.pixiv.reader.feature.follow.data.FollowFeedItem
@@ -240,20 +242,6 @@ private fun FollowFeedListSkeleton() {
     }
 }
 
-/** 触底加载 item：进入可视区即触发 [onLoadMore]。 */
-@Composable
-private fun LoadMoreItem(isLoadingMore: Boolean, onLoadMore: () -> Unit) {
-    LaunchedEffect(Unit) { onLoadMore() }
-    Box(
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (isLoadingMore) {
-            CircularProgressIndicator(strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
-
 /** 单条卡片：插画 → IllustCard，小说 → NovelCard（组件复用）。 */
 @Composable
 private fun FollowFeedItemCard(
@@ -301,22 +289,3 @@ private val FollowFeedItem.key: String
         is FollowFeedItem.NovelItem -> "n_${novel.id}"
     }
 
-/** Novel → NovelCardData 映射（与其他 feature 内联映射保持一致）。 */
-private fun Novel.toCardData(): NovelCardData = NovelCardData(
-    id = id,
-    title = title.orEmpty(),
-    coverUrl = image_urls?.square_medium ?: image_urls?.medium,
-    authorId = user?.id ?: 0L,
-    authorName = user?.name.orEmpty(),
-    authorAvatarUrl = user?.profile_image_urls?.best(),
-    publishDate = create_date,
-    seriesTitle = series?.title,
-    seriesId = series?.id,
-    favoriteCount = total_bookmarks ?: 0,
-    wordCount = text_length ?: 0,
-    tags = tags.orEmpty()
-        .take(6)
-        .map { it.translated_name ?: it.name ?: "" }
-        .filter { it.isNotBlank() },
-    isFavorite = is_bookmarked == true,
-)

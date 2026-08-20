@@ -35,7 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.ui.component.UserAvatar
+import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.feature.follow.R
 
 /**

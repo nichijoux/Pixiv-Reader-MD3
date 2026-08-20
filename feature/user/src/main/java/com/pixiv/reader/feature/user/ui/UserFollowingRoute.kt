@@ -33,12 +33,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.UserFollowingViewModel
 import com.pixiv.reader.feature.user.R
 import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.CreatorProfile
-import com.pixiv.reader.core.ui.component.CreatorProfileCard
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.LoadingBox
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.card.CreatorProfileCard
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 
 /**
  * 用户关注列表页：CreatorProfileCard 用户卡片（头像 + 代表作 + 关注按钮）。
@@ -102,18 +103,7 @@ fun UserFollowingRoute(
                     }
                     if (hasMore) {
                         item(key = "load_more") {
-                            LaunchedEffect(Unit) { viewModel.loadMore() }
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isLoadingMore) {
-                                    CircularProgressIndicator(
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
+                            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
                         }
                     }
                 }
@@ -128,17 +118,8 @@ private fun FollowingUserCard(
     onClick: () -> Unit,
     onToggleFollow: (Boolean) -> Unit,
 ) {
-    val user = preview.user
     CreatorProfileCard(
-        profile = CreatorProfile(
-            id = user?.id ?: 0L,
-            name = user?.name.orEmpty(),
-            avatarUrl = user?.profile_image_urls?.best(),
-            covers = preview.illusts.take(3).mapNotNull {
-                it.image_urls?.square_medium ?: it.image_urls?.medium
-            },
-            isFollowed = user?.is_followed == true,
-        ),
+        profile = preview.toCreatorProfile(),
         onToggleFollow = onToggleFollow,
         onClick = onClick,
     )

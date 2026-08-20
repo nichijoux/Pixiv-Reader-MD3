@@ -9,12 +9,12 @@ import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
-import com.pixiv.reader.core.common.ViewerOrientation
+import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
-import com.pixiv.reader.core.model.IllustPageInfo
-import com.pixiv.reader.core.model.toPages
+import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.download.IllustPageDownloader
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -235,6 +235,19 @@ class ViewerViewModel @Inject constructor(
                         pageCount = _pages.value.size,
                         width = if (w > 0) w else (_illust.value?.width ?: 0),
                         height = if (h > 0) h else (_illust.value?.height ?: 0),
+                        // 完整卡片快照（与浏览历史同格式，下载管理页完整显示用）
+                        payloadJson = _illust.value?.let { ill ->
+                            org.json.JSONObject().apply {
+                                put("id", ill.id)
+                                put("title", ill.title.orEmpty())
+                                put("coverUrl", ill.image_urls?.medium ?: ill.image_urls?.square_medium)
+                                put("width", ill.width)
+                                put("height", ill.height)
+                                put("bookmarks", ill.total_bookmarks ?: 0)
+                                put("pageCount", ill.page_count ?: 0)
+                                put("isBookmarked", ill.is_bookmarked == true)
+                            }.toString()
+                        },
                     ),
                 )
             }

@@ -22,8 +22,9 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PixivDatabase =
         Room.databaseBuilder(context, PixivDatabase::class.java, "pixiv_reader.db")
-            // 历史迁移已清理（version=1 最终结构）；旧版本数据直接重建
+            // 历史迁移已清理（version=2 最终结构）；旧版本（v7 前）数据直接重建
             .fallbackToDestructiveMigration()
+            .addMigrations(PixivDatabase.MIGRATION_1_2)
             .build()
 
     @Provides

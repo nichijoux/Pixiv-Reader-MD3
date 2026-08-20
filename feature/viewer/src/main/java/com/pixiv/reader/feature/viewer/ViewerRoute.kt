@@ -52,13 +52,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.common.ViewerOrientation
-import com.pixiv.reader.core.model.IllustPageInfo
-import com.pixiv.reader.core.ui.component.NotificationHost
-import com.pixiv.reader.core.ui.component.UgoiraPlayer
-import com.pixiv.reader.core.ui.component.ZoomableImage
-import com.pixiv.reader.core.ui.component.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.common.config.ViewerOrientation
+import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
+import com.pixiv.reader.core.ui.component.image.ZoomableImage
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.ViewerScrim
 

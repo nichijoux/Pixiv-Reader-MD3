@@ -38,5 +38,11 @@ data class DownloadEntryEntity(
     val publishDate: String? = null,
     /** 小说所属系列标题（下载时快照，卡片系列行展示）。 */
     val seriesTitle: String? = null,
+    /**
+     * 完整卡片快照 JSON（与历史 BrowseHistoryEntity.payloadJson 同格式：
+     * 插画=org.json 手写字段，小说=Gson(NovelCardData)）。下载管理页优先解析此处
+     * 完整展示（宽高/作者/字数等），旧条目为 null 时回退下方结构字段。
+     */
+    val payloadJson: String? = null,
     val updatedAt: Long = System.currentTimeMillis(),
 )

@@ -48,15 +48,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.AdaptiveContentTitle
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.ErrorBox
-import com.pixiv.reader.core.ui.component.NotificationHost
-import com.pixiv.reader.core.ui.component.SeriesCard
-import com.pixiv.reader.core.ui.component.SeriesCardData
-import com.pixiv.reader.core.ui.component.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.toNotificationType
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.list.RankingBanner
+import com.pixiv.reader.core.ui.component.card.SeriesCard
+import com.pixiv.reader.core.ui.component.card.SeriesCardData
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelFeedViewModel
 import kotlinx.coroutines.launch
@@ -228,7 +229,13 @@ private fun NovelRecommendTab(
         onSearchTag = onSearchTag,
         onOpenSeries = onOpenSeries,
         onToggleFavorite = onToggleFavorite,
-        header = { NovelRankingBanner(onClick = onOpenNovelRanking) },
+        header = {
+            RankingBanner(
+                title = stringResource(R.string.novel_ranking_banner),
+                desc = stringResource(R.string.novel_ranking_banner_desc),
+                onClick = onOpenNovelRanking,
+            )
+        },
     )
 }
 

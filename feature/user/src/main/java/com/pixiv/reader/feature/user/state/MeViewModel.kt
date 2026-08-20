@@ -5,12 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import com.pixiv.api.model.User
-import com.pixiv.reader.core.common.FollowSortMode
-import com.pixiv.reader.core.common.NovelDefaultTab
-import com.pixiv.reader.core.common.NovelFileNameTemplate
-import com.pixiv.reader.core.common.ThemeMode
+import com.pixiv.reader.core.common.config.FollowSortMode
+import com.pixiv.reader.core.common.config.NovelDefaultTab
+import com.pixiv.reader.core.common.format.NovelFileNameTemplate
+import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.core.common.UiMessage
-import com.pixiv.reader.core.common.ViewerOrientation
+import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.feature.user.R

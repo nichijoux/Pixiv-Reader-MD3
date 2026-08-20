@@ -3,7 +3,7 @@ package com.pixiv.reader.feature.follow
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.User
 import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.common.FollowSortMode
+import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.feature.follow.data.FollowUserSorter
 import org.junit.Assert.assertEquals
 import org.junit.Test

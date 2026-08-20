@@ -46,8 +46,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.pixiv.reader.core.common.ReaderPageMode
-import com.pixiv.reader.core.common.ReaderThemeMode
+import com.pixiv.reader.core.common.config.ReaderPageMode
+import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.feature.reader.R
 import java.util.Locale

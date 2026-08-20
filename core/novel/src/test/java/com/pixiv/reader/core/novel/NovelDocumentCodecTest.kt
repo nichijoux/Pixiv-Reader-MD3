@@ -1,5 +1,7 @@
-package com.pixiv.reader.core.novel
+package com.pixiv.reader.core.novel.codec
 
+import com.pixiv.reader.core.novel.model.NovelBlock
+import com.pixiv.reader.core.novel.model.NovelDocument
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

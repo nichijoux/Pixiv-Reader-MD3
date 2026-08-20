@@ -11,8 +11,8 @@ import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
-import com.pixiv.reader.core.model.IllustPageInfo
-import com.pixiv.reader.core.model.toPages
+import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository

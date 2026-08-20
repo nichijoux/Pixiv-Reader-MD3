@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.UserPreview
-import com.pixiv.reader.core.common.FollowSortMode
+import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState

@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.reader.ui
 
 import androidx.compose.ui.graphics.Color
-import com.pixiv.reader.core.common.ReaderThemeMode
+import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.ui.theme.ReaderDayBackground
 import com.pixiv.reader.core.ui.theme.ReaderDayDivider
 import com.pixiv.reader.core.ui.theme.ReaderDaySecondary

@@ -45,14 +45,14 @@ import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Illust
 import com.google.gson.Gson
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.ConfirmDialog
-import com.pixiv.reader.core.ui.component.CreatorProfile
-import com.pixiv.reader.core.ui.component.CreatorProfileCard
-import com.pixiv.reader.core.ui.component.EmptyBox
-import com.pixiv.reader.core.ui.component.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.NovelCard
-import com.pixiv.reader.core.ui.component.NovelCardData
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.component.card.CreatorProfile
+import com.pixiv.reader.core.ui.component.card.CreatorProfileCard
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.NovelCardData
 import kotlinx.coroutines.launch
 
 /**

@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.novel
+package com.pixiv.reader.core.novel.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -15,9 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.common.PixivLinkType
-import com.pixiv.reader.core.common.PixivUrlParser
-import com.pixiv.reader.core.ui.component.AdaptiveContentBox
+import com.pixiv.reader.core.common.parse.PixivLinkType
+import com.pixiv.reader.core.common.parse.PixivUrlParser
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 
 /**

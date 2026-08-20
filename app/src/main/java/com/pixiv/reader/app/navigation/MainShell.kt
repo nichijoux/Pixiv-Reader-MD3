@@ -27,8 +27,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.pixiv.reader.app.R
-import com.pixiv.reader.core.ui.component.AdaptiveNavItem
-import com.pixiv.reader.core.ui.component.AdaptiveNavScaffold
+import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
+import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
 import com.pixiv.reader.feature.follow.ui.FollowRoute
 import com.pixiv.reader.feature.home.HomeRoute

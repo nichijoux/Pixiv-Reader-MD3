@@ -32,15 +32,15 @@ app ──▶ feature/* ──▶ core/ui ──┐
 - `feature/*` 之间 **禁止互相依赖**。共享逻辑下沉到 core。
 - `lib:pixivapi` 是 `pixiv-api-kotlin/` 的 vendor 副本，**只读勿改 feature 需要的 API**；要加 API 只在 `lib/pixivapi/` 改。
 - 所有 `com.pixiv.api.*` 的 import 解析到 `lib/pixivapi` 副本（`namespace = com.pixiv.api`，Retrofit 接口在 `com.pixiv.api.network`）。
-- `feature/download` 是空壳（未使用），下载管理实际在 `feature:user`。
+- `feature/download`、`feature:settings` 已删除（原为空壳，下载管理在 `feature:user`，设置并入 `feature:user` MeRoute）。
 
 模块清单（`settings.gradle.kts`）：
 ```
 :app :lib:pixivapi
-:core:common :core:model :core:network :core:database :core:datastore :core:ui :core:novel
-:feature:auth :feature:home :feature:discover :feature:illust :feature:viewer
+:core:common :core:network :core:database :core:datastore :core:ui :core:novel
+:feature:auth :feature:home :feature:discover :feature:comments :feature:illust :feature:viewer
 :feature:novel :feature:reader :feature:user :feature:bookmark :feature:watchlist
-:feature:manga :feature:download :feature:settings
+:feature:manga :feature:follow :feature:onboarding
 ```
 
 ---
