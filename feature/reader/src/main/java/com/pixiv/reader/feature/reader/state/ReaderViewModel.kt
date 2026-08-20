@@ -13,6 +13,9 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.novel.NovelContentLoader
+import com.pixiv.reader.core.network.novel.fetchAllSeriesChapters
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
@@ -20,8 +23,6 @@ import com.pixiv.reader.core.novel.percentageAt
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.data.NovelTextSearch
 import com.pixiv.reader.feature.reader.data.ReaderChapterCache
-import com.pixiv.reader.feature.reader.data.ReaderDataLoader
-import com.pixiv.reader.feature.reader.data.ReaderSeriesToc
 import com.zqc.opencc.android.lib.ChineseConverter
 import com.zqc.opencc.android.lib.ConversionType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,7 +51,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * 阅读器 ViewModel。
  *
  * 职责：
- * - 加载小说详情 + 正文 HTML（数据层委托 [ReaderDataLoader] 解析）
+ * - 加载小说详情 + 正文 HTML（数据层委托 [NovelContentLoader] 解析）
  * - 收集阅读偏好（字号/行距/字体/主题/翻页/亮度）
  * - 字符级进度：本地 Room 落库（防抖）+ 官方 marker 同步
  * - 阅读书签（marker）/ 收藏 / 追更
@@ -60,15 +61,15 @@ import kotlin.time.Duration.Companion.milliseconds
 class ReaderViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
+    private val contentLoader: NovelContentLoader,
     private val readingProgressDao: ReadingProgressDao,
     private val userPreferences: UserPreferences,
     private val readerChapterCache: ReaderChapterCache,
+    private val favoriteActions: FavoriteActions,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
-    private val dataLoader = ReaderDataLoader(pixivRepository, context)
-    private val seriesToc = ReaderSeriesToc(pixivRepository)
 
     private val _novel = MutableStateFlow<Novel?>(null)
     val novel: StateFlow<Novel?> = _novel.asStateFlow()
@@ -286,7 +287,7 @@ class ReaderViewModel @Inject constructor(
                 if (cached != null) {
                     applyLoaded(cached.novel, cached.document)
                 } else {
-                    dataLoader.loadNovel(novelId).onSuccess { (detail, document) ->
+                    contentLoader.load(novelId).onSuccess { (detail, document) ->
                         if (_isLocalMode.value) return@onSuccess
                         if (detail == null) return@onSuccess
                         readerChapterCache.putChapter(novelId, ReaderChapterCache.Entry(detail, document))
@@ -578,7 +579,7 @@ class ReaderViewModel @Inject constructor(
         }
         _tocLoading.value = true
         try {
-            val novels = seriesToc.fetchSeriesNovels(seriesId)
+            val novels = fetchAllSeriesChapters(pixivRepository, seriesId)
             readerChapterCache.putToc(seriesId, novels)
             _toc.value = novels.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
             preloadNeighborChapters()
@@ -603,7 +604,7 @@ class ReaderViewModel @Inject constructor(
             .filter { it > 0L && readerChapterCache.getChapter(it) == null }
             .forEach { id ->
                 viewModelScope.launch {
-                    dataLoader.loadNovel(id)
+                    contentLoader.load(id)
                         .onSuccess { (detail, document) ->
                             if (detail != null) {
                                 readerChapterCache.putChapter(id, ReaderChapterCache.Entry(detail, document))
@@ -702,15 +703,14 @@ class ReaderViewModel @Inject constructor(
     fun toggleBookmark() {
         viewModelScope.launch {
             val current = _isBookmarked.value
-            runCatching {
-                if (current) pixivRepository.api.unbookmarkNovel(novelId)
-                else pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-            }.onSuccess {
-                _isBookmarked.value = !current
-                _message.send(if (!current) UiMessage(R.string.reader_msg_bookmarked) else UiMessage(R.string.reader_msg_unbookmarked))
-            }.onFailure {
-                _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
-            }
+            favoriteActions.toggleNovelFavorite(novelId, !current)
+                .onSuccess {
+                    _isBookmarked.value = !current
+                    _message.send(if (!current) UiMessage(R.string.reader_msg_bookmarked) else UiMessage(R.string.reader_msg_unbookmarked))
+                }
+                .onFailure {
+                    _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
+                }
         }
     }
 

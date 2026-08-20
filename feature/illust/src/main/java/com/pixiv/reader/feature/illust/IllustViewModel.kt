@@ -8,13 +8,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Illust
-import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
-import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
@@ -26,7 +25,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -42,7 +40,7 @@ class IllustViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val ugoiraLoader: UgoiraLoader,
     private val browseHistoryDao: BrowseHistoryDao,
-    private val downloadEntryDao: DownloadEntryDao,
+    private val favoriteActions: FavoriteActions,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -224,14 +222,7 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch {
             _isBookmarking.value = true
             val current = _isBookmarked.value
-            val result = runCatching {
-                if (current) {
-                    pixivRepository.api.unbookmarkIllust(illustId)
-                } else {
-                    pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                }
-            }
-            result
+            favoriteActions.toggleIllustFavorite(illustId, !current)
                 .onSuccess { _isBookmarked.value = !current }
                 .onFailure { _message.send(UiMessage(R.string.illust_msg_action_failed, listOf(it.message ?: ""))) }
             _isBookmarking.value = false
@@ -245,25 +236,5 @@ class IllustViewModel @Inject constructor(
             .build()
         WorkManager.getInstance(context).enqueue(request)
         _message.trySend(UiMessage(R.string.illust_msg_download_started))
-        observeDownloadCompletion()
-    }
-
-    /** 观察本次下载完成：等 downloading 出现后，再等 done/failed，发应用内完成/失败通知（与开始通知同位置）。 */
-    private fun observeDownloadCompletion() {
-        viewModelScope.launch {
-            // 先等本次下载进入 downloading（避免命中历史 done 记录）
-            downloadEntryDao.observeAll().first { entries ->
-                entries.any { it.targetId == illustId && it.targetType == "illust" && it.status == "downloading" }
-            }
-            val done = downloadEntryDao.observeAll()
-                .first { entries ->
-                    entries.any { it.targetId == illustId && it.targetType == "illust" && (it.status == "done" || it.status == "failed") }
-                }
-                .firstOrNull { it.targetId == illustId && it.targetType == "illust" }
-            when (done?.status) {
-                "done" -> _message.send(UiMessage(R.string.illust_msg_download_done, type = MessageType.SUCCESS))
-                "failed" -> _message.send(UiMessage(R.string.illust_msg_download_failed, listOf(""), type = MessageType.ERROR))
-            }
-        }
     }
 }

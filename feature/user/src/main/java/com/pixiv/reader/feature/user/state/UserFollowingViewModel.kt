@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.UserPreview
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 class UserFollowingViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
@@ -43,10 +45,7 @@ class UserFollowingViewModel @Inject constructor(
     /** 关注 / 取关用户（nowFollowed 为目标状态，由组件回调）。 */
     fun toggleFollowUser(userId: Long, nowFollowed: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFollowed) pixivRepository.api.followUser(userId, "public")
-                else pixivRepository.api.unfollowUser(userId)
-            }
+            favoriteActions.toggleFollowUser(userId, nowFollowed)
         }
     }
 }

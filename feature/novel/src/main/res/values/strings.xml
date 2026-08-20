@@ -89,10 +89,7 @@
     <string name="novel_msg_watching_removed">已取消追更</string>
     <string name="novel_msg_downloading">正在下载…</string>
     <string name="novel_msg_preparing">准备中…</string>
-    <string name="novel_msg_downloading_chapter">正在下载第 %1$d/%2$d 章…</string>
-    <string name="novel_msg_exported">已导出：%1$s</string>
     <string name="novel_msg_export_queued">已加入导出队列</string>
-    <string name="novel_msg_export_failed">导出失败：%1$s</string>
 
     <!-- 导出引擎错误（NovelExporter） -->
     <string name="novel_export_no_chapters">没有可导出的章节</string>

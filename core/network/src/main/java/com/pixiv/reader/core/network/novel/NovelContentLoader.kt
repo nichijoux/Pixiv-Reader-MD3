@@ -1,35 +1,48 @@
-package com.pixiv.reader.feature.reader.data
+package com.pixiv.reader.core.network.novel
 
 import android.content.Context
 import android.util.Log
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.network.BuildConfig
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.NovelParser
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 小说正文数据加载器：拉取详情 + HTML + 网页图片映射 + 解析 + [pixivimage:ID] 引用解析。
+ * 小说正文数据加载器（core 共享）：详情元数据 + 正文 HTML + 网页插图映射 → NovelDocument。
  *
- * 纯数据层（不持有 UI 状态），从 [loadNovel] 返回 `Result<Pair<Novel, NovelDocument>>`，
- * 由 ReaderViewModel 负责状态流转。
+ * 供阅读器（feature:reader）与导出（feature:novel）复用——原两处同构管线
+ * （getNovel → getNovelHtml → getNovelWeb.textEmbeddedImages → NovelParser.parse →
+ * resolvePixivImages）合并于此，解析策略/插图规则只维护一份。
+ *
+ * 返回 `Result<Pair<Novel?, NovelDocument>>`：详情可空（网络接口未返回时调用方自行决定
+ * 兜底文案），正文文档一定解析产出。
  */
-class ReaderDataLoader(
+@Singleton
+class NovelContentLoader @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
-    private val context: Context,
 ) {
-    /** 加载小说详情与解析正文；失败返回 Result.failure（含网络/解析异常）。 */
-    suspend fun loadNovel(novelId: Long): Result<Pair<Novel?, NovelDocument>> = runCatching {
+
+    /**
+     * 抓取并解析小说全文。
+     * @return 详情元数据（可能为 null）+ 结构化正文文档；任一环节失败返回失败原因。
+     */
+    suspend fun load(novelId: Long): Result<Pair<Novel?, NovelDocument>> = runCatching {
         val detail = pixivRepository.api.getNovel(novelId).novel
         val html = withContext(Dispatchers.IO) {
             val raw = pixivRepository.api.getNovelHtml(novelId).string()
-            logNovelHtml(novelId, raw)
+            if (BuildConfig.DEBUG) logNovelHtml(novelId, raw)
             raw
         }
-        // 网页小说详情：拿 textEmbeddedImages（正文嵌入图片映射，key 为 novelImageId）
+        // 网页小说详情：正文嵌入图片映射（uploadedimage:file → 真实 URL）
         val webNovel = runCatching {
             pixivRepository.webApi.getNovelWeb(novelId).body
         }.getOrNull()
@@ -47,18 +60,13 @@ class ReaderDataLoader(
             ?.toMap()
             ?: emptyMap()
         val document = withContext(Dispatchers.IO) {
-            // 解析 + [pixivimage:ID] 引用画作 → ajax/illust/{id} 解析首图 URL
             resolvePixivImages(NovelParser.parse(html, imageUrls))
         }
-        logParseResult(novelId, document)
+        if (BuildConfig.DEBUG) logParseResult(novelId, document)
         detail to document
     }
 
-    /**
-     * 把正文中的 `[pixivimage:ID]` 标记解析为画作首图 URL。
-     * 通过网页接口 `ajax/illust/{id}` 的 `urls.regular/original` 获取（带 Cookie，正常可访问）；
-     * 解析失败的标记保留原文（渲染层按图片块显示但加载失败占位）。
-     */
+    /** 把正文 `[pixivimage:ID]` 标记解析为画作首图 URL；解析失败保留原标记。 */
     private suspend fun resolvePixivImages(document: NovelDocument): NovelDocument {
         val pending = document.blocks
             .filterIsInstance<NovelBlock.Image>()
@@ -114,6 +122,6 @@ class ReaderDataLoader(
     }
 
     private companion object {
-        const val TAG = "ReaderDataLoader"
+        const val TAG = "NovelContentLoader"
     }
 }

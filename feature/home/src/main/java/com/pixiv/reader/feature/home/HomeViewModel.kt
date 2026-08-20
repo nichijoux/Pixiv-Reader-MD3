@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.TrendingTag
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ enum class HomeTab { RECOMMEND, FOLLOW }
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     val recommendPaged = PagedState<Illust>()
@@ -135,10 +137,7 @@ class HomeViewModel @Inject constructor(
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                else pixivRepository.api.unbookmarkIllust(illustId)
-            }
+            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
         }
     }
 }

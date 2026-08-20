@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.novel.ui
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -338,7 +339,13 @@ private fun NovelWatchlistTab(
                             authorName = series.user?.name,
                             authorAvatarUrl = series.user?.profile_image_urls?.best(),
                         ),
-                        onClick = { onOpenSeries(series.id) },
+                        onClick = {
+                            Log.d(
+                                "NovelWatchlist",
+                                "点击系列 id=${series.id} isMasked=${series.isMasked} title=${series.title}",
+                            )
+                            onOpenSeries(series.id)
+                        },
                         onOpenAuthor = { series.user?.id?.let(onOpenUser) },
                     )
                 }

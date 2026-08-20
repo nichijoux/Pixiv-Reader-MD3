@@ -19,6 +19,8 @@ import com.pixiv.reader.core.common.renderNovelFileName
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.novel.NovelContentLoader
+import com.pixiv.reader.core.network.novel.fetchAllSeriesChapters
 import com.pixiv.reader.core.novel.NovelBlock
 import com.pixiv.reader.core.novel.NovelDocument
 import com.pixiv.reader.core.novel.NovelDocumentCodec
@@ -249,7 +251,7 @@ class NovelExporter @Inject constructor(
     ): Pair<List<Pair<Novel, NovelDocument>>, Novel> {
         val cache = cacheDir(novelId, format)
         val chapters = if ((seriesId != null) && (seriesId > 0L)) {
-            val novels = fetchSeriesNovels(seriesId)
+            val novels = fetchAllSeriesChapters(pixivRepository, seriesId)
             Log.d(TAG, "系列分册获取完成 seriesId=$seriesId 总数=${novels.size}")
             if (novels.isEmpty()) error(context.getString(R.string.novel_export_series_empty))
             val selected = if (chapterIds.isNullOrEmpty()) {
@@ -293,9 +295,11 @@ class NovelExporter @Inject constructor(
             Log.w(TAG, "章节缓存损坏，重新下载 index=$index chapterId=$chapterId")
         }
         val loaded = contentLoader.load(chapterId).getOrThrow()
-        runCatching { cacheFile.writeText(encodeChapterCache(loaded.first, loaded.second)) }
-        Log.d(TAG, "章节网络加载完成 index=$index chapterId=$chapterId title=${loaded.first.title}")
-        return loaded
+        // 共享加载器详情可空：导出必须拿到详情元数据，缺失视为失败
+        val detail = loaded.first ?: error(context.getString(R.string.novel_not_found))
+        runCatching { cacheFile.writeText(encodeChapterCache(detail, loaded.second)) }
+        Log.d(TAG, "章节网络加载完成 index=$index chapterId=$chapterId title=${detail.title}")
+        return detail to loaded.second
     }
 
     /** 章节缓存编码：Novel 元数据 + NovelDocument（org.json）。 */
@@ -1052,29 +1056,7 @@ class NovelExporter @Inject constructor(
         runCatching { ChineseConverter.convert(text, ConversionType.T2S, context) }.getOrDefault(text)
     }
 
-    // ── 系列分页（与 ReaderViewModel.fetchSeriesNovels 一致） ────────────────
-
-    private suspend fun fetchSeriesNovels(seriesId: Long): List<Novel> {
-        val result = mutableListOf<Novel>()
-        var lastOrder: Int? = null
-        repeat(20) {
-            val resp = pixivRepository.api.getNovelSeries(seriesId, lastOrder)
-            resp.novels?.let { result.addAll(it) }
-            val next = resp.next_url
-            if (next.isNullOrBlank()) return result
-            lastOrder = parseLastOrder(next)
-            if (lastOrder == null) return result
-        }
-        return result
-    }
-
-    private fun parseLastOrder(nextUrl: String?): Int? {
-        if (nextUrl.isNullOrBlank()) return null
-        return nextUrl.substringAfter('?', "").split('&')
-            .firstOrNull { it.startsWith("last_order=") }
-            ?.substringAfter('=')
-            ?.toIntOrNull()
-    }
+    // ── 系列分页（共享 core:network fetchAllSeriesChapters，游标解析只维护一份） ────
 
     companion object {
         private const val TAG = "NovelExporter"

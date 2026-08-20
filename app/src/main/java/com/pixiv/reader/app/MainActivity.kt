@@ -51,6 +51,7 @@ import com.pixiv.reader.core.ui.component.NotificationHost
 import com.pixiv.reader.core.ui.component.NotificationHostState
 import com.pixiv.reader.core.ui.component.NotificationType
 import com.pixiv.reader.core.ui.component.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.toNotificationType
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -75,6 +76,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var networkMonitor: NetworkMonitor
+
+    @Inject
+    lateinit var downloadCompletionNotifier: DownloadCompletionNotifier
 
     /**
      * 应用 i18n：在 Hilt 装配前同步读取应用语言设置，按需用 createConfigurationContext 覆盖资源配置；
@@ -121,6 +125,19 @@ class MainActivity : ComponentActivity() {
             }
             val notificationHostState = rememberNotificationHostState()
             val context = LocalContext.current
+            // 全局下载完成通知：观察下载索引状态迁移（downloading→done/failed），
+            // 离开详情页/查看器后仍能收到完成/失败提示（此前依赖 VM 存活监听，页面销毁即丢）
+            LaunchedEffect(Unit) {
+                downloadCompletionNotifier.observe().collect { }
+            }
+            LaunchedEffect(Unit) {
+                downloadCompletionNotifier.events.collect { msg ->
+                    notificationHostState.show(
+                        context.getString(msg.res, *msg.args.toTypedArray()),
+                        type = msg.type.toNotificationType(),
+                    )
+                }
+            }
             LaunchedEffect(isOnline) {
                 if (!isOnline) {
                     notificationHostState.show(

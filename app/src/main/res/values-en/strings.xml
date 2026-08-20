@@ -6,6 +6,9 @@
     <string name="main_tab_novel">Novels</string>
     <string name="main_tab_me">Me</string>
     <string name="network_disconnected">Network disconnected</string>
+    <!-- Global download completion notification -->
+    <string name="download_complete">Download complete: %1$s</string>
+    <string name="download_failed">Download failed: %1$s</string>
     <!-- Clipboard pixiv link navigation -->
     <string name="clipboard_link_novel">Detected a Pixiv novel link, tap to open</string>
     <string name="clipboard_link_series">Detected a Pixiv series link, tap to open</string>

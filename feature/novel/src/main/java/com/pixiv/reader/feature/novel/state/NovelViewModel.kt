@@ -8,13 +8,13 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.ui.component.NovelCardData
 import com.google.gson.Gson
@@ -45,6 +45,7 @@ class NovelViewModel @Inject constructor(
     private val readingProgressDao: ReadingProgressDao,
     private val browseHistoryDao: BrowseHistoryDao,
     private val downloadEntryDao: DownloadEntryDao,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
@@ -180,15 +181,14 @@ class NovelViewModel @Inject constructor(
         viewModelScope.launch {
             _isBookmarking.value = true
             val current = _isBookmarked.value
-            runCatching {
-                if (current) pixivRepository.api.unbookmarkNovel(novelId)
-                else pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-            }.onSuccess {
-                _isBookmarked.value = !current
-                _message.send(if (!current) UiMessage(R.string.novel_msg_bookmarked) else UiMessage(R.string.novel_msg_unbookmarked))
-            }.onFailure {
-                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
-            }
+            favoriteActions.toggleNovelFavorite(novelId, !current)
+                .onSuccess {
+                    _isBookmarked.value = !current
+                    _message.send(if (!current) UiMessage(R.string.novel_msg_bookmarked) else UiMessage(R.string.novel_msg_unbookmarked))
+                }
+                .onFailure {
+                    _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                }
             _isBookmarking.value = false
         }
     }
@@ -263,26 +263,21 @@ class NovelViewModel @Inject constructor(
         _downloading.value = true
         _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
         _message.trySend(UiMessage(R.string.novel_msg_export_queued))
-        observeExportCompletion(detail.id)
+        observeExportStateReset(detail.id)
     }
 
-    /** 观察导出完成：等 downloading 出现后，再等 done/failed，复位导出中状态并发应用内完成/失败通知。 */
-    private fun observeExportCompletion(id: Long) {
+    /** 观察导出结束：等 downloading 出现后，等 done/failed，复位导出中状态。
+     * 完成/失败通知由全局 DownloadCompletionNotifier 统一负责（离开页面也能收到）。 */
+    private fun observeExportStateReset(id: Long) {
         viewModelScope.launch {
             downloadEntryDao.observeAll().first { entries ->
                 entries.any { it.targetId == id && it.targetType == "novel" && it.status == "downloading" }
             }
-            val done = downloadEntryDao.observeAll()
-                .first { entries ->
-                    entries.any { it.targetId == id && it.targetType == "novel" && (it.status == "done" || it.status == "failed") }
-                }
-                .firstOrNull { it.targetId == id && it.targetType == "novel" }
+            downloadEntryDao.observeAll().first { entries ->
+                entries.any { it.targetId == id && it.targetType == "novel" && (it.status == "done" || it.status == "failed") }
+            }
             _downloading.value = false
             _downloadProgress.value = null
-            when (done?.status) {
-                "done" -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(done.title ?: ""), type = MessageType.SUCCESS))
-                "failed" -> _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(""), type = MessageType.ERROR))
-            }
         }
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,6 +33,7 @@ enum class HistoryFilter(@StringRes val labelRes: Int) {
 class HistoryViewModel @Inject constructor(
     private val browseHistoryDao: BrowseHistoryDao,
     private val pixivRepository: PixivRepository,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(HistoryFilter.ILLUST)
@@ -62,20 +64,14 @@ class HistoryViewModel @Inject constructor(
     /** 收藏 / 取消收藏插画（历史卡与首页一致）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                else pixivRepository.api.unbookmarkIllust(illustId)
-            }
+            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
         }
     }
 
     /** 收藏 / 取消收藏小说（历史卡与详情一致）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-                else pixivRepository.api.unbookmarkNovel(novelId)
-            }
+            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
         }
     }
 }

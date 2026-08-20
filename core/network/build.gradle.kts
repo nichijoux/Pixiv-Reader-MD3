@@ -14,6 +14,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    buildFeatures { buildConfig = true }
 }
 
 dependencies {
@@ -28,8 +29,8 @@ dependencies {
     api(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)
-    // 系统通知（DownloadNotificationHelper 用 NotificationCompat/ContextCompat）
-    implementation(libs.androidx.core.ktx)
+    // RankingPagedViewModel 基类（viewModelScope）
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

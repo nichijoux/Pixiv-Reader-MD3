@@ -15,6 +15,6 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 interface DownloadWorkerEntryPoint {
     fun pixivRepository(): PixivRepository
-    fun progressDownloader(): ProgressDownloader
+    fun illustPageDownloader(): IllustPageDownloader
     fun downloadEntryDao(): DownloadEntryDao
 }

@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 /** 结果态：TabRow + HorizontalPager（按类型渲染 HOT / 普通结果）。 */
 @Composable
 internal fun SearchResultPager(
-    type: SearchType,
     viewModel: DiscoverViewModel,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
@@ -43,7 +42,6 @@ internal fun SearchResultPager(
 ) {
     val pagerState = rememberPagerState(pageCount = { SearchType.entries.size })
     val scope = rememberCoroutineScope()
-    val initialIndex = SearchType.entries.indexOf(type).coerceAtLeast(0)
     val filters by viewModel.filters.collectAsStateWithLifecycle()
 
     // 滑动切页 → 同步类型
@@ -56,7 +54,7 @@ internal fun SearchResultPager(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(
-            selectedTabIndex = initialIndex.coerceAtMost(SearchType.entries.size - 1),
+            selectedTabIndex = pagerState.currentPage.coerceIn(0, SearchType.entries.size - 1),
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
             SearchType.entries.forEachIndexed { index, t ->

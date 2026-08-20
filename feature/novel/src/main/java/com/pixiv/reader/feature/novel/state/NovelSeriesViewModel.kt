@@ -9,10 +9,11 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesDetail
-import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.network.paging.PagedState
+import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.novel.fetchAllSeriesChapters
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
@@ -43,6 +44,7 @@ class NovelSeriesViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val seriesDetailCache: SeriesDetailCache,
     private val downloadEntryDao: DownloadEntryDao,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val seriesId: Long = savedStateHandle.get<Long>("seriesId") ?: 0L
@@ -119,10 +121,7 @@ class NovelSeriesViewModel @Inject constructor(
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-                else pixivRepository.api.unbookmarkNovel(novelId)
-            }
+            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
         }
     }
 
@@ -168,27 +167,14 @@ class NovelSeriesViewModel @Inject constructor(
         viewModelScope.launch {
             // 大系列补拉剩余页：LinkedHashMap 按 id 去重（初始快照 + 补拉合并，保持顺序）
             val result = LinkedHashMap<Long, Novel>().apply { initial.forEach { put(it.id, it) } }
-            var lastOrder: Int? = null
             runCatching {
-                while (true) {
-                    val resp = pixivRepository.api.getNovelSeries(seriesId, lastOrder)
-                    resp.novels?.forEach { result[it.id] = it }
-                    val next = resp.next_url
-                    if (next.isNullOrBlank()) break
-                    lastOrder = parseLastOrder(next) ?: break
-                }
+                // 共享游标分页（core:network），防御上限放宽到 200 页（约 2000 章）
+                fetchAllSeriesChapters(pixivRepository, seriesId, maxPages = 200)
+                    .forEach { result[it.id] = it }
             }.onSuccess {
                 _allChapters.value = result.values.toList()
             }
         }
-    }
-
-    private fun parseLastOrder(nextUrl: String?): Int? {
-        if (nextUrl.isNullOrBlank()) return null
-        return nextUrl.substringAfter('?', "").split('&')
-            .firstOrNull { it.startsWith("last_order=") }
-            ?.substringAfter('=')
-            ?.toIntOrNull()
     }
 
     /** 导出小说为指定格式文件（整系列或部分分册，后台队列，支持断点续传）。 */
@@ -212,26 +198,21 @@ class NovelSeriesViewModel @Inject constructor(
         _downloading.value = true
         _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
         _message.trySend(UiMessage(R.string.novel_msg_export_queued))
-        observeExportCompletion(novelId)
+        observeExportStateReset(novelId)
     }
 
-    /** 观察导出完成：等 downloading 出现后，再等 done/failed，复位导出中状态并发应用内完成/失败通知。 */
-    private fun observeExportCompletion(id: Long) {
+    /** 观察导出结束：等 downloading 出现后，等 done/failed，复位导出中状态。
+     * 完成/失败通知由全局 DownloadCompletionNotifier 统一负责（离开页面也能收到）。 */
+    private fun observeExportStateReset(id: Long) {
         viewModelScope.launch {
             downloadEntryDao.observeAll().first { entries ->
                 entries.any { it.targetId == id && it.targetType == "novel" && it.status == "downloading" }
             }
-            val done = downloadEntryDao.observeAll()
-                .first { entries ->
-                    entries.any { it.targetId == id && it.targetType == "novel" && (it.status == "done" || it.status == "failed") }
-                }
-                .firstOrNull { it.targetId == id && it.targetType == "novel" }
+            downloadEntryDao.observeAll().first { entries ->
+                entries.any { it.targetId == id && it.targetType == "novel" && (it.status == "done" || it.status == "failed") }
+            }
             _downloading.value = false
             _downloadProgress.value = null
-            when (done?.status) {
-                "done" -> _message.send(UiMessage(R.string.novel_msg_exported, listOf(done.title ?: ""), type = MessageType.SUCCESS))
-                "failed" -> _message.send(UiMessage(R.string.novel_msg_export_failed, listOf(""), type = MessageType.ERROR))
-            }
         }
     }
 }

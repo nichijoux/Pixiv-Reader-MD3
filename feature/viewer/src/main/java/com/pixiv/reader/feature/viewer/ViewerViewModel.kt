@@ -15,7 +15,8 @@ import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.model.IllustPageInfo
 import com.pixiv.reader.core.model.toPages
-import com.pixiv.reader.core.network.download.ProgressDownloader
+import com.pixiv.reader.core.network.download.IllustPageDownloader
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
@@ -44,10 +45,11 @@ class ViewerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
-    private val progressDownloader: ProgressDownloader,
+    private val illustPageDownloader: IllustPageDownloader,
     private val downloadEntryDao: DownloadEntryDao,
     private val ugoiraLoader: UgoiraLoader,
     private val userPreferences: UserPreferences,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
@@ -139,13 +141,7 @@ class ViewerViewModel @Inject constructor(
     fun toggleBookmark() {
         viewModelScope.launch {
             val current = _isBookmarked.value
-            runCatching {
-                if (current) {
-                    pixivRepository.api.unbookmarkIllust(illustId)
-                } else {
-                    pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                }
-            }
+            favoriteActions.toggleIllustFavorite(illustId, !current)
                 .onSuccess { _isBookmarked.value = !current }
                 .onFailure { _message.send(UiMessage(R.string.viewer_msg_action_failed, listOf(it.message ?: ""))) }
         }
@@ -182,7 +178,9 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** 下载当前页原图（前台分块下载，写索引含字节进度；单页快，切走页面会中断）。 */
+    /** 下载当前页原图（前台分块下载，写索引含字节进度；单页快，切走页面会中断）。
+     * `.part` + rename 语义与整本下载 Worker 一致（共享 [IllustPageDownloader]）：
+     * 中断只残留 `.part`，不会被整本任务断点判定误认为完整页。 */
     fun download(page: IllustPageInfo) {
         val url = page.originalUrl ?: page.displayUrl ?: return
         val index = _pages.value.indexOf(page).takeIf { it >= 0 } ?: 0
@@ -190,7 +188,7 @@ class ViewerViewModel @Inject constructor(
             _message.trySend(UiMessage(R.string.viewer_msg_download_started))
             recordDownload(null, "downloading", progress = 0)
             var lastWritten = -1
-            progressDownloader.download(url, "pixiv_${illustId}/p_${index + 1}.jpg") { done, total ->
+            illustPageDownloader.downloadPage(illustId, index, url) { done, total ->
                 // 字节进度 → 百分比，节流（≥2% 才写数据库）
                 val pct = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 99) else 0
                 if (pct - lastWritten >= 2) {
@@ -218,8 +216,8 @@ class ViewerViewModel @Inject constructor(
                 if (localPath != null) {
                     val file = java.io.File(localPath)
                     if (file.exists()) {
-                        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        android.graphics.BitmapFactory.decodeFile(file.path, opts)
+                        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeFile(file.path, opts)
                         w = opts.outWidth
                         h = opts.outHeight
                     }

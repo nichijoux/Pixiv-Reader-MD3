@@ -6,6 +6,9 @@
     <string name="main_tab_novel">小說</string>
     <string name="main_tab_me">我的</string>
     <string name="network_disconnected">網路連線已斷開</string>
+    <!-- 全局下載完成通知 -->
+    <string name="download_complete">下載完成：%1$s</string>
+    <string name="download_failed">下載失敗：%1$s</string>
     <!-- 剪贴板 pixiv 链接跳转 -->
     <string name="clipboard_link_novel">檢測到 Pixiv 小說連結，點選開啟</string>
     <string name="clipboard_link_series">檢測到 Pixiv 系列連結，點選開啟</string>

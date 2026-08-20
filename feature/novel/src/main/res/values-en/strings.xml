@@ -89,10 +89,7 @@
     <string name="novel_msg_watching_removed">Removed from watchlist</string>
     <string name="novel_msg_downloading">Downloading…</string>
     <string name="novel_msg_preparing">Preparing…</string>
-    <string name="novel_msg_downloading_chapter">Downloading chapter %1$d/%2$d…</string>
-    <string name="novel_msg_exported">Exported: %1$s</string>
     <string name="novel_msg_export_queued">Export queued</string>
-    <string name="novel_msg_export_failed">Export failed: %1$s</string>
 
     <!-- NovelExporter errors -->
     <string name="novel_export_no_chapters">No chapters to export</string>

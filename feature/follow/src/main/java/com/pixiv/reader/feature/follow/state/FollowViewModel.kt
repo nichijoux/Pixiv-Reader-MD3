@@ -7,6 +7,7 @@ import com.pixiv.api.model.Novel
 import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.common.FollowSortMode
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SessionRepository
@@ -48,6 +49,7 @@ class FollowViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val loggedInUid: Long = sessionRepository.session.loggedInUid
@@ -292,20 +294,14 @@ class FollowViewModel @Inject constructor(
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                else pixivRepository.api.unbookmarkIllust(illustId)
-            }
+            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
         }
     }
 
     /** 收藏 / 取消收藏小说。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-                else pixivRepository.api.unbookmarkNovel(novelId)
-            }
+            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
         }
     }
 }

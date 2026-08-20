@@ -18,8 +18,7 @@ import java.io.File
  * 插画下载后台任务（WorkManager）：下载整个作品（全部页）或指定单页到 `filesDir/Downloads/pixiv_{id}/`。
  * inputData：`illustId`（必填）、`pageIndex`（可选；缺省/-1 = 下载全部页，≥0 = 查看器下载单页）。
  *
- * 进度按页加权写入下载索引（`progress` 0-100：`(已完页×100 + 当前页字节%)/总页`）；
- * 完成/失败发系统通知。
+ * 进度按页加权写入下载索引（`progress` 0-100：`(已完页×100 + 当前页字节%)/总页`）。
  * 普通 [CoroutineWorker]（非 @HiltWorker）+ Hilt EntryPoint 手动取依赖——规避 @HiltWorker 聚合空 Map 问题。
  */
 class IllustDownloadWorker(
@@ -34,7 +33,7 @@ class IllustDownloadWorker(
         // 手动取依赖（EntryPoint 聚合由 Hilt 生成，确保可用）
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, DownloadWorkerEntryPoint::class.java)
         val pixivRepository = entryPoint.pixivRepository()
-        val progressDownloader = entryPoint.progressDownloader()
+        val pageDownloader = entryPoint.illustPageDownloader()
         val downloadEntryDao = entryPoint.downloadEntryDao()
         return try {
             val illust = pixivRepository.api.getIllust(illustId).illust
@@ -43,12 +42,12 @@ class IllustDownloadWorker(
             if (pages.isEmpty()) return Result.failure()
             if (pageIndex >= 0) {
                 downloadPage(
-                    downloadEntryDao, progressDownloader, illust, pages[pageIndex.toInt()],
+                    downloadEntryDao, pageDownloader, illust, pages[pageIndex.toInt()],
                     pageIndex.toInt(), pages.size, single = true,
                 )
             } else {
                 pages.forEachIndexed { index, page ->
-                    downloadPage(downloadEntryDao, progressDownloader, illust, page, index, pages.size, single = false)
+                    downloadPage(downloadEntryDao, pageDownloader, illust, page, index, pages.size, single = false)
                 }
             }
             Result.success()
@@ -60,11 +59,11 @@ class IllustDownloadWorker(
     }
 
     /** 下载单页：downloading（页加权进度）→ 保存；最后（或单页）标记完成。
-     * 断点重下：目标文件已存在（上次完整下载）→ 跳过本页；否则下载到 `.part` 临时文件
-     * （ProgressDownloader 对已存在的 `.part` 自动 Range 续传），成功后 rename 为正式文件。 */
+     * `.part` + rename 断点语义由共享 [IllustPageDownloader] 提供（viewer 前台下载同款），
+     * 前台中断残留 .part 不会被本方法的"目标已存在"判定误认为完整页。 */
     private suspend fun downloadPage(
         dao: com.pixiv.reader.core.database.dao.DownloadEntryDao,
-        downloader: com.pixiv.reader.core.network.download.ProgressDownloader,
+        pageDownloader: com.pixiv.reader.core.network.download.IllustPageDownloader,
         illust: Illust,
         page: IllustPageInfo,
         index: Int,
@@ -73,30 +72,11 @@ class IllustDownloadWorker(
     ) {
         val url = page.originalUrl ?: page.displayUrl
             ?: error(applicationContext.getString(R.string.illust_error_page_no_image))
-        // 子路径下载到 Downloads/pixiv_{id}/p_{n}.jpg（ProgressDownloader 自动建目录）
+        // 子路径下载到 Downloads/pixiv_{id}/p_{n}.jpg（共享下载器自动建目录）
         val dir = File(applicationContext.filesDir, "Downloads/pixiv_${illust.id}").apply { mkdirs() }
-        val target = File(dir, "p_${index + 1}.jpg")
-        val part = File(dir, "p_${index + 1}.jpg.part")
         // 页加权进度：基值 = 已完页占比，跨度 = 当前页占比
         val base = if (single) 0 else (index * 100) / total
         val span = if (single) 100 else 100 / total
-
-        // 断点重下：目标文件已存在（上次完成）→ 跳过本页，仅推进进度
-        if (target.exists() && target.length() > 0L) {
-            val isLast = index == total - 1
-            upsert(
-                dao, illust.id,
-                status = if (isLast) "done" else "downloading",
-                progress = (base + span).coerceIn(0, 100),
-                localPath = dir.path,
-                pageCount = total,
-                width = illust.width,
-                height = illust.height,
-                title = illust.title.orEmpty(),
-                coverUrl = illust.image_urls?.medium ?: illust.image_urls?.square_medium,
-            )
-            return
-        }
 
         upsert(
             dao, illust.id, status = "downloading", progress = base, localPath = dir.path, pageCount = total,
@@ -107,8 +87,8 @@ class IllustDownloadWorker(
             height = illust.height,
         )
         var lastWritten = base
-        // 下载到 .part（存在则 Range 续传）；成功后 rename 为正式文件
-        downloader.download(url, "pixiv_${illust.id}/p_${index + 1}.jpg.part", onProgress = { done, totalBytes ->
+        // 共享下载器：正式文件已完整 → 直接成功跳过；否则下载 .part（存在则 Range 续传）并 rename
+        pageDownloader.downloadPage(illust.id, index, url, onProgress = { done, totalBytes ->
             val pagePct = if (totalBytes > 0) ((done * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
             val overall = (base + pagePct * span / 100).coerceIn(0, 100)
             if (overall - lastWritten >= 1) {
@@ -116,9 +96,8 @@ class IllustDownloadWorker(
                 dao.updateProgress("illust", illust.id, "", overall)
             }
         }).getOrThrow()
-        part.renameTo(target)
         // 解析下载文件的真实宽高（toPages() 不含宽高，避免下载管理页固定高度裁剪）
-        val file = target
+        val file = File(dir, "p_${index + 1}.jpg")
         val (fileWidth, fileHeight) = runCatching {
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.path, opts)

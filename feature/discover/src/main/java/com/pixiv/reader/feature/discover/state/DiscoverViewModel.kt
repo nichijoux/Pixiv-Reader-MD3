@@ -12,6 +12,7 @@ import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.database.dao.SearchHistoryDao
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,6 +50,7 @@ class DiscoverViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val searchHistoryDao: SearchHistoryDao,
     private val userPreferences: UserPreferences,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     companion object {
@@ -431,7 +433,8 @@ class DiscoverViewModel @Inject constructor(
             when (type.value) {
                 SearchType.ILLUST -> illustPaged.loadMore()
                 SearchType.NOVEL -> novelPaged.loadMore()
-                SearchType.USER -> userPaged.loadMore()
+                // 用户结果页无触底分页（UserSearchResults 不消费 hasMore/loadMore）
+                else -> Unit
             }
         }
     }
@@ -459,30 +462,21 @@ class DiscoverViewModel @Inject constructor(
     /** 关注 / 取关用户（nowFollowed 为目标状态，由组件回调）。 */
     fun toggleFollowUser(userId: Long, nowFollowed: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFollowed) pixivRepository.api.followUser(userId, "public")
-                else pixivRepository.api.unfollowUser(userId)
-            }
+            favoriteActions.toggleFollowUser(userId, nowFollowed)
         }
     }
 
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-                else pixivRepository.api.unbookmarkNovel(novelId)
-            }
+            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
         }
     }
 
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                else pixivRepository.api.unbookmarkIllust(illustId)
-            }
+            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
         }
     }
 

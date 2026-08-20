@@ -26,8 +26,6 @@
     <string name="illust_msg_action_failed">操作失败：%1$s</string>
     <string name="illust_msg_saved_to_downloads">已保存到下载目录</string>
     <string name="illust_msg_download_started">开始下载…</string>
-    <string name="illust_msg_download_done">下载完成</string>
-    <string name="illust_msg_download_failed">下载失败：%1$s</string>
 
     <!-- 下载 worker 错误（IllustDownloadWorker） -->
     <string name="illust_error_work_not_found">作品不存在</string>

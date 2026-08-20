@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.manga
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
@@ -30,6 +31,7 @@ class MangaViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     /** 动图加载器：供动图 Tab 瀑布流卡片播放动画（核心层 @Singleton）。 */
     val ugoiraLoader: UgoiraLoader,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     val recommendPaged = PagedState<Illust>()
@@ -156,10 +158,7 @@ class MangaViewModel @Inject constructor(
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                else pixivRepository.api.unbookmarkIllust(illustId)
-            }
+            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
         }
     }
 

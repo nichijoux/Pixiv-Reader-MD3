@@ -14,6 +14,7 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.paging.PagedState
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
@@ -44,6 +45,7 @@ class UserViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val seriesDetailCache: SeriesDetailCache,
     private val browseHistoryDao: BrowseHistoryDao,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
@@ -286,20 +288,14 @@ class UserViewModel @Inject constructor(
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
-                else pixivRepository.api.unbookmarkIllust(illustId)
-            }
+            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
         }
     }
 
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
-                else pixivRepository.api.unbookmarkNovel(novelId)
-            }
+            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
         }
     }
 }

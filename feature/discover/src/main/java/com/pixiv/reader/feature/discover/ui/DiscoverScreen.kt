@@ -103,7 +103,6 @@ fun DiscoverRoute(
 
             when {
                 hasSearched && query.isNotBlank() -> SearchResultPager(
-                    type = type,
                     viewModel = viewModel,
                     onOpenIllust = onOpenIllust,
                     onOpenNovel = onOpenNovel,
