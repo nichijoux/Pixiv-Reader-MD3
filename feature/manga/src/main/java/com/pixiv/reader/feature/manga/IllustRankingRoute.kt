@@ -14,12 +14,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pixiv.reader.core.ui.component.card.RankingIllustCard
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
+import com.pixiv.reader.core.ui.component.list.RankingIllustSkeleton
 import com.pixiv.reader.core.ui.component.list.RankingList
-import com.pixiv.reader.core.ui.component.card.RankingRow
 
 /**
  * 插画排行榜全屏页：分段 Tab + 左右滑动切换（复用通用 [RankingList]），排名列表行点击打开作品详情。
@@ -35,10 +41,19 @@ import com.pixiv.reader.core.ui.component.card.RankingRow
 fun IllustRankingRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
+    onOpenUser: (Long) -> Unit,
     viewModel: IllustRankingViewModel = hiltViewModel(),
 ) {
+    val notificationHostState = rememberNotificationHostState()
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.message.collect { msg ->
+            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
+        }
+    }
 
     Scaffold(
+        snackbarHost = { NotificationHost(notificationHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -76,11 +91,16 @@ fun IllustRankingRoute(
             onLoadMore = viewModel::loadMore,
             modifier = Modifier.padding(padding),
             emptyText = stringResource(R.string.illust_ranking_empty),
+            // 骨架与榜单大图卡片（RankingIllustCard）布局一致
+            skeleton = { RankingIllustSkeleton() },
         ) { item, rank ->
-            RankingRow(
+            RankingIllustCard(
                 rank = rank,
                 illust = item,
                 onClick = { onOpenIllust(item.id) },
+                onToggleFavorite = { fav -> viewModel.toggleIllustFavorite(item.id, fav) },
+                onOpenAuthor = { item.user?.id?.let(onOpenUser) },
+                // 排行榜不做动图播放：ugoiraLoader 传 null 保持静态封面（省资源）
             )
         }
     }

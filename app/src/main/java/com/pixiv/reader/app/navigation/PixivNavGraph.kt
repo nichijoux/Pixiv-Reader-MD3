@@ -591,21 +591,27 @@ fun PixivNavGraph(
                 localTitle = local?.second,
             )
         }
-        // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情
+        // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页
         composable(ROUTE_MANGA_RANKING) {
             MangaRankingRoute(
                 onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
                 },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
             )
         }
-        // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情
+        // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页
         composable(ROUTE_ILLUST_RANKING) {
             IllustRankingRoute(
                 onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
                 },
             )
         }

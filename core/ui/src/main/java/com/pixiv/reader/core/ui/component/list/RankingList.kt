@@ -2,7 +2,6 @@ package com.pixiv.reader.core.ui.component.list
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
-import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 
 import androidx.compose.animation.AnimatedContent
@@ -10,25 +9,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
@@ -39,12 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,9 +60,9 @@ import kotlinx.coroutines.launch
  * **已就绪页状态不变 → 不重播过渡**（直接静态显示该页数据），避免"每次切回已有列整页
  * 从下方上滑跳一下"。
  *
- * ## 状态
- * 加载态用**骨架占位** [RankingSkeleton]（仿行布局的灰色占位块 + 呼吸脉冲），错误/空复用
- * `core:ui` StatusViews；错误与触底加载均作用于**该页自己的** PagedState；
+ * 加载态用**骨架占位**（调用方经 [skeleton] 传入与真实条目布局一致的骨架，如漫画/插画榜用
+ * `RankingIllustSkeleton`、小说榜用 `NovelFeedSkeleton`），错误/空复用 `core:ui` StatusViews；
+ * 错误与触底加载均作用于**该页自己的** PagedState；
  * [PagedState.hasMore] 为 true 时列表尾部自动触发 [onLoadMore]。
  *
  * @param T 榜单条目类型（漫画/插画为 `Illust`，小说为 `Novel`，行渲染由 [itemContent] 决定）
@@ -86,9 +75,9 @@ import kotlinx.coroutines.launch
  * @param filter 条目过滤谓词（null = 不过滤）。命中项保留其在原始榜单中的**真实名次**（过滤只隐藏
  *               不匹配项，不重排）；过滤后本页无匹配但榜单还有下一页时自动续载，直到出现匹配或耗尽
  * @param filteredEmptyText 过滤后无任何命中且榜单耗尽时的空态文案（null 时回落 [emptyText]）
- * @param skeleton 加载骨架占位（默认仿 [RankingRow] 布局；小说榜等条目为竖版卡片的调用方可自定义，
- *                 如 `NovelFeedSkeleton`，保证骨架与真实条目布局一致）
- * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；插画/漫画可用 [RankingRow]
+ * @param skeleton 加载骨架占位（调用方应传入与 itemContent 布局一致的骨架；默认空占位，需调用方指定，
+ *                 如漫画/插画榜 `RankingIllustSkeleton`、小说榜 `NovelFeedSkeleton`）
+ * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `RankingIllustCard`
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,7 +91,7 @@ fun <T> RankingList(
     emptyText: String,
     filter: ((T) -> Boolean)? = null,
     filteredEmptyText: String? = null,
-    skeleton: @Composable () -> Unit = { RankingSkeleton() },
+    skeleton: @Composable () -> Unit = {},
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -215,65 +204,6 @@ fun <T> RankingList(
 
 /** 排行榜页内容三态：加载占位 / 错误 / 有数据。作为 [AnimatedContent] 的 targetState。 */
 private enum class RankContentState { Loading, Error, Content }
-
-/**
- * 排行榜加载骨架占位：仿 [RankingRow] 布局（28dp 序号位 + 88dp 封面 + 标题/作者/收藏文本条）
- * 渲染 9 行灰色圆角占位块，呼吸 alpha 脉冲，替代全屏转圈——数据到位后淡入真实列表。
- */
-@Composable
-private fun RankingSkeleton() {
-    val color = skeletonPulseColor(label = "rankingSkeleton")
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        repeat(9) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(AppShapes.small)
-                        .background(color),
-                )
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(AppShapes.card)
-                        .background(color),
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.65f)
-                            .height(16.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(color),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = Spacing.sm)
-                            .fillMaxWidth(0.65f)
-                            .height(16.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(color),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = Spacing.sm)
-                            .width(64.dp)
-                            .height(18.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(color),
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun <T> RankingPage(

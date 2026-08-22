@@ -30,4 +30,8 @@
     <string name="manga_ranking_empty">暫無榜單資料</string>
     <string name="manga_cd_back">返回</string>
     <string name="manga_cd_more">更多</string>
+    <!-- 收藏/取消收藏通知 -->
+    <string name="manga_msg_bookmarked">已收藏</string>
+    <string name="manga_msg_unbookmarked">已取消收藏</string>
+    <string name="manga_msg_action_failed">操作失敗：%1$s</string>
 </resources>
