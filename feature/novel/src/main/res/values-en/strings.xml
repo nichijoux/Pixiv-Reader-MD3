@@ -23,6 +23,11 @@
     <string name="novel_ranking_female">Female</string>
     <string name="novel_ranking_rookie">Rookie</string>
     <string name="novel_ranking_r18">R18</string>
+    <string name="novel_ranking_filter_all">All</string>
+    <string name="novel_ranking_filter_chinese">Chinese only</string>
+    <string name="novel_ranking_filter_japanese">Japanese only</string>
+    <string name="novel_cd_language_filter">Language filter</string>
+    <string name="novel_ranking_filter_empty">No works in this category</string>
 
     <!-- Novel detail -->
     <string name="novel_not_found">Novel not found</string>

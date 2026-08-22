@@ -83,6 +83,9 @@ import kotlinx.coroutines.launch
  * @param onRetry 某段加载失败重试（参数为该段 mode 值）
  * @param onLoadMore 某段触底加载下一页（参数为该段 mode 值）
  * @param emptyText 空态文案（调用方传入本地化文案）
+ * @param filter 条目过滤谓词（null = 不过滤）。命中项保留其在原始榜单中的**真实名次**（过滤只隐藏
+ *               不匹配项，不重排）；过滤后本页无匹配但榜单还有下一页时自动续载，直到出现匹配或耗尽
+ * @param filteredEmptyText 过滤后无任何命中且榜单耗尽时的空态文案（null 时回落 [emptyText]）
  * @param skeleton 加载骨架占位（默认仿 [RankingRow] 布局；小说榜等条目为竖版卡片的调用方可自定义，
  *                 如 `NovelFeedSkeleton`，保证骨架与真实条目布局一致）
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；插画/漫画可用 [RankingRow]
@@ -97,6 +100,8 @@ fun <T> RankingList(
     onLoadMore: (String) -> Unit,
     modifier: Modifier = Modifier,
     emptyText: String,
+    filter: ((T) -> Boolean)? = null,
+    filteredEmptyText: String? = null,
     skeleton: @Composable () -> Unit = { RankingSkeleton() },
     itemContent: @Composable (T, Int) -> Unit,
 ) {
@@ -191,6 +196,8 @@ fun <T> RankingList(
                                 onRetry = onRetry,
                                 onLoadMore = onLoadMore,
                                 emptyText = emptyText,
+                                filter = filter,
+                                filteredEmptyText = filteredEmptyText,
                                 itemContent = itemContent,
                             )
                             RankContentState.Error -> ErrorBox(
@@ -279,26 +286,53 @@ private fun <T> RankingPage(
     onRetry: (String) -> Unit,
     onLoadMore: (String) -> Unit,
     emptyText: String,
+    filter: ((T) -> Boolean)?,
+    filteredEmptyText: String?,
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     when {
         isLoading && items.isEmpty() -> LoadingBox()
         error != null && items.isEmpty() -> ErrorBox(message = error, onRetry = { onRetry(modeValue) })
         items.isEmpty() -> EmptyBox(emptyText)
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
-        ) {
-            itemsIndexed(items) { index, item ->
-                itemContent(item, index + 1)
+        else -> {
+            // 保留真实排名：rank 取该项在原始 items 中的位置 + 1（即榜单真实名次）。
+            // 过滤只隐藏不匹配项，不改变其余项排名——封面左上角显示的是其在榜单中的真实名次。
+            val visibleIndexed = items.withIndex().filter { (_, item) ->
+                filter == null || filter(item)
             }
-            if (hasMore) {
-                item(key = "load_more") {
-                    LoadMoreItem(
-                        isLoadingMore = isLoadingMore,
-                        onLoadMore = { onLoadMore(modeValue) },
-                    )
+            if (visibleIndexed.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+                ) {
+                    itemsIndexed(visibleIndexed) { _, (index, item) ->
+                        itemContent(item, index + 1)
+                    }
+                    if (hasMore) {
+                        item(key = "load_more") {
+                            LoadMoreItem(
+                                isLoadingMore = isLoadingMore,
+                                onLoadMore = { onLoadMore(modeValue) },
+                            )
+                        }
+                    }
                 }
+            } else if (hasMore) {
+                // 「保证展示全部」：过滤后本页无匹配但还有下一页 → 渲染 LoadMoreItem，
+                // 其 LaunchedEffect(Unit) 可见即自动续载下一页，直到出现匹配项或榜单耗尽
+                // （hasMore=false）。耗尽后仍有匹配则展示匹配全集，皆空才落空态。
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    item(key = "load_more") {
+                        LoadMoreItem(
+                            isLoadingMore = isLoadingMore,
+                            onLoadMore = { onLoadMore(modeValue) },
+                        )
+                    }
+                }
+            } else {
+                EmptyBox(filteredEmptyText ?: emptyText)
             }
         }
     }

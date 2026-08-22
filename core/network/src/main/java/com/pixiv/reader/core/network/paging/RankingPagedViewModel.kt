@@ -8,12 +8,12 @@ import kotlinx.coroutines.launch
 /**
  * 排行榜 ViewModel 泛型基类（core 共享，供漫画/插画/小说排行榜复用）。
  *
- * 每段**独立** [PagedState]（[stateFor] 惰性创建并缓存，数据驻留 VM——滑动切回/配置变更不丢）；
- * 段首次进入时才加载（[onPageSelected] 幂等），失败可 [retry]，触底 [loadMore]。
- * 子类仅需提供 [modes] 与 [loadInitialFor]（段数据拉取/翻页），新增榜单类型不再复制骨架。
+ * 首段不在 `init` 预加载：Kotlin 父类 `init` 先于子类构造参数属性赋值执行，此时若经虚方法
+ * 调 [loadInitialFor] 访问子类注入字段（如 Hilt 注入的 `pixivRepository`）会取到 null（NPE）。
+ * 首段改由 UI 进入时调 [onPageSelected]（`RankingList` 首帧必触发）惰性加载——此时构造已完成。
  *
  * @param modes 分段配置（label 资源 + mode 值）。**必须经构造传入**而非子类属性初始化：
- *              基类 `init` 加载首段依赖它，而父类构造先于子类属性初始化执行。
+ *              基类后续加载依赖它，而父类构造先于子类属性初始化执行。
  */
 abstract class RankingPagedViewModel<T>(
     val modes: List<RankingModeInfo>,
@@ -24,10 +24,6 @@ abstract class RankingPagedViewModel<T>(
 
     /** 已触发过首次加载的段（防止滑动切回重复请求）。 */
     private val initialized = mutableSetOf<String>()
-
-    init {
-        ensureLoaded(modes.first().value)
-    }
 
     /** 返回某段的分页状态（惰性创建，每次调用返回同一实例）。 */
     fun stateFor(value: String): PagedState<T> = pages.getOrPut(value) { PagedState() }

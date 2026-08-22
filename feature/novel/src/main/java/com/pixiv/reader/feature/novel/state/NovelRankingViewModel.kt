@@ -12,6 +12,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -39,6 +42,14 @@ class NovelRankingViewModel @Inject constructor(
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
+    /** 语言筛选：全部 / 仅中文 / 仅日语。内存态不持久化，与漫画榜类型切换一致。 */
+    private val _languageFilter = MutableStateFlow(NovelLanguageFilter.ALL)
+    val languageFilter: StateFlow<NovelLanguageFilter> = _languageFilter.asStateFlow()
+
+    fun setLanguageFilter(filter: NovelLanguageFilter) {
+        _languageFilter.value = filter
+    }
+
     override suspend fun loadInitialFor(paged: PagedState<Novel>, mode: String) {
         paged.loadInitial(
             fetch = { pixivRepository.api.getRankingNovels(mode) },
@@ -56,5 +67,44 @@ class NovelRankingViewModel @Inject constructor(
                     _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
                 }
         }
+    }
+}
+/** 小说排行榜语言筛选维度。 */
+enum class NovelLanguageFilter { ALL, CHINESE, JAPANESE }
+
+/** @return 筛选项对应的文案资源。 */
+@androidx.annotation.StringRes
+fun NovelLanguageFilter.labelRes(): Int = when (this) {
+    NovelLanguageFilter.ALL -> R.string.novel_ranking_filter_all
+    NovelLanguageFilter.CHINESE -> R.string.novel_ranking_filter_chinese
+    NovelLanguageFilter.JAPANESE -> R.string.novel_ranking_filter_japanese
+}
+
+/**
+ * 判定小说是否命中语言筛选项。
+ *
+ * 优先接口 `language` 字段（zh-cn/ja/en…，app-api 可能缺省）；缺失时用「是否含假名」
+ * 启发式：日文正文几乎必含假名而中文不含；无 CJK 字符的其它语种作品不落入中/日筛选。
+ */
+internal fun Novel.matchesLanguageFilter(filter: NovelLanguageFilter): Boolean {
+    if (filter == NovelLanguageFilter.ALL) return true
+    language?.lowercase()?.let { lang ->
+        return when (filter) {
+            NovelLanguageFilter.CHINESE -> lang.startsWith("zh")
+            NovelLanguageFilter.JAPANESE -> lang.startsWith("ja")
+            NovelLanguageFilter.ALL -> true
+        }
+    }
+    val text = title.orEmpty() + caption.orEmpty()
+    val hasKana = text.any { ch ->
+        val code = ch.code
+        code in 0x3040..0x309F || code in 0x30A0..0x30FF ||
+            code in 0x31F0..0x31FF || code in 0xFF66..0xFF9D
+    }
+    val hasHanzi = text.any { it.code in 0x3400..0x4DBF || it.code in 0x4E00..0x9FFF }
+    return when (filter) {
+        NovelLanguageFilter.JAPANESE -> hasKana
+        NovelLanguageFilter.CHINESE -> hasHanzi && !hasKana
+        NovelLanguageFilter.ALL -> true
     }
 }

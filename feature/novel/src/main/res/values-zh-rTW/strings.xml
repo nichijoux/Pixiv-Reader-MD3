@@ -23,6 +23,11 @@
     <string name="novel_ranking_female">女性向</string>
     <string name="novel_ranking_rookie">新人</string>
     <string name="novel_ranking_r18">R18</string>
+    <string name="novel_ranking_filter_all">全部</string>
+    <string name="novel_ranking_filter_chinese">僅中文</string>
+    <string name="novel_ranking_filter_japanese">僅日語</string>
+    <string name="novel_cd_language_filter">語言篩選</string>
+    <string name="novel_ranking_filter_empty">該分類下暫無作品</string>
 
     <!-- 小说详情 -->
     <string name="novel_not_found">沒有找到該小說</string>

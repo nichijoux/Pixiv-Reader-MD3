@@ -349,9 +349,11 @@ data class Novel(
     val total_view: Int? = null,
     val total_comments: Int? = null,
     val total_bookmarks: Int? = null,
-    val visible: Boolean? = null,
-    val novel_ai_type: Int = 0,
-) : Serializable
+            val visible: Boolean? = null,
+        val novel_ai_type: Int = 0,
+        /** 正文语言代码（如 zh-cn/ja/en；app-api 部分接口缺省，缺失时客户端启发式判定） */
+        val language: String? = null,
+    ) : Serializable
 
 data class NovelResponse(
     val novels: List<Novel> = emptyList(),
