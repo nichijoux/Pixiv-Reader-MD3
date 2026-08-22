@@ -284,6 +284,7 @@ class ReaderViewModel @Inject constructor(
                 _isOffline.value = false
                 // 缓存命中（阅读时预加载过 / 此前刚读过）：跳过网络与重新解析，跳章秒开
                 val cached = readerChapterCache.getChapter(novelId)
+                Log.i(TAG, "load novel[$novelId]: 章节缓存命中=${cached != null}（命中则跳过网络/解析，图片仍由 UI 层加载）")
                 if (cached != null) {
                     applyLoaded(cached.novel, cached.document)
                 } else {

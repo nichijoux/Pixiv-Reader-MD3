@@ -54,7 +54,9 @@ class IllustDownloadWorker(
         } catch (e: Exception) {
             Log.w(TAG, "插画下载失败 illustId=$illustId", e)
             runCatching { upsert(downloadEntryDao, illustId, status = "failed", progress = 0, localPath = null, pageCount = 0) }
-            Result.retry()
+            // 有限重试：临时网络失败自动重跑（断点续传补缺失页，成本低），
+            // 超限转 failure——避免后台无限重试（耗流量/电）且永不出错通知。
+            if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
         }
     }
 
@@ -104,8 +106,10 @@ class IllustDownloadWorker(
             BitmapFactory.decodeFile(file.path, opts)
             opts.outWidth to opts.outHeight
         }.getOrElse { 0 to 0 }
-        // 中途页保持 downloading（管理页显示页加权进度条），仅最后一页标记完成
-        val isLast = index == total - 1
+        // 中途页保持 downloading（管理页显示页加权进度条），仅最后一页标记完成；
+        // 单页下载（single=true，查看器「下载本页」）无论页序都视为完成，
+        // 否则非末页单页下载会永久卡 downloading 100%（isLast 恒 false）。
+        val isLast = single || index == total - 1
         upsert(
             dao, illust.id,
             status = if (isLast) "done" else "downloading",
@@ -168,5 +172,8 @@ class IllustDownloadWorker(
         private const val TAG = "IllustDownloadWorker"
         const val KEY_ILLUST_ID = "illustId"
         const val KEY_PAGE_INDEX = "pageIndex"
+
+        /** 最大尝试次数（首次 + 重试）：runAttemptCount 达到此值后转 Result.failure。 */
+        const val MAX_ATTEMPTS = 3
     }
 }

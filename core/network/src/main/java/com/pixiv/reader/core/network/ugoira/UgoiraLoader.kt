@@ -1,6 +1,7 @@
 package com.pixiv.reader.core.network.ugoira
 
 import android.content.Context
+import android.util.Log
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -57,48 +58,56 @@ class UgoiraLoader @Inject constructor(
         illustId: Long,
         onProgress: ((Float) -> Unit)? = null,
     ): List<UgoiraFrame>? = withContext(Dispatchers.IO) {
-        runCatching {
+        val dir = File(context.cacheDir, "ugoira/$illustId").apply { mkdirs() }
+        val zipFile = File(dir, "data.zip")
+
+        // 元数据获取失败/缺帧列表：无本地现场可清理，直接返回
+        val (frames, zipUrl) = runCatching {
             val meta = pixivRepository.api.getUgoiraMetadata(illustId)
             val metadata = meta.ugoira_metadata ?: return@runCatching null
             val zipUrl = metadata.zip_urls?.medium ?: return@runCatching null
             val frames = metadata.frames.orEmpty()
             if (frames.isEmpty()) return@runCatching null
+            frames to zipUrl
+        }.getOrNull() ?: return@withContext null
 
-            val dir = File(context.cacheDir, "ugoira/$illustId").apply { mkdirs() }
-            val zipFile = File(dir, "data.zip")
-
-            if (!zipFile.exists() || zipFile.length() == 0L) {
-                pixivRepository.imageClient.newCall(Request.Builder().url(zipUrl).build())
-                    .execute()
-                    .use { resp ->
-                        if (!resp.isSuccessful) return@use
-                        val body = resp.body ?: return@use
-                        val total = body.contentLength()
-                        var read = 0L
-                        var lastPercent = -1
-                        body.byteStream().use { input ->
-                            zipFile.outputStream().use { out ->
-                                val buf = ByteArray(DEFAULT_BUFFER_SIZE)
-                                while (true) {
-                                    val n = input.read(buf)
-                                    if (n < 0) break
-                                    out.write(buf, 0, n)
-                                    read += n
-                                    // 进度按整百分比降频（避免每 8KB 一次回调刷屏重组）
-                                    if (total > 0) {
-                                        val percent = (read * 100 / total).toInt()
-                                        if (percent != lastPercent) {
-                                            lastPercent = percent
-                                            onProgress?.invoke(read.toFloat() / total)
-                                        }
+        if (!zipFile.exists() || zipFile.length() == 0L) {
+            pixivRepository.imageClient.newCall(Request.Builder().url(zipUrl).build())
+                .execute()
+                .use { resp ->
+                    if (!resp.isSuccessful) return@use
+                    val body = resp.body ?: return@use
+                    val total = body.contentLength()
+                    var read = 0L
+                    var lastPercent = -1
+                    body.byteStream().use { input ->
+                        zipFile.outputStream().use { out ->
+                            val buf = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                                read += n
+                                // 进度按整百分比降频（避免每 8KB 一次回调刷屏重组）
+                                if (total > 0) {
+                                    val percent = (read * 100 / total).toInt()
+                                    if (percent != lastPercent) {
+                                        lastPercent = percent
+                                        onProgress?.invoke(read.toFloat() / total)
                                     }
                                 }
                             }
                         }
                     }
-            }
-            if (!zipFile.exists()) return@runCatching null
+                }
+        }
+        if (!zipFile.exists()) return@withContext null
 
+        // 解压阶段独立 try：zip 损坏（下载中断残留半截文件 / 磁盘异常）时删除该 zip，
+        // 下次 prepare 重新下载——避免损坏 zip 被"exists && length>0"判定永久缓存，
+        // 否则该动图每次进入都加载失败（直到用户手动清缓存）。
+        // 已解压出的帧文件保留（zip 重下后 `!out.exists()` 跳过），天然断点续解压。
+        try {
             java.util.zip.ZipFile(zipFile).use { zf ->
                 frames.forEach { frame ->
                     val entryName = frame.file ?: return@forEach
@@ -117,6 +126,14 @@ class UgoiraLoader @Inject constructor(
                     delayMs = (frame.delay ?: 80).coerceAtLeast(10),
                 )
             }
-        }.getOrNull()
+        } catch (e: Exception) {
+            Log.w(TAG, "ugoira 解压失败，删除损坏 zip（下次重新下载）illustId=$illustId", e)
+            runCatching { zipFile.delete() }
+            null
+        }
+    }
+
+    private companion object {
+        const val TAG = "UgoiraLoader"
     }
 }

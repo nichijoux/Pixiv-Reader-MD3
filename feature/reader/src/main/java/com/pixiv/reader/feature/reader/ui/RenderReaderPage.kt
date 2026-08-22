@@ -209,6 +209,8 @@ internal fun ReaderImageBlock(url: String, caption: String?, height: Dp) {
                 .fillMaxWidth()
                 .height(height),
             contentScale = ContentScale.Fit,
+            // 阅读器图片需明确反馈：加载中底部进度条、失败断图图标（否则占位块无法区分加载/失败）
+            showProgress = true,
         )
         if (!caption.isNullOrBlank()) {
             Text(

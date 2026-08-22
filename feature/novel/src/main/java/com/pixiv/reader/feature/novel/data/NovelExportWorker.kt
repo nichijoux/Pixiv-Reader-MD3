@@ -48,7 +48,9 @@ class NovelExportWorker(
             Result.success()
         } catch (e: Exception) {
             Log.w(TAG, "小说导出失败 novelId=$novelId seriesId=$seriesId chapterIds=$chapterIds format=$format", e)
-            Result.retry()
+            // 有限重试：临时网络失败自动重跑（章节缓存断点续传，只补缺失章），
+            // 超限转 failure——避免后台无限重试（耗流量/电）且永不出错通知。
+            if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
         }
     }
 
@@ -58,5 +60,8 @@ class NovelExportWorker(
         const val KEY_SERIES_ID = "seriesId"
         const val KEY_FORMAT = "format"
         const val KEY_CHAPTER_IDS = "chapterIds"
+
+        /** 最大尝试次数（首次 + 重试）：runAttemptCount 达到此值后转 Result.failure。 */
+        const val MAX_ATTEMPTS = 3
     }
 }

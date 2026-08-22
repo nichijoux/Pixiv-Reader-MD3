@@ -7,9 +7,10 @@
     <!-- Android 13+ 后台下载完成/失败的系统通知 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 会话 token（access/refresh）明文存 MMKV：禁止云备份/ADB 备份，防止 refresh_token 随备份外泄 -->
     <application
         android:name=".PixivApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
