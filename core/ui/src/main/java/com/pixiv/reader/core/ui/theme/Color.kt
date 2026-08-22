@@ -28,10 +28,6 @@ val SurfaceVariant = Color(0xFFDFE2EB)
 val OnSurfaceVariant = Color(0xFF42474D)
 val Outline = Color(0xFF73777E)
 val OutlineVariant = Color(0xFFC3C7CF)
-val SurfaceDim = Color(0xFFD9E2EA)
-val SurfaceContainerLow = Color(0xFFF7F9FB)
-val SurfaceContainer = Color(0xFFF0F4F8)
-val SurfaceContainerHigh = Color(0xFFE4EAF0)
 
 // ── 语义色（跨模块统一，禁止在业务代码写裸色值） ──
 

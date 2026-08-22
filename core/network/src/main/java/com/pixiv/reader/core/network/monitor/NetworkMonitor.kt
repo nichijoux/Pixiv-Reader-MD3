@@ -3,7 +3,7 @@ package com.pixiv.reader.core.network.monitor
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
-import android.os.Build
+import android.net.NetworkCapabilities
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,26 +26,26 @@ class NetworkMonitor @Inject constructor(
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
     init {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            runCatching {
-                connectivityManager.registerDefaultNetworkCallback(
-                    object : ConnectivityManager.NetworkCallback() {
-                        override fun onAvailable(network: Network) {
-                            _isOnline.value = true
-                        }
+        runCatching {
+            connectivityManager.registerDefaultNetworkCallback(
+                object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        _isOnline.value = true
+                    }
 
-                        override fun onLost(network: Network) {
-                            _isOnline.value = checkNow()
-                        }
-                    },
-                )
-            }
+                    override fun onLost(network: Network) {
+                        _isOnline.value = checkNow()
+                    }
+                },
+            )
         }
     }
 
     private fun checkNow(): Boolean {
         return runCatching {
-            connectivityManager.activeNetworkInfo?.isConnected == true
+            val network = connectivityManager.activeNetwork
+            val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
+            capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         }.getOrDefault(true)
     }
 }

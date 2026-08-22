@@ -2,9 +2,12 @@ package com.pixiv.reader.feature.comments.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,6 +76,7 @@ fun CommentListRoute(
     val expandedReplies by viewModel.expandedReplies.collectAsStateWithLifecycle()
     val draft by viewModel.commentDraft.collectAsStateWithLifecycle()
     val replyTarget by viewModel.replyTarget.collectAsStateWithLifecycle()
+    val stamps by viewModel.stamps.collectAsStateWithLifecycle()
 
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
@@ -107,9 +111,61 @@ fun CommentListRoute(
                 },
             )
         },
-        bottomBar = {
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { padding ->
+        // 沉浸式：列表铺满到屏幕底部，输入条 + 回复目标条作为 overlay 浮在列表上方
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when {
+                // 首载：骨架占位（仿评论行布局），替代全屏转圈
+                isLoading && comments.isEmpty() -> CommentSkeleton(Modifier.fillMaxSize())
+                error != null && comments.isEmpty() -> ErrorBox(
+                    message = error.orEmpty(),
+                    onRetry = viewModel::loadComments,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                comments.isEmpty() -> EmptyBox(
+                    text = stringResource(R.string.comment_empty),
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                else -> LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    // 底部留出输入条高度（约 72dp），最后一条评论可滚到输入条上方不被遮挡
+                    contentPadding = PaddingValues(bottom = 72.dp),
+                ) {
+                    items(comments, key = { it.id }) { comment ->
+                        CommentRow(
+                            comment = comment,
+                            onOpenUser = onOpenUser,
+                            onReply = { target -> viewModel.setReplyTarget(target, comment.id) },
+                            replies = replies[comment.id].orEmpty(),
+                            repliesLoading = repliesLoading.contains(comment.id),
+                            expanded = expandedReplies.contains(comment.id),
+                            onLoadReplies = { viewModel.loadReplies(comment.id) },
+                            onToggleExpanded = { viewModel.toggleRepliesExpanded(comment.id) },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    if (isLoadingMore) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        }
+                    }
+                    item { Spacer(Modifier.height(12.dp)) }
+                }
+            }
+            // 底部 overlay：回复目标条 + 输入条（align 到屏幕底，浮在列表上）
             Column(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
                     .navigationBarsPadding(),
@@ -141,59 +197,14 @@ fun CommentListRoute(
                 CommentInput(
                     draft = draft,
                     onDraftChange = viewModel::onCommentDraftChange,
-                    onPost = viewModel::postComment,
+                    onPost = { viewModel.postComment() },
+                    stamps = stamps,
+                    onStampPick = { stamp -> viewModel.postComment(stamp.stamp_id) },
+                    onEmojiPick = { tag -> viewModel.onCommentDraftChange(draft + tag) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                 )
-            }
-        },
-    ) { padding ->
-        when {
-            // 首载：骨架占位（仿评论行布局），替代全屏转圈
-            isLoading && comments.isEmpty() -> CommentSkeleton(Modifier.padding(padding))
-            error != null && comments.isEmpty() -> ErrorBox(
-                message = error.orEmpty(),
-                onRetry = viewModel::loadComments,
-                modifier = Modifier.padding(padding),
-            )
-
-            comments.isEmpty() -> EmptyBox(
-                text = stringResource(R.string.comment_empty),
-                modifier = Modifier.padding(padding),
-            )
-
-            else -> LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            ) {
-                items(comments, key = { it.id }) { comment ->
-                    CommentRow(
-                        comment = comment,
-                        onOpenUser = onOpenUser,
-                        onReply = { target -> viewModel.setReplyTarget(target, comment.id) },
-                        replies = replies[comment.id].orEmpty(),
-                        repliesLoading = repliesLoading.contains(comment.id),
-                        expanded = expandedReplies.contains(comment.id),
-                        onLoadReplies = { viewModel.loadReplies(comment.id) },
-                        onToggleExpanded = { viewModel.toggleRepliesExpanded(comment.id) },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                if (isLoadingMore) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        }
-                    }
-                }
-                item { Spacer(Modifier.height(12.dp)) }
             }
         }
     }

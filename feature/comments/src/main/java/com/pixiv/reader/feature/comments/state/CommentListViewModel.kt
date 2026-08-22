@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Comment
+import com.pixiv.api.model.Stamp
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -20,8 +21,7 @@ import kotlinx.coroutines.launch
 /**
  * 通用评论列表 ViewModel（novel / illust 共用）。
  *
- * 路由参数 `type`（novel/illust）决定调用哪个评论 API（分页加载 + 发布/回复），
- * `targetId` 为对应内容 id。stamp 贴纸暂不启用（API 已支持，后续可扩展）。
+ * `targetId` 为对应内容 id。支持 pixiv 贴纸（stamp）：`getStamps` 拉目录、发贴纸评论带 stamp_id。
  */
 @HiltViewModel
 class CommentListViewModel @Inject constructor(
@@ -63,8 +63,21 @@ class CommentListViewModel @Inject constructor(
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
 
+    /** pixiv 贴纸目录（表情面板展示；加载失败则面板只显示文本表情）。 */
+    private val _stamps = MutableStateFlow<List<Stamp>>(emptyList())
+    val stamps: StateFlow<List<Stamp>> = _stamps.asStateFlow()
+
     init {
         loadComments()
+        loadStamps()
+    }
+
+    /** 加载 pixiv 贴纸目录（供表情面板选贴纸发评论）。 */
+    private fun loadStamps() {
+        viewModelScope.launch {
+            runCatching { pixivRepository.api.getStamps() }
+                .onSuccess { _stamps.value = it.stamps }
+        }
     }
 
     /** 首次加载 / 重新加载评论（按 type 分流）。 */
@@ -119,23 +132,31 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /** 发布评论 / 回复（按 type 分流，成功后清空草稿与回复目标并刷新列表）。 */
-    fun postComment() {
+    /**
+     * 发布评论 / 贴纸（按 type 分流，成功后清空草稿/回复目标并刷新列表）。
+     * [stampId] 非空时发贴纸（comment 留空，pixiv API 规则）；否则发文本评论。
+     */
+    fun postComment(stampId: Long? = null) {
         val text = _commentDraft.value.trim()
-        if (text.isEmpty()) return
+        // 纯贴纸：文本可空（stampId 非空），否则文本必须非空
+        if (text.isEmpty() && stampId == null) return
         viewModelScope.launch {
             runCatching {
+                val commentText = if (stampId != null) "" else text
+                val parentId = _replyTarget.value?.id
                 if (isIllust) {
                     pixivRepository.api.postIllustComment(
                         illustId = targetId,
-                        comment = text,
-                        parentCommentId = _replyTarget.value?.id,
+                        comment = commentText,
+                        parentCommentId = parentId,
+                        stampId = stampId,
                     )
                 } else {
                     pixivRepository.api.postNovelComment(
                         novelId = targetId,
-                        comment = text,
-                        parentCommentId = _replyTarget.value?.id,
+                        comment = commentText,
+                        parentCommentId = parentId,
+                        stampId = stampId,
                     )
                 }
             }

@@ -30,7 +30,7 @@ suspend fun fetchAllSeriesChapters(
 }
 
 /** 从 next_url 解析 last_order 查询参数。 */
-fun parseLastOrder(nextUrl: String?): Int? {
+private fun parseLastOrder(nextUrl: String?): Int? {
     if (nextUrl.isNullOrBlank()) return null
     return nextUrl.substringAfter('?', "").split('&')
         .firstOrNull { it.startsWith("last_order=") }

@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 网络状态监听（NetworkMonitor 注册 DefaultNetworkCallback / 查 NetworkCapabilities） -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <!-- Android 13+ 后台下载完成/失败的系统通知 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
