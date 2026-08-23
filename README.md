@@ -66,9 +66,8 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 ## License
 
-项目**尚未**添加开源许可证（License 待定）。发布前请：
-1. 核实 `lib/pixivapi`（vendor 的 pixiv API 封装）与 `pixiv-login` 的许可证；
-2. 若为宽松许可（MIT/Apache-2.0），可选用 MIT；若无法确认，建议 GPL-3.0 以兼容任一上游。
+本项目遵循 **GPL-2.0**（见 [LICENSE](./LICENSE)）。
+第三方依赖各自遵循其许可证，发布前请核实 `lib:pixivapi`（vendor 的 pixiv API 封装）与 `pixiv-login` 的条款。
 
 ---
 

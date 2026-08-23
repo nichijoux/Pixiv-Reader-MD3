@@ -66,9 +66,8 @@ Pushing a `v*` tag (e.g. `v1.2.3`) triggers GitHub Actions to build Release APKs
 
 ## License
 
-No open-source license has been added yet (**TBD**). Before publishing, please:
-1. Verify the licenses of `lib:pixivapi` (vendored pixiv API wrapper) and `pixiv-login`;
-2. If both are permissive (MIT/Apache-2.0), MIT is a good fit; if they cannot be confirmed, GPL-3.0 is safer to stay compatible with any upstream.
+This project is licensed under **GPL-2.0** (see [LICENSE](./LICENSE)).
+Third-party dependencies retain their own licenses; please verify the terms of `lib:pixivapi` (vendored pixiv API wrapper) and `pixiv-login` before publishing.
 
 ---
 
