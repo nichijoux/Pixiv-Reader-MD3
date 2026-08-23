@@ -10,6 +10,6 @@ import androidx.annotation.StringRes
  * 由 `core:ui RankingList` 消费，未来小说/插画排行榜直接复用。
  */
 data class RankingModeInfo(
-    @StringRes val labelRes: Int,
+    @param:StringRes val labelRes: Int,
     val value: String,
 )

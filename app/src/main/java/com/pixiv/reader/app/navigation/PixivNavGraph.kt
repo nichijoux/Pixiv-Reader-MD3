@@ -242,8 +242,7 @@ fun PixivNavGraph(
             route = ROUTE_ILLUST,
             arguments = listOf(navArgument("illustId") { type = NavType.LongType }),
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://illust/{illustId}" }),
-        ) { backStackEntry ->
-            val illustId = backStackEntry.arguments?.getLong("illustId") ?: 0L
+        ) { _ ->
             IllustDetailRoute(
                 onBack = { navController.safeBack() },
                 onOpenIllust = { id ->
@@ -336,8 +335,6 @@ fun PixivNavGraph(
             val type = backStackEntry.arguments?.getString("type") ?: "novel"
             val targetId = backStackEntry.arguments?.getLong("targetId") ?: 0L
             CommentListRoute(
-                type = type,
-                targetId = targetId,
                 onBack = { navController.safeBack() },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")

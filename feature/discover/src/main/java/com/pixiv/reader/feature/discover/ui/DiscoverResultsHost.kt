@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
@@ -21,11 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
-import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
@@ -73,11 +71,19 @@ internal fun SearchResultPager(
                 } else {
                     IllustSearchResults(viewModel, onOpenIllust, onOpenUser)
                 }
+
                 SearchType.NOVEL -> if (filters.sort == "popular_preview") {
                     HotNovelList(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
                 } else {
-                    NovelSearchResults(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
+                    NovelSearchResults(
+                        viewModel,
+                        onOpenNovel,
+                        onOpenCover,
+                        onOpenUser,
+                        onOpenSeries
+                    )
                 }
+
                 SearchType.USER -> UserSearchResults(viewModel, onOpenUser)
                 null -> {}
             }
@@ -130,7 +136,11 @@ private fun HotNovelList(
             NovelCard(
                 novel = novel.toCardData(),
                 onClick = { onOpenNovel(novel.id) },
-                onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
+                onOpenCover = {
+                    (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(
+                        onOpenCover
+                    )
+                },
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(novel.id, fav) },
                 onTagClick = { tag ->

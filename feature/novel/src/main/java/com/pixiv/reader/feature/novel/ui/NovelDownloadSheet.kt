@@ -14,6 +14,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.MenuBook
@@ -76,11 +79,36 @@ private data class DownloadFormatInfo(
 
 /** 五种导出格式。 */
 private val DOWNLOAD_FORMATS = listOf(
-    DownloadFormatInfo(NovelExportFormat.TXT, R.string.novel_download_txt_current, R.string.novel_download_txt_current_desc, Icons.Filled.Description),
-    DownloadFormatInfo(NovelExportFormat.EPUB, R.string.novel_download_epub_current, R.string.novel_download_epub_current_desc, Icons.Filled.MenuBook),
-    DownloadFormatInfo(NovelExportFormat.PDF, R.string.novel_download_pdf_current, R.string.novel_download_pdf_current_desc, Icons.Filled.PictureAsPdf),
-    DownloadFormatInfo(NovelExportFormat.MARKDOWN, R.string.novel_download_markdown_current, R.string.novel_download_markdown_current_desc, Icons.Filled.Notes),
-    DownloadFormatInfo(NovelExportFormat.DOCX, R.string.novel_download_docx_current, R.string.novel_download_docx_current_desc, Icons.Filled.Article),
+    DownloadFormatInfo(
+        NovelExportFormat.TXT,
+        R.string.novel_download_txt_current,
+        R.string.novel_download_txt_current_desc,
+        Icons.Filled.Description
+    ),
+    DownloadFormatInfo(
+        NovelExportFormat.EPUB,
+        R.string.novel_download_epub_current,
+        R.string.novel_download_epub_current_desc,
+        Icons.AutoMirrored.Filled.MenuBook
+    ),
+    DownloadFormatInfo(
+        NovelExportFormat.PDF,
+        R.string.novel_download_pdf_current,
+        R.string.novel_download_pdf_current_desc,
+        Icons.Filled.PictureAsPdf
+    ),
+    DownloadFormatInfo(
+        NovelExportFormat.MARKDOWN,
+        R.string.novel_download_markdown_current,
+        R.string.novel_download_markdown_current_desc,
+        Icons.AutoMirrored.Filled.Notes
+    ),
+    DownloadFormatInfo(
+        NovelExportFormat.DOCX,
+        R.string.novel_download_docx_current,
+        R.string.novel_download_docx_current_desc,
+        Icons.AutoMirrored.Filled.Article
+    ),
 )
 
 /**
@@ -143,7 +171,10 @@ internal fun DownloadSheet(
                         SegmentedButton(
                             selected = scope == s,
                             onClick = { scope = s },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = labels.size),
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = labels.size
+                            ),
                         ) {
                             Text(stringResource(labelRes))
                         }
@@ -153,7 +184,11 @@ internal fun DownloadSheet(
             // 部分下载：分册多选列表（限高可滚动，避免章节太多把下方导出格式挤出屏幕）
             if (isSeriesPage && scope == NovelDownloadScope.PARTIAL) {
                 Text(
-                    text = stringResource(R.string.novel_download_select_hint, selectedIds.size, partialChapters.size),
+                    text = stringResource(
+                        R.string.novel_download_select_hint,
+                        selectedIds.size,
+                        partialChapters.size
+                    ),
                     style = novelMetaStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -168,7 +203,8 @@ internal fun DownloadSheet(
                             novel = novel,
                             checked = novel.id in selectedIds,
                             onCheckedChange = { checked ->
-                                selectedIds = if (checked) selectedIds + novel.id else selectedIds - novel.id
+                                selectedIds =
+                                    if (checked) selectedIds + novel.id else selectedIds - novel.id
                             },
                         )
                     }
@@ -185,9 +221,23 @@ internal fun DownloadSheet(
                     enabled = !(scope == NovelDownloadScope.PARTIAL && selectedIds.isEmpty()),
                     onClick = {
                         when (scope) {
-                            NovelDownloadScope.SINGLE -> onFormat(info.format, NovelDownloadScope.SINGLE, emptyList())
-                            NovelDownloadScope.SERIES -> onFormat(info.format, NovelDownloadScope.SERIES, emptyList())
-                            NovelDownloadScope.PARTIAL -> onFormat(info.format, NovelDownloadScope.PARTIAL, selectedIds.toList())
+                            NovelDownloadScope.SINGLE -> onFormat(
+                                info.format,
+                                NovelDownloadScope.SINGLE,
+                                emptyList()
+                            )
+
+                            NovelDownloadScope.SERIES -> onFormat(
+                                info.format,
+                                NovelDownloadScope.SERIES,
+                                emptyList()
+                            )
+
+                            NovelDownloadScope.PARTIAL -> onFormat(
+                                info.format,
+                                NovelDownloadScope.PARTIAL,
+                                selectedIds.toList()
+                            )
                         }
                     },
                 )
@@ -229,7 +279,10 @@ private fun PartialChapterRow(
             )
             if ((novel.text_length ?: 0) > 0) {
                 Text(
-                    text = stringResource(R.string.novel_chapter_word, formatCountForNovel(novel.text_length ?: 0)),
+                    text = stringResource(
+                        R.string.novel_chapter_word,
+                        formatCountForNovel(novel.text_length ?: 0)
+                    ),
                     style = novelSmallLabelStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 1.dp),

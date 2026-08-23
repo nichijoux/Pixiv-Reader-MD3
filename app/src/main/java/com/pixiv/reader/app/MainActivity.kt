@@ -3,6 +3,7 @@ package com.pixiv.reader.app
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -45,10 +46,13 @@ import com.pixiv.reader.core.datastore.readAppLanguageSync
 import com.pixiv.reader.core.datastore.readOnboardingCompleteSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
+import com.pixiv.reader.core.network.update.AppUpdateChecker
+import com.pixiv.reader.core.network.update.AppUpdateVersion
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.NotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.NotificationType
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.feature.user.R as UserR
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -56,6 +60,8 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * 应用唯一 Activity：装配根导航 + 主题（UserPreferences.themeMode/dynamicColor 生效）。
@@ -78,12 +84,15 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var downloadCompletionNotifier: DownloadCompletionNotifier
 
+    @Inject
+    lateinit var updateChecker: AppUpdateChecker
+
     /**
      * 应用 i18n：在 Hilt 装配前同步读取应用语言设置，按需用 createConfigurationContext 覆盖资源配置；
      * 同时设置 [Locale.setDefault]（供纯函数格式化读取）与网络语言 holder [PixivLang]。
      * 跟随系统时不覆盖，沿用系统配置。
      */
-    override fun attachBaseContext(newBase: android.content.Context) {
+    override fun attachBaseContext(newBase: Context) {
         val lang = readAppLanguageSync(newBase)
         val locale = localeFor(lang)
         val effectiveLocale = locale ?: Locale.getDefault()
@@ -144,6 +153,28 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+            // 启动自动检查更新：开关（「我的」页-系统设置）开启时每进程冷启动静默查一次
+            // GitHub Release，有新版弹通知提示（点击打开 Release 页）；失败/已最新均静默不打扰。
+            LaunchedEffect(Unit) {
+                if (!userPreferences.autoUpdate.first()) return@LaunchedEffect
+                updateChecker.latestRelease().onSuccess { release ->
+                    val localVersion = packageManager.getPackageInfo(packageName, 0)
+                        .versionName.orEmpty()
+                    // release == null：仓库尚无发布（404）→ 静默视为无更新
+                    if (release != null && AppUpdateVersion.isNewer(localVersion, release.tagName)) {
+                        notificationHostState.show(
+                            text = getString(UserR.string.me_update_available_title, release.tagName),
+                            type = NotificationType.Info,
+                            actionText = getString(UserR.string.me_update_download),
+                            onAction = {
+                                runCatching {
+                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
+                                }
+                            },
+                        )
+                    }
+                }
+            }
             // 剪贴板 pixiv 链接检测：回前台（ON_RESUME）且已登录、设置开启时，读取剪贴板解析
             // pixiv URL → 弹「打开」提示，点击后才导航（避免复制旧链接被劫持）。
             // 三层触发保证冷启动不漏检（observer 注册可能晚于首次 ON_RESUME）：
@@ -165,7 +196,12 @@ class MainActivity : ComponentActivity() {
                     if (event == Lifecycle.Event.ON_RESUME &&
                         currentIsLoggedIn && currentClipboardPrompt
                     ) {
-                        checkClipboardLink(context, navController, notificationHostState, lastOpenedClip)
+                        checkClipboardLink(
+                            context,
+                            navController,
+                            notificationHostState,
+                            lastOpenedClip
+                        )
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -176,14 +212,24 @@ class MainActivity : ComponentActivity() {
                 if (isLoggedIn && clipboardLinkPrompt &&
                     lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
                 ) {
-                    checkClipboardLink(context, navController, notificationHostState, lastOpenedClip)
+                    checkClipboardLink(
+                        context,
+                        navController,
+                        notificationHostState,
+                        lastOpenedClip
+                    )
                 }
             }
             // ③ 冷启动兜底：延时补检一次（剪贴板未变不重复提示）
             LaunchedEffect(Unit) {
-                delay(800)
+                delay(800.milliseconds)
                 if (currentIsLoggedIn && currentClipboardPrompt) {
-                    checkClipboardLink(context, navController, notificationHostState, lastOpenedClip)
+                    checkClipboardLink(
+                        context,
+                        navController,
+                        notificationHostState,
+                        lastOpenedClip
+                    )
                 }
             }
             PixivReaderTheme(
@@ -201,11 +247,13 @@ class MainActivity : ComponentActivity() {
                     snackbarHost = {
                         NotificationHost(
                             notificationHostState,
-                            contentModifier = Modifier.navigationBarsPadding().padding(bottom = 8.dp),
+                            contentModifier = Modifier
+                                .navigationBarsPadding()
+                                .padding(bottom = 8.dp),
                         )
                     },
-                ) { _ ->
-                    Box(modifier = Modifier.fillMaxSize()) {
+                ) { padding ->
+                    Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                         PixivNavGraph(
                             isLoggedIn = isLoggedIn,
                             // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
@@ -279,7 +327,8 @@ private fun checkClipboardLink(
  * 部分 App 分享链接以 URI 项存在，其 uri 串本身即为链接，一并兜底。
  */
 private fun readClipboardText(context: Context): String? {
-    val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager) ?: return null
+    val clip =
+        (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager) ?: return null
     val items = clip.primaryClip ?: return null
     for (i in 0 until items.itemCount) {
         val item = items.getItemAt(i) ?: continue

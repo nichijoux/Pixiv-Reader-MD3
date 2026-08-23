@@ -24,13 +24,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
-import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -39,20 +36,22 @@ import com.pixiv.reader.feature.novel.R
 /** 操作区（内容区）：阅读主按钮（AutoStories 图标）+ 下载进度；四个竖排按钮固定在底部见 [NovelActionBar]。 */
 @Composable
 internal fun NovelActions(
-    novel: Novel,
-    progress: ReadingProgressEntity?,
     downloading: Boolean,
     downloadProgress: String?,
     onRead: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
-        val readLabel = if (progress != null && (progress.percentage ?: 0) > 0) {
-            stringResource(R.string.novel_continue_reading, progress.percentage)
-        } else {
-            stringResource(R.string.novel_start_reading)
-        }
-        Button(onClick = onRead, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-            Icon(Icons.Filled.AutoStories, contentDescription = null, modifier = Modifier.size(18.dp))
+        val readLabel = stringResource(R.string.novel_start_reading)
+        Button(
+            onClick = onRead, modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            Icon(
+                Icons.Filled.AutoStories,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
             Text(
                 text = readLabel,
                 style = novelReadButtonStyle(),
@@ -103,7 +102,9 @@ internal fun NovelActionBar(
         ) {
             VerticalActionButton(
                 icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                label = if (isBookmarked) stringResource(R.string.novel_bookmarked) else stringResource(R.string.novel_bookmark),
+                label = if (isBookmarked) stringResource(R.string.novel_bookmarked) else stringResource(
+                    R.string.novel_bookmark
+                ),
                 active = isBookmarked,
                 enabled = !isBookmarking,
                 onClick = onBookmark,
@@ -113,7 +114,9 @@ internal fun NovelActionBar(
             )
             VerticalActionButton(
                 icon = if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
-                label = if (isWatchlisted) stringResource(R.string.novel_watchlisted) else stringResource(R.string.novel_watch),
+                label = if (isWatchlisted) stringResource(R.string.novel_watchlisted) else stringResource(
+                    R.string.novel_watch
+                ),
                 active = isWatchlisted,
                 enabled = !isWatchlisting && seriesId != null && seriesId > 0L,
                 onClick = onWatchlist,

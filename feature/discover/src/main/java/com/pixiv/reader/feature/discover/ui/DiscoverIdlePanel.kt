@@ -62,17 +62,33 @@ internal fun IdlePanel(
             if (history.isNotEmpty()) {
                 item(key = "history_title") {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Filled.History,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
                         Text(
                             text = stringResource(R.string.search_history_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = 6.dp).weight(1f),
+                            modifier = Modifier
+                                .padding(start = 6.dp)
+                                .weight(1f),
                         )
-                        TextButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.search_history_clear), color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = {
+                            confirmClear = true
+                        }) {
+                            Text(
+                                stringResource(R.string.search_history_clear),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
                 // 历史胶囊：点击搜索、长按删除单条
@@ -91,7 +107,12 @@ internal fun IdlePanel(
                         }
                     }
                 }
-                item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp)) }
+                item {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
             }
             item(key = "hot_title") {
                 Text(

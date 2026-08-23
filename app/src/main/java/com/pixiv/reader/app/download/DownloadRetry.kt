@@ -25,6 +25,7 @@ fun retryDownload(context: Context, entry: DownloadEntryEntity) {
                 .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to entry.targetId))
                 .build(),
         )
+
         "novel" -> {
             val format = runCatching { NovelExportFormat.valueOf(entry.format) }
                 .getOrDefault(NovelExportFormat.TXT)

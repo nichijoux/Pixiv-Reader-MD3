@@ -41,7 +41,7 @@ class IllustViewModel @Inject constructor(
     private val ugoiraLoader: UgoiraLoader,
     private val browseHistoryDao: BrowseHistoryDao,
     private val favoriteActions: FavoriteActions,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
@@ -108,7 +108,12 @@ class IllustViewModel @Inject constructor(
                     if (ill.isGif()) loadUgoira()
                 }
                 .onFailure {
-                    _error.value = it.message?.let { m -> UiMessage(R.string.illust_error_load_failed_reason, listOf(m)) }
+                    _error.value = it.message?.let { m ->
+                        UiMessage(
+                            R.string.illust_error_load_failed_reason,
+                            listOf(m)
+                        )
+                    }
                         ?: UiMessage(R.string.illust_error_load_failed)
                 }
             _isLoading.value = false
@@ -126,7 +131,7 @@ class IllustViewModel @Inject constructor(
                     put("width", ill.width)
                     put("height", ill.height)
                     put("bookmarks", ill.total_bookmarks ?: 0)
-                    put("pageCount", ill.page_count ?: 0)
+                    put("pageCount", ill.page_count)
                     put("isBookmarked", ill.is_bookmarked == true)
                 }.toString()
                 browseHistoryDao.deleteByTarget("illust", ill.id)
@@ -166,17 +171,27 @@ class IllustViewModel @Inject constructor(
             }
                 .onSuccess {
                     _isAuthorFollowed.value = !current
-                    _message.send(if (!current) UiMessage(R.string.illust_msg_followed) else UiMessage(R.string.illust_msg_unfollowed))
+                    _message.send(
+                        if (!current) UiMessage(R.string.illust_msg_followed) else UiMessage(
+                            R.string.illust_msg_unfollowed
+                        )
+                    )
                 }
                 .onFailure {
-                    _message.send(UiMessage(R.string.illust_msg_action_failed, listOf(it.message ?: "")))
+                    _message.send(
+                        UiMessage(
+                            R.string.illust_msg_action_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
                 }
             _isAuthorFollowing.value = false
         }
     }
 
     /** 网页接口补齐每 P 真实宽高（app-api 不提供） */
-    private fun loadRealSizes() {        viewModelScope.launch {
+    private fun loadRealSizes() {
+        viewModelScope.launch {
             runCatching { pixivRepository.webApi.getIllustPages(illustId) }
                 .onSuccess { resp ->
                     val sizes = resp.body.orEmpty()
@@ -199,7 +214,8 @@ class IllustViewModel @Inject constructor(
     private fun loadUgoira() {
         viewModelScope.launch {
             _ugoiraProgress.value = 0f
-            _ugoiraFrames.value = ugoiraLoader.prepare(illustId) { p -> _ugoiraProgress.value = p }.orEmpty()
+            _ugoiraFrames.value =
+                ugoiraLoader.prepare(illustId) { p -> _ugoiraProgress.value = p }.orEmpty()
             _ugoiraProgress.value = null
         }
     }
@@ -224,7 +240,14 @@ class IllustViewModel @Inject constructor(
             val current = _isBookmarked.value
             favoriteActions.toggleIllustFavorite(illustId, !current)
                 .onSuccess { _isBookmarked.value = !current }
-                .onFailure { _message.send(UiMessage(R.string.illust_msg_action_failed, listOf(it.message ?: ""))) }
+                .onFailure {
+                    _message.send(
+                        UiMessage(
+                            R.string.illust_msg_action_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
+                }
             _isBookmarking.value = false
         }
     }

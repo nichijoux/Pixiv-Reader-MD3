@@ -63,7 +63,31 @@ internal data class DocxImage(
     val mime: String,
     val width: Int,
     val height: Int,
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as DocxImage
+
+        if (width != other.width) return false
+        if (height != other.height) return false
+        if (ref != other.ref) return false
+        if (!bytes.contentEquals(other.bytes)) return false
+        if (mime != other.mime) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = width
+        result = 31 * result + height
+        result = 31 * result + ref.hashCode()
+        result = 31 * result + bytes.contentHashCode()
+        result = 31 * result + mime.hashCode()
+        return result
+    }
+}
 
 /**
  * 从图片字节解析原始宽高（PNG/JPEG 文件头，纯 JVM 可测）；无法解析返回 null。
@@ -71,8 +95,8 @@ internal data class DocxImage(
  */
 internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
     val isPng = bytes.size >= 24 &&
-        bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() &&
-        bytes[2] == 'N'.code.toByte() && bytes[3] == 'G'.code.toByte()
+            bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() &&
+            bytes[2] == 'N'.code.toByte() && bytes[3] == 'G'.code.toByte()
     if (isPng) {
         // PNG: 8 字节签名 + IHDR 数据块（宽高 @16..23，big-endian）
         val w = bigEndian4(bytes, 16)
@@ -86,9 +110,9 @@ internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
 
 private fun bigEndian4(bytes: ByteArray, offset: Int): Int =
     ((bytes[offset].toInt() and 0xFF) shl 24) or
-        ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
-        ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
-        (bytes[offset + 3].toInt() and 0xFF)
+            ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
+            ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
+            (bytes[offset + 3].toInt() and 0xFF)
 
 /** JPEG：扫描段标记定位 SOF（宽高 @SOF+5/+7）。 */
 private fun jpegDimensions(bytes: ByteArray): Pair<Int, Int>? {
@@ -118,12 +142,13 @@ private fun jpegDimensions(bytes: ByteArray): Pair<Int, Int>? {
 }
 
 /** 图片 URL 推断 mime（pixiv 图片扩展名 jpg/png/webp）。 */
-internal fun mimeFromUrl(url: String): String = when (url.substringBefore('?').substringAfterLast('.', "").lowercase()) {
-    "png" -> "image/png"
-    "webp" -> "image/webp"
-    "gif" -> "image/gif"
-    else -> "image/jpeg" // jpg/jpeg 及未知一律按 jpeg 尝试
-}
+internal fun mimeFromUrl(url: String): String =
+    when (url.substringBefore('?').substringAfterLast('.', "").lowercase()) {
+        "png" -> "image/png"
+        "webp" -> "image/webp"
+        "gif" -> "image/gif"
+        else -> "image/jpeg" // jpg/jpeg 及未知一律按 jpeg 尝试
+    }
 
 // ── TXT ─────────────────────────────────────────────────────────────────────
 
@@ -214,7 +239,11 @@ internal fun buildMarkdown(
                         val img = images.getOrNull(imgIdx)
                         imgIdx++
                         if (img != null) {
-                            appendLine("![插图](data:${img.mime};base64,${java.util.Base64.getEncoder().encodeToString(img.bytes)})")
+                            appendLine(
+                                "![插图](data:${img.mime};base64,${
+                                    java.util.Base64.getEncoder().encodeToString(img.bytes)
+                                })"
+                            )
                         }
                     }
 
@@ -254,6 +283,7 @@ internal fun buildDocx(
             }
         }
     }
+
     val body = buildString {
         val first = chapters.first().first
         append(docxTitle(seriesTitle ?: first.title.orEmpty()))
@@ -288,8 +318,9 @@ internal fun buildDocx(
  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>$body</w:body></w:document>"""
     // 动态 content-types（图片扩展名 Default）与 rels（image relationships）
-    val imageExtTypes = images.map { it.ref.substringAfterLast('.', "") to it.mime }.distinctBy { it.first }
-        .joinToString("") { (ext, mime) -> """<Default Extension="$ext" ContentType="$mime"/>""" }
+    val imageExtTypes =
+        images.map { it.ref.substringAfterLast('.', "") to it.mime }.distinctBy { it.first }
+            .joinToString("") { (ext, mime) -> """<Default Extension="$ext" ContentType="$mime"/>""" }
     val contentTypes = DOCX_CONTENT_TYPES.replace(
         "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>",
         "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>$imageExtTypes"
@@ -328,13 +359,13 @@ internal fun docxImage(img: DocxImage, relId: String): String {
     val cy = (img.height * pxToEmu * scale).toLong().coerceAtLeast(1L)
     val id = img.ref.substringAfter("image").substringBefore(".")
     return """<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">""" +
-        """<wp:extent cx="$cx" cy="$cy"/><wp:docPr id="$id" name="${img.ref}"/>""" +
-        """<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">""" +
-        """<pic:pic><pic:nvPicPr><pic:cNvPr id="$id" name="${img.ref}"/><pic:cNvPicPr/></pic:nvPicPr>""" +
-        """<pic:blipFill><a:blip r:embed="$relId"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>""" +
-        """<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm>""" +
-        """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>""" +
-        """</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"""
+            """<wp:extent cx="$cx" cy="$cy"/><wp:docPr id="$id" name="${img.ref}"/>""" +
+            """<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">""" +
+            """<pic:pic><pic:nvPicPr><pic:cNvPr id="$id" name="${img.ref}"/><pic:cNvPicPr/></pic:nvPicPr>""" +
+            """<pic:blipFill><a:blip r:embed="$relId"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>""" +
+            """<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm>""" +
+            """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>""" +
+            """</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"""
 }
 
 /** 书名段落：Word Title 样式（居中大标题，不进导航目录）。 */
@@ -657,7 +688,7 @@ internal fun buildChapterXhtml(
     val body = buildString {
         append("<h1 class=\"Title-center\">")
         if (showBadge) {
-            append("<span class=\"Title-num\">${escapeXml(chapterNum!!)}</span><br/>")
+            append("<span class=\"Title-num\">${escapeXml(chapterNum)}</span><br/>")
         }
         append("<span class=\"Title-text\">${escapeXml(if (showBadge) chapterText else rawTitle)}</span>")
         append("</h1>\n")

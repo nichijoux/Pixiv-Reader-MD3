@@ -64,9 +64,10 @@ class FollowViewModel @Inject constructor(
         )
 
     /** 左列用户（按设置排序；分页追加后自动重排）。 */
-    val users: StateFlow<List<UserPreview>> = combine(usersPaged.items, followSortMode) { list, mode ->
-        FollowUserSorter.sort(list, mode)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val users: StateFlow<List<UserPreview>> =
+        combine(usersPaged.items, followSortMode) { list, mode ->
+            FollowUserSorter.sort(list, mode)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** 全部模式：关注新作品流。 */
     val illustPaged = PagedState<Illust>()
@@ -145,18 +146,36 @@ class FollowViewModel @Inject constructor(
         viewModelScope.launch {
             _contentLoading.value = true
             coroutineScope {
-                launch { runCatching { usersPaged.loadInitial(
-                    fetch = { pixivRepository.api.getFollowingUsers(loggedInUid, "public", null) },
-                    fetchNext = { pixivRepository.api.getNextUsers(it) },
-                ) } }
-                launch { runCatching { illustPaged.loadInitial(
-                    fetch = { pixivRepository.api.getFollowingIllusts("all") },
-                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                ) } }
-                launch { runCatching { novelPaged.loadInitial(
-                    fetch = { pixivRepository.api.getFollowingNovels("all") },
-                    fetchNext = { pixivRepository.api.getNextNovels(it) },
-                ) } }
+                launch {
+                    runCatching {
+                        usersPaged.loadInitial(
+                            fetch = {
+                                pixivRepository.api.getFollowingUsers(
+                                    loggedInUid,
+                                    "public",
+                                    null
+                                )
+                            },
+                            fetchNext = { pixivRepository.api.getNextUsers(it) },
+                        )
+                    }
+                }
+                launch {
+                    runCatching {
+                        illustPaged.loadInitial(
+                            fetch = { pixivRepository.api.getFollowingIllusts("all") },
+                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                        )
+                    }
+                }
+                launch {
+                    runCatching {
+                        novelPaged.loadInitial(
+                            fetch = { pixivRepository.api.getFollowingNovels("all") },
+                            fetchNext = { pixivRepository.api.getNextNovels(it) },
+                        )
+                    }
+                }
             }
             _contentLoading.value = false
         }
@@ -170,16 +189,24 @@ class FollowViewModel @Inject constructor(
                 _contentLoading.value = true
                 coroutineScope {
                     if (illustPaged.items.value.isEmpty() && illustPaged.error.value != null) {
-                        launch { runCatching { illustPaged.loadInitial(
-                            fetch = { pixivRepository.api.getFollowingIllusts("all") },
-                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                        ) } }
+                        launch {
+                            runCatching {
+                                illustPaged.loadInitial(
+                                    fetch = { pixivRepository.api.getFollowingIllusts("all") },
+                                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                                )
+                            }
+                        }
                     }
                     if (novelPaged.items.value.isEmpty() && novelPaged.error.value != null) {
-                        launch { runCatching { novelPaged.loadInitial(
-                            fetch = { pixivRepository.api.getFollowingNovels("all") },
-                            fetchNext = { pixivRepository.api.getNextNovels(it) },
-                        ) } }
+                        launch {
+                            runCatching {
+                                novelPaged.loadInitial(
+                                    fetch = { pixivRepository.api.getFollowingNovels("all") },
+                                    fetchNext = { pixivRepository.api.getNextNovels(it) },
+                                )
+                            }
+                        }
                     }
                 }
                 _contentLoading.value = false
@@ -276,7 +303,7 @@ class FollowViewModel @Inject constructor(
             val candidates = listOf(userIllustPaged, userMangaPaged, userNovelPaged)
             viewModelScope.launch {
                 val side = (userLoadSide + candidates.size) % candidates.size
-                for (i in 0 until candidates.size) {
+                for (i in candidates.indices) {
                     val paged = candidates[(side + i) % candidates.size]
                     if (paged.hasMore.value) {
                         paged.loadMore()

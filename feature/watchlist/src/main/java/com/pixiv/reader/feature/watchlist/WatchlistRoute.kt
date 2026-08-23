@@ -2,13 +2,11 @@ package com.pixiv.reader.feature.watchlist
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,12 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.WatchlistSeries
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
-import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 
 /**
  * 追更（P5）：已追更的小说系列列表。
@@ -70,7 +66,10 @@ fun WatchlistRoute(
                 title = { Text(stringResource(R.string.watchlist_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -83,7 +82,11 @@ fun WatchlistRoute(
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             when {
                 isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
+                error != null && items.isEmpty() -> ErrorBox(
+                    message = error.orEmpty(),
+                    onRetry = viewModel::load
+                )
+
                 items.isEmpty() -> EmptyBox(stringResource(R.string.watchlist_empty))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -97,7 +100,10 @@ fun WatchlistRoute(
                     }
                     if (hasMore) {
                         item(key = "load_more") {
-                            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
+                            LoadMoreItem(
+                                isLoadingMore = isLoadingMore,
+                                onLoadMore = viewModel::loadMore
+                            )
                         }
                     }
                 }
@@ -148,7 +154,10 @@ private fun WatchlistRow(
                     )
                 }
                 Text(
-                    text = stringResource(R.string.watchlist_chapters, series.published_content_count),
+                    text = stringResource(
+                        R.string.watchlist_chapters,
+                        series.published_content_count
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

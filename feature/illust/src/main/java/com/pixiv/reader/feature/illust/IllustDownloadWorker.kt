@@ -7,10 +7,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.network.download.DownloadWorkerEntryPoint
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
-import com.pixiv.reader.core.network.download.DownloadWorkerEntryPoint
-import com.pixiv.reader.feature.illust.R
 import dagger.hilt.android.EntryPointAccessors
 import java.io.File
 
@@ -31,7 +30,10 @@ class IllustDownloadWorker(
         val pageIndex = inputData.getLong(KEY_PAGE_INDEX, -1L)
         if (illustId <= 0L) return Result.failure()
         // 手动取依赖（EntryPoint 聚合由 Hilt 生成，确保可用）
-        val entryPoint = EntryPointAccessors.fromApplication(applicationContext, DownloadWorkerEntryPoint::class.java)
+        val entryPoint = EntryPointAccessors.fromApplication(
+            applicationContext,
+            DownloadWorkerEntryPoint::class.java
+        )
         val pixivRepository = entryPoint.pixivRepository()
         val pageDownloader = entryPoint.illustPageDownloader()
         val downloadEntryDao = entryPoint.downloadEntryDao()
@@ -47,13 +49,30 @@ class IllustDownloadWorker(
                 )
             } else {
                 pages.forEachIndexed { index, page ->
-                    downloadPage(downloadEntryDao, pageDownloader, illust, page, index, pages.size, single = false)
+                    downloadPage(
+                        downloadEntryDao,
+                        pageDownloader,
+                        illust,
+                        page,
+                        index,
+                        pages.size,
+                        single = false
+                    )
                 }
             }
             Result.success()
         } catch (e: Exception) {
             Log.w(TAG, "插画下载失败 illustId=$illustId", e)
-            runCatching { upsert(downloadEntryDao, illustId, status = "failed", progress = 0, localPath = null, pageCount = 0) }
+            runCatching {
+                upsert(
+                    downloadEntryDao,
+                    illustId,
+                    status = "failed",
+                    progress = 0,
+                    localPath = null,
+                    pageCount = 0
+                )
+            }
             // 有限重试：临时网络失败自动重跑（断点续传补缺失页，成本低），
             // 超限转 failure——避免后台无限重试（耗流量/电）且永不出错通知。
             if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
@@ -73,15 +92,21 @@ class IllustDownloadWorker(
         single: Boolean,
     ) {
         val url = page.originalUrl ?: page.displayUrl
-            ?: error(applicationContext.getString(R.string.illust_error_page_no_image))
+        ?: error(applicationContext.getString(R.string.illust_error_page_no_image))
         // 子路径下载到 Downloads/pixiv_{id}/p_{n}.jpg（共享下载器自动建目录）
-        val dir = File(applicationContext.filesDir, "Downloads/pixiv_${illust.id}").apply { mkdirs() }
+        val dir =
+            File(applicationContext.filesDir, "Downloads/pixiv_${illust.id}").apply { mkdirs() }
         // 页加权进度：基值 = 已完页占比，跨度 = 当前页占比
         val base = if (single) 0 else (index * 100) / total
         val span = if (single) 100 else 100 / total
 
         upsert(
-            dao, illust.id, status = "downloading", progress = base, localPath = dir.path, pageCount = total,
+            dao,
+            illust.id,
+            status = "downloading",
+            progress = base,
+            localPath = dir.path,
+            pageCount = total,
             title = illust.title.orEmpty(),
             coverUrl = illust.image_urls?.medium ?: illust.image_urls?.square_medium,
             // 首次写入即带作品宽高：下载中卡片按真实比例完整显示（避免回退固定高度）
@@ -92,7 +117,8 @@ class IllustDownloadWorker(
         var lastWritten = base
         // 共享下载器：正式文件已完整 → 直接成功跳过；否则下载 .part（存在则 Range 续传）并 rename
         pageDownloader.downloadPage(illust.id, index, url, onProgress = { done, totalBytes ->
-            val pagePct = if (totalBytes > 0) ((done * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
+            val pagePct =
+                if (totalBytes > 0) ((done * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
             val overall = (base + pagePct * span / 100).coerceIn(0, 100)
             if (overall - lastWritten >= 1) {
                 lastWritten = overall
@@ -164,7 +190,7 @@ class IllustDownloadWorker(
         put("width", illust.width)
         put("height", illust.height)
         put("bookmarks", illust.total_bookmarks ?: 0)
-        put("pageCount", illust.page_count ?: 0)
+        put("pageCount", illust.page_count)
         put("isBookmarked", illust.is_bookmarked == true)
     }.toString()
 

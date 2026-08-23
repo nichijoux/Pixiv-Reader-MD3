@@ -1,4 +1,5 @@
 package com.pixiv.reader.core.ui.component.grid
+
 import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 
@@ -56,7 +57,12 @@ fun IllustWaterfallGrid(
     hasMore: Boolean,
     isLoadingMore: Boolean,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = 96.dp),
+    contentPadding: PaddingValues = PaddingValues(
+        start = Spacing.md,
+        end = Spacing.md,
+        top = Spacing.sm,
+        bottom = 96.dp
+    ),
     minColumnWidth: Dp = 140.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
     onOpenUser: ((Long) -> Unit)? = null,
@@ -86,7 +92,7 @@ fun IllustWaterfallGrid(
                 coverHeight = coverHeight,
                 onToggleFavorite = onToggleFavorite?.let { cb -> { fav -> cb(illust.id, fav) } },
                 onOpenAuthor = onOpenUser?.let { cb ->
-                    { illust.user?.id?.let(cb); Unit }
+                    { illust.user?.id?.let(cb); }
                 } ?: {},
                 ugoiraLoader = ugoiraLoader,
                 modifier = Modifier.fillMaxWidth(),

@@ -74,7 +74,4 @@ class SessionRepository @Inject constructor(
         pixivApi.session.logout()
         _isLoggedIn.value = false
     }
-
-    /** 会话被服务端吊销（Invalid refresh token）时由回调触发 */
-    fun forceLogout() = logout()
 }

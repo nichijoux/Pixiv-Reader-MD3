@@ -12,7 +12,7 @@ enum class MessageType { INFO, SUCCESS, ERROR }
  * NotificationHost，并按 [type] 映射通知类型（成功/失败用对应图标与语义色）。
  */
 data class UiMessage(
-    @StringRes val res: Int,
+    @param:StringRes val res: Int,
     val args: List<Any> = emptyList(),
     val type: MessageType = MessageType.INFO,
 )

@@ -43,10 +43,19 @@ class DownloadCompletionNotifier @Inject constructor(
                 if (before != null && before != "done" && before != "failed") {
                     when (e.status) {
                         "done" -> _events.tryEmit(
-                            UiMessage(R.string.download_complete, listOf(e.title.orEmpty()), type = MessageType.SUCCESS),
+                            UiMessage(
+                                R.string.download_complete,
+                                listOf(e.title.orEmpty()),
+                                type = MessageType.SUCCESS
+                            ),
                         )
+
                         "failed" -> _events.tryEmit(
-                            UiMessage(R.string.download_failed, listOf(e.title.orEmpty()), type = MessageType.ERROR),
+                            UiMessage(
+                                R.string.download_failed,
+                                listOf(e.title.orEmpty()),
+                                type = MessageType.ERROR
+                            ),
                         )
                     }
                 }

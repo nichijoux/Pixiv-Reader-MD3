@@ -44,7 +44,11 @@ private const val SEARCH_BAR_KEY = "search_bar"
 private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
     AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
     AdaptiveNavItem("manga_tab", stringResource(R.string.main_tab_manga), Icons.Filled.Collections),
-    AdaptiveNavItem("novel_tab", stringResource(R.string.main_tab_novel), Icons.AutoMirrored.Filled.MenuBook),
+    AdaptiveNavItem(
+        "novel_tab",
+        stringResource(R.string.main_tab_novel),
+        Icons.AutoMirrored.Filled.MenuBook
+    ),
     AdaptiveNavItem("follow_tab", stringResource(R.string.main_tab_follow), Icons.Filled.Favorite),
     AdaptiveNavItem("me_tab", stringResource(R.string.main_tab_me), Icons.Filled.Person),
 )
@@ -120,101 +124,107 @@ fun MainShell(
             // 发现页全屏化：隐藏底栏（由首页搜索框进入，返回走系统返回键）
             showBottomBar = currentRoute != "discover_tab",
         ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = "home_tab",
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            // 首页：退出淡出；搜索框标共享元素（与发现页搜索栏配对 hero）
-            composable(
-                route = "home_tab",
-                exitTransition = { fadeOut(animationSpec = tween(160)) },
+            NavHost(
+                navController = navController,
+                startDestination = "home_tab",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
             ) {
-                val animatedScope = this
-                with(heroScope) {
-                    val searchBarState = rememberSharedContentState(SEARCH_BAR_KEY)
-                    HomeRoute(
-                        onOpenSearch = {
-                            navigateToTab("discover_tab")
-                        },
+                // 首页：退出淡出；搜索框标共享元素（与发现页搜索栏配对 hero）
+                composable(
+                    route = "home_tab",
+                    exitTransition = { fadeOut(animationSpec = tween(160)) },
+                ) {
+                    val animatedScope = this
+                    with(heroScope) {
+                        val searchBarState = rememberSharedContentState(SEARCH_BAR_KEY)
+                        HomeRoute(
+                            onOpenSearch = {
+                                navigateToTab("discover_tab")
+                            },
+                            onSearchTag = { tag ->
+                                pendingSearch = tag
+                                navigateToTab("discover_tab")
+                            },
+                            modifier = Modifier.sharedElement(
+                                searchBarState,
+                                animatedScope
+                            ),
+                            onOpenIllust = onOpenIllust,
+                            onOpenUser = onOpenUser,
+                        )
+                    }
+                }
+                composable("follow_tab") {
+                    FollowRoute(
+                        onOpenIllust = onOpenIllust,
+                        onOpenNovel = onOpenNovel,
+                        onOpenUser = onOpenUser,
+                        onOpenCover = onOpenCover,
+                        onOpenSeries = onOpenSeries,
+                    )
+                }
+                // 发现页：首页搜索框 / 跨 Tab 标签 / main?search 深链进入。
+                // 进入动画 pivot 对齐首页搜索框位置（顶部 ~8% 高度）——从搜索框放大上移展开成搜索页，
+                // 视觉连续（「搜索栏上移变成搜索页搜索栏」）；返回时同 pivot 收缩。
+                // 发现页：首页搜索框（hero）/ 跨 Tab 标签 / main?search 深链进入。
+                // 过渡纯淡入淡出——搜索栏形态/位移动画由官方共享元素承担
+                composable(
+                    route = "discover_tab",
+                    enterTransition = { fadeIn(animationSpec = tween(220)) },
+                    exitTransition = { fadeOut(animationSpec = tween(180)) },
+                ) {
+                    val animatedScope = this
+                    with(heroScope) {
+                        val searchFieldState = rememberSharedContentState(SEARCH_BAR_KEY)
+                        DiscoverRoute(
+                            onOpenIllust = onOpenIllust,
+                            onOpenNovel = onOpenNovel,
+                            onOpenCover = onOpenCover,
+                            onOpenUser = onOpenUser,
+                            onOpenSeries = onOpenSeries,
+                            initialQuery = pendingSearch?.also { pendingSearch = null },
+                            modifier = Modifier.sharedElement(
+                                searchFieldState,
+                                animatedScope
+                            ),
+                        )
+                    }
+                }
+                composable("manga_tab") {
+                    MangaRoute(
+                        onOpenIllust = onOpenIllust,
+                        onOpenMangaRanking = onOpenMangaRanking,
+                        onOpenIllustRanking = onOpenIllustRanking,
+                        onOpenUser = onOpenUser,
+                    )
+                }
+                composable("novel_tab") {
+                    NovelRoute(
+                        onOpenNovel = onOpenNovel,
+                        onOpenCover = onOpenCover,
+                        onOpenUser = onOpenUser,
+                        onOpenNovelRanking = onOpenNovelRanking,
+                        onOpenSeries = onOpenSeries,
                         onSearchTag = { tag ->
                             pendingSearch = tag
                             navigateToTab("discover_tab")
                         },
-                        searchBarModifier = Modifier.sharedElement(searchBarState, animatedScope),
-                        onOpenIllust = onOpenIllust,
+                    )
+                }
+                composable("me_tab") {
+                    MeRoute(
+                        onLogout = onLogout,
+                        onOpenHistory = onOpenHistory,
+                        onOpenBookmarks = onOpenBookmarks,
+                        onOpenWatchlist = onOpenWatchlist,
+                        onOpenBlocked = onOpenBlocked,
+                        onOpenDownloads = onOpenDownloads,
                         onOpenUser = onOpenUser,
                     )
                 }
             }
-            composable("follow_tab") {
-                FollowRoute(
-                    onOpenIllust = onOpenIllust,
-                    onOpenNovel = onOpenNovel,
-                    onOpenUser = onOpenUser,
-                    onOpenCover = onOpenCover,
-                    onOpenSeries = onOpenSeries,
-                )
-            }
-            // 发现页：首页搜索框 / 跨 Tab 标签 / main?search 深链进入。
-            // 进入动画 pivot 对齐首页搜索框位置（顶部 ~8% 高度）——从搜索框放大上移展开成搜索页，
-            // 视觉连续（「搜索栏上移变成搜索页搜索栏」）；返回时同 pivot 收缩。
-            // 发现页：首页搜索框（hero）/ 跨 Tab 标签 / main?search 深链进入。
-            // 过渡纯淡入淡出——搜索栏形态/位移动画由官方共享元素承担
-            composable(
-                route = "discover_tab",
-                enterTransition = { fadeIn(animationSpec = tween(220)) },
-                exitTransition = { fadeOut(animationSpec = tween(180)) },
-            ) {
-                val animatedScope = this
-                with(heroScope) {
-                    val searchFieldState = rememberSharedContentState(SEARCH_BAR_KEY)
-                    DiscoverRoute(
-                        onOpenIllust = onOpenIllust,
-                        onOpenNovel = onOpenNovel,
-                        onOpenCover = onOpenCover,
-                        onOpenUser = onOpenUser,
-                        onOpenSeries = onOpenSeries,
-                        initialQuery = pendingSearch?.also { pendingSearch = null },
-                        searchFieldModifier = Modifier.sharedElement(searchFieldState, animatedScope),
-                    )
-                }
-            }
-            composable("manga_tab") {
-                MangaRoute(
-                    onOpenIllust = onOpenIllust,
-                    onOpenMangaRanking = onOpenMangaRanking,
-                    onOpenIllustRanking = onOpenIllustRanking,
-                    onOpenUser = onOpenUser,
-                )
-            }
-            composable("novel_tab") {
-                NovelRoute(
-                    onOpenNovel = onOpenNovel,
-                    onOpenCover = onOpenCover,
-                    onOpenUser = onOpenUser,
-                    onOpenNovelRanking = onOpenNovelRanking,
-                    onOpenSeries = onOpenSeries,
-                    onSearchTag = { tag ->
-                        pendingSearch = tag
-                        navigateToTab("discover_tab")
-                    },
-                )
-            }
-            composable("me_tab") {
-                MeRoute(
-                    onLogout = onLogout,
-                    onOpenHistory = onOpenHistory,
-                    onOpenBookmarks = onOpenBookmarks,
-                    onOpenWatchlist = onOpenWatchlist,
-                    onOpenBlocked = onOpenBlocked,
-                    onOpenDownloads = onOpenDownloads,
-                    onOpenUser = onOpenUser,
-                )
-            }
-        }
         }
     }
 }

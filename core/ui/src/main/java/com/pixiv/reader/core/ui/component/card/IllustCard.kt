@@ -1,4 +1,5 @@
 package com.pixiv.reader.core.ui.component.card
+import android.annotation.SuppressLint
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraCardPlayer
 
@@ -79,6 +80,8 @@ import kotlin.math.roundToInt
  * @param progress 下载进度 0~1；非 null 时信息区标题栏显示进度条代替标题（下载管理用）
  * @param failed 下载失败标记（配合 [progress]：进度条与文案变红色）
  */
+// scope 实际用到了（maxWidth 作为 ugoira 解码上限），IDE 误报"scope 未使用"
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun IllustCard(
     illust: Illust,
@@ -103,7 +106,8 @@ fun IllustCard(
         // ── 封面区（Box 内浮层用 align 定位） ──
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             // 封面宽度（px）：动图帧采样解码上限（避免解码 zip 原图尺寸浪费内存）
-            val coverMaxSize = with(LocalDensity.current) { maxWidth.roundToPx() }
+            val coverWidth = maxWidth
+            val coverMaxSize = with(LocalDensity.current) { coverWidth.roundToPx() }
             // 封面：有宽高比按原比例完整显示，否则回退固定高度
             val ratio = if (illust.width > 0 && illust.height > 0) {
                 illust.width.toFloat() / illust.height.toFloat()

@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.illust
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -54,8 +55,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -79,24 +80,23 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.pixiv.api.model.Illust
-import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.common.format.formatCount
+import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
-import com.pixiv.reader.core.ui.component.image.PixivImage
-import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
-import com.pixiv.reader.core.ui.component.card.UserAvatar
-import com.pixiv.reader.core.ui.component.input.VerticalActionButton
-import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
+import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
+import com.pixiv.reader.core.ui.component.input.VerticalActionButton
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,13 +120,20 @@ fun IllustDetailRoute(
     val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
     val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
 
-    var currentPage by remember { mutableStateOf(0) }
+    var currentPage by remember { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType()) }
+        viewModel.message.collect { msg ->
+            notificationHostState.show(
+                context.getString(
+                    msg.res,
+                    *msg.args.toTypedArray()
+                ), type = msg.type.toNotificationType()
+            )
+        }
     }
 
     Scaffold(
@@ -134,12 +141,20 @@ fun IllustDetailRoute(
             TopAppBar(
                 title = { Text(stringResource(R.string.illust_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.illust_cd_back)) }
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.illust_cd_back)
+                        )
+                    }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.illust_cd_more))
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.illust_cd_more)
+                            )
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
@@ -147,7 +162,12 @@ fun IllustDetailRoute(
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.illust_menu_download_original)) },
-                                leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Download,
+                                        contentDescription = null
+                                    )
+                                },
                                 onClick = { menuExpanded = false; viewModel.download() },
                             )
                             DropdownMenuItem(
@@ -226,11 +246,11 @@ fun IllustDetailRoute(
                     onRetry = viewModel::load,
                     modifier = Modifier.padding(padding),
                 )
+
                 else -> TwoPaneContent(
                     modifier = Modifier.padding(padding),
                     illust = illust,
                     pages = pages,
-                    currentPage = currentPage,
                     onPageChange = { currentPage = it },
                     onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
                     onOpenUser = onOpenUser,
@@ -247,7 +267,13 @@ fun IllustDetailRoute(
             AdaptiveContentBox(modifier = Modifier.padding(padding)) {
                 when {
                     isLoading && illust == null -> LoadingBox()
-                    error != null && illust == null -> ErrorBox(message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }, onRetry = viewModel::load)
+                    error != null && illust == null -> ErrorBox(message = error?.let {
+                        stringResource(
+                            it.res,
+                            *it.args.toTypedArray()
+                        )
+                    }, onRetry = viewModel::load)
+
                     else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         if (pages.isNotEmpty()) {
                             item(key = "pager") {
@@ -285,7 +311,6 @@ private fun TwoPaneContent(
     modifier: Modifier,
     illust: Illust?,
     pages: List<IllustPageInfo>,
-    currentPage: Int,
     onPageChange: (Int) -> Unit,
     onOpenViewer: (Int) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -334,6 +359,7 @@ private fun TwoPaneContent(
  *   叠加 [UgoiraPlayer] 播放动画——静态封面 AsyncImage 保留（量比例 + 帧未就绪兜底显示）
  * @param ugoiraProgress 动图 zip 下载进度 0..1；非 null 且帧未就绪时首页叠加转圈 + 百分比
  */
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 private fun PagePager(
     pages: List<IllustPageInfo>,
@@ -396,7 +422,8 @@ private fun PagePager(
                                 // Coil 2.7：State.Success.result 是 SuccessResult，含 drawable
                                 val d = res.result.drawable
                                 if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
-                                    imageRatio = d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+                                    imageRatio =
+                                        d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
                                 }
                                 loadDone = true
                             },
@@ -406,7 +433,8 @@ private fun PagePager(
                         if (index == 0) {
                             when {
                                 ugoiraFrames.isNotEmpty() -> {
-                                    val maxDecodeSize = with(LocalDensity.current) { pagerMaxWidth.roundToPx() }
+                                    val maxDecodeSize =
+                                        with(LocalDensity.current) { pagerMaxWidth.roundToPx() }
                                     UgoiraPlayer(
                                         frames = ugoiraFrames,
                                         modifier = Modifier.fillMaxSize(),
@@ -414,6 +442,7 @@ private fun PagePager(
                                         contentScale = ContentScale.Fit,
                                     )
                                 }
+
                                 ugoiraProgress != null -> {
                                     // zip 下载中：半透明黑底 + 转圈 + 百分比（帧就绪后切换播放）
                                     Box(
@@ -465,7 +494,9 @@ private fun PagePager(
             }
             // 页码 + 全屏入口（统一 32dp 高胶囊，视觉一致）
             Row(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -568,7 +599,7 @@ private fun InfoSection(
             )
             StatBlock(
                 icon = Icons.Filled.Collections,
-                value = "${illust.page_count ?: 0}P",
+                value = "${illust.page_count}P",
                 label = stringResource(R.string.illust_stat_pages),
                 modifier = Modifier.weight(1f),
             )
@@ -713,7 +744,11 @@ private fun AuthorFollowPill(
 private fun RelatedSection(viewModel: IllustViewModel, onOpenIllust: (Long) -> Unit) {
     val items by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(stringResource(R.string.illust_section_related), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(R.string.illust_section_related),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
         Spacer(Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(items, key = { it.id }) { related ->
@@ -728,7 +763,9 @@ private fun RelatedSection(viewModel: IllustViewModel, onOpenIllust: (Long) -> U
                         url = related.image_urls?.medium ?: related.image_urls?.square_medium,
                         contentDescription = related.title,
                         // 固定 4:3 比例（非正方形、非真实宽高）
-                        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(4f / 3f),
                         contentScale = ContentScale.Crop,
                     )
                     Text(

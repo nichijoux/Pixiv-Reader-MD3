@@ -1,5 +1,6 @@
 package com.pixiv.reader.core.ui.component.feedback
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -121,6 +122,7 @@ fun rememberNotificationHostState(): NotificationHostState = remember { Notifica
  *   注意：必须作用于卡片而不是宿主——若加在 [modifier] 上，即使没有通知（内容收起）宿主也会占位
  *   非零高度，在 Scaffold snackbar 槽中会残留底部空白。
  */
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun NotificationHost(
     state: NotificationHostState,

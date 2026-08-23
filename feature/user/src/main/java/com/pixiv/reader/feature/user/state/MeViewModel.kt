@@ -13,6 +13,9 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.session.SessionRepository
+import com.pixiv.reader.core.network.update.AppRelease
+import com.pixiv.reader.core.network.update.AppUpdateChecker
+import com.pixiv.reader.core.network.update.AppUpdateVersion
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,6 +39,7 @@ class MeViewModel @Inject constructor(
     @ApplicationContext context: Context,
     sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
+    private val updateChecker: AppUpdateChecker,
 ) : ViewModel() {
 
     private val appContext: Context = context.applicationContext
@@ -49,6 +53,10 @@ class MeViewModel @Inject constructor(
     val versionName: String = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     }.getOrDefault("")
+
+    /** 远程最新 Release（非 null 时「我的」页显示更新对话框）。 */
+    private val _updateDialog = MutableStateFlow<AppRelease?>(null)
+    val updateDialog: StateFlow<AppRelease?> = _updateDialog.asStateFlow()
 
     /** 屏蔽标签（本地偏好，用于推荐/搜索过滤）。 */
     val mutedTags: StateFlow<List<String>> =
@@ -180,9 +188,35 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setFollowSortMode(value) }
     }
 
-    /** 检查更新（暂为占位：无发布渠道，提示已是最新）。TODO：接入远程版本检查 */
-    fun checkUpdate() {
-        viewModelScope.launch { _message.send(UiMessage(R.string.me_already_latest)) }
+    /**
+     * 检查更新：拉取 GitHub Releases 最新发布并与本地 versionName 语义化比较。
+     *
+     * @param auto true=启动自动检查（已最新或失败时静默不打扰）；false=手动点击（三态全反馈）
+     */
+    fun checkUpdate(auto: Boolean = false) {
+        viewModelScope.launch {
+            updateChecker.latestRelease()
+                .onSuccess { release ->
+                    // release == null：仓库尚无发布（404），与"已最新"同路径提示
+                    if (release != null && AppUpdateVersion.isNewer(versionName, release.tagName)) {
+                        _updateDialog.value = release
+                    } else if (!auto) {
+                        _message.send(UiMessage(R.string.me_already_latest))
+                    }
+                }
+                .onFailure {
+                    if (!auto) {
+                        _message.send(
+                            UiMessage(R.string.me_update_check_failed, listOf(it.message ?: ""))
+                        )
+                    }
+                }
+        }
+    }
+
+    /** 关闭更新对话框（下次进入仍可再查）。 */
+    fun dismissUpdateDialog() {
+        _updateDialog.value = null
     }
 
     /** 刷新缓存占用大小（cacheDir：Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）。 */

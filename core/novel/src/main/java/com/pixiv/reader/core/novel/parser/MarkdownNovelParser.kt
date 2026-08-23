@@ -19,7 +19,7 @@ object MarkdownNovelParser {
         val raw = text.split('\n')
             .map { it.trimEnd() }
             .filter { it.isNotBlank() }
-            .mapNotNull { line ->
+            .map { line ->
                 HEADING_RE.matchEntire(line)?.let { m ->
                     val level = m.groupValues[1].length.coerceIn(1, 6)
                     val title = m.groupValues[2].trim()

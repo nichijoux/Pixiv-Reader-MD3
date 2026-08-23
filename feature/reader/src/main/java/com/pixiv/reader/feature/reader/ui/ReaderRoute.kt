@@ -49,7 +49,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -433,8 +432,7 @@ fun ReaderRoute(
                                             onPageChange = { index ->
                                                 pages.getOrNull(index)?.let {
                                                     viewModel.reportPage(
-                                                        it.startChar,
-                                                        pages.size
+                                                        it.startChar
                                                     )
                                                 }
                                             },
@@ -459,8 +457,7 @@ fun ReaderRoute(
                                             onPageChange = { index ->
                                                 pages.getOrNull(index)?.let {
                                                     viewModel.reportPage(
-                                                        it.startChar,
-                                                        pages.size
+                                                        it.startChar
                                                     )
                                                 }
                                             },

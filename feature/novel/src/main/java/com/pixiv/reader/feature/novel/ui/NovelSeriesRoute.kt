@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,27 +30,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.common.UiMessage
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
-import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.feature.novel.R
-import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
-import androidx.compose.ui.platform.LocalContext
+import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 
 /**
  * 小说系列详情页：系列信息头（标题/简介/篇数/连载态/作者行+关注/下载）+ 分册 NovelCard 列表。
@@ -134,6 +131,7 @@ fun NovelSeriesRoute(
                     isLoading && items.isEmpty() && detail == null -> LoadingBox()
                     error != null && items.isEmpty() && detail == null ->
                         ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
+
                     items.isEmpty() && detail == null -> EmptyBox(stringResource(R.string.novel_not_found))
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -160,7 +158,10 @@ fun NovelSeriesRoute(
                         }
                         item(key = "volumes_section") {
                             Text(
-                                text = stringResource(R.string.novel_series_volumes_section, items.size),
+                                text = stringResource(
+                                    R.string.novel_series_volumes_section,
+                                    items.size
+                                ),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -170,9 +171,17 @@ fun NovelSeriesRoute(
                             NovelCard(
                                 novel = novel.toCardData(),
                                 onClick = { onOpenNovel(novel.id) },
-                                onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
+                                onOpenCover = {
+                                    (novel.image_urls?.square_medium
+                                        ?: novel.image_urls?.medium)?.let(onOpenCover)
+                                },
                                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
-                                onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(novel.id, fav) },
+                                onToggleFavorite = { fav ->
+                                    viewModel.toggleNovelFavorite(
+                                        novel.id,
+                                        fav
+                                    )
+                                },
                                 onTagClick = onSearchTag,
                                 // 系列页内分册：点系列标题回到当前系列（同路由，popUpTo 语义由导航处理）
                                 onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
@@ -181,7 +190,10 @@ fun NovelSeriesRoute(
                         }
                         if (hasMore) {
                             item(key = "load_more") {
-                                LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
+                                LoadMoreItem(
+                                    isLoadingMore = isLoadingMore,
+                                    onLoadMore = viewModel::loadMore
+                                )
                             }
                         }
                         // 底部沉浸式收尾：导航栏区域 padding（背景已延伸，内容避让手势条）

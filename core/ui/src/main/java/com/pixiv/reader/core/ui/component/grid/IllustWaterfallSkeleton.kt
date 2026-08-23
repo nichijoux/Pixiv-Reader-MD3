@@ -1,6 +1,4 @@
 package com.pixiv.reader.core.ui.component.grid
-import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
-import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 瀑布流骨架封面高度循环（与 [IllustWaterfallGrid] 的 CoverHeights 一致，模拟错落）。 */

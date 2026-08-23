@@ -198,8 +198,6 @@ private fun NovelDetailContent(
                                 onToggleFollowAuthor = onToggleFollowAuthor,
                             )
                             NovelActions(
-                                novel = detail,
-                                progress = progress,
                                 downloading = downloading,
                                 downloadProgress = downloadProgress,
                                 onRead = { onOpenReader(detail.id) },
@@ -286,8 +284,6 @@ private fun PhoneNovelDetail(
                             onToggleFollowAuthor = onToggleFollowAuthor,
                         )
                         NovelActions(
-                            novel = detail,
-                            progress = progress,
                             downloading = downloading,
                             downloadProgress = downloadProgress,
                             onRead = { onOpenReader(detail.id) },

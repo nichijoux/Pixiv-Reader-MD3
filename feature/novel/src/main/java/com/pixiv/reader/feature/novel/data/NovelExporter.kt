@@ -4,11 +4,11 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
 import android.util.Log
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.pixiv.api.model.ImageUrls
@@ -26,7 +26,6 @@ import com.pixiv.reader.core.novel.model.NovelBlock
 import com.pixiv.reader.core.novel.model.NovelDocument
 import com.pixiv.reader.core.novel.util.htmlToPlainText
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.feature.novel.R
 import com.google.gson.Gson
@@ -60,7 +59,7 @@ import org.json.JSONObject
  */
 @Singleton
 class NovelExporter @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
     private val contentLoader: NovelContentLoader,
     private val downloadEntryDao: DownloadEntryDao,
@@ -94,11 +93,22 @@ class NovelExporter @Inject constructor(
         seriesId: Long? = null,
         chapterIds: List<Long>? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
-        Log.d(TAG, "exportResumable 开始 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds")
+        Log.d(
+            TAG,
+            "exportResumable 开始 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds"
+        )
         markDownloading(novelId, format, seriesId)
         runCatching {
-            val (chapters, coverNovel) = loadChaptersWithCache(novelId, format, seriesId, chapterIds)
-            Log.d(TAG, "章节加载完成 count=${chapters.size} 首章id=${chapters.firstOrNull()?.first?.id}")
+            val (chapters, coverNovel) = loadChaptersWithCache(
+                novelId,
+                format,
+                seriesId,
+                chapterIds
+            )
+            Log.d(
+                TAG,
+                "章节加载完成 count=${chapters.size} 首章id=${chapters.firstOrNull()?.first?.id}"
+            )
             if (chapters.isEmpty()) error(context.getString(R.string.novel_export_no_chapters))
             // 导出前统一格式化（对齐 format_novel）：合并硬换行、卷/章重排、简繁转换（OpenCC）、标点规范化；
             // 四种格式（TXT/EPUB/DOCX/Markdown，PDF 复用 TXT）自动全部生效。
@@ -132,7 +142,10 @@ class NovelExporter @Inject constructor(
             }
             ExportResult(localPath, coverNovel, chapters.size)
         }.onSuccess { result ->
-            Log.d(TAG, "导出成功 novelId=$novelId format=$format localPath=${result.localPath} 章节数=${result.chapterCount}")
+            Log.d(
+                TAG,
+                "导出成功 novelId=$novelId format=$format localPath=${result.localPath} 章节数=${result.chapterCount}"
+            )
             recordDownload(
                 novelId,
                 format,
@@ -144,7 +157,11 @@ class NovelExporter @Inject constructor(
             // 导出成功清理临时缓存
             cacheDir(novelId, format).deleteRecursively()
         }.onFailure {
-            Log.e(TAG, "导出失败 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds", it)
+            Log.e(
+                TAG,
+                "导出失败 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds",
+                it
+            )
             markFailed(novelId, format, seriesId)
         }
             .map { it.localPath }
@@ -171,13 +188,13 @@ class NovelExporter @Inject constructor(
                 }
             }
             selected.mapIndexed { index, chapter ->
-                val pair = loadChapterCached(cache, chapter.id, index, novelId, format)
+                val pair = loadChapterCached(cache, chapter.id, index)
                 updateProgress(novelId, format, seriesId, ((index + 1) * 100) / selected.size)
                 pair
             }
         } else {
             listOf(
-                loadChapterCached(cache, novelId, 0, novelId, format).also {
+                loadChapterCached(cache, novelId, 0).also {
                     updateProgress(novelId, format, seriesId, 100)
                 },
             )
@@ -191,8 +208,6 @@ class NovelExporter @Inject constructor(
         cache: File,
         chapterId: Long,
         index: Int,
-        rootId: Long,
-        format: NovelExportFormat,
     ): Pair<Novel, NovelDocument> {
         val cacheFile = File(cache, "chapter_${index}_$chapterId.json")
         if (cacheFile.exists()) {
@@ -425,7 +440,10 @@ class NovelExporter @Inject constructor(
         val fileName = "${fileNameBase(first, seriesTitle)}.docx"
         // 正文插图（按块顺序下载；未解析的 pixivimage/uploadedimage 标记或下载失败跳过）
         val images = downloadImages(chapters)
-        Log.d(TAG, "buildDocxFile 开始 fileName=$fileName 章节数=${chapters.size} 内嵌图片=${images.size}")
+        Log.d(
+            TAG,
+            "buildDocxFile 开始 fileName=$fileName 章节数=${chapters.size} 内嵌图片=${images.size}"
+        )
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.DOCX),
@@ -450,7 +468,7 @@ class NovelExporter @Inject constructor(
         Log.d(
             TAG,
             "PDF 排版参数 fontSize=${layout.fontSize} 行高倍数=${layout.lineHeightMultiplier} " +
-                "缩进数=${layout.indentCount} 段距em=${layout.paragraphSpacingEm}"
+                    "缩进数=${layout.indentCount} 段距em=${layout.paragraphSpacingEm}"
         )
         // 结构化内容流（文本 + 内嵌插图；文本结构对齐 buildTxt）
         val contents = buildPdfContents(chapters, seriesTitle)
@@ -481,7 +499,7 @@ class NovelExporter @Inject constructor(
     }.getOrNull()
 
     /** 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与失败跳过）。 */
-    private suspend fun downloadImages(
+    private fun downloadImages(
         chapters: List<Pair<Novel, NovelDocument>>,
     ): List<DocxImage> {
         val images = mutableListOf<DocxImage>()
@@ -495,7 +513,10 @@ class NovelExporter @Inject constructor(
                     val dims = imageDimensions(bytes)
                     val mime = mimeFromUrl(img.url)
                     if (dims == null) {
-                        Log.w(TAG, "插图尺寸解析失败，跳过 chapter=$ci index=$ii url=${img.url.take(80)}")
+                        Log.w(
+                            TAG,
+                            "插图尺寸解析失败，跳过 chapter=$ci index=$ii url=${img.url.take(80)}"
+                        )
                         return@forEachIndexed
                     }
                     val ext = when (mime) {
@@ -545,7 +566,10 @@ class NovelExporter @Inject constructor(
         val dirUri = userPreferences.novelExportDir.first()
         if (dirUri.isBlank()) {
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Log.d(TAG, "writeExportFile 目标=MediaStore(Download/PixivReader) sdk=${Build.VERSION.SDK_INT}")
+                Log.d(
+                    TAG,
+                    "writeExportFile 目标=MediaStore(Download/PixivReader) sdk=${Build.VERSION.SDK_INT}"
+                )
                 writeToMediaStore(fileName, mime, bytes)
             } else {
                 // Android 8-9：公共目录需 WRITE_EXTERNAL_STORAGE 运行时权限，而导出在后台 Worker
@@ -557,9 +581,11 @@ class NovelExporter @Inject constructor(
             }
         }
         Log.d(TAG, "writeExportFile 目标=SAF树 dirUri=$dirUri")
-        val tree = DocumentFile.fromTreeUri(context, dirUri.toUri()) ?: error(context.getString(R.string.novel_export_dir_unavailable))
+        val tree = DocumentFile.fromTreeUri(context, dirUri.toUri())
+            ?: error(context.getString(R.string.novel_export_dir_unavailable))
         tree.findFile(fileName)?.delete()
-        val doc = tree.createFile(mime, fileName) ?: error(context.getString(R.string.novel_export_create_failed))
+        val doc = tree.createFile(mime, fileName)
+            ?: error(context.getString(R.string.novel_export_create_failed))
         context.contentResolver.openOutputStream(doc.uri)?.use { it.write(bytes) }
             ?: error(context.getString(R.string.novel_export_write_failed))
         Log.d(TAG, "writeExportFile SAF写入完成 uri=${doc.uri}")
@@ -567,12 +593,16 @@ class NovelExporter @Inject constructor(
     }
 
     /** 通过 MediaStore 写入公共 Download/PixivReader 目录（Android 10+，免存储权限）。 */
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun writeToMediaStore(fileName: String, mime: String, bytes: ByteArray): String {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, fileName)
             put(MediaStore.Downloads.MIME_TYPE, mime)
-            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/PixivReader")
+            put(
+                MediaStore.Downloads.RELATIVE_PATH,
+                Environment.DIRECTORY_DOWNLOADS + "/PixivReader"
+            )
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
@@ -609,7 +639,7 @@ class NovelExporter @Inject constructor(
      * 生成 PDF 内容元素流（文本结构对齐 buildTxt，插图按块顺序内嵌）。
      * 未解析的 pixivimage:/uploadedimage: 标记与下载失败/格式不支持（webp 等）的图片跳过。
      */
-    private suspend fun buildPdfContents(
+    private fun buildPdfContents(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
     ): List<PdfContent> {
@@ -622,7 +652,10 @@ class NovelExporter @Inject constructor(
         first.user?.name?.takeIf { it.isNotBlank() }?.let {
             contents += PdfContent.Text("作者：$it", indent = false)
         }
-        if (!seriesTitle.isNullOrBlank()) contents += PdfContent.Text("系列：$seriesTitle", indent = false)
+        if (!seriesTitle.isNullOrBlank()) contents += PdfContent.Text(
+            "系列：$seriesTitle",
+            indent = false
+        )
         first.caption?.takeIf { it.isNotBlank() }?.let {
             contents += PdfContent.Text("简介：${htmlToPlainText(it)}", indent = false)
         }
@@ -633,9 +666,21 @@ class NovelExporter @Inject constructor(
             }
             document.blocks.forEach { block ->
                 when (block) {
-                    is NovelBlock.Paragraph -> contents += PdfContent.Text(stripIndent(block.text), indent = true)
-                    is NovelBlock.Heading -> contents += PdfContent.Text("\n${block.text}\n", indent = false)
-                    is NovelBlock.Quote -> contents += PdfContent.Text("> ${stripIndent(block.text)}", indent = true)
+                    is NovelBlock.Paragraph -> contents += PdfContent.Text(
+                        stripIndent(block.text),
+                        indent = true
+                    )
+
+                    is NovelBlock.Heading -> contents += PdfContent.Text(
+                        "\n${block.text}\n",
+                        indent = false
+                    )
+
+                    is NovelBlock.Quote -> contents += PdfContent.Text(
+                        "> ${stripIndent(block.text)}",
+                        indent = true
+                    )
+
                     is NovelBlock.Image -> {
                         val img = images.getOrNull(imgIdx)
                         imgIdx++
@@ -650,7 +695,11 @@ class NovelExporter @Inject constructor(
                             }
                         }
                     }
-                    is NovelBlock.Separator -> contents += PdfContent.Text(block.symbol, indent = true)
+
+                    is NovelBlock.Separator -> contents += PdfContent.Text(
+                        block.symbol,
+                        indent = true
+                    )
                 }
             }
             contents += PdfContent.Text("\n", indent = true)
@@ -675,7 +724,9 @@ class NovelExporter @Inject constructor(
      * 转换失败回退原文，保证导出不中断。
      */
     private fun simplifyConverter(): (String) -> String = { text ->
-        runCatching { ChineseConverter.convert(text, ConversionType.T2S, context) }.getOrDefault(text)
+        runCatching { ChineseConverter.convert(text, ConversionType.T2S, context) }.getOrDefault(
+            text
+        )
     }
 
     // ── 系列分页（共享 core:network fetchAllSeriesChapters，游标解析只维护一份） ────

@@ -36,8 +36,8 @@ fun DiscoverRoute(
     onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
+    modifier: Modifier = Modifier,
     initialQuery: String? = null,
-    searchFieldModifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -91,7 +91,7 @@ fun DiscoverRoute(
             modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
         ) {
             // 搜索栏（聚焦高亮 + 清除/搜索按钮）；外层共享元素修饰（MainShell 构造）驱动 hero 过渡
-            Box(modifier = searchFieldModifier) {
+            Box(modifier = modifier) {
                 SearchField(
                     query = query,
                     onQueryChange = viewModel::onQueryChange,

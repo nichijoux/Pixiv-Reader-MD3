@@ -47,7 +47,7 @@ object EpubNovelParser {
             val fullHref = if (baseDir.isBlank()) href else "$baseDir/$href"
             val chapterBytes = entries[fullHref] ?: return@forEach
             val doc = Jsoup.parse(chapterBytes.toString(Charsets.UTF_8))
-            doc.body()?.select("p, h1, h2, h3, h4, h5, h6, blockquote, hr")?.forEach { el ->
+            doc.body().select("p, h1, h2, h3, h4, h5, h6, blockquote, hr")?.forEach { el ->
                 when (el.tagName()) {
                     "p" -> blocks.add(NovelBlock.Paragraph(el.text()))
                     "blockquote" -> blocks.add(NovelBlock.Quote(el.text()))

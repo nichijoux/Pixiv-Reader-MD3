@@ -30,6 +30,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -158,6 +159,7 @@ class ReaderViewModel @Inject constructor(
      * - 转换结果按 (novelId, mode) 缓存，切换设置/重复进入不重复转换整章
      * - 转换在 [Dispatchers.Default] 执行，不阻塞 UI
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val displayDocument: StateFlow<NovelDocument?> =
         combine(_document, _chineseConvert) { doc, mode -> doc to mode }
             .flatMapLatest { (doc, mode) ->
@@ -253,22 +255,42 @@ class ReaderViewModel @Inject constructor(
             runCatching { userPreferences.readerFollowSystem.collect { _followSystem.value = it } }
         }
         viewModelScope.launch {
-            runCatching { userPreferences.readerCustomFontPath.collect { _customFontPath.value = it } }
+            runCatching {
+                userPreferences.readerCustomFontPath.collect {
+                    _customFontPath.value = it
+                }
+            }
         }
         viewModelScope.launch {
             runCatching { userPreferences.readerFontWeight.collect { _fontWeight.value = it } }
         }
         viewModelScope.launch {
-            runCatching { userPreferences.readerParagraphIndent.collect { _paragraphIndent.value = it } }
+            runCatching {
+                userPreferences.readerParagraphIndent.collect {
+                    _paragraphIndent.value = it
+                }
+            }
         }
         viewModelScope.launch {
-            runCatching { userPreferences.readerParagraphSpacing.collect { _paragraphSpacing.value = it } }
+            runCatching {
+                userPreferences.readerParagraphSpacing.collect {
+                    _paragraphSpacing.value = it
+                }
+            }
         }
         viewModelScope.launch {
-            runCatching { userPreferences.readerLetterSpacing.collect { _letterSpacing.value = it } }
+            runCatching {
+                userPreferences.readerLetterSpacing.collect {
+                    _letterSpacing.value = it
+                }
+            }
         }
         viewModelScope.launch {
-            runCatching { userPreferences.readerChineseConvert.collect { _chineseConvert.value = it } }
+            runCatching {
+                userPreferences.readerChineseConvert.collect {
+                    _chineseConvert.value = it
+                }
+            }
         }
         viewModelScope.launch {
             runCatching { userPreferences.appLanguage.collect { _appLanguage.value = it } }
@@ -284,24 +306,36 @@ class ReaderViewModel @Inject constructor(
                 _isOffline.value = false
                 // 缓存命中（阅读时预加载过 / 此前刚读过）：跳过网络与重新解析，跳章秒开
                 val cached = readerChapterCache.getChapter(novelId)
-                Log.i(TAG, "load novel[$novelId]: 章节缓存命中=${cached != null}（命中则跳过网络/解析，图片仍由 UI 层加载）")
+                Log.i(
+                    TAG,
+                    "load novel[$novelId]: 章节缓存命中=${cached != null}（命中则跳过网络/解析，图片仍由 UI 层加载）"
+                )
                 if (cached != null) {
                     applyLoaded(cached.novel, cached.document)
                 } else {
                     contentLoader.load(novelId).onSuccess { (detail, document) ->
                         if (_isLocalMode.value) return@onSuccess
                         if (detail == null) return@onSuccess
-                        readerChapterCache.putChapter(novelId, ReaderChapterCache.Entry(detail, document))
+                        readerChapterCache.putChapter(
+                            novelId,
+                            ReaderChapterCache.Entry(detail, document)
+                        )
                         applyLoaded(detail, document)
                     }.onFailure {
                         Log.w(TAG, "load novel failed", it)
-                        _error.value = it.message?.let { m -> UiMessage(R.string.reader_error_load_failed_reason, listOf(m)) }
+                        _error.value = it.message?.let { m ->
+                            UiMessage(
+                                R.string.reader_error_load_failed_reason,
+                                listOf(m)
+                            )
+                        }
                             ?: UiMessage(R.string.reader_error_load_failed)
                     }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "load unexpected", e)
-                _error.value = UiMessage(R.string.reader_error_load_failed_reason, listOf(e.message ?: ""))
+                _error.value =
+                    UiMessage(R.string.reader_error_load_failed_reason, listOf(e.message ?: ""))
             } finally {
                 _isLoading.value = false
             }
@@ -386,7 +420,7 @@ class ReaderViewModel @Inject constructor(
     // ── 进度上报（由 UI 在翻页/滚动时调用） ──
 
     /** 翻页模式：页码变化 → 上报页首字符偏移。 */
-    fun reportPage(startChar: Int, totalPages: Int) {
+    fun reportPage(startChar: Int) {
         if (!_progressRestored.value) return // 恢复完成前忽略 UI 上报
         val document = _document.value ?: return
         val offset = startChar.coerceIn(0, document.textLength)
@@ -568,13 +602,23 @@ class ReaderViewModel @Inject constructor(
         if (series == null) {
             // 非系列：目录只显示本小说
             _toc.value = listOf(
-                ReaderTocItem(detail?.title ?: context.getString(R.string.reader_toc_current_novel), detail?.id ?: 0L, 0),
+                ReaderTocItem(
+                    detail?.title ?: context.getString(R.string.reader_toc_current_novel),
+                    detail?.id ?: 0L,
+                    0
+                ),
             )
             return
         }
         val seriesId = series.id
         readerChapterCache.getToc(seriesId)?.let { cached ->
-            _toc.value = cached.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
+            _toc.value = cached.map {
+                ReaderTocItem(
+                    it.title ?: context.getString(R.string.reader_untitled),
+                    it.id,
+                    0
+                )
+            }
             preloadNeighborChapters()
             return
         }
@@ -582,7 +626,13 @@ class ReaderViewModel @Inject constructor(
         try {
             val novels = fetchAllSeriesChapters(pixivRepository, seriesId)
             readerChapterCache.putToc(seriesId, novels)
-            _toc.value = novels.map { ReaderTocItem(it.title ?: context.getString(R.string.reader_untitled), it.id, 0) }
+            _toc.value = novels.map {
+                ReaderTocItem(
+                    it.title ?: context.getString(R.string.reader_untitled),
+                    it.id,
+                    0
+                )
+            }
             preloadNeighborChapters()
         } catch (e: Exception) {
             Log.w(TAG, "buildToc series failed", e)
@@ -608,7 +658,10 @@ class ReaderViewModel @Inject constructor(
                     contentLoader.load(id)
                         .onSuccess { (detail, document) ->
                             if (detail != null) {
-                                readerChapterCache.putChapter(id, ReaderChapterCache.Entry(detail, document))
+                                readerChapterCache.putChapter(
+                                    id,
+                                    ReaderChapterCache.Entry(detail, document)
+                                )
                                 Log.d(TAG, "preload neighbor chapter $id cached")
                             }
                         }
@@ -649,7 +702,8 @@ class ReaderViewModel @Inject constructor(
                 val dest = File(dir, "custom_font.ttf")
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     dest.outputStream().use { input.copyTo(it) }
-                } ?: throw IllegalStateException(context.getString(R.string.reader_error_font_read_failed))
+                }
+                    ?: throw IllegalStateException(context.getString(R.string.reader_error_font_read_failed))
                 dest.absolutePath
             }
             path.onSuccess { p ->
@@ -658,7 +712,12 @@ class ReaderViewModel @Inject constructor(
                 _message.send(UiMessage(R.string.reader_msg_font_set))
             }.onFailure {
                 Log.w(TAG, "importCustomFont failed", it)
-                _message.send(UiMessage(R.string.reader_msg_font_import_failed, listOf(it.message ?: "")))
+                _message.send(
+                    UiMessage(
+                        R.string.reader_msg_font_import_failed,
+                        listOf(it.message ?: "")
+                    )
+                )
             }
         }
     }
@@ -694,9 +753,18 @@ class ReaderViewModel @Inject constructor(
                 }
             }.onSuccess {
                 _isMarked.value = !current
-                _message.send(if (!current) UiMessage(R.string.reader_msg_mark_added) else UiMessage(R.string.reader_msg_mark_removed))
+                _message.send(
+                    if (!current) UiMessage(R.string.reader_msg_mark_added) else UiMessage(
+                        R.string.reader_msg_mark_removed
+                    )
+                )
             }.onFailure {
-                _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
+                _message.send(
+                    UiMessage(
+                        R.string.reader_msg_action_failed,
+                        listOf(it.message ?: "")
+                    )
+                )
             }
         }
     }
@@ -707,10 +775,19 @@ class ReaderViewModel @Inject constructor(
             favoriteActions.toggleNovelFavorite(novelId, !current)
                 .onSuccess {
                     _isBookmarked.value = !current
-                    _message.send(if (!current) UiMessage(R.string.reader_msg_bookmarked) else UiMessage(R.string.reader_msg_unbookmarked))
+                    _message.send(
+                        if (!current) UiMessage(R.string.reader_msg_bookmarked) else UiMessage(
+                            R.string.reader_msg_unbookmarked
+                        )
+                    )
                 }
                 .onFailure {
-                    _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
+                    _message.send(
+                        UiMessage(
+                            R.string.reader_msg_action_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
                 }
         }
     }
@@ -727,9 +804,18 @@ class ReaderViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                _message.send(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(R.string.reader_msg_watching_removed))
+                _message.send(
+                    if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
+                        R.string.reader_msg_watching_removed
+                    )
+                )
             }.onFailure {
-                _message.send(UiMessage(R.string.reader_msg_action_failed, listOf(it.message ?: "")))
+                _message.send(
+                    UiMessage(
+                        R.string.reader_msg_action_failed,
+                        listOf(it.message ?: "")
+                    )
+                )
             }
         }
     }

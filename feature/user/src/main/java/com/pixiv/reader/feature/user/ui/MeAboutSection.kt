@@ -24,11 +24,12 @@ import com.pixiv.reader.core.ui.component.input.SettingsCard
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.feature.user.R
 
-/** 开源仓库地址。 */
-private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Material"
+/** 开源仓库地址（与 git remote / CI 发布仓库一致）。 */
+private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Reader-MD3"
 
-/** 开源许可地址（作者主页，含各开源组件许可说明）。 */
-private const val OPEN_SOURCE_LICENSE_URL = "https://github.com/nichijoux"
+/** 开源许可（GPL-2.0）文本直链。 */
+private const val OPEN_SOURCE_LICENSE_URL =
+    "https://github.com/nichijoux/Pixiv-Reader-MD3/blob/main/LICENSE"
 
 /** 我的页「关于」：应用信息 / 开源仓库 / 开源许可 / 检查更新。 */
 @Composable

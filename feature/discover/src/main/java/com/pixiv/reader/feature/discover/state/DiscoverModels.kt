@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import com.pixiv.reader.feature.discover.R
 
 /** 搜索结果显示类型（Tab）。 */
-enum class SearchType(@StringRes val labelRes: Int) {
+enum class SearchType(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.search_type_illust),
     NOVEL(R.string.search_type_novel),
     USER(R.string.search_type_user),

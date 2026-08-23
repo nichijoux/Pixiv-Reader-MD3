@@ -41,7 +41,7 @@ object FollowUserSorter {
      * - [FollowSortMode.NAME_ASC] / [FollowSortMode.NAME_DESC]：按名称（zh 拼音规则），空白/缺失名排最后
      * - [FollowSortMode.LATEST_WORK]：按代表作（[UserPreview.illusts] 首项）发布时间倒序，无代表作排最后
      */
-    fun sort(users: List<UserPreview>, mode: FollowSortMode): List<UserPreview> = when (mode) {
+    fun sort(users: List<UserPreview>, mode: FollowSortMode) = when (mode) {
         FollowSortMode.FOLLOW_TIME -> users
         FollowSortMode.NAME_ASC -> users.sortedWith(nameAsc)
         FollowSortMode.NAME_DESC -> users.sortedWith(Comparator { a, b ->
@@ -57,8 +57,9 @@ object FollowUserSorter {
                 else -> nameCollator.compare(nb, na)
             }
         })
+
         FollowSortMode.LATEST_WORK -> users.sortedWith(
-            compareByDescending<UserPreview> { it.illusts.firstOrNull()?.create_date ?: "" },
+            compareByDescending { it.illusts.firstOrNull()?.create_date ?: "" },
         )
     }
 }

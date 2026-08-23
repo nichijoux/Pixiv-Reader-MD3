@@ -76,7 +76,7 @@
     <string name="me_language_chinese_traditional">繁體中文</string>
     <string name="me_language_english">English</string>
     <string name="me_auto_update">Auto update</string>
-    <string name="me_auto_update_desc">Check for new versions on launch (not yet implemented)</string>
+    <string name="me_auto_update_desc">Automatically check for new versions on launch</string>
     <string name="me_export_dir">Download location</string>
     <string name="me_export_dir_value">Current: %1$s</string>
     <string name="me_export_dir_default">Downloads/PixivReader</string>
@@ -91,12 +91,16 @@
     <string name="me_cache_clear_message">This will delete all cached files (image cache, animation frames, etc.). This action cannot be undone.</string>
     <string name="me_check_update">Check for updates</string>
     <string name="me_already_latest">You are up to date</string>
+    <string name="me_update_available_title">New version %1$s available</string>
+    <string name="me_update_download">Download</string>
+    <string name="me_update_later">Later</string>
+    <string name="me_update_check_failed">Update check failed: %1$s</string>
     <string name="me_cache_cleared">Cache cleared</string>
     <string name="me_version">Version %1$s</string>
     <string name="me_about_description">An open-source Pixiv Android client: browse recommendations, rankings and discovery, view illustrations and novels, with bookmarking, comments, download/export and offline reading. Data comes from pixiv\'s official API, for learning purposes only.</string>
     <string name="me_open_source_repo">Open-source repository</string>
     <string name="me_open_source_license">Open-source license</string>
-    <string name="me_open_source_license_desc">Based on pixiv\'s open API, for learning and exchange only.</string>
+    <string name="me_open_source_license_desc">Built on pixiv\'s open API and released under the GPL-2.0 license, for learning purposes only.</string>
 
     <!-- History -->
     <string name="history_title">Browse history</string>

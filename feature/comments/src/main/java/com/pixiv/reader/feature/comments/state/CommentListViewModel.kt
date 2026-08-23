@@ -58,7 +58,6 @@ class CommentListViewModel @Inject constructor(
 
     /** 回复目标所属顶层评论 id（顶层评论回复时 = 自身 id；子评论回复时 = 外层顶层 id）。 */
     private val _replyTargetTopId = MutableStateFlow<Long?>(null)
-    val replyTargetTopId: StateFlow<Long?> = _replyTargetTopId.asStateFlow()
 
     private val _message = Channel<UiMessage>(Channel.BUFFERED)
     val message = _message.receiveAsFlow()
@@ -102,12 +101,12 @@ class CommentListViewModel @Inject constructor(
     fun loadReplies(parentId: Long) {
         if (_replies.value.containsKey(parentId) || _repliesLoading.value.contains(parentId)) return
         viewModelScope.launch {
-            _repliesLoading.value = _repliesLoading.value + parentId
+            _repliesLoading.value += parentId
             runCatching { pixivRepository.api.getCommentReplies(type, parentId) }
                 .onSuccess { resp ->
-                    _replies.value = _replies.value + (parentId to resp.comments)
+                    _replies.value += (parentId to resp.comments)
                 }
-            _repliesLoading.value = _repliesLoading.value - parentId
+            _repliesLoading.value -= parentId
         }
     }
 
@@ -170,12 +169,19 @@ class CommentListViewModel @Inject constructor(
                     loadComments()
                     // 刷新并自动展开该顶层评论，保证新子回复即时可见
                     if (repliedTopId != null) {
-                        _expandedReplies.value = _expandedReplies.value + repliedTopId
-                        _replies.value = _replies.value - repliedTopId
+                        _expandedReplies.value += repliedTopId
+                        _replies.value -= repliedTopId
                         loadReplies(repliedTopId)
                     }
                 }
-                .onFailure { _message.send(UiMessage(R.string.comment_msg_failed, listOf(it.message ?: ""))) }
+                .onFailure {
+                    _message.send(
+                        UiMessage(
+                            R.string.comment_msg_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
+                }
         }
     }
 }

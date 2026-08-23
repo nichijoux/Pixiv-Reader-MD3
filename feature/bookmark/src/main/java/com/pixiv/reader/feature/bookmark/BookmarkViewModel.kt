@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** 收藏夹类型：插画 / 小说。 */
-enum class BookmarkType(@StringRes val labelRes: Int) {
+enum class BookmarkType(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.bookmark_type_illust),
     NOVEL(R.string.bookmark_type_novel),
 }

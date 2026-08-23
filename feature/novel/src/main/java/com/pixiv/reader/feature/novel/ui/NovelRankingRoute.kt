@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,14 +35,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
-import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.card.toCardData
-import com.pixiv.reader.core.ui.component.list.RankingList
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
+import com.pixiv.reader.core.ui.component.list.RankingList
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelLanguageFilter
 import com.pixiv.reader.feature.novel.state.NovelRankingViewModel
@@ -77,7 +76,10 @@ fun NovelRankingRoute(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
+            notificationHostState.show(
+                context.getString(msg.res, *msg.args.toTypedArray()),
+                type = msg.type.toNotificationType()
+            )
         }
     }
     val languageFilter by viewModel.languageFilter.collectAsStateWithLifecycle()
@@ -168,7 +170,11 @@ fun NovelRankingRoute(
                 novel = item.toCardData(),
                 rank = rank,
                 onClick = { onOpenNovel(item.id) },
-                onOpenCover = { (item.image_urls?.square_medium ?: item.image_urls?.medium)?.let(onOpenCover) },
+                onOpenCover = {
+                    (item.image_urls?.square_medium ?: item.image_urls?.medium)?.let(
+                        onOpenCover
+                    )
+                },
                 onOpenAuthor = { item.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(item.id, fav) },
                 onTagClick = onSearchTag,

@@ -1,31 +1,25 @@
 package com.pixiv.reader.feature.discover.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.ui.component.card.CreatorProfileCard
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
-import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
-import com.pixiv.reader.core.ui.component.card.toCardData
-import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 
 /** 插画搜索结果（普通模式，分页瀑布流）。 */
 @Composable
@@ -42,7 +36,11 @@ internal fun IllustSearchResults(
 
     when {
         isLoading && items.isEmpty() -> IllustSearchSkeleton()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
+        error != null && items.isEmpty() -> ErrorBox(
+            message = error.orEmpty(),
+            onRetry = viewModel::retry
+        )
+
         else -> IllustWaterfallGrid(
             illusts = items,
             onItemClick = onOpenIllust,
@@ -72,7 +70,11 @@ internal fun NovelSearchResults(
 
     when {
         isLoading && items.isEmpty() -> NovelSearchSkeleton()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
+        error != null && items.isEmpty() -> ErrorBox(
+            message = error.orEmpty(),
+            onRetry = viewModel::retry
+        )
+
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
@@ -82,9 +84,18 @@ internal fun NovelSearchResults(
                 NovelRow(
                     novel = novel,
                     onClick = { onOpenNovel(novel.id) },
-                    onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
+                    onOpenCover = {
+                        (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(
+                            onOpenCover
+                        )
+                    },
                     onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
-                    onToggleFavorite = { nowFavorite -> viewModel.toggleNovelFavorite(novel.id, nowFavorite) },
+                    onToggleFavorite = { nowFavorite ->
+                        viewModel.toggleNovelFavorite(
+                            novel.id,
+                            nowFavorite
+                        )
+                    },
                     onTagClick = { tag ->
                         viewModel.onQueryChange(tag)
                         viewModel.search()
@@ -134,7 +145,11 @@ internal fun UserSearchResults(
 
     when {
         isLoading && items.isEmpty() -> UserSearchSkeleton()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::retry)
+        error != null && items.isEmpty() -> ErrorBox(
+            message = error.orEmpty(),
+            onRetry = viewModel::retry
+        )
+
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),

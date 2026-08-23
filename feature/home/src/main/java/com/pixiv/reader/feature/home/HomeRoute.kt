@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -21,29 +20,25 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.TrendingTag
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
-import com.pixiv.reader.feature.home.R
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
  *
  * @param onOpenSearch 点击搜索框跳转发现页
  * @param onSearchTag 点击热门标签跳发现页搜索该标签（对齐小说页约定：传显示名）
- * @param searchBarModifier 搜索框共享元素修饰（MainShell 在 NavHost 过渡内构造，hero 过渡用；默认空）
+ * @param modifier 搜索框共享元素修饰（MainShell 在 NavHost 过渡内构造，hero 过渡用；默认空）
  * @param onOpenIllust 点击作品卡片打开详情
  * @param onOpenUser 点击作者行打开用户主页
  */
@@ -52,9 +47,9 @@ import com.pixiv.reader.feature.home.R
 fun HomeRoute(
     onOpenSearch: () -> Unit,
     onSearchTag: (String) -> Unit,
-    searchBarModifier: Modifier = Modifier,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
@@ -66,7 +61,9 @@ fun HomeRoute(
                 title = {
                     // 平板限宽居中（与下方 AdaptiveContentBox 内容对齐）
                     AdaptiveContentTitle(
-                        text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(R.string.home_follow),
+                        text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(
+                            R.string.home_follow
+                        ),
                     )
                 },
                 actions = {},
@@ -84,7 +81,7 @@ fun HomeRoute(
                 // 搜索框：点击进入发现页；外层共享元素修饰（MainShell 构造）驱动 hero 过渡
                 HomeSearchBar(
                     onClick = onOpenSearch,
-                    modifier = searchBarModifier
+                    modifier = modifier
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 4.dp),
                 )
@@ -107,7 +104,9 @@ fun HomeRoute(
                             label = { Text(stringResource(R.string.home_follow)) },
                         )
                     }
-                    items(trendingTags, key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
+                    items(
+                        trendingTags,
+                        key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
                         AssistChip(
                             onClick = { onSearchTag(tag.displayName()) },
                             label = { Text(tag.displayName()) },
@@ -151,6 +150,7 @@ private fun RecommendContent(
                 onRetry = viewModel::retry,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
+
             else -> IllustWaterfallGrid(
                 illusts = items,
                 onItemClick = onOpenIllust,
@@ -191,6 +191,7 @@ private fun FollowContent(
                 onRetry = viewModel::retry,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
+
             else -> IllustWaterfallGrid(
                 illusts = items,
                 onItemClick = onOpenIllust,

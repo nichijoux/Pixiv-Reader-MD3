@@ -64,11 +64,17 @@ class NovelRankingViewModel @Inject constructor(
                 .onSuccess {
                     _message.send(UiMessage(if (nowFavorite) R.string.novel_msg_bookmarked else R.string.novel_msg_unbookmarked))
                 }.onFailure {
-                    _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                    _message.send(
+                        UiMessage(
+                            R.string.novel_msg_action_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
                 }
         }
     }
 }
+
 /** 小说排行榜语言筛选维度。 */
 enum class NovelLanguageFilter { ALL, CHINESE, JAPANESE }
 
@@ -87,24 +93,23 @@ fun NovelLanguageFilter.labelRes(): Int = when (this) {
  * 启发式：日文正文几乎必含假名而中文不含；无 CJK 字符的其它语种作品不落入中/日筛选。
  */
 internal fun Novel.matchesLanguageFilter(filter: NovelLanguageFilter): Boolean {
-    if (filter == NovelLanguageFilter.ALL) return true
     language?.lowercase()?.let { lang ->
         return when (filter) {
+            NovelLanguageFilter.ALL -> true
             NovelLanguageFilter.CHINESE -> lang.startsWith("zh")
             NovelLanguageFilter.JAPANESE -> lang.startsWith("ja")
-            NovelLanguageFilter.ALL -> true
         }
     }
     val text = title.orEmpty() + caption.orEmpty()
     val hasKana = text.any { ch ->
         val code = ch.code
         code in 0x3040..0x309F || code in 0x30A0..0x30FF ||
-            code in 0x31F0..0x31FF || code in 0xFF66..0xFF9D
+                code in 0x31F0..0x31FF || code in 0xFF66..0xFF9D
     }
     val hasHanzi = text.any { it.code in 0x3400..0x4DBF || it.code in 0x4E00..0x9FFF }
     return when (filter) {
+        NovelLanguageFilter.ALL -> true
         NovelLanguageFilter.JAPANESE -> hasKana
         NovelLanguageFilter.CHINESE -> hasHanzi && !hasKana
-        NovelLanguageFilter.ALL -> true
     }
 }

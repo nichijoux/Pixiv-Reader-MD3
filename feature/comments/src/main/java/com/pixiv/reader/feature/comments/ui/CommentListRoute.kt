@@ -41,12 +41,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.ui.component.input.CommentInput
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
+import com.pixiv.reader.core.ui.component.input.CommentInput
 import com.pixiv.reader.feature.comments.R
 import com.pixiv.reader.feature.comments.state.CommentListViewModel
 
@@ -60,8 +59,6 @@ import com.pixiv.reader.feature.comments.state.CommentListViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentListRoute(
-    type: String,
-    targetId: Long,
     onBack: () -> Unit,
     onOpenUser: (Long) -> Unit,
     viewModel: CommentListViewModel = hiltViewModel(),

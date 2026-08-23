@@ -2,7 +2,6 @@ package com.pixiv.reader.feature.follow.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,36 +12,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.ui.component.card.IllustCard
+import com.pixiv.reader.core.ui.component.card.NovelCard
+import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.card.IllustCard
-import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
-import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
-import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.follow.R
 import com.pixiv.reader.feature.follow.data.FollowFeedItem
+import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
 
 /**
  * 右列单个类型段的动态流。
@@ -76,6 +71,7 @@ internal fun FollowFeed(
             minColumnWidth = 240.dp,
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
         )
+
         hasError && items.isEmpty() -> ErrorBox(message = null, onRetry = onRetry)
         items.isEmpty() -> EmptyBox(stringResource(R.string.follow_empty))
         else -> if (isCompact) {
@@ -228,11 +224,17 @@ private fun FollowFeedListSkeleton() {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         SkeletonBlock(
-                            modifier = Modifier.size(20.dp).clip(CircleShape),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape),
                             color = color,
                         )
                         SkeletonBlock(
-                            modifier = Modifier.padding(start = 6.dp).width(80.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier
+                                .padding(start = 6.dp)
+                                .width(80.dp)
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(6.dp)),
                             color = color,
                         )
                     }
@@ -266,12 +268,17 @@ private fun FollowFeedItemCard(
                 onOpenAuthor = { illust.user?.id?.let(onOpenUser) },
             )
         }
+
         is FollowFeedItem.NovelItem -> {
             val novel = item.novel
             NovelCard(
                 novel = novel.toCardData(),
                 onClick = { onOpenNovel(novel.id) },
-                onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
+                onOpenCover = {
+                    (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(
+                        onOpenCover
+                    )
+                },
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> onToggleNovelFavorite(novel.id, fav) },
                 onTagClick = {},

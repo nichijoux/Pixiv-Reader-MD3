@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class NovelSeriesViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
     private val seriesDetailCache: SeriesDetailCache,
     private val downloadEntryDao: DownloadEntryDao,

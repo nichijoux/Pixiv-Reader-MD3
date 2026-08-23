@@ -28,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -47,11 +46,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Stamp
 import com.pixiv.reader.core.ui.R
-import com.pixiv.reader.core.ui.component.emoji.PIXIV_EMOJI_IDS
 import com.pixiv.reader.core.ui.component.emoji.PIXIV_EMOJI_TAGS
 import com.pixiv.reader.core.ui.component.emoji.PixivEmojiTagChip
 import com.pixiv.reader.core.ui.component.image.PixivImage
-import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 

@@ -1,6 +1,5 @@
 package com.pixiv.reader.feature.novel.data
 
-import android.util.Log
 import com.pixiv.reader.core.novel.model.NovelBlock
 import com.pixiv.reader.core.novel.model.NovelDocument
 import com.pixiv.reader.core.novel.parser.NovelParser

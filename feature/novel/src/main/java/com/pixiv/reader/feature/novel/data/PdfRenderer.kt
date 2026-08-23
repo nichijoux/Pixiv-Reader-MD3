@@ -64,11 +64,9 @@ internal object PdfFonts {
     /** 解析字体并检查 cmap 是否覆盖中文（U+4E00）与常用假名（U+3042）。 */
     fun hasCjkGlyph(file: File): Boolean = runCatching {
         val ttf = TTFParser().parse(file)
-        try {
-            val cmap = ttf.unicodeCmap ?: return@runCatching false
+        ttf.use { ttf ->
+            val cmap = ttf.unicodeCmapLookup ?: return@runCatching false
             cmap.getGlyphId(0x4E00) != 0 && cmap.getGlyphId(0x3042) != 0
-        } finally {
-            ttf.close()
         }
     }.getOrDefault(false)
 
@@ -94,7 +92,7 @@ internal object PdfFonts {
             }
             false
         }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         true // 无法解析时保守视为不可嵌入
     }
 }
@@ -110,7 +108,26 @@ internal data class PdfLayoutSettings(
 /** PDF 内容元素流：文本块（块首行是否缩进由 [indent] 控制，标题/元数据不缩进）或内嵌图片。 */
 internal sealed class PdfContent {
     data class Text(val text: String, val indent: Boolean) : PdfContent()
-    data class Picture(val bytes: ByteArray, val mime: String) : PdfContent()
+    data class Picture(val bytes: ByteArray, val mime: String) : PdfContent() {
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as Picture
+
+            if (!bytes.contentEquals(other.bytes)) return false
+            if (mime != other.mime) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = bytes.contentHashCode()
+            result = 31 * result + mime.hashCode()
+            return result
+        }
+    }
 }
 
 /**
@@ -125,6 +142,7 @@ internal object PdfRenderer {
 
     /** 打包的 PDF 中文字体（AOSP DroidSansFallbackFull，TrueType/glyf 轮廓）。 */
     private const val ASSET_CJK_FONT = "pdf_fonts/DroidSansFallbackFull.ttf"
+
     /** 打包的 PDF 符号字体（DejaVu Sans，含 ❤ 等 CJK 缺失字形）。 */
     private const val ASSET_SYMBOL_FONT = "pdf_fonts/DejaVuSans.ttf"
 
@@ -135,7 +153,11 @@ internal object PdfRenderer {
     /**
      * 生成 PDF 字节（pdfbox-android）。
      */
-    fun buildPdf(context: Context, contents: List<PdfContent>, layout: PdfLayoutSettings): ByteArray {
+    fun buildPdf(
+        context: Context,
+        contents: List<PdfContent>,
+        layout: PdfLayoutSettings
+    ): ByteArray {
         // pdfbox-android 的 cmap/afm 等运行时资源打包在 APK assets 里，使用前必须先初始化
         // 资源加载器；否则 PDType0Font.load 抛 "Could not find referenced cmap stream
         // Identity-H"、PDType1Font（Helvetica 退化路径）类初始化抛 "afm not found"。
@@ -148,7 +170,14 @@ internal object PdfRenderer {
                 // 无可用系统中文字体：退化为 Helvetica（仅 Latin-1 字形，中文不显示；无字形字符跳过不画）
                 Log.w(TAG, "buildPdf 无可用系统中文字体，退化为 Helvetica（中文将不显示）")
             } else {
-                Log.d(TAG, "buildPdf 使用字体 [${fonts.joinToString(", ") { runCatching { it.name }.getOrDefault("?") }}]，开始渲染内容块=${contents.size}")
+                Log.d(
+                    TAG,
+                    "buildPdf 使用字体 [${
+                        fonts.joinToString(", ") {
+                            runCatching { it.name }.getOrDefault("?")
+                        }
+                    }]，开始渲染内容块=${contents.size}"
+                )
             }
             renderPdf(doc, fonts, contents, layout)
             Log.d(TAG, "buildPdf 渲染完成 页数=${doc.numberOfPages}")
@@ -180,7 +209,12 @@ internal object PdfRenderer {
         for (file in systemCjk) {
             val result = runCatching { file.inputStream().use { PDType0Font.load(doc, it, true) } }
             if (result.isSuccess) {
-                Log.d(TAG, "系统 CJK 字体加载成功 path=${file.path} font=${runCatching { result.getOrThrow().name }.getOrDefault("?")}")
+                Log.d(
+                    TAG,
+                    "系统 CJK 字体加载成功 path=${file.path} font=${
+                        runCatching { result.getOrThrow().name }.getOrDefault("?")
+                    }"
+                )
                 fonts += result.getOrThrow()
                 break
             }
@@ -193,7 +227,10 @@ internal object PdfRenderer {
         )) {
             runCatching { context.assets.open(asset).use { PDType0Font.load(doc, it, true) } }
                 .onSuccess {
-                    Log.d(TAG, "${desc}加载成功 $asset font=${runCatching { it.name }.getOrDefault("?")}")
+                    Log.d(
+                        TAG,
+                        "${desc}加载成功 $asset font=${runCatching { it.name }.getOrDefault("?")}"
+                    )
                     fonts += it
                 }
                 .onFailure { e -> Log.w(TAG, "${desc}加载失败 $asset", e) }
@@ -206,7 +243,12 @@ internal object PdfRenderer {
             }
             runCatching { file.inputStream().use { PDType0Font.load(doc, it, true) } }
                 .onSuccess {
-                    Log.d(TAG, "系统符号字体加载成功 path=${file.path} font=${runCatching { it.name }.getOrDefault("?")}")
+                    Log.d(
+                        TAG,
+                        "系统符号字体加载成功 path=${file.path} font=${
+                            runCatching { it.name }.getOrDefault("?")
+                        }"
+                    )
                     fonts += it
                 }
                 .onFailure { e -> Log.w(TAG, "系统符号字体加载失败 path=${file.path}", e) }
@@ -230,7 +272,12 @@ internal object PdfRenderer {
      * （不替换为 '?'，保持原文语义）。字体切换通过同一文本对象内 setFont(Tf) 实现，
      * 不影响文本基线位置。
      */
-    private fun renderPdf(doc: PDDocument, fonts: List<PDFont>, contents: List<PdfContent>, layout: PdfLayoutSettings) {
+    private fun renderPdf(
+        doc: PDDocument,
+        fonts: List<PDFont>,
+        contents: List<PdfContent>,
+        layout: PdfLayoutSettings
+    ) {
         val fontSize = layout.fontSize
         val leading = fontSize * layout.lineHeightMultiplier
         val margin = 50f
@@ -333,7 +380,8 @@ internal object PdfRenderer {
                         var width = 0f
                         for (i in glyphs.indices) {
                             val g = glyphs[i]
-                            width += g?.let { (c, f) -> f.getStringWidth(c.toString()) * fontSize / 1000f } ?: 0f
+                            width += g?.let { (c, f) -> f.getStringWidth(c.toString()) * fontSize / 1000f }
+                                ?: 0f
                             if (width > usableWidth) {
                                 if (lastGood == start) lastGood = i + 1
                                 rows += glyphs.subList(start, lastGood).filterNotNull()
@@ -344,15 +392,17 @@ internal object PdfRenderer {
                                 lastGood = i + 1
                             }
                         }
-                        if (start < glyphs.size) rows += glyphs.subList(start, glyphs.size).filterNotNull()
+                        if (start < glyphs.size) rows += glyphs.subList(start, glyphs.size)
+                            .filterNotNull()
                         for (row in rows) {
                             if (y < margin + leading) newPage()
                             // 段落首行缩进（标题/元数据块与全文首行不缩进）
-                            val indent = if (atParagraphStart && !isFirstContentLine && item.indent) {
-                                indentWidth
-                            } else {
-                                0f
-                            }
+                            val indent =
+                                if (atParagraphStart && !isFirstContentLine && item.indent) {
+                                    indentWidth
+                                } else {
+                                    0f
+                                }
                             if (indent > 0f) content.newLineAtOffset(indent, 0f)
                             // 行内按连续同字体分段绘制（setFont 切换不改变文本位置）；
                             // activeFont 为跨行跟踪变量（见上），勿在此重复声明
@@ -391,7 +441,7 @@ internal object PdfRenderer {
         Log.d(
             TAG,
             "renderPdf 完成 总行数=$lineCount 新增页=$newPageCount 总页数=${doc.numberOfPages} " +
-                "showText失败段=$showTextFailCount 无字形字符=$noGlyphCharCount 图片=$pictureCount 图片跳过=$pictureSkipCount"
+                    "showText失败段=$showTextFailCount 无字形字符=$noGlyphCharCount 图片=$pictureCount 图片跳过=$pictureSkipCount"
         )
     }
 }

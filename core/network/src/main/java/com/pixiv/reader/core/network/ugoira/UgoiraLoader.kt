@@ -31,7 +31,7 @@ data class UgoiraFrame(val file: File, val delayMs: Int)
  */
 @Singleton
 class UgoiraLoader @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
 ) {
 

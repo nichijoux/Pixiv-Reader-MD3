@@ -224,8 +224,8 @@ class NovelFeedViewModel @Inject constructor(
         Log.d(
             TAG,
             "$step: items=${items.size} masked=${items.count { it.isMasked }} " +
-                "hasMore=${watchlist.hasMore.value} error=${watchlist.error.value?.take(80) ?: "null"} " +
-                "maskedIds=${items.filter { it.isMasked }.map { it.id }}",
+                    "hasMore=${watchlist.hasMore.value} error=${watchlist.error.value?.take(80) ?: "null"} " +
+                    "maskedIds=${items.filter { it.isMasked }.map { it.id }}",
         )
     }
 
@@ -274,11 +274,11 @@ class NovelFeedViewModel @Inject constructor(
             Log.d(
                 TAG,
                 "getNovelSeries($seriesId) 成功: " +
-                    "detail.id=${resp.novel_series_detail?.id} " +
-                    "detail.title=${resp.novel_series_detail?.title} " +
-                    "is_concluded=${resp.novel_series_detail?.is_concluded} " +
-                    "first=${resp.novel_series_first_novel?.id} " +
-                    "latest=${resp.novel_series_latest_novel?.id}",
+                        "detail.id=${resp.novel_series_detail?.id} " +
+                        "detail.title=${resp.novel_series_detail?.title} " +
+                        "is_concluded=${resp.novel_series_detail?.is_concluded} " +
+                        "first=${resp.novel_series_first_novel?.id} " +
+                        "latest=${resp.novel_series_latest_novel?.id}",
             )
             SeriesDetailInfo(
                 coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
@@ -303,7 +303,12 @@ class NovelFeedViewModel @Inject constructor(
                 .onSuccess {
                     _message.send(UiMessage(if (nowFavorite) R.string.novel_msg_bookmarked else R.string.novel_msg_unbookmarked))
                 }.onFailure {
-                    _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                    _message.send(
+                        UiMessage(
+                            R.string.novel_msg_action_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
                 }
         }
     }

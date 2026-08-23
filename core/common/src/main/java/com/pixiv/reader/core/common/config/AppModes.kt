@@ -25,7 +25,8 @@ enum class ViewerOrientation(val value: Int) {
     SEAMLESS(2);
 
     companion object {
-        fun from(value: Int): ViewerOrientation = entries.firstOrNull { it.value == value } ?: HORIZONTAL
+        fun from(value: Int): ViewerOrientation =
+            entries.firstOrNull { it.value == value } ?: HORIZONTAL
     }
 }
 
@@ -35,7 +36,8 @@ enum class NovelDefaultTab(val value: Int) {
     FOLLOW(1);
 
     companion object {
-        fun from(value: Int): NovelDefaultTab = entries.firstOrNull { it.value == value } ?: RECOMMEND
+        fun from(value: Int): NovelDefaultTab =
+            entries.firstOrNull { it.value == value } ?: RECOMMEND
     }
 }
 
@@ -70,6 +72,7 @@ enum class FollowSortMode(val value: Int) {
     LATEST_WORK(3);
 
     companion object {
-        fun from(value: Int): FollowSortMode = entries.firstOrNull { it.value == value } ?: FOLLOW_TIME
+        fun from(value: Int): FollowSortMode =
+            entries.firstOrNull { it.value == value } ?: FOLLOW_TIME
     }
 }

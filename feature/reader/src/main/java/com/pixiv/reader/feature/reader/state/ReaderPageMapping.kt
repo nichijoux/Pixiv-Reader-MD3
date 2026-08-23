@@ -9,11 +9,11 @@ fun List<ReaderPage>.pageIndexForChar(charOffset: Int): Int {
     if (isEmpty()) return 0
     val index = indexOfFirst { page ->
         page.startChar >= 0 && page.endChar >= 0 &&
-            charOffset >= page.startChar && charOffset < page.endChar
+                charOffset >= page.startChar && charOffset < page.endChar
     }
     if (index >= 0) return index
     // 没有命中：取最后一个 startChar <= offset 的页
-    val lastLe = lastOrNull { page -> page.startChar >= 0 && page.startChar <= charOffset }
+    val lastLe = lastOrNull { page -> page.startChar in 0..charOffset }
         ?: first()
     return indexOf(lastLe)
 }

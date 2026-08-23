@@ -76,7 +76,7 @@
     <string name="me_language_chinese_traditional">繁體中文</string>
     <string name="me_language_english">English</string>
     <string name="me_auto_update">自动更新</string>
-    <string name="me_auto_update_desc">启动时检查新版本（更新逻辑待接入）</string>
+    <string name="me_auto_update_desc">启动时自动检查新版本</string>
     <string name="me_export_dir">下载位置</string>
     <string name="me_export_dir_value">当前：%1$s</string>
     <string name="me_export_dir_default">下载/PixivReader</string>
@@ -91,12 +91,16 @@
     <string name="me_cache_clear_message">将删除全部缓存文件（图片缓存、动图帧等），此操作不可撤销。</string>
     <string name="me_check_update">检查更新</string>
     <string name="me_already_latest">当前已是最新版本</string>
+    <string name="me_update_available_title">发现新版本 %1$s</string>
+    <string name="me_update_download">前往下载</string>
+    <string name="me_update_later">下次再说</string>
+    <string name="me_update_check_failed">检查更新失败：%1$s</string>
     <string name="me_cache_cleared">缓存已清除</string>
     <string name="me_version">版本 %1$s</string>
     <string name="me_about_description">一款开源 Pixiv Android 客户端：浏览推荐/排行/发现，查看插画与小说，支持收藏、评论、下载导出、离线阅读等能力。数据来自 pixiv 官方接口，仅供学习交流使用。</string>
     <string name="me_open_source_repo">开源仓库</string>
     <string name="me_open_source_license">开源许可</string>
-    <string name="me_open_source_license_desc">项目基于 pixiv 开放接口，仅供学习与交流使用。</string>
+    <string name="me_open_source_license_desc">项目基于 pixiv 开放接口开发，遵循 GPL-2.0 协议开源，仅供学习与交流使用。</string>
 
     <!-- HistoryRoute -->
     <string name="history_title">浏览历史</string>

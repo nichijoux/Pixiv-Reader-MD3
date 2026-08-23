@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -37,13 +35,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,7 +49,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
 import com.pixiv.api.model.SearchLangOption
@@ -106,11 +103,23 @@ internal fun FilterBottomSheet(
             transitionSpec = {
                 val forward = targetState != null && initialState == null
                 if (forward) {
-                    (slideInHorizontally(animationSpec = tween(280)) { it } + fadeIn(animationSpec = tween(280)))
-                        .togetherWith(slideOutHorizontally(animationSpec = tween(280)) { -it / 3 } + fadeOut(animationSpec = tween(280)))
+                    (slideInHorizontally(animationSpec = tween(280)) { it } + fadeIn(
+                        animationSpec = tween(
+                            280
+                        )
+                    ))
+                        .togetherWith(slideOutHorizontally(animationSpec = tween(280)) { -it / 3 } + fadeOut(
+                            animationSpec = tween(280)
+                        ))
                 } else {
-                    (slideInHorizontally(animationSpec = tween(280)) { -it } + fadeIn(animationSpec = tween(280)))
-                        .togetherWith(slideOutHorizontally(animationSpec = tween(280)) { it / 3 } + fadeOut(animationSpec = tween(280)))
+                    (slideInHorizontally(animationSpec = tween(280)) { -it } + fadeIn(
+                        animationSpec = tween(
+                            280
+                        )
+                    ))
+                        .togetherWith(slideOutHorizontally(animationSpec = tween(280)) { it / 3 } + fadeOut(
+                            animationSpec = tween(280)
+                        ))
                 }
             },
             label = "filterPicker",
@@ -129,6 +138,7 @@ internal fun FilterBottomSheet(
                     onReset = { draft = SearchFilters() },
                     onDismiss = onDismiss,
                 )
+
                 is Picker.Simple -> PickerListContent(
                     title = p.title,
                     labels = p.labels,
@@ -137,16 +147,19 @@ internal fun FilterBottomSheet(
                     onSelect = { idx -> p.onSelect(idx); picker = null },
                     onClose = { picker = null },
                 )
+
                 Picker.Duration -> DurationPickerContent(
                     durationBucket = draft.durationBucket,
                     hasCustom = draft.startDate != null || draft.endDate != null,
                     onPick = { bucket ->
-                        draft = draft.copy(durationBucket = bucket, startDate = null, endDate = null)
+                        draft =
+                            draft.copy(durationBucket = bucket, startDate = null, endDate = null)
                         picker = null
                     },
                     onOpenCustom = { picker = Picker.DateRange },
                     onClose = { picker = null },
                 )
+
                 Picker.DateRange -> DateRangeContent(
                     startDate = draft.startDate,
                     endDate = draft.endDate,
@@ -156,6 +169,7 @@ internal fun FilterBottomSheet(
                     },
                     onClose = { picker = null },
                 )
+
                 Picker.BodyLength -> BodyLengthPickerContent(
                     unit = draft.bodyLengthUnit,
                     min = draft.bodyLengthMin,
@@ -176,6 +190,7 @@ internal fun FilterBottomSheet(
                     },
                     onClose = { picker = null },
                 )
+
                 Picker.Other -> OtherPickerContent(
                     draft = draft,
                     isNovel = isNovel,
@@ -217,13 +232,13 @@ private fun MainFilterContent(
     val targetPicker = Picker.Simple(
         stringResource(R.string.filter_row_target),
         targetLabels(isNovel),
-        targetLabels(isNovel).indexOf(targetSummary(draft.searchTarget, isNovel)).coerceAtLeast(0),
+        targetLabels(isNovel).indexOf(targetSummary(draft.searchTarget)).coerceAtLeast(0),
         onSelect = { idx -> onDraftChange(draft.copy(searchTarget = (if (isNovel) NOVEL_TARGETS else ILLUST_TARGETS)[idx])) },
     )
     val sortPicker = Picker.Simple(
         stringResource(R.string.filter_row_sort),
         sortLabels(isPremium),
-        sortLabels(isPremium).indexOf(sortSummary(draft.sort, isPremium)).coerceAtLeast(0),
+        sortLabels(isPremium).indexOf(sortSummary(draft.sort)).coerceAtLeast(0),
         onSelect = { idx ->
             val s = sortValues(isPremium)[idx]
             // 时间排序与标题简介匹配互斥（400）：选时间排序时匹配方式回退默认
@@ -257,14 +272,34 @@ private fun MainFilterContent(
     val genrePicker = Picker.Simple(
         stringResource(R.string.filter_row_genre),
         listOf(stringResource(R.string.filter_all_summary)) + genreOptions.map { it.label ?: "" },
-        if (draft.genre == null) 0 else genreOptions.indexOfFirst { it.id == draft.genre }.let { if (it < 0) 0 else it + 1 },
-        onSelect = { idx -> onDraftChange(draft.copy(genre = if (idx == 0) null else genreOptions.getOrNull(idx - 1)?.id)) },
+        if (draft.genre == null) 0 else genreOptions.indexOfFirst { it.id == draft.genre }
+            .let { if (it < 0) 0 else it + 1 },
+        onSelect = { idx ->
+            onDraftChange(
+                draft.copy(
+                    genre = if (idx == 0) null else genreOptions.getOrNull(
+                        idx - 1
+                    )?.id
+                )
+            )
+        },
     )
     val langPicker = Picker.Simple(
         stringResource(R.string.filter_row_lang),
-        listOf(stringResource(R.string.filter_all_summary)) + langOptions.map { it.name ?: it.code ?: "" },
-        if (draft.lang == null) 0 else langOptions.indexOfFirst { it.code == draft.lang }.let { if (it < 0) 0 else it + 1 },
-        onSelect = { idx -> onDraftChange(draft.copy(lang = if (idx == 0) null else langOptions.getOrNull(idx - 1)?.code)) },
+        listOf(stringResource(R.string.filter_all_summary)) + langOptions.map {
+            it.name ?: it.code ?: ""
+        },
+        if (draft.lang == null) 0 else langOptions.indexOfFirst { it.code == draft.lang }
+            .let { if (it < 0) 0 else it + 1 },
+        onSelect = { idx ->
+            onDraftChange(
+                draft.copy(
+                    lang = if (idx == 0) null else langOptions.getOrNull(
+                        idx - 1
+                    )?.code
+                )
+            )
+        },
     )
     val ratioPicker = Picker.Simple(
         stringResource(R.string.filter_row_ratio),
@@ -283,7 +318,9 @@ private fun MainFilterContent(
         // 标题行：标题 + 关闭
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 12.dp),
         ) {
             Text(
                 text = stringResource(R.string.filter_title_default),
@@ -305,10 +342,16 @@ private fun MainFilterContent(
         ) {
             // A 段：检索范围 / 排序方式
             FilterCard {
-                FilterRow(stringResource(R.string.filter_row_target), targetSummary(draft.searchTarget, isNovel)) {
+                FilterRow(
+                    stringResource(R.string.filter_row_target),
+                    targetSummary(draft.searchTarget)
+                ) {
                     onOpenPicker(targetPicker)
                 }
-                FilterRow(stringResource(R.string.filter_row_sort), sortSummary(draft.sort, isPremium)) {
+                FilterRow(
+                    stringResource(R.string.filter_row_sort),
+                    sortSummary(draft.sort)
+                ) {
                     onOpenPicker(sortPicker)
                 }
             }
@@ -317,31 +360,55 @@ private fun MainFilterContent(
                 FilterRow(stringResource(R.string.filter_row_duration), durationSummary(draft)) {
                     onOpenPicker(Picker.Duration)
                 }
-                FilterRow(stringResource(R.string.filter_row_bookmark), bookmarkSummary(draft.bookmarkNumMin)) {
+                FilterRow(
+                    stringResource(R.string.filter_row_bookmark),
+                    bookmarkSummary(draft.bookmarkNumMin)
+                ) {
                     onOpenPicker(bookmarkPicker)
                 }
-                FilterRow(stringResource(R.string.filter_row_keyword_bookmark), keywordBookmarkSummary(draft.keywordUsersBucket)) {
+                FilterRow(
+                    stringResource(R.string.filter_row_keyword_bookmark),
+                    keywordBookmarkSummary(draft.keywordUsersBucket)
+                ) {
                     onOpenPicker(keywordBookmarkPicker)
                 }
                 if (!isNovel) {
-                    FilterRow(stringResource(R.string.filter_row_content_type), contentTypeSummary(draft.contentType)) {
+                    FilterRow(
+                        stringResource(R.string.filter_row_content_type),
+                        contentTypeSummary(draft.contentType)
+                    ) {
                         onOpenPicker(contentTypePicker)
                     }
-                    FilterRow(stringResource(R.string.filter_row_ratio), ratioSummary(draft.ratioPattern)) {
+                    FilterRow(
+                        stringResource(R.string.filter_row_ratio),
+                        ratioSummary(draft.ratioPattern)
+                    ) {
                         onOpenPicker(ratioPicker)
                     }
-                    FilterRow(stringResource(R.string.filter_row_resolution), resolutionSummary(draft.resolutionBucket)) {
+                    FilterRow(
+                        stringResource(R.string.filter_row_resolution),
+                        resolutionSummary(draft.resolutionBucket)
+                    ) {
                         onOpenPicker(resolutionPicker)
                     }
                 }
                 if (isNovel) {
-                    FilterRow(stringResource(R.string.filter_row_genre), genreSummary(draft.genre, genreOptions)) {
+                    FilterRow(
+                        stringResource(R.string.filter_row_genre),
+                        genreSummary(draft.genre, genreOptions)
+                    ) {
                         onOpenPicker(genrePicker)
                     }
-                    FilterRow(stringResource(R.string.filter_row_lang), langSummary(draft.lang, langOptions)) {
+                    FilterRow(
+                        stringResource(R.string.filter_row_lang),
+                        langSummary(draft.lang, langOptions)
+                    ) {
                         onOpenPicker(langPicker)
                     }
-                    FilterRow(stringResource(R.string.filter_row_body_length), bodyLengthSummary(draft)) {
+                    FilterRow(
+                        stringResource(R.string.filter_row_body_length),
+                        bodyLengthSummary(draft)
+                    ) {
                         onOpenPicker(Picker.BodyLength)
                     }
                 }
@@ -356,18 +423,24 @@ private fun MainFilterContent(
 
         // 底部操作：重置 + 搜索
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FilledTonalButton(
                 onClick = onReset,
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp),
             ) {
                 Text(stringResource(R.string.filter_reset))
             }
             Button(
                 onClick = onApply,
-                modifier = Modifier.weight(2f).height(50.dp),
+                modifier = Modifier
+                    .weight(2f)
+                    .height(50.dp),
             ) {
                 Text(stringResource(R.string.search_action))
             }
@@ -381,7 +454,9 @@ private fun FilterCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
     ) {
         Column(content = content)
     }
@@ -432,10 +507,14 @@ private fun PickerListContent(
     onSelect: (Int) -> Unit,
     onClose: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = 24.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
         ) {
             Text(
                 text = title,
@@ -548,10 +627,14 @@ private fun DateRangeContent(
     var draftStart by remember { mutableStateOf(startDate) }
     var draftEnd by remember { mutableStateOf(endDate) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = 24.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
         ) {
             Text(
                 text = stringResource(R.string.filter_date_range),
@@ -574,7 +657,10 @@ private fun DateRangeContent(
             }
             Button(
                 onClick = { onConfirm(draftStart, draftEnd) },
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+                    .height(48.dp),
             ) { Text(stringResource(R.string.common_confirm)) }
         }
     }
@@ -593,7 +679,9 @@ private fun DateRangeContent(
                 }) { Text(stringResource(R.string.common_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(onClick = {
+                    showDialog = false
+                }) { Text(stringResource(R.string.common_cancel)) }
             },
         ) {
             DatePicker(state = pickerState)
@@ -610,7 +698,11 @@ private fun DateFieldRow(label: String, value: String?, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(vertical = 14.dp),
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
         Text(
             text = value ?: stringResource(R.string.filter_unlimited),
             style = MaterialTheme.typography.bodyMedium,
@@ -669,14 +761,17 @@ private fun bodyLengthSelectedIdx(unit: Int?, min: Int?, max: Int?): Int = when 
         val b = CHAR_BUCKETS.indexOfFirst { it.min == min && it.max == max }
         if (b >= 0) 2 + b else 6
     }
+
     1 -> {
         val b = WORD_BUCKETS.indexOfFirst { it.min == min && it.max == max }
         if (b >= 0) 8 + b else 12
     }
+
     2 -> {
         val b = TIME_BUCKETS.indexOfFirst { it.min == min && it.max == max }
         if (b >= 0) 14 + b else 18
     }
+
     else -> 0
 }
 
@@ -691,16 +786,19 @@ private fun handleBodyLengthPick(
             val b = CHAR_BUCKETS[idx - 2]
             onPick(0, b.min, b.max)
         }
+
         6 -> onPickCustom(0, null, null)
         in 8..11 -> {
             val b = WORD_BUCKETS[idx - 8]
             onPick(1, b.min, b.max)
         }
+
         12 -> onPickCustom(1, null, null)
         in 14..17 -> {
             val b = TIME_BUCKETS[idx - 14]
             onPick(2, b.min, b.max)
         }
+
         18 -> onPickCustom(2, null, null)
     }
 }
@@ -717,8 +815,8 @@ private fun OtherPickerContent(
     onConfirm: (ai: Int, r18: Int, originalOnly: Boolean?, replaceableOnly: Boolean?, tool: String?) -> Unit,
     onClose: () -> Unit,
 ) {
-    var ai by remember { mutableStateOf(draft.aiType) }
-    var r18 by remember { mutableStateOf(draft.r18Mode) }
+    var ai by remember { mutableIntStateOf(draft.aiType) }
+    var r18 by remember { mutableIntStateOf(draft.r18Mode) }
     var originalOnly by remember { mutableStateOf(draft.isOriginalOnly == true) }
     var replaceableOnly by remember { mutableStateOf(draft.isReplaceableOnly == true) }
     var tool by remember { mutableStateOf(draft.tool) }
@@ -726,22 +824,30 @@ private fun OtherPickerContent(
 
     if (showToolPicker) {
         val labels = listOf(stringResource(R.string.filter_all_summary)) + toolOptions
-        val selected = tool?.let { toolOptions.indexOf(it).let { i -> if (i < 0) 0 else i + 1 } } ?: 0
+        val selected =
+            tool?.let { toolOptions.indexOf(it).let { i -> if (i < 0) 0 else i + 1 } } ?: 0
         PickerListContent(
             title = stringResource(R.string.filter_row_tool),
             labels = labels,
             selected = selected,
             headerIndices = emptySet(),
-            onSelect = { idx -> tool = if (idx == 0) null else toolOptions.getOrNull(idx - 1); showToolPicker = false },
+            onSelect = { idx ->
+                tool = if (idx == 0) null else toolOptions.getOrNull(idx - 1); showToolPicker =
+                false
+            },
             onClose = { showToolPicker = false },
         )
         return
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = 24.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
         ) {
             Text(
                 text = stringResource(R.string.filter_row_other),
@@ -773,7 +879,11 @@ private fun OtherPickerContent(
                         .clickable { showToolPicker = true }
                         .padding(vertical = 14.dp),
                 ) {
-                    Text(text = stringResource(R.string.filter_row_tool), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text(
+                        text = stringResource(R.string.filter_row_tool),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
                     Text(
                         text = tool ?: stringResource(R.string.filter_all_summary),
                         style = MaterialTheme.typography.bodyMedium,
@@ -784,8 +894,14 @@ private fun OtherPickerContent(
 
             if (isNovel) {
                 SectionTitle(stringResource(R.string.filter_row_novel_switches))
-                SwitchRow(stringResource(R.string.filter_original_only), originalOnly) { originalOnly = it }
-                SwitchRow(stringResource(R.string.filter_replaceable_only), replaceableOnly) { replaceableOnly = it }
+                SwitchRow(
+                    stringResource(R.string.filter_original_only),
+                    originalOnly
+                ) { originalOnly = it }
+                SwitchRow(
+                    stringResource(R.string.filter_replaceable_only),
+                    replaceableOnly
+                ) { replaceableOnly = it }
             }
 
             SectionTitle(stringResource(R.string.filter_r18))
@@ -802,7 +918,10 @@ private fun OtherPickerContent(
                         if (isNovel) null else tool,
                     )
                 },
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+                    .height(48.dp),
             ) { Text(stringResource(R.string.common_confirm)) }
         }
     }
@@ -841,7 +960,11 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
             .clickable { onChange(!checked) }
             .padding(vertical = 10.dp),
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
@@ -851,7 +974,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 // ──────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun targetSummary(target: String, isNovel: Boolean): String = stringResource(
+private fun targetSummary(target: String): String = stringResource(
     when (target) {
         "exact_match_for_tags" -> R.string.filter_match_exact
         "title_and_caption" -> R.string.filter_match_title
@@ -862,20 +985,21 @@ private fun targetSummary(target: String, isNovel: Boolean): String = stringReso
 )
 
 @Composable
-private fun targetLabels(isNovel: Boolean): List<String> = (if (isNovel) NOVEL_TARGETS else ILLUST_TARGETS).map {
-    stringResource(
-        when (it) {
-            "exact_match_for_tags" -> R.string.filter_match_exact
-            "title_and_caption" -> R.string.filter_match_title
-            "text" -> R.string.filter_match_text
-            "keyword" -> R.string.filter_match_keyword
-            else -> R.string.filter_match_partial
-        },
-    )
-}
+private fun targetLabels(isNovel: Boolean): List<String> =
+    (if (isNovel) NOVEL_TARGETS else ILLUST_TARGETS).map {
+        stringResource(
+            when (it) {
+                "exact_match_for_tags" -> R.string.filter_match_exact
+                "title_and_caption" -> R.string.filter_match_title
+                "text" -> R.string.filter_match_text
+                "keyword" -> R.string.filter_match_keyword
+                else -> R.string.filter_match_partial
+            },
+        )
+    }
 
 @Composable
-private fun sortSummary(sort: String, isPremium: Boolean): String = stringResource(
+private fun sortSummary(sort: String): String = stringResource(
     when (sort) {
         "popular_preview" -> R.string.filter_sort_preview
         "date_desc" -> R.string.filter_latest
@@ -945,7 +1069,8 @@ private fun keywordBookmarkSummary(bucket: Int?): String =
 @Composable
 private fun genreSummary(genre: Int?, options: List<SearchGenreOption>): String {
     if (genre == null) return stringResource(R.string.filter_all_summary)
-    return options.firstOrNull { it.id == genre }?.label ?: stringResource(R.string.filter_all_summary)
+    return options.firstOrNull { it.id == genre }?.label
+        ?: stringResource(R.string.filter_all_summary)
 }
 
 @Composable
@@ -978,12 +1103,26 @@ private fun resolutionSummary(bucket: String?): String = stringResource(
 private fun bodyLengthSummary(f: SearchFilters): String {
     val unit = f.bodyLengthUnit ?: return stringResource(R.string.filter_body_length_all)
     return when (unit) {
-        0 -> CHAR_BUCKETS.firstOrNull { it.min == f.bodyLengthMin && it.max == f.bodyLengthMax }?.let { stringResource(it.labelRes) }
-            ?: stringResource(R.string.filter_body_length_custom_char_fmt, rangeText(f.bodyLengthMin, f.bodyLengthMax))
-        1 -> WORD_BUCKETS.firstOrNull { it.min == f.bodyLengthMin && it.max == f.bodyLengthMax }?.let { stringResource(it.labelRes) }
-            ?: stringResource(R.string.filter_body_length_custom_word_fmt, rangeText(f.bodyLengthMin, f.bodyLengthMax))
-        else -> TIME_BUCKETS.firstOrNull { it.min == f.bodyLengthMin && it.max == f.bodyLengthMax }?.let { stringResource(it.labelRes) }
-            ?: stringResource(R.string.filter_reading_time_custom_fmt, rangeText(f.bodyLengthMin, f.bodyLengthMax))
+        0 -> CHAR_BUCKETS.firstOrNull { it.min == f.bodyLengthMin && it.max == f.bodyLengthMax }
+            ?.let { stringResource(it.labelRes) }
+            ?: stringResource(
+                R.string.filter_body_length_custom_char_fmt,
+                rangeText(f.bodyLengthMin, f.bodyLengthMax)
+            )
+
+        1 -> WORD_BUCKETS.firstOrNull { it.min == f.bodyLengthMin && it.max == f.bodyLengthMax }
+            ?.let { stringResource(it.labelRes) }
+            ?: stringResource(
+                R.string.filter_body_length_custom_word_fmt,
+                rangeText(f.bodyLengthMin, f.bodyLengthMax)
+            )
+
+        else -> TIME_BUCKETS.firstOrNull { it.min == f.bodyLengthMin && it.max == f.bodyLengthMax }
+            ?.let { stringResource(it.labelRes) }
+            ?: stringResource(
+                R.string.filter_reading_time_custom_fmt,
+                rangeText(f.bodyLengthMin, f.bodyLengthMax)
+            )
     }
 }
 
@@ -1013,8 +1152,10 @@ private fun otherSummary(f: SearchFilters, isNovel: Boolean): String {
 
 // ── 档位常量 ──
 
-private val ILLUST_TARGETS = listOf("partial_match_for_tags", "exact_match_for_tags", "title_and_caption")
-private val NOVEL_TARGETS = listOf("partial_match_for_tags", "exact_match_for_tags", "text", "keyword")
+private val ILLUST_TARGETS =
+    listOf("partial_match_for_tags", "exact_match_for_tags", "title_and_caption")
+private val NOVEL_TARGETS =
+    listOf("partial_match_for_tags", "exact_match_for_tags", "text", "keyword")
 
 private val CONTENT_TYPE_VALUES = listOf(
     null, "illust_and_ugoira", "illust", "ugoira", "manga",
@@ -1037,14 +1178,19 @@ private fun contentTypeIndex(value: String?): Int = when (value) {
     else -> 0
 }
 
-private val BOOKMARK_VALUES = listOf(0, 100, 500, 1000, 2000, 5000, 7500, 10000, 20000, 30000, 50000, 100000)
+private val BOOKMARK_VALUES =
+    listOf(0, 100, 500, 1000, 2000, 5000, 7500, 10000, 20000, 30000, 50000, 100000)
 
 @Composable
 private fun BOOKMARK_LABELS(): List<String> = BOOKMARK_VALUES.map {
-    if (it == 0) stringResource(R.string.filter_unlimited) else stringResource(R.string.filter_bookmark_min_fmt, it)
+    if (it == 0) stringResource(R.string.filter_unlimited) else stringResource(
+        R.string.filter_bookmark_min_fmt,
+        it
+    )
 }
 
-private val KEYWORD_USERS_VALUES = listOf(0, 500, 1000, 2000, 5000, 7500, 10000, 20000, 50000, 100000)
+private val KEYWORD_USERS_VALUES =
+    listOf(0, 500, 1000, 2000, 5000, 7500, 10000, 20000, 50000, 100000)
 
 @Composable
 private fun KEYWORD_USERS_LABELS(): List<String> = KEYWORD_USERS_VALUES.map {
@@ -1086,7 +1232,8 @@ private fun resolutionIndex(bucket: String?): Int = when (bucket) {
     else -> 0
 }
 
-private val DURATION_VALUES = listOf(null, "Last24Hours", "LastWeek", "LastMonth", "LastHalfYear", "LastYear")
+private val DURATION_VALUES =
+    listOf(null, "Last24Hours", "LastWeek", "LastMonth", "LastHalfYear", "LastYear")
 
 private data class RangeSpec(val min: Int?, val max: Int?, val labelRes: Int)
 

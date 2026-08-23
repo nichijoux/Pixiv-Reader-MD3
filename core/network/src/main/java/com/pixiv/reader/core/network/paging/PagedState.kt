@@ -93,7 +93,7 @@ class PagedState<T> {
             val page = fetcher(url)
             // reset 后（新搜索）旧代次结果必须丢弃：否则旧查询第 2 页会混入新结果
             if (gen != generation) return
-            _items.value = _items.value + page.items
+            _items.value += page.items
             next = page.nextPageUrl
             _hasMore.value = page.nextPageUrl != null
         } catch (e: Exception) {
@@ -120,10 +120,5 @@ class PagedState<T> {
         _isLoading.value = false
         // 在途 loadMore 属于旧代次：清标志让新查询的 loadMore 不被旧请求阻塞
         _isLoadingMore.value = false
-    }
-
-    /** 手动注入错误（如分页失败后由调用方补充文案）。 */
-    fun setError(message: String) {
-        _error.value = message
     }
 }

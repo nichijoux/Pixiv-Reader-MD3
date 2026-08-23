@@ -36,5 +36,9 @@ private fun compactUnits(locale: Locale): List<CompactUnit> =
     if (locale.language.equals("zh", ignoreCase = true)) {
         listOf(CompactUnit(100_000_000L, "亿"), CompactUnit(10_000L, "万"))
     } else {
-        listOf(CompactUnit(1_000_000_000L, "B"), CompactUnit(1_000_000L, "M"), CompactUnit(1_000L, "K"))
+        listOf(
+            CompactUnit(1_000_000_000L, "B"),
+            CompactUnit(1_000_000L, "M"),
+            CompactUnit(1_000L, "K")
+        )
     }

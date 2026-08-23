@@ -20,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class IllustPageDownloader @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val progressDownloader: ProgressDownloader,
 ) {
 

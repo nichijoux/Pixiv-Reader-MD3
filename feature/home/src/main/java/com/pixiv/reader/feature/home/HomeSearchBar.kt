@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.feature.home.R
 
 /**
  * 首页搜索框：圆角搜索条外观（icon + 占位文案）。

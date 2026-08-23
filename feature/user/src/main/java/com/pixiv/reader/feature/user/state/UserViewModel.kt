@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** 用户主页作品分区。 */
-enum class UserSection(@StringRes val labelRes: Int) {
+enum class UserSection(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.user_section_illust),
     MANGA(R.string.user_section_manga),
     NOVEL(R.string.user_section_novel),

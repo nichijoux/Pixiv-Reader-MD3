@@ -50,7 +50,8 @@ object PixivUrlParser {
             "/novel/series/" in match.value -> PixivLinkType.SERIES
             "/novel/show.php" in match.value || "/novel/" in match.value -> PixivLinkType.NOVEL
             "/artworks/" in match.value || "/manga/" in match.value ||
-                "/i/" in match.value || "illust_id=" in match.value -> PixivLinkType.ILLUST
+                    "/i/" in match.value || "illust_id=" in match.value -> PixivLinkType.ILLUST
+
             else -> PixivLinkType.USER
         }
         return PixivLink(type, id)

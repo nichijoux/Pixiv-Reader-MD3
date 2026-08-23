@@ -47,8 +47,8 @@ object FollowFeedMerger {
      */
     fun merge(illusts: List<Illust>, novels: List<Novel>): List<FollowFeedItem> {
         val items = illusts.map(FollowFeedItem::IllustItem) +
-            novels.map(FollowFeedItem::NovelItem)
-        return items.sortedWith(compareByDescending<FollowFeedItem> { it.createDate ?: "" })
+                novels.map(FollowFeedItem::NovelItem)
+        return items.sortedWith(compareByDescending { it.createDate ?: "" })
     }
 
     /**

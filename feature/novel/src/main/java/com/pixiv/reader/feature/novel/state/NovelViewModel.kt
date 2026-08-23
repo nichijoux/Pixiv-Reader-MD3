@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.google.gson.Gson
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
@@ -16,15 +17,12 @@ import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.card.toCardData
-import com.google.gson.Gson
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更。
@@ -41,7 +40,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class NovelViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
     private val readingProgressDao: ReadingProgressDao,
     private val browseHistoryDao: BrowseHistoryDao,
@@ -119,7 +118,12 @@ class NovelViewModel @Inject constructor(
                     loadSeries(detail)
                 }
                 .onFailure {
-                    _error.value = it.message?.let { m -> UiMessage(R.string.novel_error_load_failed_reason, listOf(m)) }
+                    _error.value = it.message?.let { m ->
+                        UiMessage(
+                            R.string.novel_error_load_failed_reason,
+                            listOf(m)
+                        )
+                    }
                         ?: UiMessage(R.string.novel_error_load_failed)
                 }
             _isLoading.value = false
@@ -168,10 +172,19 @@ class NovelViewModel @Inject constructor(
             favoriteActions.toggleNovelFavorite(novelId, !current)
                 .onSuccess {
                     _isBookmarked.value = !current
-                    _message.send(if (!current) UiMessage(R.string.novel_msg_bookmarked) else UiMessage(R.string.novel_msg_unbookmarked))
+                    _message.send(
+                        if (!current) UiMessage(R.string.novel_msg_bookmarked) else UiMessage(
+                            R.string.novel_msg_unbookmarked
+                        )
+                    )
                 }
                 .onFailure {
-                    _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                    _message.send(
+                        UiMessage(
+                            R.string.novel_msg_action_failed,
+                            listOf(it.message ?: "")
+                        )
+                    )
                 }
             _isBookmarking.value = false
         }
@@ -188,7 +201,11 @@ class NovelViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                _message.send(if (!current) UiMessage(R.string.novel_msg_watching_added) else UiMessage(R.string.novel_msg_watching_removed))
+                _message.send(
+                    if (!current) UiMessage(R.string.novel_msg_watching_added) else UiMessage(
+                        R.string.novel_msg_watching_removed
+                    )
+                )
             }.onFailure {
                 _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
             }

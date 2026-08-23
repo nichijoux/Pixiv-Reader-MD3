@@ -89,7 +89,8 @@ object NovelParser {
         while (start < text.length) {
             var end = (start + max).coerceAtMost(text.length)
             if (end < text.length) {
-                val boundary = text.lastIndexOfAny(charArrayOf(' ', '\n', '。', '！', '？', '，', '、'), end - 1)
+                val boundary =
+                    text.lastIndexOfAny(charArrayOf(' ', '\n', '。', '！', '？', '，', '、'), end - 1)
                 if (boundary > start + max / 2) end = boundary + 1
             }
             parts.add(text.substring(start, end).trim())
@@ -135,10 +136,12 @@ object NovelParser {
                 val text = cleanText(el.text())
                 if (text.isBlank()) null else NovelBlock.Quote(text)
             }
+
             tag == "hr" -> NovelBlock.Separator()
             tag == "img" -> parseImage(el)
             tag == "figure" || el.hasClass("novel-image") || el.hasClass("novel-figure") ->
                 parseFigure(el)
+
             else -> {
                 // 无结构标签的 div：仅当含有有意义的自有文本时兜底为段落
                 val text = cleanText(el.text())
@@ -201,7 +204,10 @@ object NovelParser {
      * 由 [splitEmbeddedImages] 切分为图片块；[imageUrls] 提供标记内容 → 图片 URL 的映射
      * （来自 `ajax/novel/{id}` 的 textEmbeddedImages），缺失时保留标记协议串供上层异步解析。
      */
-    private fun extractFromScripts(doc: Document, imageUrls: Map<String, String>): List<NovelBlock> {
+    private fun extractFromScripts(
+        doc: Document,
+        imageUrls: Map<String, String>
+    ): List<NovelBlock> {
         val scriptTexts = doc.select("script").map { it.html() }.filter { it.isNotBlank() }
         val candidates = mutableListOf<String>()
         val fields = listOf("content", "text", "description", "body")
@@ -235,14 +241,17 @@ object NovelParser {
     }
 
     /** 正文插图标记：`[pixivimage:ID]`（画作引用）/ `[uploadedimage:file]`（上传图）。 */
-    private val EMBEDDED_IMAGE_RE = Regex("\\[pixivimage:\\d+\\]|\\[uploadedimage:[^\\]]+\\]")
+    private val EMBEDDED_IMAGE_RE = Regex("\\[pixivimage:\\d+]|\\[uploadedimage:[^]]+]")
 
     /**
      * 把一段正文按嵌入图片标记切分为「段落 / 图片」块序列。
      * [imageUrls] 键为标记内容（`uploadedimage:file`），值为图片 URL；
      * 映射缺失时图片 URL 保留标记协议串（如 `pixivimage:123456`），由上层异步解析真实 URL。
      */
-    private fun splitEmbeddedImages(paragraph: String, imageUrls: Map<String, String>): List<NovelBlock> {
+    private fun splitEmbeddedImages(
+        paragraph: String,
+        imageUrls: Map<String, String>
+    ): List<NovelBlock> {
         val result = mutableListOf<NovelBlock>()
         var cursor = 0
         for (m in EMBEDDED_IMAGE_RE.findAll(paragraph)) {
@@ -287,35 +296,66 @@ object NovelParser {
         val sb = StringBuilder()
         i++
         while (i < raw.length) {
-            val c = raw[i]
-            if (c == '\\') {
-                if (i + 1 >= raw.length) return null
-                val next = raw[i + 1]
-                when (next) {
-                    'n' -> { sb.append('\n'); i += 2 }
-                    'r' -> { sb.append('\r'); i += 2 }
-                    't' -> { sb.append('\t'); i += 2 }
-                    'b' -> { sb.append('\b'); i += 2 }
-                    'f' -> { sb.append('\u000C'); i += 2 }
-                    '"' -> { sb.append('"'); i += 2 }
-                    '\\' -> { sb.append('\\'); i += 2 }
-                    '/' -> { sb.append('/'); i += 2 }
-                    'u' -> {
-                        if (i + 5 < raw.length) {
-                            val hex = raw.substring(i + 2, i + 6)
-                            sb.append(hex.toIntOrNull(16)?.toChar() ?: next)
-                            i += 6
-                        } else {
-                            return null
+            when (val c = raw[i]) {
+                '\\' -> {
+                    if (i + 1 >= raw.length) return null
+                    when (val next = raw[i + 1]) {
+                        'n' -> {
+                            sb.append('\n'); i += 2
+                        }
+
+                        'r' -> {
+                            sb.append('\r'); i += 2
+                        }
+
+                        't' -> {
+                            sb.append('\t'); i += 2
+                        }
+
+                        'b' -> {
+                            sb.append('\b'); i += 2
+                        }
+
+                        'f' -> {
+                            sb.append('\u000C'); i += 2
+                        }
+
+                        '"' -> {
+                            sb.append('"'); i += 2
+                        }
+
+                        '\\' -> {
+                            sb.append('\\'); i += 2
+                        }
+
+                        '/' -> {
+                            sb.append('/'); i += 2
+                        }
+
+                        'u' -> {
+                            if (i + 5 < raw.length) {
+                                val hex = raw.substring(i + 2, i + 6)
+                                sb.append(hex.toIntOrNull(16)?.toChar() ?: next)
+                                i += 6
+                            } else {
+                                return null
+                            }
+                        }
+
+                        else -> {
+                            sb.append(next); i += 2
                         }
                     }
-                    else -> { sb.append(next); i += 2 }
                 }
-            } else if (c == '"') {
-                return sb.toString()
-            } else {
-                sb.append(c)
-                i++
+
+                '"' -> {
+                    return sb.toString()
+                }
+
+                else -> {
+                    sb.append(c)
+                    i++
+                }
             }
         }
         return null
@@ -324,7 +364,7 @@ object NovelParser {
     private fun isCjk(c: Char): Boolean {
         val code = c.code
         return code in 0x4E00..0x9FFF || code in 0x3040..0x30FF ||
-            code in 0xAC00..0xD7AF || code in 0x3400..0x4DBF
+                code in 0xAC00..0xD7AF || code in 0x3400..0x4DBF
     }
 
     // ── 工具 ──────────────────────────────────────────────────────────────────
@@ -342,7 +382,7 @@ object NovelParser {
     }
 
     private fun cleanText(raw: String): String =
-        // trim() 依据 Character.isWhitespace，含全角空格（U+3000）——
+    // trim() 依据 Character.isWhitespace，含全角空格（U+3000）——
         // 段首/段尾的空格与全角缩进一律剔除，缩进交给阅读器设置
         raw.replace(Regex("\\s+"), " ").trim()
 

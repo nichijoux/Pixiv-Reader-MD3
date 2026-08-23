@@ -45,8 +45,8 @@ import kotlinx.coroutines.launch
 /** 引导页单页内容：图标 + 标题 + 描述（图标仅装饰，无内容描述）。 */
 private data class OnboardingPage(
     val icon: ImageVector,
-    @StringRes val titleRes: Int,
-    @StringRes val descriptionRes: Int,
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val descriptionRes: Int,
 )
 
 private val ONBOARDING_PAGES = listOf(

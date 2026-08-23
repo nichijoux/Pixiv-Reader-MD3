@@ -1,4 +1,5 @@
 package com.pixiv.reader.core.ui.component.card
+import android.annotation.SuppressLint
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraCardPlayer
 
@@ -69,6 +70,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
  * @param ugoiraLoader 动图加载器；非空且作品为 ugoira 时封面播放动图动画（帧未就绪露出静态封面）；null 恒静态
  */
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun RankingIllustCard(
     rank: Int,

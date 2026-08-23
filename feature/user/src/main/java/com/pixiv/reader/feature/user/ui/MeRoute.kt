@@ -2,9 +2,11 @@ package com.pixiv.reader.feature.user.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -12,6 +14,10 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +69,7 @@ fun MeRoute(
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
     val novelDefaultTab by viewModel.novelDefaultTab.collectAsStateWithLifecycle()
     val viewerOrientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
+    val updateRelease by viewModel.updateDialog.collectAsStateWithLifecycle()
     val followSortMode by viewModel.followSortMode.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
     val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
@@ -186,7 +193,7 @@ fun MeRoute(
                 SectionTitle(stringResource(R.string.me_section_about))
                 MeAboutSection(
                     versionName = viewModel.versionName,
-                    onCheckUpdate = viewModel::checkUpdate,
+                    onCheckUpdate = { viewModel.checkUpdate() },
                 )
             }
         }
@@ -219,6 +226,43 @@ fun MeRoute(
                 showFileNameTemplate = false
             },
             onDismiss = { showFileNameTemplate = false },
+        )
+    }
+
+    // 新版本更新对话框：changelog 正文 + 前往下载（浏览器打开 Release 页）
+    updateRelease?.let { release ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUpdateDialog,
+            title = { Text(stringResource(R.string.me_update_available_title, release.tagName)) },
+            text = {
+                if (release.body.isNotBlank()) {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        Text(
+                            text = release.body,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
+                    }
+                    viewModel.dismissUpdateDialog()
+                }) {
+                    Text(stringResource(R.string.me_update_download))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissUpdateDialog) {
+                    Text(stringResource(R.string.me_update_later))
+                }
+            },
         )
     }
 

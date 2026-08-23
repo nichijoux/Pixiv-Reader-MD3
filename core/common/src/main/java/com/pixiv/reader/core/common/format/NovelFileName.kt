@@ -43,6 +43,7 @@ fun renderNovelFileName(
         .replace(NovelFileNameTemplate.SERIES, series)
         .replace(NovelFileNameTemplate.DATE, publishDate?.take(10).orEmpty())
         .replace(NovelFileNameTemplate.FAV_COUNT, favoriteCount?.toString().orEmpty())
+
     val rendered = render(template)
     // 模板不含任何占位符/全为空 → 回退默认模板，避免导出无名文件
     return if (rendered.isBlank()) {

@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ugoira 动图播放：**双缓冲预解码**——显示当前帧的同时后台预解码下一帧，帧延迟到点直接交换。
@@ -58,7 +59,7 @@ fun UgoiraPlayer(
             val nextIndex = (index + 1) % frames.size
             // 后台预解码下一帧，与当前帧的停留时间并行（LaunchedEffect 取消时自动取消）
             val next = async(Dispatchers.IO) { decodeSampled(frames[nextIndex].file, maxDecodeSize) }
-            delay(frames[index].delayMs.toLong())
+            delay(frames[index].delayMs.toLong().milliseconds)
             bitmap = next.await()
             index = nextIndex
         }

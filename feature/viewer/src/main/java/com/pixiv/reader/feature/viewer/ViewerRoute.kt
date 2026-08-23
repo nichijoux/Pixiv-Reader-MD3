@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.viewer
 
+import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +67,7 @@ import com.pixiv.reader.core.ui.theme.ViewerScrim
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
  * 平板/横屏：图片自适应居中，底部操作条宽度受限。
  */
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun ViewerRoute(
     onBack: () -> Unit,
@@ -111,7 +113,14 @@ fun ViewerRoute(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.message.collect { msg -> notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType()) }
+        viewModel.message.collect { msg ->
+            notificationHostState.show(
+                context.getString(
+                    msg.res,
+                    *msg.args.toTypedArray()
+                ), type = msg.type.toNotificationType()
+            )
+        }
     }
 
     Box(
@@ -176,7 +185,7 @@ fun ViewerRoute(
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
                 .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                    Brush.verticalGradient(
                         listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent),
                     ),
                 )
@@ -185,7 +194,11 @@ fun ViewerRoute(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.viewer_cd_back), tint = Color.White)
+                Icon(
+                    Icons.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.viewer_cd_back),
+                    tint = Color.White
+                )
             }
             Text(
                 text = viewModel.illust.value?.title.orEmpty(),
@@ -197,7 +210,11 @@ fun ViewerRoute(
             // 更多菜单：收藏 / 下载 / 举报
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.viewer_cd_more), tint = Color.White)
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        contentDescription = stringResource(R.string.viewer_cd_more),
+                        tint = Color.White
+                    )
                 }
                 DropdownMenu(
                     expanded = menuExpanded,

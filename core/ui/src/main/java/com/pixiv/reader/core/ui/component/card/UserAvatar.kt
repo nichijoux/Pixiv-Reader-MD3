@@ -1,5 +1,4 @@
 package com.pixiv.reader.core.ui.component.card
-import com.pixiv.reader.core.ui.component.image.PixivImage
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.component.image.PixivImage
 
 /**
  * 用户头像（通用组件）。

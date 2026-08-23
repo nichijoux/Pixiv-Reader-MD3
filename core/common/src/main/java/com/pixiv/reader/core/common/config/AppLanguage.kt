@@ -25,9 +25,9 @@ object AppLanguage {
  * 将存储值转为 [Locale]，[AppLanguage.SYSTEM] 返回 null（表示沿用系统配置，不强制覆盖）。
  */
 fun localeFor(appLanguage: String): Locale? = when (appLanguage) {
-    AppLanguage.ZH -> Locale("zh")
-    AppLanguage.ZH_TW -> Locale("zh", "TW")
-    AppLanguage.EN -> Locale("en")
+    AppLanguage.ZH -> Locale.forLanguageTag("zh")
+    AppLanguage.ZH_TW -> Locale.forLanguageTag("zh-TW")
+    AppLanguage.EN -> Locale.forLanguageTag("en")
     else -> null
 }
 

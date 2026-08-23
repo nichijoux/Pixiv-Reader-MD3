@@ -72,8 +72,3 @@ internal fun novelCountBadgeStyle() = MaterialTheme.typography.labelMedium.copy(
 /** 下载对话框选项标题：bodyMedium 15sp Medium。 */
 @Composable
 internal fun novelOptionTitleStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium)
-
-// ── 间距 ────────────────────────────────────────────────────────────────────
-
-/** 竖排按钮 icon 与 label 的间隔（HTML `.abtn` gap:4px，此处收紧为 2dp）。 */
-internal val NovelIconLabelGap = 2.dp

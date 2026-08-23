@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** 历史类型筛选（插画 / 小说 / 用户）。 */
-enum class HistoryFilter(@StringRes val labelRes: Int) {
+enum class HistoryFilter(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.history_filter_illust),
     NOVEL(R.string.history_filter_novel),
     USER(R.string.history_filter_user),

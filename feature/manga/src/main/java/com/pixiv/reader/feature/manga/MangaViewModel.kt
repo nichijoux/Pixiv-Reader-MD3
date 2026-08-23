@@ -127,6 +127,7 @@ class MangaViewModel @Inject constructor(
                             fetchNext = { pixivRepository.api.getNextIllusts(it) },
                         )
                     }
+
                     MangaContentType.ILLUST -> {
                         illustPaged.reset()
                         illustPaged.loadInitial(
@@ -134,6 +135,7 @@ class MangaViewModel @Inject constructor(
                             fetchNext = { pixivRepository.api.getNextIllusts(it) },
                         )
                     }
+
                     MangaContentType.UGOIRA -> {
                         ugoiraPaged.reset()
                         ugoiraPaged.loadInitial(

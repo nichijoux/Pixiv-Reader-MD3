@@ -1,8 +1,8 @@
 package com.pixiv.reader.feature.user.state
 
 import android.content.Context
-import android.net.Uri
 import androidx.annotation.StringRes
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -14,8 +14,6 @@ import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,9 +21,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
 
 /** 下载管理分类（插画 / 小说）。 */
-enum class DownloadFilter(@StringRes val labelRes: Int) {
+enum class DownloadFilter(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.downloads_filter_illust),
     NOVEL(R.string.downloads_filter_novel),
 }
@@ -38,7 +38,7 @@ enum class DownloadFilter(@StringRes val labelRes: Int) {
  */
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val downloadEntryDao: DownloadEntryDao,
 ) : ViewModel() {
 
@@ -60,7 +60,7 @@ class DownloadsViewModel @Inject constructor(
                 runCatching {
                     if (path.startsWith("content://")) {
                         // SAF 与 MediaStore uri 统一经 ContentResolver 删除
-                        context.contentResolver.delete(Uri.parse(path), null, null)
+                        context.contentResolver.delete(path.toUri(), null, null)
                     } else {
                         val file = File(path)
                         if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
@@ -88,7 +88,8 @@ class DownloadsViewModel @Inject constructor(
                 if (path.startsWith("content://")) {
                     // SAF/MediaStore 目录导出：经 ContentResolver 读取
                     val bytes = runCatching {
-                        context.contentResolver.openInputStream(Uri.parse(path))?.use { it.readBytes() }
+                        context.contentResolver.openInputStream(path.toUri())
+                            ?.use { it.readBytes() }
                     }.getOrNull() ?: return@withContext null
                     when (ext) {
                         "txt" -> TxtNovelParser.parse(bytes.toString(Charsets.UTF_8))
@@ -99,6 +100,7 @@ class DownloadsViewModel @Inject constructor(
                             runCatching { tmp.writeBytes(bytes) }
                             EpubNovelParser.parse(tmp)
                         }
+
                         else -> null
                     }
                 } else {
@@ -113,7 +115,10 @@ class DownloadsViewModel @Inject constructor(
                 }
             }
             if (doc != null) {
-                LocalReaderStore.set(doc, entry.title ?: context.getString(R.string.downloads_local_novel))
+                LocalReaderStore.set(
+                    doc,
+                    entry.title ?: context.getString(R.string.downloads_local_novel)
+                )
                 onReady()
             }
         }

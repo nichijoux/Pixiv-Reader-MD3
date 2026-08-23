@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Update
@@ -126,7 +127,7 @@ fun SeriesCard(
                     )
                     if (data.totalChars > 0) {
                         CoverStat(
-                            icon = Icons.Filled.Notes,
+                            icon = Icons.AutoMirrored.Filled.Notes,
                             text = stringResource(
                                 R.string.series_chars,
                                 formatCountForNovel(data.totalChars),
