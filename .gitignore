@@ -10,6 +10,9 @@ local.properties
 *.aar
 *.hprof
 
+# pixiv-api-kotlin 上游源码副本（本地参考，不纳入 Git）
+pixiv-api-kotlin/
+
 # ── Kotlin / IDE ─────────────────────────────────────────────
 .kotlin/
 .idea/
@@ -33,3 +36,10 @@ Desktop.ini
 
 # 本地覆盖配置（含本机 SDK/JDK 路径，不应提交）
 *.local.properties
+
+# 本机专用 / 工具链配置与设计草稿（仅本地保留，不入库）
+.omp/
+build-release.bat
+build-release.ps1
+design/
+DESIGN.md

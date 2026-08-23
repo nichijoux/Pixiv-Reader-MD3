@@ -23,8 +23,9 @@ android {
         applicationId = "com.pixiv.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI tag 发布通过 -PversionName / -PversionCode 注入版本号；本地缺省沿用默认值
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("versionName") as String?) ?: "0.1.0"
     }
 
     signingConfigs {
@@ -48,6 +49,15 @@ android {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
+        }
+    }
+    // 按 ABI 拆分 ARM 瘦身包：arm64-v8a（ARMv8）与 armeabi-v7a（其它 ARM），不产物 x86
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
         }
     }
     compileOptions {

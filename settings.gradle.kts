@@ -27,7 +27,7 @@ rootProject.name = "PixivReader"
 
 include(":app")
 
-// vendor 的 pixiv-api-kotlin 构建模块
+// vendor 的 pixiv API 模块（上游源码封装）
 include(":lib:pixivapi")
 
 // core 层

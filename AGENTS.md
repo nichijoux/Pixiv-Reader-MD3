@@ -23,7 +23,7 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 
 - **feature 之间禁止互相依赖**（如 reader 不能用 novel 的东西）。共享逻辑放 core 层。
 - 新增 feature ViewModel 需在 build.gradle 加：`hilt`/`ksp` 插件 + `api(project(":core:network"))` + `api(libs.hilt.android)` + `ksp(libs.hilt.compiler)` + `implementation(libs.hilt.navigation.compose)`；用 DAO/DataStore 再加对应 core 模块。
-- **`lib:pixivapi` 是 vendor 副本**：`pixiv-api-kotlin/` 只读勿改；改 API 只能在 `lib/pixivapi/`。所有 `com.pixiv.api.*` import 解析到 lib 副本（`namespace = com.pixiv.api`，Retrofit 接口在 `com.pixiv.api.network`）。
+- **`lib:pixivapi` 是 vendor 副本**（pixiv API 上游源码封装）：改 API 只能在 `lib/pixivapi/`。所有 `com.pixiv.api.*` import 解析到 lib 副本（`namespace = com.pixiv.api`，Retrofit 接口在 `com.pixiv.api.network`）。
 - `feature/download` 模块是空壳（仅 build.gradle + manifest，无 Kotlin 代码；build.gradle 残留 core:ui/model/navigation 依赖未清理）；下载管理实现在 `feature:user`。
 - **排行榜通用组件**：`core:ui RankingList<T>`（ScrollableTabRow + HorizontalPager 滑动切段 + 三态 + 触底加载，`itemContent(T, rank)` slot）+ `core:ui RankingRow`（插画/漫画默认行）+ `core:common RankingModeInfo(@StringRes labelRes, value)`。各 feature 提供自己的 mode 列表即可复用（漫画 5 段在 `feature:manga/MangaRankingViewModel`；小说 6 段在 `feature:novel/NovelRankingViewModel`，均已落地；未来插画榜直接复用）。**每段独立分页**：调用方传 `stateFor(mode) -> PagedState<T>`（VM 内 `pages.getOrPut` 缓存，数据驻留 VM）+ `onRetry(mode)`/`onLoadMore(mode)`；RankingList 每页只 collect 自己 mode 的 PagedState——已加载段滑动切回**不重复请求、无过渡动画**（AnimatedContent targetState 用该页自身内容三态）。`core:ui` 已依赖 `core:network`（PagedState）。
 

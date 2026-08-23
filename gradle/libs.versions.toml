@@ -75,7 +75,7 @@ androidx-documentfile = { group = "androidx.documentfile", name = "documentfile"
 # 简繁转换（Android-OpenCC，JitPack 发布）
 android-opencc = { group = "com.github.qichuan", name = "android-opencc", version.ref = "androidOpencc" }
 
-# Network（pixiv-api-kotlin 依赖）
+# Network（pixiv API 依赖）
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }

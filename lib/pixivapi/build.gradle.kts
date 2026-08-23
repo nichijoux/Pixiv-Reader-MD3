@@ -21,8 +21,8 @@ android {
     }
 }
 
-// vendor 的 pixiv-api-kotlin 源码副本（lib 模块内适配：修复原仓库的注释/构建问题）
-// 原仓库目录 pixiv-api-kotlin/ 只读不动；修改请同步到此处副本。
+// vendor 的 pixiv API 源码副本（lib 模块内适配：修复原仓库的注释/构建问题）
+// 修改请只在 lib/pixivapi/ 内进行。
 android.sourceSets["main"].manifest.srcFile("src/main/AndroidManifest.xml")
 
 dependencies {
