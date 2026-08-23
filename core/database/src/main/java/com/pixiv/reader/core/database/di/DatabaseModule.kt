@@ -23,7 +23,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): PixivDatabase =
         Room.databaseBuilder(context, PixivDatabase::class.java, "pixiv_reader.db")
             .fallbackToDestructiveMigration(false)
-            .addMigrations(PixivDatabase.MIGRATION_1_2)
+            .addMigrations(PixivDatabase.MIGRATION_1_2, PixivDatabase.MIGRATION_2_3)
             .build()
 
     @Provides

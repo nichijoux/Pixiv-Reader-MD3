@@ -49,15 +49,28 @@ class NovelExporterTest {
 
     @Test
     fun `renderNovelFileName 默认模板与系列回退`() {
-        // 默认模板 {series}_{id}：非系列回退本作标题
+        // 单本默认模板 {title}_{id}：非系列回退本作标题
         assertEquals(
             "测试小说_123",
-            renderNovelFileName(NovelFileNameTemplate.DEFAULT, "测试小说", "作者", 123L, null),
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT_SINGLE, "测试小说", "作者", 123L, null),
         )
-        // 系列：用系列标题
+        // 单本模板：即使作品属于系列也用本作标题
+        assertEquals(
+            "测试小说_123",
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT_SINGLE, "测试小说", "作者", 123L, "示例系列"),
+        )
+    }
+
+    @Test
+    fun `renderNovelFileName 系列默认模板用系列标题`() {
         assertEquals(
             "示例系列_123",
-            renderNovelFileName(NovelFileNameTemplate.DEFAULT, "测试小说", "作者", 123L, "示例系列"),
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT_SERIES, "测试小说", "作者", 123L, "示例系列"),
+        )
+        // 系列模板但无系列信息 → {series} 直接为空（不回退），留下空段
+        assertEquals(
+            "_123",
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT_SERIES, "测试小说", "作者", 123L, null),
         )
     }
 
@@ -100,7 +113,7 @@ class NovelExporterTest {
         // 标题含非法字符 → 清洗
         assertEquals(
             "测试_小说_123",
-            renderNovelFileName(NovelFileNameTemplate.DEFAULT, "测试/小说", null, 123L, null),
+            renderNovelFileName(NovelFileNameTemplate.DEFAULT_SINGLE, "测试/小说", null, 123L, null),
         )
         // 模板不含占位符且为空白 → 回退默认
         assertEquals(

@@ -48,8 +48,11 @@
     <string name="me_follow_sort_latest_work">Newest</string>
     <string name="me_novel_file_name_template">Novel download naming</string>
     <string name="me_file_name_template_hint">File name template</string>
-    <string name="me_file_name_placeholder_desc">Tap placeholders to insert: {title} title · {author} author · {id} work ID · {series} series (falls back to title) · {date} publish date · {favcount} bookmarks</string>
+    <string name="me_file_name_placeholder_desc">Tap placeholders to insert: {title} title · {author} author · {id} work ID · {date} publish date · {favcount} bookmarks; {series} is the series name, left empty when none. Missing values leave an empty segment</string>
+    <string name="me_file_name_help_toggle">Placeholder guide</string>
     <string name="me_file_name_preview">Preview:</string>
+    <string name="me_file_name_scope_single">Single download</string>
+    <string name="me_file_name_scope_series">Series export</string>
     <string name="me_file_name_preview_title">Sample novel</string>
     <string name="me_file_name_preview_author">Sample author</string>
     <string name="me_file_name_preview_series">Sample series</string>

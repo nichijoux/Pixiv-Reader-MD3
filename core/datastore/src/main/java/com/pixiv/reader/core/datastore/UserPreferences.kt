@@ -16,6 +16,7 @@ import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.common.config.ThemeMode
+import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -135,9 +136,13 @@ class UserPreferences @Inject constructor(
     // ── 下载 ──
     /** 小说导出目录（SAF tree uri；空 = 应用私有目录 filesDir/Downloads/novels）。 */
     val novelExportDir: Flow<String> = context.dataStore.data.map { it[KEY_NOVEL_EXPORT_DIR] ?: "" }
-    /** 小说导出文件名模板（占位符 {title}/{author}/{id}/{series}；默认 {series}_{id}）。 */
+    /** 小说导出文件名模板-单本下载（默认 {title}_{id}；缺失占位符渲染为空）。 */
     val novelFileNameTemplate: Flow<String> =
-        context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE] ?: "{series}_{id}" }
+        context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE] ?: NovelFileNameTemplate.DEFAULT_SINGLE }
+
+    /** 小说导出文件名模板-系列导出（整系列/部分分册；默认 {series}_{id}）。 */
+    val novelFileNameTemplateSeries: Flow<String> =
+        context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES] ?: NovelFileNameTemplate.DEFAULT_SERIES }
 
     suspend fun setReaderFontSize(value: Float) = context.dataStore.edit { it[KEY_FONT_SIZE] = value }
     suspend fun setReaderLineSpacing(value: Float) = context.dataStore.edit { it[KEY_LINE_HEIGHT] = value }
@@ -184,6 +189,9 @@ class UserPreferences @Inject constructor(
     suspend fun setNovelFileNameTemplate(value: String) =
         context.dataStore.edit { it[KEY_NOVEL_FILE_NAME_TEMPLATE] = value }
 
+    suspend fun setNovelFileNameTemplateSeries(value: String) =
+        context.dataStore.edit { it[KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES] = value }
+
     private companion object {
         val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
         val KEY_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
@@ -210,6 +218,7 @@ class UserPreferences @Inject constructor(
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
         val KEY_NOVEL_EXPORT_DIR = stringPreferencesKey("novel_export_dir")
         val KEY_NOVEL_FILE_NAME_TEMPLATE = stringPreferencesKey("novel_file_name_template")
+        val KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES = stringPreferencesKey("novel_file_name_template_series")
         val KEY_CLIPBOARD_LINK_PROMPT = booleanPreferencesKey("clipboard_link_prompt")
         val KEY_SEARCH_SORT = stringPreferencesKey("search_filter_sort")
         val KEY_SEARCH_TARGET = stringPreferencesKey("search_filter_target")

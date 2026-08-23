@@ -21,11 +21,17 @@ class DownloadCompletionNotifierTest {
     private class FakeDao(private val snapshots: List<List<DownloadEntryEntity>>) : DownloadEntryDao {
         override fun observeAll(): Flow<List<DownloadEntryEntity>> = flowOf(*snapshots.toTypedArray())
         override suspend fun getDone(): List<DownloadEntryEntity> = throw UnsupportedOperationException()
-        override suspend fun get(type: String, targetId: Long, format: String): DownloadEntryEntity? =
+        override suspend fun get(type: String, targetId: Long, format: String, scopeKey: String): DownloadEntryEntity? =
             throw UnsupportedOperationException()
         override suspend fun upsert(entity: DownloadEntryEntity) = throw UnsupportedOperationException()
-        override suspend fun updateProgress(type: String, targetId: Long, format: String, progress: Int, updatedAt: Long) =
-            throw UnsupportedOperationException()
+        override suspend fun updateProgress(
+            type: String,
+            targetId: Long,
+            format: String,
+            progress: Int,
+            updatedAt: Long,
+            scopeKey: String,
+        ) = throw UnsupportedOperationException()
         override suspend fun delete(entity: DownloadEntryEntity) = throw UnsupportedOperationException()
     }
 

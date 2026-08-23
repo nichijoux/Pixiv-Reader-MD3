@@ -19,17 +19,23 @@ interface DownloadEntryDao {
     @Query("SELECT * FROM download_entry WHERE status = 'done'")
     suspend fun getDone(): List<DownloadEntryEntity>
 
-    /** 查询某类型某目标某格式的下载记录。 */
-    @Query("SELECT * FROM download_entry WHERE targetId = :targetId AND targetType = :type AND format = :format LIMIT 1")
-    suspend fun get(type: String, targetId: Long, format: String = ""): DownloadEntryEntity?
+    /** 查询某类型某目标某格式某范围的下载记录。 */
+    @Query(
+        "SELECT * FROM download_entry WHERE targetId = :targetId AND targetType = :type " +
+            "AND format = :format AND scopeKey = :scopeKey LIMIT 1",
+    )
+    suspend fun get(type: String, targetId: Long, format: String = "", scopeKey: String = ""): DownloadEntryEntity?
 
-    /** 插入/覆盖下载索引（复合主键 targetType+targetId+format 更新）。 */
+    /** 插入/覆盖下载索引（复合主键 targetType+targetId+format+scopeKey 更新）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: DownloadEntryEntity)
 
     /** 更新单条下载进度（轻量 UPDATE，供分块下载节流写）。 */
-    @Query("UPDATE download_entry SET progress = :progress, updatedAt = :updatedAt WHERE targetType = :type AND targetId = :targetId AND format = :format")
-    suspend fun updateProgress(type: String, targetId: Long, format: String, progress: Int, updatedAt: Long = System.currentTimeMillis())
+    @Query(
+        "UPDATE download_entry SET progress = :progress, updatedAt = :updatedAt " +
+            "WHERE targetType = :type AND targetId = :targetId AND format = :format AND scopeKey = :scopeKey",
+    )
+    suspend fun updateProgress(type: String, targetId: Long, format: String, progress: Int, updatedAt: Long = System.currentTimeMillis(), scopeKey: String = "")
 
     /** 删除单条下载索引。 */
     @Delete

@@ -5,10 +5,14 @@ import androidx.room.Entity
 /**
  * 下载索引（P6 使用；本地文件路径 + 状态）。
  *
- * 主键为 (targetType, targetId, format)：同一目标可导出多种格式并存
- * （如一本小说同时导出 TXT/PDF），插画等无格式条目 format 存空串。
+ * 主键为 (targetType, targetId, format, scopeKey)：同一目标可导出多种格式并存
+ * （如一本小说同时导出 TXT/PDF）；scopeKey 区分同一目标的下载范围——
+ * 单本=""、整系列="series"、部分分册="partial"，避免系列下载顶替单本下载的索引条目。
  */
-@Entity(tableName = "download_entry", primaryKeys = ["targetType", "targetId", "format"])
+@Entity(
+    tableName = "download_entry",
+    primaryKeys = ["targetType", "targetId", "format", "scopeKey"],
+)
 data class DownloadEntryEntity(
     val targetId: Long,
     val targetType: String,        // illust / ugoira / novel
@@ -44,5 +48,10 @@ data class DownloadEntryEntity(
      * 完整展示（宽高/作者/字数等），旧条目为 null 时回退下方结构字段。
      */
     val payloadJson: String? = null,
+    /**
+     * 下载范围键（主键列，不可为 null）：单本下载=""；整系列导出="series"；
+     * 系列部分分册导出="partial"。插画等非小说条目恒为 ""。
+     */
+    val scopeKey: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
 )

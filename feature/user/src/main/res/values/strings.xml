@@ -48,8 +48,11 @@
     <string name="me_follow_sort_latest_work">最新发布</string>
     <string name="me_novel_file_name_template">小说下载命名</string>
     <string name="me_file_name_template_hint">文件名模板</string>
-    <string name="me_file_name_placeholder_desc">点击下方占位符插入：{title} 标题 · {author} 作者 · {id} 作品ID · {series} 系列名（非系列用标题）· {date} 发布日期 · {favcount} 收藏数</string>
+    <string name="me_file_name_placeholder_desc">点击下方占位符插入：{title} 标题 · {author} 作者 · {id} 作品ID · {date} 发布日期 · {favcount} 收藏数；{series} 为系列名，无系列时直接留空。缺失的项会留下空段</string>
+    <string name="me_file_name_help_toggle">占位符说明</string>
     <string name="me_file_name_preview">预览：</string>
+    <string name="me_file_name_scope_single">单本下载</string>
+    <string name="me_file_name_scope_series">系列导出</string>
     <string name="me_file_name_preview_title">示例小说</string>
     <string name="me_file_name_preview_author">示例作者</string>
     <string name="me_file_name_preview_series">示例系列</string>

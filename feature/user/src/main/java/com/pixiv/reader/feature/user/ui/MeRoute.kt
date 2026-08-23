@@ -72,8 +72,9 @@ fun MeRoute(
     val updateRelease by viewModel.updateDialog.collectAsStateWithLifecycle()
     val followSortMode by viewModel.followSortMode.collectAsStateWithLifecycle()
     val cacheSize by viewModel.cacheSize.collectAsStateWithLifecycle()
-    val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
     val novelFileNameTemplate by viewModel.novelFileNameTemplate.collectAsStateWithLifecycle()
+    val novelFileNameTemplateSeries by viewModel.novelFileNameTemplateSeries.collectAsStateWithLifecycle()
+    val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
     val clipboardLinkPrompt by viewModel.clipboardLinkPrompt.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
@@ -216,13 +217,14 @@ fun MeRoute(
     // 小说下载命名模板编辑
     if (showFileNameTemplate) {
         NovelFileNameTemplateDialog(
-            initialTemplate = novelFileNameTemplate,
-            onSave = { template ->
-                viewModel.setNovelFileNameTemplate(template)
+            initialSingle = novelFileNameTemplate,
+            initialSeries = novelFileNameTemplateSeries,
+            onSave = { single, series ->
+                viewModel.setNovelFileNameTemplates(single, series)
                 showFileNameTemplate = false
             },
             onReset = {
-                viewModel.resetNovelFileNameTemplate()
+                viewModel.resetNovelFileNameTemplates()
                 showFileNameTemplate = false
             },
             onDismiss = { showFileNameTemplate = false },

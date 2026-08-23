@@ -94,12 +94,20 @@ class MeViewModel @Inject constructor(
     val novelExportDir: StateFlow<String> =
         userPreferences.novelExportDir.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    /** 小说导出文件名模板（占位符 {title}/{author}/{id}/{series}；默认 {series}_{id}）。 */
+    /** 小说导出文件名模板-单本下载（占位符 {title}/{author}/{id}/{series}；默认 {title}_{id}，缺失项渲染为空）。 */
     val novelFileNameTemplate: StateFlow<String> =
         userPreferences.novelFileNameTemplate.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
-            NovelFileNameTemplate.DEFAULT,
+            NovelFileNameTemplate.DEFAULT_SINGLE,
+        )
+
+    /** 小说导出文件名模板-系列导出（整系列/部分分册；默认 {series}_{id}）。 */
+    val novelFileNameTemplateSeries: StateFlow<String> =
+        userPreferences.novelFileNameTemplateSeries.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            NovelFileNameTemplate.DEFAULT_SERIES,
         )
 
     /** 剪贴板 pixiv 链接识别提示（打开 App / 回前台时检测并提示跳转）。 */
@@ -156,15 +164,23 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { runCatching { userPreferences.setNovelExportDir("") } }
     }
 
-    /** 设置小说导出文件名模板（占位符 {title}/{author}/{id}/{series}）。 */
-    fun setNovelFileNameTemplate(value: String) {
-        viewModelScope.launch { runCatching { userPreferences.setNovelFileNameTemplate(value) } }
+    /** 保存小说导出文件名模板（单本/系列两套一起落盘）。 */
+    fun setNovelFileNameTemplates(single: String, series: String) {
+        viewModelScope.launch {
+            runCatching {
+                userPreferences.setNovelFileNameTemplate(single)
+                userPreferences.setNovelFileNameTemplateSeries(series)
+            }
+        }
     }
 
-    /** 恢复默认文件名模板（{series}_{id}）。 */
-    fun resetNovelFileNameTemplate() {
+    /** 恢复默认文件名模板（单本 {title}_{id}，系列 {series}_{id}）。 */
+    fun resetNovelFileNameTemplates() {
         viewModelScope.launch {
-            runCatching { userPreferences.setNovelFileNameTemplate(NovelFileNameTemplate.DEFAULT) }
+            runCatching {
+                userPreferences.setNovelFileNameTemplate(NovelFileNameTemplate.DEFAULT_SINGLE)
+                userPreferences.setNovelFileNameTemplateSeries(NovelFileNameTemplate.DEFAULT_SERIES)
+            }
         }
     }
 

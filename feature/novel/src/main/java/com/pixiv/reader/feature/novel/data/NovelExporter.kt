@@ -15,6 +15,7 @@ import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.Series
 import com.pixiv.api.model.User
+import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.format.renderNovelFileName
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
@@ -41,6 +42,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONObject
+
+/**
+ * 下载范围键：区分同一小说（同 targetId+format）的不同下载范围，避免互相顶替索引条目。
+ * 单本=""；整系列="series"；部分分册="partial"。
+ */
+internal fun novelScopeKey(seriesId: Long?, chapterIds: List<Long>?): String = when {
+    seriesId == null || seriesId <= 0L -> ""
+    chapterIds.isNullOrEmpty() -> "series"
+    else -> "partial"
+}
+
 
 /**
  * 小说导出引擎：把小说（单本或整个系列）导出为 TXT / EPUB / PDF / MARKDOWN / DOCX 文件。
@@ -97,13 +109,15 @@ class NovelExporter @Inject constructor(
             TAG,
             "exportResumable 开始 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds"
         )
-        markDownloading(novelId, format, seriesId)
+        val scopeKey = novelScopeKey(seriesId, chapterIds)
+        markDownloading(novelId, format, seriesId, scopeKey)
         runCatching {
             val (chapters, coverNovel) = loadChaptersWithCache(
                 novelId,
                 format,
                 seriesId,
-                chapterIds
+                chapterIds,
+                scopeKey,
             )
             Log.d(
                 TAG,
@@ -116,28 +130,33 @@ class NovelExporter @Inject constructor(
             val localPath = when (format) {
                 NovelExportFormat.TXT -> buildTxtFile(
                     formatted,
-                    seriesTitle = coverNovel.series?.title
+                    seriesTitle = coverNovel.series?.title,
+                    scopeKey = scopeKey,
                 )
 
                 NovelExportFormat.EPUB -> buildEpubFile(
                     formatted,
                     seriesTitle = coverNovel.series?.title,
-                    coverNovel = coverNovel
+                    coverNovel = coverNovel,
+                    scopeKey = scopeKey,
                 )
 
                 NovelExportFormat.MARKDOWN -> buildMarkdownFile(
                     formatted,
-                    seriesTitle = coverNovel.series?.title
+                    seriesTitle = coverNovel.series?.title,
+                    scopeKey = scopeKey,
                 )
 
                 NovelExportFormat.DOCX -> buildDocxFile(
                     formatted,
-                    seriesTitle = coverNovel.series?.title
+                    seriesTitle = coverNovel.series?.title,
+                    scopeKey = scopeKey,
                 )
 
                 NovelExportFormat.PDF -> buildPdfFile(
                     formatted,
-                    seriesTitle = coverNovel.series?.title
+                    seriesTitle = coverNovel.series?.title,
+                    scopeKey = scopeKey,
                 )
             }
             ExportResult(localPath, coverNovel, chapters.size)
@@ -152,7 +171,8 @@ class NovelExporter @Inject constructor(
                 seriesId,
                 result.coverNovel,
                 result.localPath,
-                result.chapterCount
+                result.chapterCount,
+                scopeKey,
             )
             // 导出成功清理临时缓存
             cacheDir(novelId, format).deleteRecursively()
@@ -162,7 +182,7 @@ class NovelExporter @Inject constructor(
                 "导出失败 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds",
                 it
             )
-            markFailed(novelId, format, seriesId)
+            markFailed(novelId, format, seriesId, scopeKey)
         }
             .map { it.localPath }
     }
@@ -173,6 +193,7 @@ class NovelExporter @Inject constructor(
         format: NovelExportFormat,
         seriesId: Long?,
         chapterIds: List<Long>? = null,
+        scopeKey: String = "",
     ): Pair<List<Pair<Novel, NovelDocument>>, Novel> {
         val cache = cacheDir(novelId, format)
         val chapters = if ((seriesId != null) && (seriesId > 0L)) {
@@ -189,13 +210,13 @@ class NovelExporter @Inject constructor(
             }
             selected.mapIndexed { index, chapter ->
                 val pair = loadChapterCached(cache, chapter.id, index)
-                updateProgress(novelId, format, seriesId, ((index + 1) * 100) / selected.size)
+                updateProgress(novelId, format, seriesId, ((index + 1) * 100) / selected.size, scopeKey)
                 pair
             }
         } else {
             listOf(
                 loadChapterCached(cache, novelId, 0).also {
-                    updateProgress(novelId, format, seriesId, 100)
+                    updateProgress(novelId, format, seriesId, 100, scopeKey)
                 },
             )
         }
@@ -268,6 +289,7 @@ class NovelExporter @Inject constructor(
         coverNovel: Novel,
         localPath: String,
         chapterCount: Int,
+        scopeKey: String = "",
     ) {
         upsertIndex(
             novelId = novelId,
@@ -292,10 +314,16 @@ class NovelExporter @Inject constructor(
     }
 
     /** 标记开始下载（downloading 中间态，进度 0）。 */
-    private suspend fun markDownloading(novelId: Long, format: NovelExportFormat, seriesId: Long?) {
+    private suspend fun markDownloading(
+        novelId: Long,
+        format: NovelExportFormat,
+        seriesId: Long?,
+        scopeKey: String,
+    ) {
         upsertIndex(
             novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
             localPath = null, status = "downloading", progress = 0, chapterCount = 0,
+            scopeKey = scopeKey,
         )
     }
 
@@ -305,18 +333,26 @@ class NovelExporter @Inject constructor(
         format: NovelExportFormat,
         seriesId: Long?,
         progress: Int,
+        scopeKey: String = "",
     ) {
         upsertIndex(
             novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
             localPath = null, status = "downloading", progress = progress, chapterCount = 0,
+            scopeKey = scopeKey,
         )
     }
 
     /** 标记下载失败（failed 状态，供下载管理页标记/重试）。 */
-    private suspend fun markFailed(novelId: Long, format: NovelExportFormat, seriesId: Long?) {
+    private suspend fun markFailed(
+        novelId: Long,
+        format: NovelExportFormat,
+        seriesId: Long?,
+        scopeKey: String,
+    ) {
         upsertIndex(
             novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
             localPath = null, status = "failed", progress = 0, chapterCount = 0,
+            scopeKey = scopeKey,
         )
     }
 
@@ -337,6 +373,7 @@ class NovelExporter @Inject constructor(
         publishDate: String? = null,
         seriesTitle: String? = null,
         payloadJson: String? = null,
+        scopeKey: String = "",
     ) {
         runCatching {
             downloadEntryDao.upsert(
@@ -351,6 +388,7 @@ class NovelExporter @Inject constructor(
                     pageCount = chapterCount,
                     seriesId = seriesId,
                     format = format.name,
+                    scopeKey = scopeKey,
                     authorName = authorName,
                     authorAvatarUrl = authorAvatarUrl,
                     wordCount = wordCount,
@@ -375,9 +413,10 @@ class NovelExporter @Inject constructor(
     private suspend fun buildTxtFile(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
+        scopeKey: String,
     ): String {
         val first = chapters.first().first
-        val fileName = "${fileNameBase(first, seriesTitle)}.txt"
+        val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.txt"
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.TXT),
@@ -389,9 +428,10 @@ class NovelExporter @Inject constructor(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
         coverNovel: Novel,
+        scopeKey: String,
     ): String {
         val first = chapters.first().first
-        val fileName = "${fileNameBase(first, seriesTitle)}.epub"
+        val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.epub"
         val images = mutableListOf<EpubImage>()
         // 封面
         val coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium
@@ -419,9 +459,10 @@ class NovelExporter @Inject constructor(
     private suspend fun buildMarkdownFile(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
+        scopeKey: String,
     ): String {
         val first = chapters.first().first
-        val fileName = "${fileNameBase(first, seriesTitle)}.md"
+        val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.md"
         // 插图以 data URI 内嵌（下载失败跳过）
         val images = downloadImages(chapters)
         Log.d(TAG, "buildMarkdownFile 开始 fileName=$fileName 内嵌图片=${images.size}")
@@ -435,9 +476,10 @@ class NovelExporter @Inject constructor(
     private suspend fun buildDocxFile(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
+        scopeKey: String,
     ): String {
         val first = chapters.first().first
-        val fileName = "${fileNameBase(first, seriesTitle)}.docx"
+        val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.docx"
         // 正文插图（按块顺序下载；未解析的 pixivimage/uploadedimage 标记或下载失败跳过）
         val images = downloadImages(chapters)
         Log.d(
@@ -454,9 +496,10 @@ class NovelExporter @Inject constructor(
     private suspend fun buildPdfFile(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
+        scopeKey: String,
     ): String {
         val first = chapters.first().first
-        val fileName = "${fileNameBase(first, seriesTitle)}.pdf"
+        val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.pdf"
         Log.d(TAG, "buildPdfFile 开始 fileName=$fileName 章节数=${chapters.size}")
         // PDF 排版对齐阅读器设置：字号 / 行距（1.6+增量）/ 段首缩进 / 段距
         val layout = PdfLayoutSettings(
@@ -546,10 +589,15 @@ class NovelExporter @Inject constructor(
      */
     /**
      * 按用户模板渲染导出文件名主体（不含扩展名）。
-     * 模板来自「我的」页设置（占位符 {title}/{author}/{id}/{series}）。
+     * 单本下载与系列导出各用各的模板（「我的」页分别配置），回退默认亦随范围。
      */
-    private suspend fun fileNameBase(novel: Novel, seriesTitle: String?): String {
-        val template = userPreferences.novelFileNameTemplate.first()
+    private suspend fun fileNameBase(novel: Novel, seriesTitle: String?, scopeKey: String): String {
+        val isSingle = scopeKey.isEmpty()
+        val template = if (isSingle) {
+            userPreferences.novelFileNameTemplate.first()
+        } else {
+            userPreferences.novelFileNameTemplateSeries.first()
+        }
         return renderNovelFileName(
             template = template,
             title = novel.title.orEmpty(),
@@ -558,6 +606,11 @@ class NovelExporter @Inject constructor(
             seriesTitle = seriesTitle,
             publishDate = novel.create_date,
             favoriteCount = novel.total_bookmarks,
+            fallbackTemplate = if (isSingle) {
+                NovelFileNameTemplate.DEFAULT_SINGLE
+            } else {
+                NovelFileNameTemplate.DEFAULT_SERIES
+            },
         )
     }
 
