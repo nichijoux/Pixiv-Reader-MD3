@@ -31,6 +31,8 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
+                // JKS 格式：本机 JBR JDK 的 keytool 生成，AGP 需显式指定否则默认按 PKCS12 读取
+                storeType = "JKS"
                 storeFile = file(keystoreProps.getProperty("storeFile"))
                 storePassword = keystoreProps.getProperty("storePassword")
                 keyAlias = keystoreProps.getProperty("keyAlias")

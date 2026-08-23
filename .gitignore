@@ -28,6 +28,7 @@ logs/
 *.jks
 *.keystore
 keystore.properties
+release.jks.b64
 
 # ── 其它 ─────────────────────────────────────────────────────
 # 操作系统文件
