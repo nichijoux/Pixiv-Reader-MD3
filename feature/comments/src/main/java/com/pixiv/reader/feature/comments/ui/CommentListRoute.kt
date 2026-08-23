@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -165,7 +166,10 @@ fun CommentListRoute(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .navigationBarsPadding(),
+                    // 键盘弹出时随 ime insets 抬起（edge-to-edge 下 adjustResize 不再压缩窗口）；
+                    // 顺序：先导航栏后键盘，IME 打开时导航栏 inset 被消费，不会双重垫高
+                    .navigationBarsPadding()
+                    .imePadding(),
             ) {
                 if (replyTarget != null) {
                     // 回复目标条：显示 @昵称 + 取消
