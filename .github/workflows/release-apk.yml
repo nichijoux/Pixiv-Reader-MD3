@@ -48,16 +48,21 @@ jobs:
           echo "versionCode=$CODE" >> "$GITHUB_OUTPUT"
 
       # 配置 Release 签名（需在仓库 Secrets 提供 KEYSTORE_BASE64 等；未配置则产出未签名 APK）
+      # secrets 不可用于 if 条件（Unrecognized named-value），故在 run 脚本内判空
       - name: Configure release signing
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        shell: bash
         run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+          echo "未配置 KEYSTORE_BASE64，将产出未签名 APK"
+          else
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/keystore.jks"
-          cat > "$GITHUB_WORKSPACE/keystore.properties" <<EOF
-          storeFile=$GITHUB_WORKSPACE/keystore.jks
+          cat > "$GITHUB_WORKSPACE/keystore.properties" <<'EOF'
+          storeFile=${{ github.workspace }}/keystore.jks
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
+          fi
 
       # 构建 Release APK（按 ABI 拆分为 arm64-v8a / armeabi-v7a 两个瘦身包；未配签名则未签名）
       - name: Build release APK
