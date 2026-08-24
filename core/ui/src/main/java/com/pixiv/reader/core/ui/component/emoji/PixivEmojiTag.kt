@@ -111,6 +111,13 @@ val PIXIV_EMOJI_TAGS: List<String> = listOf(
 )
 
 /**
+ * 表情图片 URL（`s.pximg.net/common/images/emoji/{id}.png`）。
+ * 输入框行内图 / 渲染侧 / 发布面板选择器共用；tag 未命中映射返回 null。
+ */
+fun pixivEmojiUrl(tag: String): String? =
+    PIXIV_EMOJI_IDS[tag]?.let { id -> "https://s.pximg.net/common/images/emoji/$id.png" }
+
+/**
  * pixiv 评论表情图片（按 [tag] 从 [PIXIV_EMOJI_IDS] 取 id，渲染 `s.pximg.net/common/images/emoji/{id}.png`）。
  * 用于发布面板表情选择器显示图像；渲染侧（评论文本 `(xxx)` 转图）在 feature/comments 复用同映射。
  *
@@ -126,9 +133,9 @@ fun PixivEmojiTagImage(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
 ) {
-    val id = PIXIV_EMOJI_IDS[tag] ?: return
+    val url = pixivEmojiUrl(tag) ?: return
     PixivImage(
-        url = "https://s.pximg.net/common/images/emoji/$id.png",
+        url = url,
         contentDescription = contentDescription,
         modifier = modifier.size(size),
         contentScale = ContentScale.Fit,
@@ -160,8 +167,8 @@ fun PixivEmojiTagChip(
     }
 }
 
-/** `(xxx)` 表情标签正则（名字为小写字母/数字/下划线）。 */
-private val EMOJI_TAG_REGEX = Regex("\\(([a-z0-9_]+)\\)")
+/** `(xxx)` 表情标签正则（名字为小写字母/数字/下划线）；编解码与渲染侧共用。 */
+internal val EMOJI_TAG_REGEX = Regex("""\(([a-z0-9_]+)\)""")
 
 /** 评论表情行内图片尺寸（对齐 pixiv 网页 24px）。 */
 private val EMOJI_SIZE_SP = 24.sp
@@ -169,13 +176,15 @@ private val EMOJI_SIZE_DP = 24.dp
 
 /**
  * 把评论文本解析为含行内表情图片的 [AnnotatedString] + inlineContent 映射。
- * 未命中映射的 `(word)` 保持原文本。供评论**输入框 VisualTransformation** 显示表情图像、
- * 以及**渲染侧**（评论文本 `(xxx)` 转图）复用。
+ * 未命中映射的 `(word)` 保持原文本；每个命中表情用 `appendInlineContent` 占位（文本长度不变）。
+ * 渲染侧（评论文本转图）与发布面板预览共用。
  *
- * 返回的 [AnnotatedString] 中每个命中表情用 `appendInlineContent` 占位（文本长度不变），
- * 因此 [androidx.compose.ui.text.input.OffsetMapping.Identity] 即可。
+ * @param contentDescription 表情图的无障碍描述；null 不描述
  */
-fun buildEmojiAnnotatedString(text: String): Pair<AnnotatedString, Map<String, InlineTextContent>> {
+fun buildEmojiAnnotatedString(
+    text: String,
+    contentDescription: String? = null,
+): Pair<AnnotatedString, Map<String, InlineTextContent>> {
     val builder = AnnotatedString.Builder()
     val inlineContent = mutableMapOf<String, InlineTextContent>()
     var last = 0
@@ -193,7 +202,7 @@ fun buildEmojiAnnotatedString(text: String): Pair<AnnotatedString, Map<String, I
             children = { _ ->
                 PixivEmojiTagImage(
                     tag = match.groupValues[1],
-                    contentDescription = null,
+                    contentDescription = contentDescription,
                     size = EMOJI_SIZE_DP
                 )
             },

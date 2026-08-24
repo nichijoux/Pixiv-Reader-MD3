@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -54,7 +53,7 @@ import com.pixiv.reader.feature.comments.state.CommentListViewModel
  * 通用评论列表页（novel / illust 共用，路由 `comments/{type}/{targetId}`）。
  *
  * 全屏页 + TopAppBar；`PagedState<Comment>` 分页（触底加载更多）；
- * 支持回复（底部回复条 + 输入框预填 @昵称，`parent_comment_id` 发子评论）；
+ * 支持回复（点回复后输入框预填 @昵称 渲染为胶囊，一次退格删除即取消；`parent_comment_id` 发子评论）；
  * 点作者行进入用户主页。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,6 +74,15 @@ fun CommentListRoute(
     val draft by viewModel.commentDraft.collectAsStateWithLifecycle()
     val replyTarget by viewModel.replyTarget.collectAsStateWithLifecycle()
     val stamps by viewModel.stamps.collectAsStateWithLifecycle()
+    // 输入框内的回复胶囊被退格删除（草稿失去 @前缀）时联动取消回复态；
+    // 设置回复目标时 VM 预填的 "@昵称 " 前缀不会误触发
+    LaunchedEffect(replyTarget, draft) {
+        val name = replyTarget?.user?.name.orEmpty()
+        // 空白昵称的回复目标无 @前缀，跳过联动避免误取消
+        if (replyTarget != null && name.isNotBlank() && !draft.startsWith("@$name ")) {
+            viewModel.setReplyTarget(null, null)
+        }
+    }
 
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
@@ -171,37 +179,13 @@ fun CommentListRoute(
                     .navigationBarsPadding()
                     .imePadding(),
             ) {
-                if (replyTarget != null) {
-                    // 回复目标条：显示 @昵称 + 取消
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.comment_reply_prefix, replyTarget?.user?.name.orEmpty()),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { viewModel.setReplyTarget(null, null) }) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.comment_reply_cancel),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                        }
-                    }
-                }
                 CommentInput(
                     draft = draft,
                     onDraftChange = viewModel::onCommentDraftChange,
                     onPost = { viewModel.postComment() },
                     stamps = stamps,
                     onStampPick = { stamp -> viewModel.postComment(stamp.stamp_id) },
-                    onEmojiPick = { tag -> viewModel.onCommentDraftChange(draft + tag) },
+                    mentionName = replyTarget?.user?.name,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),

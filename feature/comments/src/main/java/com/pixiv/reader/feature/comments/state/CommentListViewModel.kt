@@ -52,7 +52,7 @@ class CommentListViewModel @Inject constructor(
     private val _commentDraft = MutableStateFlow("")
     val commentDraft: StateFlow<String> = _commentDraft.asStateFlow()
 
-    /** 当前回复目标评论（非 null 时输入框预填 @昵称，底部显示回复条）。 */
+    /** 当前回复目标评论（非 null 时输入框预填 @昵称，渲染为胶囊，退格删除即取消）。 */
     private val _replyTarget = MutableStateFlow<Comment?>(null)
     val replyTarget: StateFlow<Comment?> = _replyTarget.asStateFlow()
 
@@ -120,15 +120,13 @@ class CommentListViewModel @Inject constructor(
         _commentDraft.value = value
     }
 
-    /** 设置 / 取消回复目标（顶层或子评论均可）；设置时输入框预填 `@昵称 `。 */
+    /** 设置 / 取消回复目标（顶层或子评论均可）；设置时输入框预填 `@昵称 `（渲染为回复胶囊）。 */
     fun setReplyTarget(comment: Comment?, topLevelId: Long?) {
         _replyTarget.value = comment
         _replyTargetTopId.value = topLevelId
-        _commentDraft.value = if (comment != null) {
-            "@${comment.user?.name.orEmpty()} "
-        } else {
-            _commentDraft.value
-        }
+        // 昵称为空时不预填（否则出现孤立 "@"，且无法构成胶囊）
+        val name = comment?.user?.name.orEmpty()
+        _commentDraft.value = if (comment != null && name.isNotBlank()) "@$name " else _commentDraft.value
     }
 
     /**
