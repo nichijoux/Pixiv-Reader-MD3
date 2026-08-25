@@ -65,6 +65,7 @@ fun MeRoute(
     val user by viewModel.user.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
+    val fontScale by viewModel.appFontScale.collectAsStateWithLifecycle()
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
     val novelDefaultTab by viewModel.novelDefaultTab.collectAsStateWithLifecycle()
@@ -138,10 +139,12 @@ fun MeRoute(
                 MeAppearanceSection(
                     themeMode = themeMode,
                     dynamicColor = dynamicColor,
+                    fontScale = fontScale,
                     appLanguage = appLanguage,
                     switchingLanguage = switchingLanguage,
                     onSetThemeMode = viewModel::setThemeMode,
                     onSetDynamicColor = viewModel::setDynamicColor,
+                    onSetFontScale = viewModel::setAppFontScale,
                     onSetAppLanguage = { value, onDone ->
                         switchingLanguage = true
                         viewModel.setAppLanguage(value) {

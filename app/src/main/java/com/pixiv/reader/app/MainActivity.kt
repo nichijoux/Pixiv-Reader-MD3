@@ -21,11 +21,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -120,6 +124,7 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             val isLoggedIn by sessionRepository.isLoggedIn.collectAsStateWithLifecycle()
+            val fontScale by userPreferences.appFontScale.collectAsStateWithLifecycle(initialValue = 1f)
             val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.FOLLOW_SYSTEM)
             val dynamicColor by userPreferences.dynamicColor.collectAsStateWithLifecycle(
                 initialValue = true
@@ -232,6 +237,8 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+            // 应用字号缩放：默认 1.0 = 系统「标准」档，我的页-外观滑动条可调（0.8~1.3）
+            StandardFontSize(fontScale) {
             PixivReaderTheme(
                 darkTheme = isDark,
                 dynamicColor = dynamicColor,
@@ -269,6 +276,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            }
         }
     }
 
@@ -277,6 +285,17 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleIntent(intent)
     }
+
+/** 应用字号缩放：覆盖 fontScale（屏幕密度不变），默认 1.0 = 系统「标准」档，
+ *  我的页-外观滑动条可调；应用内所有文字（含 Dialog/Popup，继承 CompositionLocal）即时生效。 */
+@Composable
+private fun StandardFontSize(fontScale: Float, content: @Composable () -> Unit) {
+    val d = LocalDensity.current
+    CompositionLocalProvider(
+        LocalDensity provides Density(d.density, fontScale = fontScale),
+        content = content,
+    )
+}
 
     /** 转发 OAuth 深链回调（pixiv://account/login?code=…）到会话层 */
     private fun handleIntent(intent: Intent?) {

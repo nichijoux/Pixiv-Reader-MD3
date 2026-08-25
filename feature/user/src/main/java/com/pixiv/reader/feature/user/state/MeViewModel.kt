@@ -70,6 +70,10 @@ class MeViewModel @Inject constructor(
     val dynamicColor: StateFlow<Boolean> =
         userPreferences.dynamicColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    /** 应用字号缩放（0.8~1.3；MainActivity 覆盖 fontScale 即时生效）。 */
+    val appFontScale: StateFlow<Float> =
+        userPreferences.appFontScale.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
+
     /** 应用语言：system 跟随系统 / zh 中文 / en 英文。 */
     val appLanguage: StateFlow<String> =
         userPreferences.appLanguage.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
@@ -135,6 +139,10 @@ class MeViewModel @Inject constructor(
 
     fun setDynamicColor(value: Boolean) {
         viewModelScope.launch { userPreferences.setDynamicColor(value) }
+    }
+
+    fun setAppFontScale(value: Float) {
+        viewModelScope.launch { userPreferences.setAppFontScale(value) }
     }
 
     /**

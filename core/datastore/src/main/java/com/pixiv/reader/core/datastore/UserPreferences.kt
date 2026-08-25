@@ -88,6 +88,8 @@ class UserPreferences @Inject constructor(
     val dynamicColor: Flow<Boolean> = context.dataStore.data.map { it[KEY_DYNAMIC_COLOR] ?: true }
     /** 应用主题模式：跟随系统 / 浅色 / 深色 */
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.from(it[KEY_THEME_MODE] ?: ThemeMode.FOLLOW_SYSTEM.value) }
+    /** 应用字号缩放（0.8~1.3，默认 1.0 = 系统「标准」档；MainActivity 覆盖 fontScale 即时生效） */
+    val appFontScale: Flow<Float> = context.dataStore.data.map { it[KEY_APP_FONT_SCALE] ?: 1f }
 
     // ── 通用 ──
     /** 应用语言：system 跟随系统 / zh 简体中文 / en 英语 */
@@ -161,6 +163,7 @@ class UserPreferences @Inject constructor(
     suspend fun setImageQuality(value: String) = context.dataStore.edit { it[KEY_IMAGE_QUALITY] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
     suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
+    suspend fun setAppFontScale(value: Float) = context.dataStore.edit { it[KEY_APP_FONT_SCALE] = value }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
     suspend fun setNovelDefaultTab(value: NovelDefaultTab) = context.dataStore.edit { it[KEY_NOVEL_DEFAULT_TAB] = value.value }
     suspend fun setViewerOrientation(value: ViewerOrientation) = context.dataStore.edit { it[KEY_VIEWER_ORIENTATION] = value.value }
@@ -209,6 +212,7 @@ class UserPreferences @Inject constructor(
         val KEY_IMAGE_QUALITY = stringPreferencesKey("image_quality")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
+        val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
         val KEY_NOVEL_DEFAULT_TAB = intPreferencesKey("novel_default_tab")
         val KEY_VIEWER_ORIENTATION = intPreferencesKey("viewer_orientation")

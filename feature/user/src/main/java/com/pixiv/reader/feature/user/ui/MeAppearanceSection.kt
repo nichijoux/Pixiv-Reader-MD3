@@ -12,6 +12,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.config.AppLanguage
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.feature.user.R
+import kotlin.math.roundToInt
 
 /** 我的页「外观」设置：主题模式 / 动态取色 / 语言（各独立卡片）。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,10 +34,12 @@ import com.pixiv.reader.feature.user.R
 internal fun MeAppearanceSection(
     themeMode: ThemeMode,
     dynamicColor: Boolean,
+    fontScale: Float,
     appLanguage: String,
     switchingLanguage: Boolean,
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
+    onSetFontScale: (Float) -> Unit,
     onSetAppLanguage: (String, () -> Unit) -> Unit,
     onLanguageApplied: () -> Unit,
 ) {
@@ -87,6 +91,40 @@ internal fun MeAppearanceSection(
                 onCheckedChange = onSetDynamicColor,
             )
         }
+    }
+    CardSpacer()
+    // 字号缩放（滑动条；写入 DataStore 后 MainActivity 覆盖 fontScale 即时生效）
+    MeSettingCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.me_font_scale),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = stringResource(R.string.me_font_scale_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // 语言中性 token：百分比档位（80%~130%）
+            Text(
+                text = "${(fontScale * 100).roundToInt()}%",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Slider(
+            value = fontScale,
+            onValueChange = onSetFontScale,
+            valueRange = 0.8f..1.3f,
+            // 六档：0.80 / 0.90 / 1.00 / 1.10 / 1.20 / 1.30
+            steps = 5,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
     CardSpacer()
     // 语言（下拉选择框；切换后重建 Activity 生效）
