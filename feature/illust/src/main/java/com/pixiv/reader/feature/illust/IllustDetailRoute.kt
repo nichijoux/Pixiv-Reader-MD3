@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -57,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -373,14 +375,22 @@ private fun PagePager(
     LaunchedEffect(currentPage) { onPageChange(currentPage) }
 
     val current = pages.getOrNull(currentPage)
-    // 图片加载完成后的真实宽高比（drawable.intrinsic）
-    var imageRatio by remember { mutableStateOf<Float?>(null) }
+    // 图片加载完成后的真实宽高比（drawable.intrinsic）。
+    // 以 URL 为 remember key：切页时组合期同步重置——必须先于同组合内 AsyncImage 的回调。
+    // 不能用 LaunchedEffect 重置：Coil 内存命中走 Main.immediate 同步 fast path，
+    // onSuccess 会在组合期间先触发、随后被 LaunchedEffect 覆盖回 false，且不再有第二次回调，
+    // 导致「图片已显示但转圈永挂」（预加载完成的页必现）。
+    var imageRatio by remember(current?.displayUrl) { mutableStateOf<Float?>(null) }
     // 当前页加载完成或失败（用于隐藏 spinner）
-    var loadDone by remember { mutableStateOf(false) }
-
-    LaunchedEffect(current?.displayUrl) {
-        imageRatio = null
+    var loadDone by remember(current?.displayUrl) { mutableStateOf(false) }
+    // 加载失败标记（显示手动重试覆盖层）+ 重试代次（自增强制重建请求绕过失败状态）
+    var loadFailed by remember(current?.displayUrl) { mutableStateOf(false) }
+    var retryKey by remember(current?.displayUrl) { mutableIntStateOf(0) }
+    fun retry() {
+        loadFailed = false
         loadDone = false
+        imageRatio = null
+        retryKey++
     }
 
     // 优先图片真实比例，其次网页宽高，最后兜底
@@ -413,22 +423,54 @@ private fun PagePager(
                 val p = pages[index]
                 if (index == currentPage) {
                     Box {
-                        AsyncImage(
-                            model = p.displayUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                            onSuccess = { res ->
-                                // Coil 2.7：State.Success.result 是 SuccessResult，含 drawable
-                                val d = res.result.drawable
-                                if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
-                                    imageRatio =
-                                        d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+                        // key(retryKey)：手动重试时自增，强制重建 painter 重新发起请求
+                        key(retryKey) {
+                            AsyncImage(
+                                model = p.displayUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                onSuccess = { res ->
+                                    // Coil 2.7：State.Success.result 是 SuccessResult，含 drawable
+                                    val d = res.result.drawable
+                                    if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
+                                        imageRatio =
+                                            d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+                                    }
+                                    loadDone = true
+                                    loadFailed = false
+                                },
+                                onError = {
+                                    loadDone = true
+                                    loadFailed = true
+                                },
+                            )
+                        }
+                        // 加载失败：点击手动重试（动图封面失败不拦截播放，帧就绪照常播）
+                        if (loadFailed && ugoiraFrames.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .clickable { retry() },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = stringResource(R.string.illust_load_retry),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.illust_load_retry),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(top = 6.dp),
+                                    )
                                 }
-                                loadDone = true
-                            },
-                            onError = { loadDone = true },
-                        )
+                            }
+                        }
                         // 动图：帧就绪播放 zip 帧动画；下载中显示转圈 + 百分比；均叠加静态封面之上
                         if (index == 0) {
                             when {

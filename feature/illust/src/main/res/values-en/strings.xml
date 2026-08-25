@@ -6,6 +6,7 @@
     <string name="illust_cd_comments">Comments</string>
     <string name="illust_btn_fullscreen">Open fullscreen</string>
     <string name="illust_cd_fullscreen">Open fullscreen</string>
+    <string name="illust_load_retry">Load failed, tap to retry</string>
     <string name="illust_menu_download_original">Download original</string>
     <string name="illust_menu_unbookmark">Remove bookmark</string>
     <string name="illust_menu_bookmark">Bookmark</string>

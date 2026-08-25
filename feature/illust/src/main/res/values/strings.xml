@@ -6,6 +6,7 @@
     <string name="illust_cd_comments">评论</string>
     <string name="illust_btn_fullscreen">全屏查看</string>
     <string name="illust_cd_fullscreen">全屏查看</string>
+    <string name="illust_load_retry">加载失败，点击重试</string>
     <string name="illust_menu_download_original">下载原图</string>
     <string name="illust_menu_unbookmark">取消收藏</string>
     <string name="illust_menu_bookmark">收藏</string>
