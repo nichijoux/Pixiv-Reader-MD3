@@ -2,7 +2,13 @@ package com.pixiv.reader.feature.viewer
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -48,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -103,6 +110,9 @@ fun ViewerRoute(
     }
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // 图库式工具栏显隐：仅单击图片区切换，滑动翻页不影响其显隐
+    var barsVisible by remember { mutableStateOf(true) }
+    val barsShown = barsVisible
     // 当前页：无缝竖向按首可见项，其余按 pager 当前页（页码指示 / 下载 / 壁纸共用）
     val currentIndex = if (orientation == ViewerOrientation.SEAMLESS) {
         listState.firstVisibleItemIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
@@ -129,18 +139,29 @@ fun ViewerRoute(
             .background(ViewerScrim),
     ) {
         if (isGif) {
-            UgoiraPlayer(
-                frames = ugoiraFrames,
-                modifier = Modifier.fillMaxSize(),
-                loadingContent = {
-                    Text(
-                        text = stringResource(R.string.viewer_ugoira_loading),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-            )
+            // 动图同样支持单击切换工具栏（UgoiraPlayer 自身不消费点击）
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { barsVisible = !barsVisible }
+                    },
+            ) {
+                UgoiraPlayer(
+                    frames = ugoiraFrames,
+                    modifier = Modifier.fillMaxSize(),
+                    loadingContent = {
+                        Text(
+                            text = stringResource(R.string.viewer_ugoira_loading),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                )
+            }
         } else {
-            // 页内容（放大 / 预览·原图切换），三种方向共用
+            // 页内容（放大 / 预览·原图切换），三种方向共用。
+            // 默认 Fit 完整展示（相册标准：黑边只在图片比例 ≠ 屏幕比例时出现），
+            // 缩放手势由 telephoto 处理（捏合放大/缩小、双击切换、放大后平移）
             val pageContent: @Composable (Int) -> Unit = { index ->
                 val page = pages.getOrNull(index)
                 if (page != null) {
@@ -153,6 +174,8 @@ fun ViewerRoute(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         onZoomChanged = { zoomed -> anyZoomed = zoomed },
+                        // 单击切换工具栏显隐
+                        onClick = { barsVisible = !barsVisible },
                     )
                 }
             }
@@ -168,129 +191,152 @@ fun ViewerRoute(
                 ViewerOrientation.VERTICAL -> VerticalPager(
                     state = pagerState,
                     userScrollEnabled = !anyZoomed,
+                    // 预组合相邻页：翻页前邻图已在加载，滑动即显
+                    beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize(),
                 ) { index -> pageContent(index) }
                 // 横向翻页（默认）
                 ViewerOrientation.HORIZONTAL -> HorizontalPager(
                     state = pagerState,
                     userScrollEnabled = !anyZoomed,
+                    // 预组合相邻页：翻页前邻图已在加载，滑动即显
+                    beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize(),
                 ) { index -> pageContent(index) }
             }
         }
 
-        // 顶部栏
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent),
-                    ),
-                )
-                .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // 顶部栏（图库式：单击图片区切换显隐，翻页手势中强制隐藏）
+        AnimatedVisibility(
+            visible = barsShown,
+            enter = slideInVertically { -it } + fadeIn(),
+            exit = slideOutVertically { -it } + fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter),
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.viewer_cd_back),
-                    tint = Color.White
-                )
-            }
-            Text(
-                text = viewModel.illust.value?.title.orEmpty(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-            )
-            // 更多菜单：收藏 / 下载 / 举报
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent),
+                        ),
+                    )
+                    .statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
                     Icon(
-                        Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.viewer_cd_more),
+                        Icons.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.viewer_cd_back),
                         tint = Color.White
                     )
                 }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(if (isBookmarked) R.string.viewer_menu_unbookmark else R.string.viewer_menu_bookmark)) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = { menuExpanded = false; viewModel.toggleBookmark() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.viewer_menu_download_original)) },
-                        leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
-                        onClick = {
-                            menuExpanded = false
-                            if (isGif) {
-                                viewModel.downloadGifStub()
-                            } else {
-                                pages.getOrNull(currentIndex)?.let(viewModel::download)
-                            }
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.viewer_menu_report)) },
-                        leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
-                        onClick = { menuExpanded = false; viewModel.report() },
-                    )
-                }
-            }
-        }
-
-        // 页码指示
-        if (pages.size > 1 && !isGif) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 52.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
                 Text(
-                    text = "${currentIndex + 1} / ${pages.size}",
-                    style = MaterialTheme.typography.labelSmall,
+                    text = viewModel.illust.value?.title.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = Color.White,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
                 )
+                // 更多菜单：收藏 / 下载 / 举报
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.viewer_cd_more),
+                            tint = Color.White
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(if (isBookmarked) R.string.viewer_menu_unbookmark else R.string.viewer_menu_bookmark)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = { menuExpanded = false; viewModel.toggleBookmark() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.viewer_menu_download_original)) },
+                            leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                if (isGif) {
+                                    viewModel.downloadGifStub()
+                                } else {
+                                    pages.getOrNull(currentIndex)?.let(viewModel::download)
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.viewer_menu_report)) },
+                            leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
+                            onClick = { menuExpanded = false; viewModel.report() },
+                        )
+                    }
+                }
             }
         }
 
-        // 底部操作条：收藏 / 下载 / 壁纸 / 原图
-        ViewerActionBar(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            isBookmarked = isBookmarked,
-            isGif = isGif,
-            isOriginal = isOriginal,
-            onBookmark = viewModel::toggleBookmark,
-            onDownload = {
-                if (isGif) {
-                    viewModel.downloadGifStub()
-                } else {
-                    pages.getOrNull(currentIndex)?.let(viewModel::download)
+        // 页码指示（随工具栏一同显隐）
+        AnimatedVisibility(
+            visible = barsShown,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
+            if (pages.size > 1 && !isGif) {
+                Row(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(top = 52.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${currentIndex + 1} / ${pages.size}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                    )
                 }
-            },
-            onWallpaper = {
-                if (!isGif) pages.getOrNull(currentIndex)?.let(viewModel::wallpaper)
-            },
-            onOriginal = viewModel::toggleOriginal,
-        )
+            }
+        }
+
+        // 底部操作条：收藏 / 下载 / 壁纸 / 原图（随工具栏一同显隐）
+        AnimatedVisibility(
+            visible = barsShown,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            ViewerActionBar(
+                modifier = Modifier,
+                isBookmarked = isBookmarked,
+                isGif = isGif,
+                isOriginal = isOriginal,
+                onBookmark = viewModel::toggleBookmark,
+                onDownload = {
+                    if (isGif) {
+                        viewModel.downloadGifStub()
+                    } else {
+                        pages.getOrNull(currentIndex)?.let(viewModel::download)
+                    }
+                },
+                onWallpaper = {
+                    if (!isGif) pages.getOrNull(currentIndex)?.let(viewModel::wallpaper)
+                },
+                onOriginal = viewModel::toggleOriginal,
+            )
+        }
 
         NotificationHost(
             state = notificationHostState,

@@ -30,6 +30,8 @@ dependencies {
     api(libs.androidx.lifecycle.runtime.compose)
     api(libs.androidx.lifecycle.viewmodel.compose)
     api(libs.coil.compose)
+    // 相册式图片缩放手势（捏合/双击/平移，与 Pager 自动协作）
+    api(libs.telephoto.zoomable)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

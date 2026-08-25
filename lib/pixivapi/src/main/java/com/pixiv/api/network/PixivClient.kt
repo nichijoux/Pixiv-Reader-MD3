@@ -8,6 +8,7 @@ import com.pixiv.api.network.AppApi
 import com.pixiv.api.network.PixivWebApi
 import com.pixiv.api.auth.AuthRefresher
 import com.pixiv.api.auth.SessionManager
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.logging.HttpLoggingInterceptor
@@ -64,8 +65,11 @@ object PixivClient {
             .apply { if (debug) addLogging() }
             .build()
 
-        // 5. 图片专用 client（i.pximg.net 需 Referer）
+        // 5. 图片专用 client（i.pximg.net 需 Referer）。
+        // Dispatcher 单主机并发默认 5：详情页主图与相关作品缩略图同队排队，
+        // 弱网下队首停滞会阻塞后续请求（转圈），放宽到 8 缓解
         val imageClient = OkHttpClient.Builder()
+            .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8 })
             .connectTimeout(PixivConstants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(30L, TimeUnit.SECONDS)
             .writeTimeout(30L, TimeUnit.SECONDS)

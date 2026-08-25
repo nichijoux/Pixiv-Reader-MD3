@@ -419,7 +419,12 @@ private fun PagePager(
                 .fillMaxWidth()
                 .height(pagerHeight),
         ) {
-            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
+            HorizontalPager(
+                state = pagerState,
+                // 预组合相邻页：翻页前邻图已在加载，滑动即显
+                beyondViewportPageCount = 1,
+                modifier = Modifier.fillMaxSize(),
+            ) { index ->
                 val p = pages[index]
                 if (index == currentPage) {
                     Box {
