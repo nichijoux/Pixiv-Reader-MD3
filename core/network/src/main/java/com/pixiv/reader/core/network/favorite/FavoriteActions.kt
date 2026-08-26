@@ -1,5 +1,7 @@
 package com.pixiv.reader.core.network.favorite
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import com.pixiv.reader.core.network.session.PixivRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,5 +33,23 @@ class FavoriteActions @Inject constructor(
     suspend fun toggleFollowUser(userId: Long, nowFollowed: Boolean): Result<Unit> = runCatching {
         if (nowFollowed) pixivRepository.api.followUser(userId, "public")
         else pixivRepository.api.unfollowUser(userId)
+    }
+
+    // ── 静默变体（成功/失败均不提示，失败仅由调用方按需处理）：收敛各 VM 的
+    //    `viewModelScope.launch { toggleX(...) }` 五行包装为方法体单行委托。 ──
+
+    /** 收藏 / 取消收藏插画（静默）。 */
+    fun toggleIllustFavoriteSilent(scope: CoroutineScope, illustId: Long, nowFavorite: Boolean) {
+        scope.launch { toggleIllustFavorite(illustId, nowFavorite) }
+    }
+
+    /** 收藏 / 取消收藏小说（静默）。 */
+    fun toggleNovelFavoriteSilent(scope: CoroutineScope, novelId: Long, nowFavorite: Boolean) {
+        scope.launch { toggleNovelFavorite(novelId, nowFavorite) }
+    }
+
+    /** 关注 / 取关用户（静默）。 */
+    fun toggleFollowUserSilent(scope: CoroutineScope, userId: Long, nowFollowed: Boolean) {
+        scope.launch { toggleFollowUser(userId, nowFollowed) }
     }
 }

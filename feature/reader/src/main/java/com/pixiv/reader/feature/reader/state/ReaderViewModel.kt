@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
@@ -320,13 +321,11 @@ class ReaderViewModel @Inject constructor(
                         applyLoaded(detail, document)
                     }.onFailure {
                         Log.w(TAG, "load novel failed", it)
-                        _error.value = it.message?.let { m ->
-                            UiMessage(
-                                R.string.reader_error_load_failed_reason,
-                                listOf(m)
-                            )
-                        }
-                            ?: UiMessage(R.string.reader_error_load_failed)
+                        _error.value = loadFailureMessage(
+                            it,
+                            R.string.reader_error_load_failed_reason,
+                            R.string.reader_error_load_failed,
+                        )
                     }
                 }
             } catch (e: Exception) {

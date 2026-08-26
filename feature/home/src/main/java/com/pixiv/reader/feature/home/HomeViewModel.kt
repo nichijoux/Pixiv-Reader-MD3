@@ -135,9 +135,6 @@ class HomeViewModel @Inject constructor(
     }
 
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
-    fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
-        viewModelScope.launch {
-            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
-        }
-    }
+    fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
+        favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 }

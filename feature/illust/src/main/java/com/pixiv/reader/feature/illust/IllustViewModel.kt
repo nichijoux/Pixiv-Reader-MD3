@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
@@ -104,13 +105,11 @@ class IllustViewModel @Inject constructor(
                     if (ill.isGif()) loadUgoira()
                 }
                 .onFailure {
-                    _error.value = it.message?.let { m ->
-                        UiMessage(
-                            R.string.illust_error_load_failed_reason,
-                            listOf(m)
-                        )
-                    }
-                        ?: UiMessage(R.string.illust_error_load_failed)
+                    _error.value = loadFailureMessage(
+                        it,
+                        R.string.illust_error_load_failed_reason,
+                        R.string.illust_error_load_failed,
+                    )
                 }
             _isLoading.value = false
         }

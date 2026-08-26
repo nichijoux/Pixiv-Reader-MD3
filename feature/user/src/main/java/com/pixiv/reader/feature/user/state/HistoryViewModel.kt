@@ -62,16 +62,10 @@ class HistoryViewModel @Inject constructor(
     }
 
     /** 收藏 / 取消收藏插画（历史卡与首页一致）。 */
-    fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) {
-        viewModelScope.launch {
-            favoriteActions.toggleIllustFavorite(illustId, nowFavorite)
-        }
-    }
+    fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
+        favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 
     /** 收藏 / 取消收藏小说（历史卡与详情一致）。 */
-    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
-        viewModelScope.launch {
-            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
-        }
-    }
+    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
+        favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
 }

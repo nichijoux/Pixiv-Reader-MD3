@@ -115,11 +115,8 @@ class NovelSeriesViewModel @Inject constructor(
     }
 
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
-    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
-        viewModelScope.launch {
-            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
-        }
-    }
+    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
+        favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
 
     /** 用 user/detail 权威刷新作者关注态（best-effort，失败保留内嵌值）。 */
     private fun loadAuthorFollowState(userId: Long) {

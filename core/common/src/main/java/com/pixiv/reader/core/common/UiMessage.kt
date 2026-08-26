@@ -16,3 +16,13 @@ data class UiMessage(
     val args: List<Any> = emptyList(),
     val type: MessageType = MessageType.INFO,
 )
+
+/**
+ * 加载失败消息映射：异常带原因（`message` 非空）发 [reasonRes] 并附原因，否则发 [fallbackRes]。
+ * 收敛详情页/阅读器 VM 逐文件复制的同体 `message?.let ?: fallback` 样板。
+ */
+fun loadFailureMessage(
+    failure: Throwable,
+    @StringRes reasonRes: Int,
+    @StringRes fallbackRes: Int,
+): UiMessage = failure.message?.let { UiMessage(reasonRes, listOf(it)) } ?: UiMessage(fallbackRes)

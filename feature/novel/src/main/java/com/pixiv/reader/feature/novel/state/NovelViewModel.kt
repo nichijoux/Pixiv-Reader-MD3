@@ -9,6 +9,7 @@ import androidx.work.workDataOf
 import com.google.gson.Gson
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -114,13 +115,11 @@ class NovelViewModel @Inject constructor(
                     loadSeries(detail)
                 }
                 .onFailure {
-                    _error.value = it.message?.let { m ->
-                        UiMessage(
-                            R.string.novel_error_load_failed_reason,
-                            listOf(m)
-                        )
-                    }
-                        ?: UiMessage(R.string.novel_error_load_failed)
+                    _error.value = loadFailureMessage(
+                        it,
+                        R.string.novel_error_load_failed_reason,
+                        R.string.novel_error_load_failed,
+                    )
                 }
             _isLoading.value = false
         }

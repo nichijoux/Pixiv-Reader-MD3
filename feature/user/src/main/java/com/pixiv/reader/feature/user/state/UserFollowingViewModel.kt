@@ -43,9 +43,6 @@ class UserFollowingViewModel @Inject constructor(
     }
 
     /** 关注 / 取关用户（nowFollowed 为目标状态，由组件回调）。 */
-    fun toggleFollowUser(userId: Long, nowFollowed: Boolean) {
-        viewModelScope.launch {
-            favoriteActions.toggleFollowUser(userId, nowFollowed)
-        }
-    }
+    fun toggleFollowUser(userId: Long, nowFollowed: Boolean) =
+        favoriteActions.toggleFollowUserSilent(viewModelScope, userId, nowFollowed)
 }
