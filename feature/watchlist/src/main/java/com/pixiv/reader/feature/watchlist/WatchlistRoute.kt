@@ -42,7 +42,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 
 /**
- * 追更（P5）：已追更的小说系列列表。
+ * 追更：已追更的小说系列列表。
  *
  * @param onBack 返回
  * @param onOpenNovel 打开系列最新分册小说详情
