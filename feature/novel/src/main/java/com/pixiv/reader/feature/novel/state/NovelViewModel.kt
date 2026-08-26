@@ -2,7 +2,6 @@ package com.pixiv.reader.feature.novel.state
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -10,12 +9,14 @@ import androidx.work.workDataOf
 import com.google.gson.Gson
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.feature.novel.R
@@ -23,12 +24,10 @@ import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -46,7 +45,7 @@ class NovelViewModel @Inject constructor(
     private val browseHistoryDao: BrowseHistoryDao,
     private val downloadEntryDao: DownloadEntryDao,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
 
@@ -85,9 +84,6 @@ class NovelViewModel @Inject constructor(
     /** 作者关注操作进行中（防连点）。 */
     private val _isAuthorFollowing = MutableStateFlow(false)
     val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     /** 下载/导出进行中 */
     private val _downloading = MutableStateFlow(false)
@@ -172,19 +168,15 @@ class NovelViewModel @Inject constructor(
             favoriteActions.toggleNovelFavorite(novelId, !current)
                 .onSuccess {
                     _isBookmarked.value = !current
-                    _message.send(
-                        if (!current) UiMessage(R.string.novel_msg_bookmarked) else UiMessage(
-                            R.string.novel_msg_unbookmarked
-                        )
-                    )
+                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_bookmarked) else UiMessage(
+                        CoreR.string.core_msg_unbookmarked
+                    ))
                 }
                 .onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.novel_msg_action_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
                 }
             _isBookmarking.value = false
         }
@@ -201,13 +193,11 @@ class NovelViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                _message.send(
-                    if (!current) UiMessage(R.string.novel_msg_watching_added) else UiMessage(
-                        R.string.novel_msg_watching_removed
-                    )
-                )
+                sendMessage(if (!current) UiMessage(R.string.novel_msg_watching_added) else UiMessage(
+                    R.string.novel_msg_watching_removed
+                ))
             }.onFailure {
-                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
             _isWatchlisting.value = false
         }
@@ -237,9 +227,9 @@ class NovelViewModel @Inject constructor(
                 else pixivRepository.api.followUser(userId, "public")
             }.onSuccess {
                 _isAuthorFollowed.value = !current
-                _message.send(if (!current) UiMessage(R.string.novel_msg_followed) else UiMessage(R.string.novel_msg_unfollowed))
+                sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(CoreR.string.core_msg_unfollowed))
             }.onFailure {
-                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
             _isAuthorFollowing.value = false
         }
@@ -263,7 +253,7 @@ class NovelViewModel @Inject constructor(
         WorkManager.getInstance(context).enqueue(request)
         _downloading.value = true
         _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
-        _message.trySend(UiMessage(R.string.novel_msg_export_queued))
+        trySendMessage(UiMessage(R.string.novel_msg_export_queued))
         observeExportStateReset(detail.id)
     }
 

@@ -1,8 +1,8 @@
 package com.pixiv.reader.feature.novel.state
 
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.common.ui.RankingModeInfo
-import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.paging.RankingPagedViewModel
@@ -10,13 +10,9 @@ import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.feature.novel.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
 
 /**
  * 小说排行榜 ViewModel：6 段榜单（日榜/周榜/男性向/女性向/新人/R18）滑动切换，
@@ -38,9 +34,6 @@ class NovelRankingViewModel @Inject constructor(
     ),
 ) {
 
-    /** 操作通知（收藏等）：UI 侧 collect 显示 NotificationHost。 */
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     /** 语言筛选：全部 / 仅中文 / 仅日语。内存态不持久化，与漫画榜类型切换一致。 */
     private val _languageFilter = MutableStateFlow(NovelLanguageFilter.ALL)
@@ -58,21 +51,13 @@ class NovelRankingViewModel @Inject constructor(
     }
 
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调），成功/失败发通知。 */
-    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
-        viewModelScope.launch {
-            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
-                .onSuccess {
-                    _message.send(UiMessage(if (nowFavorite) R.string.novel_msg_bookmarked else R.string.novel_msg_unbookmarked))
-                }.onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.novel_msg_action_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
-                }
-        }
-    }
+    fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
+        toggleFavoriteNotified(
+            nowFavorite,
+            CoreR.string.core_msg_bookmarked,
+            CoreR.string.core_msg_unbookmarked,
+            CoreR.string.core_msg_action_failed,
+        ) { favoriteActions.toggleNovelFavorite(novelId, it) }
 }
 
 /** 小说排行榜语言筛选维度。 */

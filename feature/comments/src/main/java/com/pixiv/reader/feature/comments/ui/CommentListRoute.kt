@@ -36,15 +36,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.component.input.CommentInput
 import com.pixiv.reader.feature.comments.R
 import com.pixiv.reader.feature.comments.state.CommentListViewModel
@@ -85,12 +84,7 @@ fun CommentListRoute(
     }
 
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     val listState = rememberLazyListState()
     // 触底加载更多：最后可见项接近列表末尾且仍有下一页时触发

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 跨 feature 共用的操作结果 toast 文案（UiMessage）：此前在 6+ 个模块逐份重复，收敛于此。
+    按钮态/界面标签类文案语义与 toast 不同，不在此收敛，仍留各模块。 -->
+<resources>
+    <string name="core_msg_action_failed">操作失败：%1$s</string>
+    <string name="core_msg_bookmarked">已收藏</string>
+    <string name="core_msg_unbookmarked">已取消收藏</string>
+    <string name="core_msg_followed">已关注</string>
+    <string name="core_msg_unfollowed">已取消关注</string>
+    <string name="core_msg_followed_author">已关注作者</string>
+</resources>

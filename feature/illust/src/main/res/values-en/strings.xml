@@ -16,15 +16,12 @@
     <string name="illust_followed">Following</string>
     <string name="illust_expand">Show more</string>
     <string name="illust_collapse">Collapse</string>
-    <string name="illust_msg_followed">Followed the author</string>
-    <string name="illust_msg_unfollowed">Unfollowed the author</string>
     <string name="illust_stat_pages">Pages</string>
     <string name="illust_stat_view">Views</string>
     <string name="illust_stat_bookmark">Bookmarks</string>
     <string name="illust_section_related">Related works</string>
     <string name="illust_error_load_failed">Failed to load</string>
     <string name="illust_error_load_failed_reason">Failed to load: %1$s</string>
-    <string name="illust_msg_action_failed">Action failed: %1$s</string>
     <string name="illust_msg_saved_to_downloads">Saved to Downloads</string>
     <string name="illust_msg_download_started">Downloading…</string>
 

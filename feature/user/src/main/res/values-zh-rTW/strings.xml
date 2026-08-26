@@ -170,12 +170,9 @@
 
     <!-- ViewModel 消息 -->
     <string name="user_load_failed">載入失敗：%1$s</string>
-    <string name="user_followed">已關注</string>
-    <string name="user_unfollowed">已取消關注</string>
     <string name="user_blocked">已拉黑</string>
     <string name="user_unblocked_user">已取消拉黑</string>
     <string name="user_csrf_unavailable">無法獲取 CSRF Token，拉黑暫不可用</string>
-    <string name="operation_failed">操作失敗：%1$s</string>
     <string name="blocked_load_failed">載入失敗：%1$s</string>
     <string name="blocked_csrf_unavailable">無法獲取 CSRF Token，操作不可用</string>
     <string name="blocked_unblocked">已取消遮蔽</string>

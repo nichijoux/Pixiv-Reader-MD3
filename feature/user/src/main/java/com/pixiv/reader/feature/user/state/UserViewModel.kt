@@ -2,7 +2,6 @@ package com.pixiv.reader.feature.user.state
 
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.BlockSaveRequest
 import com.pixiv.api.model.Illust
@@ -10,9 +9,11 @@ import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesItem
 import com.pixiv.api.model.Profile
 import com.pixiv.api.model.User
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -21,11 +22,9 @@ import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** 用户主页作品分区。 */
@@ -46,7 +45,7 @@ class UserViewModel @Inject constructor(
     private val seriesDetailCache: SeriesDetailCache,
     private val browseHistoryDao: BrowseHistoryDao,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
 
@@ -77,9 +76,6 @@ class UserViewModel @Inject constructor(
 
     private val _isBlocking = MutableStateFlow(false)
     val isBlocking: StateFlow<Boolean> = _isBlocking.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     val illustPaged = PagedState<Illust>()
     val mangaPaged = PagedState<Illust>()
@@ -238,9 +234,9 @@ class UserViewModel @Inject constructor(
                 else pixivRepository.api.followUser(userId, "public")
             }.onSuccess {
                 _isFollowed.value = !current
-                _message.send(UiMessage(if (!current) R.string.user_followed else R.string.user_unfollowed))
+                sendMessage(UiMessage(if (!current) CoreR.string.core_msg_followed else CoreR.string.core_msg_unfollowed))
             }.onFailure {
-                _message.send(UiMessage(R.string.operation_failed, listOf(it.message ?: "")))
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
             _isFollowing.value = false
         }
@@ -253,7 +249,7 @@ class UserViewModel @Inject constructor(
             _isBlocking.value = true
             val token = csrfToken()
             if (token.isNullOrBlank()) {
-                _message.send(UiMessage(R.string.user_csrf_unavailable))
+                sendMessage(UiMessage(R.string.user_csrf_unavailable))
                 _isBlocking.value = false
                 return@launch
             }
@@ -268,9 +264,9 @@ class UserViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _isBlocked.value = !current
-                _message.send(UiMessage(if (!current) R.string.user_blocked else R.string.user_unblocked_user))
+                sendMessage(UiMessage(if (!current) R.string.user_blocked else R.string.user_unblocked_user))
             }.onFailure {
-                _message.send(UiMessage(R.string.operation_failed, listOf(it.message ?: "")))
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
             _isBlocking.value = false
         }

@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,7 +39,7 @@ import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.input.SettingsCard
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
 
@@ -89,11 +88,7 @@ fun MeRoute(
     // 小说下载命名模板编辑
     var showFileNameTemplate by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Scaffold(
         snackbarHost = { NotificationHost(notificationHostState) },

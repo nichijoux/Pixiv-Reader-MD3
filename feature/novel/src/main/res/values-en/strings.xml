@@ -58,8 +58,6 @@
     <string name="novel_start_reading">Start reading</string>
     <string name="novel_follow">Follow</string>
     <string name="novel_following">Following</string>
-    <string name="novel_msg_followed">Followed the author</string>
-    <string name="novel_msg_unfollowed">Unfollowed</string>
     <string name="novel_bookmarked">Bookmarked</string>
     <string name="novel_bookmark">Bookmark</string>
     <string name="novel_watchlisted">Watching</string>
@@ -87,9 +85,6 @@
     <!-- ViewModel messages / errors -->
     <string name="novel_error_load_failed">Failed to load</string>
     <string name="novel_error_load_failed_reason">Failed to load: %1$s</string>
-    <string name="novel_msg_bookmarked">Bookmarked</string>
-    <string name="novel_msg_unbookmarked">Removed bookmark</string>
-    <string name="novel_msg_action_failed">Action failed: %1$s</string>
     <string name="novel_msg_watching_added">Added to watchlist</string>
     <string name="novel_msg_watching_removed">Removed from watchlist</string>
     <string name="novel_msg_downloading">Downloading…</string>

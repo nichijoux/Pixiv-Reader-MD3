@@ -13,15 +13,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pixiv.reader.core.ui.component.card.RankingIllustCard
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.list.RankingIllustSkeleton
 import com.pixiv.reader.core.ui.component.list.RankingList
@@ -44,15 +42,7 @@ fun IllustRankingRoute(
     viewModel: IllustRankingViewModel = hiltViewModel(),
 ) {
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(
-                context.getString(msg.res, *msg.args.toTypedArray()),
-                type = msg.type.toNotificationType()
-            )
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Scaffold(
         snackbarHost = { NotificationHost(notificationHostState) },

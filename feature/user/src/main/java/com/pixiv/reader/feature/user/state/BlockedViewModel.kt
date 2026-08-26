@@ -1,22 +1,21 @@
 package com.pixiv.reader.feature.user.state
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.BlockSaveRequest
 import com.pixiv.api.model.MuteTag
 import com.pixiv.api.model.MuteUser
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,7 +28,7 @@ import kotlinx.coroutines.launch
 class BlockedViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val userPreferences: UserPreferences,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val _mutedUsers = MutableStateFlow<List<MuteUser>>(emptyList())
     val mutedUsers: StateFlow<List<MuteUser>> = _mutedUsers.asStateFlow()
@@ -44,9 +43,6 @@ class BlockedViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
-
     init {
         load()
     }
@@ -59,7 +55,7 @@ class BlockedViewModel @Inject constructor(
                     _mutedUsers.value = history.mute_users.orEmpty()
                     _mutedTags.value = history.mute_tags.orEmpty()
                 }
-                .onFailure { _message.send(UiMessage(R.string.blocked_load_failed, listOf(it.message ?: ""))) }
+                .onFailure { sendMessage(UiMessage(R.string.blocked_load_failed, listOf(it.message ?: ""))) }
             _isLoading.value = false
         }
     }
@@ -94,7 +90,7 @@ class BlockedViewModel @Inject constructor(
         viewModelScope.launch {
             val token = csrfToken()
             if (token.isNullOrBlank()) {
-                _message.send(UiMessage(R.string.blocked_csrf_unavailable))
+                sendMessage(UiMessage(R.string.blocked_csrf_unavailable))
                 return@launch
             }
             runCatching {
@@ -104,9 +100,9 @@ class BlockedViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _mutedUsers.value = _mutedUsers.value.filterNot { it.user?.id == uid }
-                _message.send(UiMessage(R.string.blocked_unblocked))
+                sendMessage(UiMessage(R.string.blocked_unblocked))
             }.onFailure {
-                _message.send(UiMessage(R.string.operation_failed, listOf(it.message ?: "")))
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
         }
     }

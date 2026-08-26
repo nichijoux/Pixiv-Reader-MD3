@@ -9,6 +9,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 /**
  * 小说导出 worker 的依赖入口（普通 Worker + Hilt EntryPoint 手动取依赖）。
  */
@@ -37,7 +38,7 @@ class NovelExportWorker(
         val seriesId = inputData.getLong(KEY_SERIES_ID, 0L).takeIf { it > 0L }
         val chapterIds = inputData.getLongArray(KEY_CHAPTER_IDS)?.toList()?.takeIf { it.isNotEmpty() }
         val format = runCatching {
-            NovelExportFormat.valueOf(inputData.getString(KEY_FORMAT) ?: "TXT")
+            NovelExportFormat.valueOf(inputData.getString(KEY_FORMAT) ?: DownloadEntryEntity.FORMAT_TXT)
         }.getOrDefault(NovelExportFormat.TXT)
         if (novelId <= 0L) return Result.failure()
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, NovelExportWorkerEntryPoint::class.java)

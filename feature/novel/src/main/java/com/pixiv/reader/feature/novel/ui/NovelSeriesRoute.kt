@@ -23,14 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +41,7 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
@@ -86,13 +85,7 @@ fun NovelSeriesRoute(
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    val message by viewModel.message.collectAsStateWithLifecycle(initialValue = null)
-    LaunchedEffect(message) {
-        message?.let { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()))
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Box(
         modifier = Modifier

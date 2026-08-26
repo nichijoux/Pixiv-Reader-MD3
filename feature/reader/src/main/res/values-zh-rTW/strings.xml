@@ -78,11 +78,8 @@
     <string name="reader_msg_font_import_failed">字型匯入失敗：%1$s</string>
     <string name="reader_msg_font_set">自定義字型已設定</string>
     <string name="reader_msg_font_cleared">已清除自定義字型</string>
-    <string name="reader_msg_action_failed">操作失敗：%1$s</string>
     <string name="reader_msg_mark_added">已新增閱讀書籤</string>
     <string name="reader_msg_mark_removed">已移除閱讀書籤</string>
-    <string name="reader_msg_bookmarked">已收藏</string>
-    <string name="reader_msg_unbookmarked">已取消收藏</string>
     <string name="reader_msg_watching_added">已加入追更</string>
     <string name="reader_msg_watching_removed">已取消追更</string>
     <string name="reader_msg_not_in_series">該作品不屬於系列</string>

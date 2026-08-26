@@ -2,17 +2,18 @@ package com.pixiv.reader.feature.illust
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -21,11 +22,9 @@ import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -42,7 +41,7 @@ class IllustViewModel @Inject constructor(
     private val browseHistoryDao: BrowseHistoryDao,
     private val favoriteActions: FavoriteActions,
     @param:ApplicationContext private val context: Context,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
 
@@ -79,9 +78,6 @@ class IllustViewModel @Inject constructor(
     /** 作者关注操作进行中（防连点）。 */
     private val _isAuthorFollowing = MutableStateFlow(false)
     val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     val relatedPaged = PagedState<Illust>()
 
@@ -171,19 +167,15 @@ class IllustViewModel @Inject constructor(
             }
                 .onSuccess {
                     _isAuthorFollowed.value = !current
-                    _message.send(
-                        if (!current) UiMessage(R.string.illust_msg_followed) else UiMessage(
-                            R.string.illust_msg_unfollowed
-                        )
-                    )
+                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(
+                        CoreR.string.core_msg_unfollowed
+                    ))
                 }
                 .onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.illust_msg_action_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
                 }
             _isAuthorFollowing.value = false
         }
@@ -241,12 +233,10 @@ class IllustViewModel @Inject constructor(
             favoriteActions.toggleIllustFavorite(illustId, !current)
                 .onSuccess { _isBookmarked.value = !current }
                 .onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.illust_msg_action_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
                 }
             _isBookmarking.value = false
         }
@@ -258,6 +248,6 @@ class IllustViewModel @Inject constructor(
             .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to illustId))
             .build()
         WorkManager.getInstance(context).enqueue(request)
-        _message.trySend(UiMessage(R.string.illust_msg_download_started))
+        trySendMessage(UiMessage(R.string.illust_msg_download_started))
     }
 }

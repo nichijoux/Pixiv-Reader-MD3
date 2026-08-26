@@ -1,8 +1,9 @@
 package com.pixiv.reader.core.network.paging
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.ui.RankingModeInfo
+import com.pixiv.reader.core.network.message.MessageViewModel
 import kotlinx.coroutines.launch
 
 /**
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
  */
 abstract class RankingPagedViewModel<T>(
     val modes: List<RankingModeInfo>,
-) : ViewModel() {
+) : MessageViewModel() {
 
     /** 各段独立分页状态：mode → PagedState，首次访问时创建并驻留。 */
     private val pages = mutableMapOf<String, PagedState<T>>()
@@ -49,4 +50,22 @@ abstract class RankingPagedViewModel<T>(
 
     /** 段数据首载：fetch 拉第一页、fetchNext 翻页。 */
     protected abstract suspend fun loadInitialFor(paged: PagedState<T>, mode: String)
+
+    /**
+     * 收藏/取消收藏并发结果通知（子类共用样板）：成功发 bookmarked/unbookmarked 文案，
+     * 失败发 actionFailed 文案 + 原因。子类传各自模块字符串资源与实际动作。
+     */
+    protected fun toggleFavoriteNotified(
+        nowFavorite: Boolean,
+        bookmarkedRes: Int,
+        unbookmarkedRes: Int,
+        actionFailedRes: Int,
+        toggle: suspend (Boolean) -> Result<Unit>,
+    ) {
+        viewModelScope.launch {
+            toggle(nowFavorite)
+                .onSuccess { sendMessage(UiMessage(if (nowFavorite) bookmarkedRes else unbookmarkedRes)) }
+                .onFailure { sendMessage(UiMessage(actionFailedRes, listOf(it.message ?: ""))) }
+        }
+    }
 }

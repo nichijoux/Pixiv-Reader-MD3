@@ -13,7 +13,6 @@
     <string name="viewer_ugoira_loading">动图加载中…</string>
     <string name="viewer_msg_load_failed_reason">加载失败：%1$s</string>
     <string name="viewer_msg_ugoira_load_failed">动图加载失败</string>
-    <string name="viewer_msg_action_failed">操作失败：%1$s</string>
     <string name="viewer_msg_wallpaper_setting">正在设置壁纸…</string>
     <string name="viewer_msg_wallpaper_set">已设为壁纸</string>
     <string name="viewer_msg_wallpaper_failed">设置壁纸失败：%1$s</string>

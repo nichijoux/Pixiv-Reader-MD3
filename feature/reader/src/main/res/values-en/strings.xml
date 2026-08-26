@@ -78,11 +78,8 @@
     <string name="reader_msg_font_import_failed">Failed to import font: %1$s</string>
     <string name="reader_msg_font_set">Custom font set</string>
     <string name="reader_msg_font_cleared">Custom font cleared</string>
-    <string name="reader_msg_action_failed">Action failed: %1$s</string>
     <string name="reader_msg_mark_added">Reading mark added</string>
     <string name="reader_msg_mark_removed">Reading mark removed</string>
-    <string name="reader_msg_bookmarked">Bookmarked</string>
-    <string name="reader_msg_unbookmarked">Removed bookmark</string>
     <string name="reader_msg_watching_added">Added to watchlist</string>
     <string name="reader_msg_watching_removed">Removed from watchlist</string>
     <string name="reader_msg_not_in_series">This work is not part of a series</string>

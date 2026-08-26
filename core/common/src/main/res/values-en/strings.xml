@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_msg_action_failed">Action failed: %1$s</string>
+    <string name="core_msg_bookmarked">Bookmarked</string>
+    <string name="core_msg_unbookmarked">Removed bookmark</string>
+    <string name="core_msg_followed">Followed</string>
+    <string name="core_msg_unfollowed">Unfollowed</string>
+    <string name="core_msg_followed_author">Followed the author</string>
+</resources>

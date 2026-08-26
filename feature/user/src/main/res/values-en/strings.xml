@@ -172,12 +172,9 @@
 
     <!-- ViewModel messages -->
     <string name="user_load_failed">Failed to load: %1$s</string>
-    <string name="user_followed">Followed</string>
-    <string name="user_unfollowed">Unfollowed</string>
     <string name="user_blocked">Blocked</string>
     <string name="user_unblocked_user">Unblocked</string>
     <string name="user_csrf_unavailable">Couldn\'t obtain CSRF token, blocking is unavailable</string>
-    <string name="operation_failed">Operation failed: %1$s</string>
     <string name="blocked_load_failed">Failed to load: %1$s</string>
     <string name="blocked_csrf_unavailable">Couldn\'t obtain CSRF token, action unavailable</string>
     <string name="blocked_unblocked">Unmuted</string>

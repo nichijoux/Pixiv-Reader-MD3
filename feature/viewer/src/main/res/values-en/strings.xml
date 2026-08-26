@@ -13,7 +13,6 @@
     <string name="viewer_ugoira_loading">Loading animation…</string>
     <string name="viewer_msg_load_failed_reason">Failed to load: %1$s</string>
     <string name="viewer_msg_ugoira_load_failed">Failed to load animation</string>
-    <string name="viewer_msg_action_failed">Action failed: %1$s</string>
     <string name="viewer_msg_wallpaper_setting">Setting wallpaper…</string>
     <string name="viewer_msg_wallpaper_set">Wallpaper set</string>
     <string name="viewer_msg_wallpaper_failed">Failed to set wallpaper: %1$s</string>

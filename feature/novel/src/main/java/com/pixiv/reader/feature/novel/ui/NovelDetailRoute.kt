@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,8 +30,8 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
@@ -72,12 +70,7 @@ fun NovelDetailRoute(
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,

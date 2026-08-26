@@ -465,23 +465,23 @@ private data class FormatInfo(
 )
 
 private fun formatInfo(format: String): FormatInfo? = when (format) {
-    "TXT" -> FormatInfo(Icons.Filled.Description, R.string.downloads_format_txt)
-    "EPUB" -> FormatInfo(Icons.Filled.MenuBook, R.string.downloads_format_epub)
-    "PDF" -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
-    "MARKDOWN" -> FormatInfo(Icons.Filled.Notes, R.string.downloads_format_markdown)
-    "DOCX" -> FormatInfo(Icons.Filled.Article, R.string.downloads_format_docx)
+    DownloadEntryEntity.FORMAT_TXT -> FormatInfo(Icons.Filled.Description, R.string.downloads_format_txt)
+    DownloadEntryEntity.FORMAT_EPUB -> FormatInfo(Icons.Filled.MenuBook, R.string.downloads_format_epub)
+    DownloadEntryEntity.FORMAT_PDF -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
+    DownloadEntryEntity.FORMAT_MARKDOWN -> FormatInfo(Icons.Filled.Notes, R.string.downloads_format_markdown)
+    DownloadEntryEntity.FORMAT_DOCX -> FormatInfo(Icons.Filled.Article, R.string.downloads_format_docx)
     else -> null
 }
 
 /** 应用内可解析阅读的本地文件格式（txt/epub/md）。 */
 private fun isParsableLocalFile(entry: DownloadEntryEntity): Boolean {
     // MediaStore uri（content://media/...）不含文件名，不能靠扩展名判断，用索引 format 字段
-    return entry.format == "TXT" || entry.format == "EPUB" || entry.format == "MARKDOWN"
+    return entry.format == DownloadEntryEntity.FORMAT_TXT || entry.format == DownloadEntryEntity.FORMAT_EPUB || entry.format == DownloadEntryEntity.FORMAT_MARKDOWN
 }
 
 /** 需系统应用打开的本地文件格式（pdf/docx）。 */
 private fun isSystemOpenFile(entry: DownloadEntryEntity): Boolean {
-    return entry.format == "PDF" || entry.format == "DOCX"
+    return entry.format == DownloadEntryEntity.FORMAT_PDF || entry.format == DownloadEntryEntity.FORMAT_DOCX
 }
 
 /** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx（SAF/MediaStore content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
@@ -489,8 +489,8 @@ private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity) {
     val path = entry.localPath ?: return
     // MediaStore uri（content://media/...）不含文件名，mime 用索引 format 字段推断
     val mime = when (entry.format) {
-        "PDF" -> "application/pdf"
-        "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        DownloadEntryEntity.FORMAT_PDF -> "application/pdf"
+        DownloadEntryEntity.FORMAT_DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         else -> MimeTypeMap.getSingleton()
             .getMimeTypeFromExtension(path.substringAfterLast('.', "").lowercase()) ?: "*/*"
     }

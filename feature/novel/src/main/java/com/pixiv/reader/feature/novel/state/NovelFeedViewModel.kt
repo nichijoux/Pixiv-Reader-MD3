@@ -1,13 +1,14 @@
 package com.pixiv.reader.feature.novel.state
 
 import android.util.Log
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.WatchlistSeries
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -16,13 +17,11 @@ import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.novel.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -36,7 +35,7 @@ class NovelFeedViewModel @Inject constructor(
     private val userPreferences: UserPreferences,
     private val seriesDetailCache: SeriesDetailCache,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     /** 追更 Tab 调试日志 tag（排查隐藏系列闪退用：`adb logcat -s NovelWatchlist`）。 */
     private companion object {
@@ -77,10 +76,6 @@ class NovelFeedViewModel @Inject constructor(
     /** 小说 Tab 默认页偏好（我的页-浏览设置）：推荐 / 关注。 */
     val novelDefaultTab: StateFlow<NovelDefaultTab> = userPreferences.novelDefaultTab
         .stateIn(viewModelScope, SharingStarted.Eagerly, NovelDefaultTab.RECOMMEND)
-
-    /** 操作通知（收藏等）：UI 侧 collect 显示 NotificationHost。 */
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     init {
         refresh()
@@ -301,14 +296,12 @@ class NovelFeedViewModel @Inject constructor(
         viewModelScope.launch {
             favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
                 .onSuccess {
-                    _message.send(UiMessage(if (nowFavorite) R.string.novel_msg_bookmarked else R.string.novel_msg_unbookmarked))
+                    sendMessage(UiMessage(if (nowFavorite) CoreR.string.core_msg_bookmarked else CoreR.string.core_msg_unbookmarked))
                 }.onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.novel_msg_action_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
                 }
         }
     }

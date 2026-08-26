@@ -4,16 +4,17 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.config.ReaderPageMode
-import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
+import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.novel.NovelContentLoader
 import com.pixiv.reader.core.network.novel.fetchAllSeriesChapters
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -32,7 +33,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,7 +43,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -68,7 +67,7 @@ class ReaderViewModel @Inject constructor(
     private val readerChapterCache: ReaderChapterCache,
     private val favoriteActions: FavoriteActions,
     @ApplicationContext private val context: Context,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
 
@@ -217,8 +216,6 @@ class ReaderViewModel @Inject constructor(
     private val _isWatchlisted = MutableStateFlow(false)
     val isWatchlisted: StateFlow<Boolean> = _isWatchlisted.asStateFlow()
 
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     private var saveJob: Job? = null
     private var markerJob: Job? = null
@@ -709,15 +706,13 @@ class ReaderViewModel @Inject constructor(
             path.onSuccess { p ->
                 _customFontPath.value = p
                 runCatching { userPreferences.setReaderCustomFontPath(p) }
-                _message.send(UiMessage(R.string.reader_msg_font_set))
+                sendMessage(UiMessage(R.string.reader_msg_font_set))
             }.onFailure {
                 Log.w(TAG, "importCustomFont failed", it)
-                _message.send(
-                    UiMessage(
-                        R.string.reader_msg_font_import_failed,
-                        listOf(it.message ?: "")
-                    )
-                )
+                sendMessage(UiMessage(
+                    R.string.reader_msg_font_import_failed,
+                    listOf(it.message ?: "")
+                ))
             }
         }
     }
@@ -725,7 +720,7 @@ class ReaderViewModel @Inject constructor(
     fun clearCustomFont() {
         _customFontPath.value = ""
         viewModelScope.launch { runCatching { userPreferences.setReaderCustomFontPath("") } }
-        _message.trySend(UiMessage(R.string.reader_msg_font_cleared))
+        trySendMessage(UiMessage(R.string.reader_msg_font_cleared))
     }
 
     fun onFollowSystemChange(value: Boolean) {
@@ -753,18 +748,14 @@ class ReaderViewModel @Inject constructor(
                 }
             }.onSuccess {
                 _isMarked.value = !current
-                _message.send(
-                    if (!current) UiMessage(R.string.reader_msg_mark_added) else UiMessage(
-                        R.string.reader_msg_mark_removed
-                    )
-                )
+                sendMessage(if (!current) UiMessage(R.string.reader_msg_mark_added) else UiMessage(
+                    R.string.reader_msg_mark_removed
+                ))
             }.onFailure {
-                _message.send(
-                    UiMessage(
-                        R.string.reader_msg_action_failed,
-                        listOf(it.message ?: "")
-                    )
-                )
+                sendMessage(UiMessage(
+                    CoreR.string.core_msg_action_failed,
+                    listOf(it.message ?: "")
+                ))
             }
         }
     }
@@ -775,26 +766,22 @@ class ReaderViewModel @Inject constructor(
             favoriteActions.toggleNovelFavorite(novelId, !current)
                 .onSuccess {
                     _isBookmarked.value = !current
-                    _message.send(
-                        if (!current) UiMessage(R.string.reader_msg_bookmarked) else UiMessage(
-                            R.string.reader_msg_unbookmarked
-                        )
-                    )
+                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_bookmarked) else UiMessage(
+                        CoreR.string.core_msg_unbookmarked
+                    ))
                 }
                 .onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.reader_msg_action_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
                 }
         }
     }
 
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: run {
-            _message.trySend(UiMessage(R.string.reader_msg_not_in_series))
+            trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
             return
         }
         viewModelScope.launch {
@@ -804,18 +791,14 @@ class ReaderViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                _message.send(
-                    if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
-                        R.string.reader_msg_watching_removed
-                    )
-                )
+                sendMessage(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
+                    R.string.reader_msg_watching_removed
+                ))
             }.onFailure {
-                _message.send(
-                    UiMessage(
-                        R.string.reader_msg_action_failed,
-                        listOf(it.message ?: "")
-                    )
-                )
+                sendMessage(UiMessage(
+                    CoreR.string.core_msg_action_failed,
+                    listOf(it.message ?: "")
+                ))
             }
         }
     }

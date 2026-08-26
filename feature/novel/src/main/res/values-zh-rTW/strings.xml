@@ -58,8 +58,6 @@
     <string name="novel_start_reading">開始閱讀</string>
     <string name="novel_follow">關注</string>
     <string name="novel_following">已關注</string>
-    <string name="novel_msg_followed">已關注作者</string>
-    <string name="novel_msg_unfollowed">已取消關注</string>
     <string name="novel_bookmarked">已收藏</string>
     <string name="novel_bookmark">收藏</string>
     <string name="novel_watchlisted">已追更</string>
@@ -87,9 +85,6 @@
     <!-- ViewModel 消息 / 错误 -->
     <string name="novel_error_load_failed">載入失敗</string>
     <string name="novel_error_load_failed_reason">載入失敗：%1$s</string>
-    <string name="novel_msg_bookmarked">已收藏</string>
-    <string name="novel_msg_unbookmarked">已取消收藏</string>
-    <string name="novel_msg_action_failed">操作失敗：%1$s</string>
     <string name="novel_msg_watching_added">已加入追更</string>
     <string name="novel_msg_watching_removed">已取消追更</string>
     <string name="novel_msg_downloading">正在下載…</string>

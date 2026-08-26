@@ -37,7 +37,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,8 +57,8 @@ import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 
 /**
  * 屏蔽管理：卡片分组 + pill 标签——
@@ -85,12 +83,7 @@ fun BlockedRoute(
     var pendingDeleteTag by remember { mutableStateOf<String?>(null) }
 
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Scaffold(
         topBar = {

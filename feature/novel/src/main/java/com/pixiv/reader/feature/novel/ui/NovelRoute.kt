@@ -43,7 +43,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,8 +55,8 @@ import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.list.RankingBanner
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelFeedViewModel
 import kotlinx.coroutines.launch
@@ -87,12 +86,7 @@ fun NovelRoute(
 
     // 操作通知（收藏等）：collect VM message → NotificationHost
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(context.getString(msg.res, *msg.args.toTypedArray()), type = msg.type.toNotificationType())
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     // 首帧定位默认页（进程重建回偏好页；旋转保留当前页）
     var defaultTabApplied by rememberSaveable { mutableStateOf(false) }

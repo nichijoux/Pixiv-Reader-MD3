@@ -81,8 +81,8 @@ class DownloadsViewModel @Inject constructor(
                 val path = entry.localPath ?: return@withContext null
                 // MediaStore uri（content://media/...）不含文件名，类型用索引 format 字段判断
                 val ext = when (entry.format) {
-                    "MARKDOWN" -> "md"
-                    "EPUB" -> "epub"
+                    DownloadEntryEntity.FORMAT_MARKDOWN -> "md"
+                    DownloadEntryEntity.FORMAT_EPUB -> "epub"
                     else -> entry.format.lowercase() // TXT → txt
                 }
                 if (path.startsWith("content://")) {

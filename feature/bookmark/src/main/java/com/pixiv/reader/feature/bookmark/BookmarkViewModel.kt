@@ -2,22 +2,19 @@ package com.pixiv.reader.feature.bookmark
 
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.BookmarkTag
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** 收藏夹类型：插画 / 小说。 */
@@ -36,7 +33,7 @@ class BookmarkViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val uid: Long = pixivRepository.pixivApi.session.loggedInUid
 
@@ -48,9 +45,6 @@ class BookmarkViewModel @Inject constructor(
 
     private val _selectedTag = MutableStateFlow<String?>(null)
     val selectedTag: StateFlow<String?> = _selectedTag.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     val illustPaged = PagedState<Illust>()
     val novelPaged = PagedState<Novel>()

@@ -16,15 +16,12 @@
     <string name="illust_followed">已关注</string>
     <string name="illust_expand">展开</string>
     <string name="illust_collapse">收起</string>
-    <string name="illust_msg_followed">已关注作者</string>
-    <string name="illust_msg_unfollowed">已取消关注</string>
     <string name="illust_stat_pages">页数</string>
     <string name="illust_stat_view">浏览</string>
     <string name="illust_stat_bookmark">收藏</string>
     <string name="illust_section_related">相关作品</string>
     <string name="illust_error_load_failed">加载失败</string>
     <string name="illust_error_load_failed_reason">加载失败：%1$s</string>
-    <string name="illust_msg_action_failed">操作失败：%1$s</string>
     <string name="illust_msg_saved_to_downloads">已保存到下载目录</string>
     <string name="illust_msg_download_started">开始下载…</string>
 

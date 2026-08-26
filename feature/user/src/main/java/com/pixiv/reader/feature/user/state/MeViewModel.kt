@@ -1,17 +1,17 @@
 package com.pixiv.reader.feature.user.state
 
 import android.content.Context
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import com.pixiv.api.model.User
+import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.config.ThemeMode
-import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.network.update.AppRelease
 import com.pixiv.reader.core.network.update.AppUpdateChecker
@@ -21,12 +21,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,7 +38,7 @@ class MeViewModel @Inject constructor(
     sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
     private val updateChecker: AppUpdateChecker,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val appContext: Context = context.applicationContext
 
@@ -125,9 +123,6 @@ class MeViewModel @Inject constructor(
     /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
     val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     init {
         refreshCacheSize()
@@ -225,14 +220,12 @@ class MeViewModel @Inject constructor(
                     if (release != null && AppUpdateVersion.isNewer(versionName, release.tagName)) {
                         _updateDialog.value = release
                     } else if (!auto) {
-                        _message.send(UiMessage(R.string.me_already_latest))
+                        sendMessage(UiMessage(R.string.me_already_latest))
                     }
                 }
                 .onFailure {
                     if (!auto) {
-                        _message.send(
-                            UiMessage(R.string.me_update_check_failed, listOf(it.message ?: ""))
-                        )
+                        sendMessage(UiMessage(R.string.me_update_check_failed, listOf(it.message ?: "")))
                     }
                 }
         }
@@ -266,7 +259,7 @@ class MeViewModel @Inject constructor(
                 runCatching { appContext.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
             }
             refreshCacheSize()
-            _message.send(UiMessage(R.string.me_cache_cleared))
+            sendMessage(UiMessage(R.string.me_cache_cleared))
         }
     }
 

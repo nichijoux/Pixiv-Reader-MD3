@@ -4,11 +4,11 @@ import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
@@ -17,6 +17,7 @@ import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.download.IllustPageDownloader
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
@@ -24,12 +25,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,7 +49,7 @@ class ViewerViewModel @Inject constructor(
     private val ugoiraLoader: UgoiraLoader,
     private val userPreferences: UserPreferences,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
     val initialPage: Int = savedStateHandle.get<Int>("page") ?: 0
@@ -73,9 +72,6 @@ class ViewerViewModel @Inject constructor(
     /** 是否显示原图（false 显示预览图 displayUrl，true 显示原图 originalUrl）。 */
     private val _isOriginal = MutableStateFlow(false)
     val isOriginal: StateFlow<Boolean> = _isOriginal.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     /** 查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向（我的页-浏览设置控制）。 */
     val viewerOrientation: StateFlow<ViewerOrientation> =
@@ -103,7 +99,7 @@ class ViewerViewModel @Inject constructor(
                         loadUgoira()
                     }
                 }
-                .onFailure { _message.send(UiMessage(R.string.viewer_msg_load_failed_reason, listOf(it.message ?: ""))) }
+                .onFailure { sendMessage(UiMessage(R.string.viewer_msg_load_failed_reason, listOf(it.message ?: ""))) }
         }
         loadRealSizes()
     }
@@ -133,7 +129,7 @@ class ViewerViewModel @Inject constructor(
         viewModelScope.launch {
             _ugoiraFrames.value = ugoiraLoader.prepare(illustId).orEmpty()
             if (_ugoiraFrames.value.isEmpty()) {
-                _message.send(UiMessage(R.string.viewer_msg_ugoira_load_failed))
+                sendMessage(UiMessage(R.string.viewer_msg_ugoira_load_failed))
             }
         }
     }
@@ -143,7 +139,7 @@ class ViewerViewModel @Inject constructor(
             val current = _isBookmarked.value
             favoriteActions.toggleIllustFavorite(illustId, !current)
                 .onSuccess { _isBookmarked.value = !current }
-                .onFailure { _message.send(UiMessage(R.string.viewer_msg_action_failed, listOf(it.message ?: ""))) }
+                .onFailure { sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: ""))) }
         }
     }
 
@@ -151,7 +147,7 @@ class ViewerViewModel @Inject constructor(
     fun toggleOriginal() {
         _isOriginal.value = !_isOriginal.value
         viewModelScope.launch {
-            _message.send(UiMessage(if (_isOriginal.value) R.string.viewer_msg_loaded_original else R.string.viewer_msg_switched_preview))
+            sendMessage(UiMessage(if (_isOriginal.value) R.string.viewer_msg_loaded_original else R.string.viewer_msg_switched_preview))
         }
     }
 
@@ -159,7 +155,7 @@ class ViewerViewModel @Inject constructor(
     fun wallpaper(page: IllustPageInfo) {
         val url = page.originalUrl ?: page.displayUrl ?: return
         viewModelScope.launch {
-            _message.send(UiMessage(R.string.viewer_msg_wallpaper_setting))
+            sendMessage(UiMessage(R.string.viewer_msg_wallpaper_setting))
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val bytes = pixivRepository.imageClient.newCall(Request.Builder().url(url).build())
@@ -173,8 +169,8 @@ class ViewerViewModel @Inject constructor(
                 }
             }
             result
-                .onSuccess { _message.send(UiMessage(R.string.viewer_msg_wallpaper_set)) }
-                .onFailure { _message.send(UiMessage(R.string.viewer_msg_wallpaper_failed, listOf(it.message ?: ""))) }
+                .onSuccess { sendMessage(UiMessage(R.string.viewer_msg_wallpaper_set)) }
+                .onFailure { sendMessage(UiMessage(R.string.viewer_msg_wallpaper_failed, listOf(it.message ?: ""))) }
         }
     }
 
@@ -185,7 +181,7 @@ class ViewerViewModel @Inject constructor(
         val url = page.originalUrl ?: page.displayUrl ?: return
         val index = _pages.value.indexOf(page).takeIf { it >= 0 } ?: 0
         viewModelScope.launch {
-            _message.trySend(UiMessage(R.string.viewer_msg_download_started))
+            trySendMessage(UiMessage(R.string.viewer_msg_download_started))
             recordDownload(null, "downloading", progress = 0)
             var lastWritten = -1
             illustPageDownloader.downloadPage(illustId, index, url) { done, total ->
@@ -198,11 +194,11 @@ class ViewerViewModel @Inject constructor(
             }
                 .onSuccess { file ->
                     recordDownload(file.path, "done", progress = 100)
-                    _message.trySend(UiMessage(R.string.viewer_msg_saved_to_downloads, type = MessageType.SUCCESS))
+                    trySendMessage(UiMessage(R.string.viewer_msg_saved_to_downloads, type = MessageType.SUCCESS))
                 }
                 .onFailure {
                     recordDownload(null, "failed")
-                    _message.trySend(UiMessage(R.string.viewer_msg_download_failed, listOf(it.message ?: ""), type = MessageType.ERROR))
+                    trySendMessage(UiMessage(R.string.viewer_msg_download_failed, listOf(it.message ?: ""), type = MessageType.ERROR))
                 }
         }
     }
@@ -256,11 +252,11 @@ class ViewerViewModel @Inject constructor(
 
     /** 动图下载（zip）占位：P6 下载管理中实现 */
     fun downloadGifStub() {
-        viewModelScope.launch { _message.send(UiMessage(R.string.viewer_msg_ugoira_download_wip)) }
+        viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_ugoira_download_wip)) }
     }
 
     /** 举报占位：P7 接入 /v2/illust/report */
     fun report() {
-        viewModelScope.launch { _message.send(UiMessage(R.string.viewer_msg_report_wip)) }
+        viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_report_wip)) }
     }
 }

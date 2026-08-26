@@ -69,7 +69,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextLayoutResult
@@ -90,8 +89,8 @@ import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
@@ -125,18 +124,7 @@ fun IllustDetailRoute(
     var currentPage by remember { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(
-                context.getString(
-                    msg.res,
-                    *msg.args.toTypedArray()
-                ), type = msg.type.toNotificationType()
-            )
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Scaffold(
         topBar = {

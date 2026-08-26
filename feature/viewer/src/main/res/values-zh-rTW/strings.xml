@@ -13,7 +13,6 @@
     <string name="viewer_ugoira_loading">動圖載入中…</string>
     <string name="viewer_msg_load_failed_reason">載入失敗：%1$s</string>
     <string name="viewer_msg_ugoira_load_failed">動圖載入失敗</string>
-    <string name="viewer_msg_action_failed">操作失敗：%1$s</string>
     <string name="viewer_msg_wallpaper_setting">正在設定桌布…</string>
     <string name="viewer_msg_wallpaper_set">已設為桌布</string>
     <string name="viewer_msg_wallpaper_failed">設定桌布失敗：%1$s</string>

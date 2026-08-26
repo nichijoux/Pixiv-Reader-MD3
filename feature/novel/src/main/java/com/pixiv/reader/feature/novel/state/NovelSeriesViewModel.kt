@@ -2,7 +2,6 @@ package com.pixiv.reader.feature.novel.state
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -10,7 +9,9 @@ import androidx.work.workDataOf
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesDetail
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.novel.fetchAllSeriesChapters
@@ -23,12 +24,10 @@ import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -45,7 +44,7 @@ class NovelSeriesViewModel @Inject constructor(
     private val seriesDetailCache: SeriesDetailCache,
     private val downloadEntryDao: DownloadEntryDao,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val seriesId: Long = savedStateHandle.get<Long>("seriesId") ?: 0L
 
@@ -65,9 +64,6 @@ class NovelSeriesViewModel @Inject constructor(
 
     private val _isAuthorFollowing = MutableStateFlow(false)
     val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
@@ -147,9 +143,9 @@ class NovelSeriesViewModel @Inject constructor(
                 else pixivRepository.api.followUser(userId, "public")
             }.onSuccess {
                 _isAuthorFollowed.value = !current
-                _message.send(if (!current) UiMessage(R.string.novel_msg_followed) else UiMessage(R.string.novel_msg_unfollowed))
+                sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(CoreR.string.core_msg_unfollowed))
             }.onFailure {
-                _message.send(UiMessage(R.string.novel_msg_action_failed, listOf(it.message ?: "")))
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
             _isAuthorFollowing.value = false
         }
@@ -197,7 +193,7 @@ class NovelSeriesViewModel @Inject constructor(
         WorkManager.getInstance(context).enqueue(request)
         _downloading.value = true
         _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
-        _message.trySend(UiMessage(R.string.novel_msg_export_queued))
+        trySendMessage(UiMessage(R.string.novel_msg_export_queued))
         observeExportStateReset(novelId)
     }
 

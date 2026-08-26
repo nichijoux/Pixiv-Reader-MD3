@@ -1,21 +1,19 @@
 package com.pixiv.reader.feature.comments.state
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Comment
 import com.pixiv.api.model.Stamp
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.feature.comments.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -27,7 +25,7 @@ import kotlinx.coroutines.launch
 class CommentListViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
-) : ViewModel() {
+) : MessageViewModel() {
 
     private val type: String = savedStateHandle.get<String>("type") ?: "novel"
     private val targetId: Long = savedStateHandle.get<Long>("targetId") ?: 0L
@@ -58,9 +56,6 @@ class CommentListViewModel @Inject constructor(
 
     /** 回复目标所属顶层评论 id（顶层评论回复时 = 自身 id；子评论回复时 = 外层顶层 id）。 */
     private val _replyTargetTopId = MutableStateFlow<Long?>(null)
-
-    private val _message = Channel<UiMessage>(Channel.BUFFERED)
-    val message = _message.receiveAsFlow()
 
     /** pixiv 贴纸目录（表情面板展示；加载失败则面板只显示文本表情）。 */
     private val _stamps = MutableStateFlow<List<Stamp>>(emptyList())
@@ -163,7 +158,7 @@ class CommentListViewModel @Inject constructor(
                     _commentDraft.value = ""
                     _replyTarget.value = null
                     _replyTargetTopId.value = null
-                    _message.send(UiMessage(R.string.comment_msg_published))
+                    sendMessage(UiMessage(R.string.comment_msg_published))
                     loadComments()
                     // 刷新并自动展开该顶层评论，保证新子回复即时可见
                     if (repliedTopId != null) {
@@ -173,12 +168,10 @@ class CommentListViewModel @Inject constructor(
                     }
                 }
                 .onFailure {
-                    _message.send(
-                        UiMessage(
-                            R.string.comment_msg_failed,
-                            listOf(it.message ?: "")
-                        )
-                    )
+                    sendMessage(UiMessage(
+                        R.string.comment_msg_failed,
+                        listOf(it.message ?: "")
+                    ))
                 }
         }
     }
