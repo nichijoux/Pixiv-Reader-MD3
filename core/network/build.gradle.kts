@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     // RankingPagedViewModel 基类（viewModelScope）
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    // 插画下载 Worker（IllustDownloadWorker 下沉至此）
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

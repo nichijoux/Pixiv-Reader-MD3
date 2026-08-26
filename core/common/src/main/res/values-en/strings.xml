@@ -6,4 +6,16 @@
     <string name="core_msg_followed">Followed</string>
     <string name="core_msg_unfollowed">Unfollowed</string>
     <string name="core_msg_followed_author">Followed the author</string>
+    <string name="core_illust_load_failed">Failed to load</string>
+    <string name="core_illust_load_failed_reason">Failed to load: %1$s</string>
+    <string name="core_illust_download_started">Downloading…</string>
+    <string name="core_illust_work_not_found">Work not found</string>
+    <string name="core_illust_page_no_image">No image URL for this page</string>
+    <string name="core_comment_published">Comment posted</string>
+    <string name="core_comment_failed">Failed to post comment: %1$s</string>
+    <string name="core_novel_load_failed">Failed to load</string>
+    <string name="core_novel_load_failed_reason">Failed to load: %1$s</string>
+    <string name="core_msg_watching_added">Added to watchlist</string>
+    <string name="core_msg_watching_removed">Removed from watchlist</string>
+    <string name="core_msg_export_queued">Added to export queue</string>
 </resources>

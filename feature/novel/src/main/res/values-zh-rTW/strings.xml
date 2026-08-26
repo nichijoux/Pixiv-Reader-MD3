@@ -28,6 +28,11 @@
     <string name="novel_ranking_filter_japanese">僅日語</string>
     <string name="novel_cd_language_filter">語言篩選</string>
     <string name="novel_ranking_filter_empty">該分類下暫無作品</string>
+    <string name="novel_ranking_preview_placeholder">選擇左側任意作品查看預覽</string>
+    <string name="novel_ranking_back_to_detail">返回詳情</string>
+    <string name="novel_ranking_comment_empty">暫無評論</string>
+    <string name="novel_ranking_preview_open_detail">查看詳情</string>
+    <string name="novel_ranking_preview_word_count">約 %1$s 字</string>
 
     <!-- 小说详情 -->
     <string name="novel_not_found">沒有找到該小說</string>

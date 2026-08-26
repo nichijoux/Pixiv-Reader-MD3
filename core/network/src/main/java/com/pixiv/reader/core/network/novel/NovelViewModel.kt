@@ -1,16 +1,15 @@
-package com.pixiv.reader.feature.novel.state
+package com.pixiv.reader.core.network.novel
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.google.gson.Gson
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
+import com.pixiv.reader.core.common.model.toCardData
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
@@ -19,10 +18,6 @@ import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.ui.component.card.toCardData
-import com.pixiv.reader.feature.novel.R
-import com.pixiv.reader.feature.novel.data.NovelExportFormat
-import com.pixiv.reader.feature.novel.data.NovelExportWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,8 +29,10 @@ import javax.inject.Inject
 
 /**
  * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更。
- * 评论已独立到 [NovelCommentsViewModel]（详情页不再加载评论）。
- * 导出（worker）完成后观察下载索引并发应用内完成/失败通知。
+ * 评论已独立（详情页不加载评论）。导出触发经 [exportRequest] 回调交 feature 层处理
+ * （core 不依赖 feature 的 NovelExportWorker/Format）。
+ *
+ * 排行右栏复用：无路由参数时 init 不预载，等 [switchTo] 换作品加载。
  */
 @HiltViewModel
 class NovelViewModel @Inject constructor(
@@ -94,15 +91,43 @@ class NovelViewModel @Inject constructor(
     private val _downloadProgress = MutableStateFlow<String?>(null)
     val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
 
+    /**
+     * 导出请求回调（feature 层接线：收到后调自己的 export 实现，如 NovelExportWorker 入队）。
+     * core 只负责把触发事件 + 导出中状态（downloading 复位）转发，不依赖 feature 导出实现。
+     * @param novelId 目标小说 id；@param seriesId 非空时导出整个系列；@param formatName NovelExportFormat.name
+     */
+    var exportRequest: ((novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
+
     init {
-        load()
+        // 详情路由必有 id；排行右栏（无路由参数）不预载，等 switchTo
+        if (novelId > 0L) load()
     }
 
-    fun load() {
+    /**
+     * 切换到另一小说（排行右栏选中项变化时调用）。
+     * 清空旧作品全部状态后重新加载；加载期间旧内容先清空避免错位。
+     */
+    fun switchTo(id: Long) {
+        if (id == novelId || id <= 0L) return
+        _novel.value = null
+        _seriesNovels.value = emptyList()
+        _error.value = null
+        _isBookmarked.value = false
+        _isBookmarking.value = false
+        _isWatchlisted.value = false
+        _isWatchlisting.value = false
+        _isAuthorFollowed.value = false
+        _isAuthorFollowing.value = false
+        _downloading.value = false
+        _downloadProgress.value = null
+        load(id)
+    }
+
+    fun load(id: Long = novelId) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            runCatching { pixivRepository.api.getNovel(novelId) }
+            runCatching { pixivRepository.api.getNovel(id) }
                 .onSuccess { resp ->
                     val detail = resp.novel ?: return@onSuccess
                     _novel.value = detail
@@ -111,14 +136,14 @@ class NovelViewModel @Inject constructor(
                     _isAuthorFollowed.value = detail.user?.is_followed == true
                     detail.user?.id?.let { loadAuthorFollowState(it) }
                     recordHistory(detail)
-                    loadProgress()
+                    loadProgress(id)
                     loadSeries(detail)
                 }
                 .onFailure {
                     _error.value = loadFailureMessage(
                         it,
-                        R.string.novel_error_load_failed_reason,
-                        R.string.novel_error_load_failed,
+                        CoreR.string.core_novel_load_failed_reason,
+                        CoreR.string.core_novel_load_failed,
                     )
                 }
             _isLoading.value = false
@@ -144,8 +169,8 @@ class NovelViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadProgress() {
-        _progress.value = readingProgressDao.getByNovel(novelId)
+    private suspend fun loadProgress(id: Long) {
+        _progress.value = readingProgressDao.getByNovel(id)
     }
 
     private fun loadSeries(detail: Novel) {
@@ -192,8 +217,8 @@ class NovelViewModel @Inject constructor(
                 else pixivRepository.api.addWatchlistNovel(seriesId)
             }.onSuccess {
                 _isWatchlisted.value = !current
-                sendMessage(if (!current) UiMessage(R.string.novel_msg_watching_added) else UiMessage(
-                    R.string.novel_msg_watching_removed
+                sendMessage(if (!current) UiMessage(CoreR.string.core_msg_watching_added) else UiMessage(
+                    CoreR.string.core_msg_watching_removed
                 ))
             }.onFailure {
                 sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
@@ -236,23 +261,20 @@ class NovelViewModel @Inject constructor(
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
-    /** 导出小说为指定格式文件（本文或整个系列，后台队列，支持断点续传）。 */
-    fun export(format: NovelExportFormat, series: Boolean = false) {
+    /**
+     * 导出小说（单本或整个系列）。core 层不依赖 feature 的导出实现：
+     * 仅触发 [exportRequest] 回调（feature 层入队 Worker），并管理导出中状态复位。
+     * @param formatName NovelExportFormat.name（"TXT"/"EPUB"/"PDF"/"MARKDOWN"/"DOCX"）
+     */
+    fun export(formatName: String, series: Boolean = false) {
         val detail = _novel.value ?: return
         if (_downloading.value) return
         val seriesId = if (series) detail.series?.id else null
         if (series && seriesId == null) return
-        val data = mutableListOf<Pair<String, Any?>>()
-        data += NovelExportWorker.KEY_NOVEL_ID to detail.id
-        data += NovelExportWorker.KEY_FORMAT to format.name
-        seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
-        val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
-            .setInputData(workDataOf(*data.toTypedArray()))
-            .build()
-        WorkManager.getInstance(context).enqueue(request)
+        exportRequest?.invoke(detail.id, seriesId, formatName)
         _downloading.value = true
-        _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
-        trySendMessage(UiMessage(R.string.novel_msg_export_queued))
+        _downloadProgress.value = context.getString(CoreR.string.core_msg_export_queued)
+        trySendMessage(UiMessage(CoreR.string.core_msg_export_queued))
         observeExportStateReset(detail.id)
     }
 

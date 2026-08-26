@@ -9,6 +9,11 @@
     <string name="comment_stamp_cd">贴纸</string>
     <string name="comment_stamp_empty">暂无贴纸</string>
     <string name="comment_emoji_remove">删除表情</string>
+    <string name="comment_anonymous_user">匿名用户</string>
+    <string name="comment_reply">回复</string>
+    <string name="comment_reply_expand">查看全部 %1$d 条回复</string>
+    <string name="comment_reply_prefix">回复 @%1$s：</string>
+    <string name="comment_emoji_cd">评论表情</string>
     <string name="not_logged_in">未登录</string>
     <string name="follow">关注</string>
     <string name="following">已关注</string>

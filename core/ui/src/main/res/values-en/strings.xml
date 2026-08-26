@@ -9,6 +9,11 @@
     <string name="comment_stamp_cd">Stamp</string>
     <string name="comment_stamp_empty">No stamps</string>
     <string name="comment_emoji_remove">Remove emoji</string>
+    <string name="comment_anonymous_user">Anonymous</string>
+    <string name="comment_reply">Reply</string>
+    <string name="comment_reply_expand">View all %1$d replies</string>
+    <string name="comment_reply_prefix">Reply to @%1$s: </string>
+    <string name="comment_emoji_cd">Comment emoji</string>
     <string name="not_logged_in">Not logged in</string>
     <string name="follow">Follow</string>
     <string name="following">Following</string>

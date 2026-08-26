@@ -28,6 +28,11 @@
     <string name="novel_ranking_filter_japanese">Japanese only</string>
     <string name="novel_cd_language_filter">Language filter</string>
     <string name="novel_ranking_filter_empty">No works in this category</string>
+    <string name="novel_ranking_preview_placeholder">Select an item on the left to preview</string>
+    <string name="novel_ranking_back_to_detail">Back to detail</string>
+    <string name="novel_ranking_comment_empty">No comments yet</string>
+    <string name="novel_ranking_preview_open_detail">Open detail</string>
+    <string name="novel_ranking_preview_word_count">~%1$s words</string>
 
     <!-- Novel detail -->
     <string name="novel_not_found">Novel not found</string>

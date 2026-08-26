@@ -30,4 +30,23 @@
     <string name="manga_ranking_empty">暫無榜單資料</string>
     <string name="manga_cd_back">返回</string>
     <string name="manga_cd_more">更多</string>
+    <string name="manga_ranking_preview_placeholder">選擇左側任意作品查看預覽</string>
+    <string name="manga_ranking_preview_open_detail">查看詳情</string>
+    <!-- 排行榜右欄詳情塊（IllustDetailStrings，與 feature:illust 文案一致） -->
+    <string name="manga_illust_load_retry">載入失敗，點擊重試</string>
+    <string name="manga_illust_fullscreen">全螢幕</string>
+    <string name="manga_illust_stat_view">瀏覽</string>
+    <string name="manga_illust_stat_bookmark">收藏</string>
+    <string name="manga_illust_stat_pages">頁數</string>
+    <string name="manga_illust_expand">展開</string>
+    <string name="manga_illust_collapse">收起</string>
+    <string name="manga_illust_follow">關注</string>
+    <string name="manga_illust_followed">已關注</string>
+    <string name="manga_illust_related">相關作品</string>
+    <string name="manga_illust_bookmark">收藏</string>
+    <string name="manga_illust_bookmarked">已收藏</string>
+    <string name="manga_illust_download">下載</string>
+    <string name="manga_illust_comments">評論</string>
+    <string name="manga_ranking_back_to_detail">返回詳情</string>
+    <string name="manga_ranking_comment_empty">暫無評論</string>
 </resources>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -22,10 +23,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
@@ -35,7 +41,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
-import com.pixiv.reader.feature.novel.state.NovelViewModel
+import com.pixiv.reader.feature.novel.data.NovelExportWorker
 
 /**
  * 小说详情（第六十四轮完全重写，对齐 design/novel-detail-ui.html）：
@@ -71,6 +77,23 @@ fun NovelDetailRoute(
 
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
+    // 导出触发接线：core VM 只转发事件，Worker 入队（feature 层实现）在此
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.exportRequest = { novelId, seriesId, formatName ->
+            val format = runCatching {
+                NovelExportFormat.valueOf(formatName)
+            }.getOrDefault(NovelExportFormat.TXT)
+            val data = mutableListOf<Pair<String, Any?>>()
+            data += NovelExportWorker.KEY_NOVEL_ID to novelId
+            data += NovelExportWorker.KEY_FORMAT to format.name
+            seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
+            val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
+                .setInputData(workDataOf(*data.toTypedArray()))
+                .build()
+            WorkManager.getInstance(context).enqueue(request)
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -137,7 +160,7 @@ fun NovelDetailRoute(
                 // 真实系列 id 必为正：过滤 pixiv 空对象（Series(id=0)）误判，无系列时整行隐藏
                 config = DownloadSheetConfig.Detail(dialogNovel.series?.id?.let { it > 0L } == true),
                 onFormat = { format: NovelExportFormat, scope: NovelDownloadScope, _: List<Long> ->
-                    viewModel.export(format, scope == NovelDownloadScope.SERIES)
+                    viewModel.export(format.name, scope == NovelDownloadScope.SERIES)
                     showDownloadDialog = false
                 },
                 onDismiss = { showDownloadDialog = false },
@@ -146,10 +169,11 @@ fun NovelDetailRoute(
     }
 }
 
-/** 平板 + 手机双布局分发：平板且有系列走双栏（目录固定），否则单列。 */
+/** 平板 + 手机双布局分发：平板且有系列走双栏（目录固定），否则单列。
+ * @param forceSingleColumn 排行右栏复用：强制单列（右栏宽度不足再分目录/内容双栏），默认 false 保持原行为 */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun NovelDetailContent(
+internal fun NovelDetailContent(
     detail: Novel,
     seriesNovels: List<Novel>,
     progress: ReadingProgressEntity?,
@@ -164,10 +188,11 @@ private fun NovelDetailContent(
     onOpenSeries: (Long) -> Unit,
     onToggleFollowAuthor: () -> Unit,
     modifier: Modifier = Modifier,
+    forceSingleColumn: Boolean = false,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
     val seriesId = detail.series?.id
-    if (isTablet && seriesNovels.isNotEmpty()) {
+    if (isTablet && seriesNovels.isNotEmpty() && !forceSingleColumn) {
         // 平板双栏：banner 随正文滚动，左目录固定（sticky 等效），滚动互不影响
         Box(modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize()) {

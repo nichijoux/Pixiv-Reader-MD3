@@ -652,6 +652,9 @@ fun PixivNavGraph(
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
+                onOpenViewer = { illustId, page ->
+                    navController.navigate("viewer/$illustId?page=$page")
+                },
             )
         }
         // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页
@@ -663,6 +666,9 @@ fun PixivNavGraph(
                 },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
+                },
+                onOpenViewer = { illustId, page ->
+                    navController.navigate("viewer/$illustId?page=$page")
                 },
             )
         }
@@ -684,6 +690,9 @@ fun PixivNavGraph(
                 },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
+                },
+                onOpenReader = { novelId ->
+                    navController.navigate("reader/$novelId")
                 },
             )
         }

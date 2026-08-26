@@ -30,4 +30,23 @@
     <string name="manga_ranking_empty">No ranking data</string>
     <string name="manga_cd_back">Back</string>
     <string name="manga_cd_more">More</string>
+    <string name="manga_ranking_preview_placeholder">Select an item on the left to preview</string>
+    <string name="manga_ranking_preview_open_detail">Open detail</string>
+    <!-- Right-pane detail block strings (IllustDetailStrings, same text as feature:illust) -->
+    <string name="manga_illust_load_retry">Load failed, tap to retry</string>
+    <string name="manga_illust_fullscreen">Fullscreen</string>
+    <string name="manga_illust_stat_view">Views</string>
+    <string name="manga_illust_stat_bookmark">Bookmarks</string>
+    <string name="manga_illust_stat_pages">Pages</string>
+    <string name="manga_illust_expand">Show more</string>
+    <string name="manga_illust_collapse">Collapse</string>
+    <string name="manga_illust_follow">Follow</string>
+    <string name="manga_illust_followed">Following</string>
+    <string name="manga_illust_related">Related works</string>
+    <string name="manga_illust_bookmark">Bookmark</string>
+    <string name="manga_illust_bookmarked">Bookmarked</string>
+    <string name="manga_illust_download">Download</string>
+    <string name="manga_illust_comments">Comments</string>
+    <string name="manga_ranking_back_to_detail">Back to detail</string>
+    <string name="manga_ranking_comment_empty">No comments yet</string>
 </resources>

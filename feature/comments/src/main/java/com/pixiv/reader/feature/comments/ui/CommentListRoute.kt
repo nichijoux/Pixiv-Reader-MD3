@@ -44,9 +44,9 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.input.CommentInput
+import com.pixiv.reader.core.ui.component.comment.CommentListContent
 import com.pixiv.reader.feature.comments.R
-import com.pixiv.reader.feature.comments.state.CommentListViewModel
+import com.pixiv.reader.core.network.comment.CommentListViewModel
 
 /**
  * 通用评论列表页（novel / illust 共用，路由 `comments/{type}/{targetId}`）。
@@ -114,77 +114,29 @@ fun CommentListRoute(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         // 沉浸式：列表铺满到屏幕底部，输入条 + 回复目标条作为 overlay 浮在列表上方
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when {
-                // 首载：骨架占位（仿评论行布局），替代全屏转圈
-                isLoading && comments.isEmpty() -> CommentSkeleton(Modifier.fillMaxSize())
-                error != null && comments.isEmpty() -> ErrorBox(
-                    message = error.orEmpty(),
-                    onRetry = viewModel::loadComments,
-                    modifier = Modifier.fillMaxSize(),
-                )
-
-                comments.isEmpty() -> EmptyBox(
-                    text = stringResource(R.string.comment_empty),
-                    modifier = Modifier.fillMaxSize(),
-                )
-
-                else -> LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    // 底部留出输入条高度（约 72dp），最后一条评论可滚到输入条上方不被遮挡
-                    contentPadding = PaddingValues(bottom = 72.dp),
-                ) {
-                    items(comments, key = { it.id }) { comment ->
-                        CommentRow(
-                            comment = comment,
-                            onOpenUser = onOpenUser,
-                            onReply = { target -> viewModel.setReplyTarget(target, comment.id) },
-                            replies = replies[comment.id].orEmpty(),
-                            repliesLoading = repliesLoading.contains(comment.id),
-                            expanded = expandedReplies.contains(comment.id),
-                            onLoadReplies = { viewModel.loadReplies(comment.id) },
-                            onToggleExpanded = { viewModel.toggleRepliesExpanded(comment.id) },
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    if (isLoadingMore) {
-                        item {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.Center,
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                            }
-                        }
-                    }
-                    item { Spacer(Modifier.height(12.dp)) }
-                }
-            }
-            // 底部 overlay：回复目标条 + 输入条（align 到屏幕底，浮在列表上）
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    // 键盘弹出时随 ime insets 抬起（edge-to-edge 下 adjustResize 不再压缩窗口）；
-                    // 顺序：先导航栏后键盘，IME 打开时导航栏 inset 被消费，不会双重垫高
-                    .navigationBarsPadding()
-                    .imePadding(),
-            ) {
-                CommentInput(
-                    draft = draft,
-                    onDraftChange = viewModel::onCommentDraftChange,
-                    onPost = { viewModel.postComment() },
-                    stamps = stamps,
-                    onStampPick = { stamp -> viewModel.postComment(stamp.stamp_id) },
-                    mentionName = replyTarget?.user?.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
-            }
-        }
+        CommentListContent(
+            comments = comments,
+            isLoading = isLoading,
+            isLoadingMore = isLoadingMore,
+            hasMore = hasMore,
+            error = error.orEmpty(),
+            replies = replies,
+            repliesLoading = repliesLoading,
+            expandedReplies = expandedReplies,
+            draft = draft,
+            replyTarget = replyTarget,
+            stamps = stamps,
+            emptyText = stringResource(R.string.comment_empty),
+            onLoadComments = viewModel::loadComments,
+            onLoadMoreComments = viewModel::loadMoreComments,
+            onOpenUser = onOpenUser,
+            onReply = { target, topId -> viewModel.setReplyTarget(target, topId) },
+            onLoadReplies = viewModel::loadReplies,
+            onToggleRepliesExpanded = viewModel::toggleRepliesExpanded,
+            onDraftChange = viewModel::onCommentDraftChange,
+            onPost = { viewModel.postComment() },
+            onStampPick = { stampId -> viewModel.postComment(stampId) },
+            modifier = Modifier.fillMaxSize().padding(padding),
+        )
     }
 }

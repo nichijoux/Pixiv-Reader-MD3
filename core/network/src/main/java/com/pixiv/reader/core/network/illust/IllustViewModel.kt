@@ -1,4 +1,4 @@
-package com.pixiv.reader.feature.illust
+package com.pixiv.reader.core.network.illust
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
@@ -12,10 +12,10 @@ import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
-import com.pixiv.reader.core.network.message.MessageViewModel
-import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
@@ -29,10 +29,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * 插画详情 ViewModel：详情 / 多页（网页接口补每 P 真实宽高）/ 动图帧（ugoira）/ 相关推荐 / 评论区 / 收藏。
- * 附带副作用：打开详情写浏览历史；下载整个作品（全部页）由 [IllustDownloadWorker] 后台执行，
- * 完成后观察下载索引并发应用内完成/失败通知。
- * illustId 从 SavedStateHandle 读取（路由参数）。
+ * 插画详情 ViewModel（core:network 下沉，供 feature:illust 详情路由与 feature:manga 排行右栏共用）。
+ * 详情 / 多页（网页接口补每 P 真实宽高）/ 动图帧（ugoira）/ 相关推荐 / 收藏 / 作者关注。
+ * 附带副作用：打开详情写浏览历史；下载整个作品（全部页）由 [IllustDownloadWorker] 后台执行。
+ *
+ * illustId 从 SavedStateHandle 读取（详情路由参数）；排行右栏等内嵌场景无此参数（=0），
+ * 不预载，由调用方 [switchTo] 驱动加载。
  */
 @HiltViewModel
 class IllustViewModel @Inject constructor(
@@ -44,7 +46,12 @@ class IllustViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : MessageViewModel() {
 
+    /** 详情页路由参数 id（固定，详情路由用；排行右栏等内嵌场景无此参数时走 [switchTo]）。 */
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
+
+    /** 当前展示的作品 id（可变：排行右栏随选中项切换；无路由参数时初始为 0 待 [switchTo]）。 */
+    private val _illustId = MutableStateFlow(illustId)
+    val illustIdFlow: StateFlow<Long> = _illustId.asStateFlow()
 
     private val _illust = MutableStateFlow<Illust?>(null)
     val illust: StateFlow<Illust?> = _illust.asStateFlow()
@@ -83,6 +90,27 @@ class IllustViewModel @Inject constructor(
     val relatedPaged = PagedState<Illust>()
 
     init {
+        // 详情路由必有 id；排行右栏（无路由参数）不预载，等 switchTo
+        if (illustId > 0L) load()
+    }
+
+    /**
+     * 切换到另一作品（排行右栏选中项变化时调用）。
+     * 清空旧作品全部状态后重新加载；加载期间旧内容先清空避免错位。
+     */
+    fun switchTo(id: Long) {
+        if (id == _illustId.value || id <= 0L) return
+        _illustId.value = id
+        _illust.value = null
+        _pages.value = emptyList()
+        _ugoiraFrames.value = emptyList()
+        _ugoiraProgress.value = null
+        _error.value = null
+        _isBookmarked.value = false
+        _isBookmarking.value = false
+        _isAuthorFollowed.value = false
+        _isAuthorFollowing.value = false
+        relatedPaged.reset()
         load()
     }
 
@@ -90,7 +118,7 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            runCatching { pixivRepository.api.getIllust(illustId) }
+            runCatching { pixivRepository.api.getIllust(_illustId.value) }
                 .onSuccess { resp ->
                     val ill = resp.illust ?: return@onSuccess
                     _illust.value = ill
@@ -107,8 +135,8 @@ class IllustViewModel @Inject constructor(
                 .onFailure {
                     _error.value = loadFailureMessage(
                         it,
-                        R.string.illust_error_load_failed_reason,
-                        R.string.illust_error_load_failed,
+                        CoreR.string.core_illust_load_failed_reason,
+                        CoreR.string.core_illust_load_failed,
                     )
                 }
             _isLoading.value = false
@@ -183,7 +211,7 @@ class IllustViewModel @Inject constructor(
     /** 网页接口补齐每 P 真实宽高（app-api 不提供） */
     private fun loadRealSizes() {
         viewModelScope.launch {
-            runCatching { pixivRepository.webApi.getIllustPages(illustId) }
+            runCatching { pixivRepository.webApi.getIllustPages(_illustId.value) }
                 .onSuccess { resp ->
                     val sizes = resp.body.orEmpty()
                     if (sizes.isNotEmpty()) {
@@ -206,7 +234,7 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch {
             _ugoiraProgress.value = 0f
             _ugoiraFrames.value =
-                ugoiraLoader.prepare(illustId) { p -> _ugoiraProgress.value = p }.orEmpty()
+                ugoiraLoader.prepare(_illustId.value) { p -> _ugoiraProgress.value = p }.orEmpty()
             _ugoiraProgress.value = null
         }
     }
@@ -214,7 +242,7 @@ class IllustViewModel @Inject constructor(
     fun loadRelated() {
         viewModelScope.launch {
             relatedPaged.loadInitial(
-                fetch = { pixivRepository.api.getRelatedIllusts(illustId) },
+                fetch = { pixivRepository.api.getRelatedIllusts(_illustId.value) },
                 fetchNext = { pixivRepository.api.getNextIllusts(it) },
             )
         }
@@ -229,7 +257,7 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch {
             _isBookmarking.value = true
             val current = _isBookmarked.value
-            favoriteActions.toggleIllustFavorite(illustId, !current)
+            favoriteActions.toggleIllustFavorite(_illustId.value, !current)
                 .onSuccess { _isBookmarked.value = !current }
                 .onFailure {
                     sendMessage(UiMessage(
@@ -244,9 +272,9 @@ class IllustViewModel @Inject constructor(
     /** 下载整个作品（全部页）到 filesDir/Downloads/pixiv_{id}/，由 WorkManager 后台执行。 */
     fun download() {
         val request = OneTimeWorkRequestBuilder<IllustDownloadWorker>()
-            .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to illustId))
+            .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to _illustId.value))
             .build()
         WorkManager.getInstance(context).enqueue(request)
-        trySendMessage(UiMessage(R.string.illust_msg_download_started))
+        trySendMessage(UiMessage(CoreR.string.core_illust_download_started))
     }
 }

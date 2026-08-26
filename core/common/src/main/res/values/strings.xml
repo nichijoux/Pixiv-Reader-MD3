@@ -8,4 +8,16 @@
     <string name="core_msg_followed">已关注</string>
     <string name="core_msg_unfollowed">已取消关注</string>
     <string name="core_msg_followed_author">已关注作者</string>
+    <string name="core_illust_load_failed">加载失败</string>
+    <string name="core_illust_load_failed_reason">加载失败：%1$s</string>
+    <string name="core_illust_download_started">开始下载…</string>
+    <string name="core_illust_work_not_found">作品不存在</string>
+    <string name="core_illust_page_no_image">该页无图片地址</string>
+    <string name="core_comment_published">评论已发布</string>
+    <string name="core_comment_failed">评论失败：%1$s</string>
+    <string name="core_novel_load_failed">加载失败</string>
+    <string name="core_novel_load_failed_reason">加载失败：%1$s</string>
+    <string name="core_msg_watching_added">已加入追更</string>
+    <string name="core_msg_watching_removed">已取消追更</string>
+    <string name="core_msg_export_queued">已加入导出队列</string>
 </resources>

@@ -5,7 +5,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
-import com.pixiv.reader.feature.illust.IllustDownloadWorker
+import com.pixiv.reader.core.network.illust.IllustDownloadWorker
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
 
@@ -14,7 +14,7 @@ import com.pixiv.reader.feature.novel.data.NovelExportWorker
  *
  * 断点续传：已下载部分（插画 `.part` 文件 / 小说导出章节缓存）由各 Worker 自动复用，只补缺失部分。
  *
- * 注：分发逻辑依赖两个 feature 的 Worker 类（feature:illust / feature:novel），
+ * 注：分发逻辑依赖 core:network 的 IllustDownloadWorker 与 feature:novel 的 NovelExportWorker，
  * 受「feature 之间禁止互相依赖」硬约束无法下沉 feature:user，故落在 app 层独立文件
  * （app 依赖全部 feature，引用合法），使导航文件不承载业务逻辑。
  */

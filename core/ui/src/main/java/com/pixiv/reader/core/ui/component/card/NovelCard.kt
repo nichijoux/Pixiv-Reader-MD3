@@ -70,21 +70,11 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * @param tags 标签展示名列表（FlowRow chip；最多展示 5 个，多余折叠 "+N"）
  * @param isFavorite 是否已收藏（初始化收藏按钮状态）
  */
-data class NovelCardData(
-    val id: Long,
-    val title: String,
-    val coverUrl: String?,
-    val authorId: Long,
-    val authorName: String,
-    val authorAvatarUrl: String?,
-    val publishDate: String?,
-    val seriesTitle: String?,
-    val seriesId: Long? = null,
-    val favoriteCount: Int,
-    val wordCount: Int,
-    val tags: List<String> = emptyList(),
-    val isFavorite: Boolean = false,
-)
+/**
+ * 小说通用卡片数据。定义已下沉 core:common（历史/下载页 Gson 反序列化共用），
+ * 此处 typealias 保持 core:ui 组件与既有引用方 import 不变。
+ */
+typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
 
 /**
  * 小说通用卡片（Material 主题自适应，上下两部分布局：上方 左封面|右信息，下方 标签）。
@@ -285,7 +275,7 @@ fun NovelCard(
                                 modifier = Modifier.size(14.dp),
                             )
                             Text(
-                                text = novel.seriesTitle,
+                                text = novel.seriesTitle ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -320,7 +310,7 @@ fun NovelCard(
                         )
                         if (!novel.publishDate.isNullOrBlank()) {
                             Text(
-                                text = novel.publishDate.take(10),
+                                text = novel.publishDate?.take(10) ?: "",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.outline,
                             )

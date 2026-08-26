@@ -9,7 +9,7 @@ import javax.inject.Singleton
 /**
  * 插画单页下载器（core 共享）：下载到 `filesDir/Downloads/pixiv_{id}/p_{n}.jpg`。
  *
- * 供前台（viewer 查看器下载当前页）与后台（[com.pixiv.reader.feature.illust.IllustDownloadWorker]
+ * 供前台（viewer 查看器下载当前页）与后台（[com.pixiv.reader.core.network.illust.IllustDownloadWorker]
  * 整本下载）共用，保证 `.part` 语义一致：
  * - 目标正式文件已完整存在（length > 0）→ 直接成功跳过（断点重下不重复拉取）
  * - 否则写入 `p_{n}.jpg.part`（[ProgressDownloader] 对已存在的 .part 自动 Range 续传），
