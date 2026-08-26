@@ -1,0 +1,10 @@
+<resources>
+    <string name="cd_back">Back</string>
+    <string name="notification_title">Notifications</string>
+    <string name="notification_empty">No notifications yet</string>
+    <string name="notification_group_title">Notifications</string>
+    <string name="notification_time_just_now">Just now</string>
+    <string name="notification_time_minutes_ago">%1$d min ago</string>
+    <string name="notification_time_hours_ago">%1$d h ago</string>
+    <string name="notification_time_days_ago">%1$d d ago</string>
+</resources>

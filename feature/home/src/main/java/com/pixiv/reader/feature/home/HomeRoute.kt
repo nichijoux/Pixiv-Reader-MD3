@@ -3,16 +3,23 @@ package com.pixiv.reader.feature.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -21,6 +28,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,7 +39,6 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
@@ -41,6 +48,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
  * @param modifier 搜索框共享元素修饰（MainShell 在 NavHost 过渡内构造，hero 过渡用；默认空）
  * @param onOpenIllust 点击作品卡片打开详情
  * @param onOpenUser 点击作者行打开用户主页
+ * @param onOpenNotifications 打开通知中心（首页右上角铃铛）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +57,7 @@ fun HomeRoute(
     onSearchTag: (String) -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenNotifications: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -59,14 +68,32 @@ fun HomeRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    // 平板限宽居中（与下方 AdaptiveContentBox 内容对齐）
-                    AdaptiveContentTitle(
-                        text = if (tab == HomeTab.RECOMMEND) stringResource(R.string.home_recommend) else stringResource(
-                            R.string.home_follow
-                        ),
-                    )
+                    // 标题 + 搜索框同行（搜索框占中间剩余宽度，与右侧铃铛对齐）；
+                    // 外层共享元素修饰（MainShell 构造）驱动搜索框 ↔ 发现页 hero 过渡
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (tab == HomeTab.RECOMMEND) {
+                                stringResource(R.string.home_recommend)
+                            } else {
+                                stringResource(R.string.home_follow)
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        HomeSearchBar(
+                            onClick = onOpenSearch,
+                            modifier = modifier.weight(1f),
+                        )
+                    }
                 },
-                actions = {},
+                actions = {
+                    IconButton(onClick = onOpenNotifications) {
+                        Icon(
+                            Icons.Filled.Notifications,
+                            contentDescription = stringResource(R.string.home_cd_notifications),
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -78,13 +105,6 @@ fun HomeRoute(
             Column(
                 modifier = Modifier.fillMaxSize(),
             ) {
-                // 搜索框：点击进入发现页；外层共享元素修饰（MainShell 构造）驱动 hero 过渡
-                HomeSearchBar(
-                    onClick = onOpenSearch,
-                    modifier = modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                )
                 // 分区 + 热门标签
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

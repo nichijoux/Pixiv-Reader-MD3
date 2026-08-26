@@ -97,6 +97,7 @@ dependencies {
     implementation(project(":feature:user"))
     implementation(project(":feature:bookmark"))
     implementation(project(":feature:watchlist"))
+    implementation(project(":feature:notification"))
     implementation(project(":feature:manga"))
     implementation(project(":feature:follow"))
     implementation(project(":feature:onboarding"))

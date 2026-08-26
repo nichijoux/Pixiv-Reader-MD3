@@ -1,0 +1,10 @@
+<resources>
+    <string name="cd_back">返回</string>
+    <string name="notification_title">通知</string>
+    <string name="notification_empty">暫無通知</string>
+    <string name="notification_group_title">通知分組</string>
+    <string name="notification_time_just_now">剛剛</string>
+    <string name="notification_time_minutes_ago">%1$d 分鐘前</string>
+    <string name="notification_time_hours_ago">%1$d 小時前</string>
+    <string name="notification_time_days_ago">%1$d 天前</string>
+</resources>

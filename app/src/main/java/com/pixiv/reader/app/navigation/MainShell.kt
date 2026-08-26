@@ -75,6 +75,7 @@ fun MainShell(
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenMangaRanking: () -> Unit,
@@ -153,6 +154,7 @@ fun MainShell(
                             ),
                             onOpenIllust = onOpenIllust,
                             onOpenUser = onOpenUser,
+                            onOpenNotifications = onOpenNotifications,
                         )
                     }
                 }

@@ -542,6 +542,9 @@ interface AppApi {
     suspend fun getNextWatchlist(@Url nextUrl: String): WatchlistResponse
 
     @GET
+    suspend fun getNextNotifications(@Url nextUrl: String): NotificationListResponse
+
+    @GET
     suspend fun getNextNovelSeriesDetail(@Url nextUrl: String): NovelSeriesResp
 
     @GET

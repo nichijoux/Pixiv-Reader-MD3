@@ -29,6 +29,8 @@ import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
+import com.pixiv.reader.feature.notification.NotificationGroupRoute
+import com.pixiv.reader.feature.notification.NotificationRoute
 import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
@@ -90,6 +92,12 @@ const val ROUTE_BOOKMARKS = "bookmarks"
 
 /** 追更小说列表。 */
 const val ROUTE_WATCHLIST = "watchlist"
+
+/** 通知中心（收藏 / 关注 / 评论等消息流）。 */
+const val ROUTE_NOTIFICATION = "notifications"
+
+/** 通知分组子列表（view-more 拉取的组内通知），title 为可选组名。 */
+const val ROUTE_NOTIFICATION_GROUP = "notification_group/{groupId}?title={title}"
 
 /** 屏蔽名单（屏蔽标签按卡片分组展示）。 */
 const val ROUTE_BLOCKED = "blocked"
@@ -218,6 +226,9 @@ fun PixivNavGraph(
                 },
                 onOpenWatchlist = {
                     navController.navigate(ROUTE_WATCHLIST)
+                },
+                onOpenNotifications = {
+                    navController.navigate(ROUTE_NOTIFICATION)
                 },
                 onOpenBlocked = {
                     navController.navigate(ROUTE_BLOCKED)
@@ -540,6 +551,49 @@ fun PixivNavGraph(
         composable(ROUTE_WATCHLIST) {
             WatchlistRoute(
                 onBack = { navController.safeBack() },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+            )
+        }
+        // 通知中心
+        composable(ROUTE_NOTIFICATION) {
+            NotificationRoute(
+                onBack = { navController.safeBack() },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+                onOpenGroup = { groupId, title ->
+                    navController.navigate(
+                        "notification_group/$groupId?title=${Uri.encode(title.orEmpty())}"
+                    )
+                },
+            )
+        }
+        // 通知分组子列表
+        composable(
+            route = ROUTE_NOTIFICATION_GROUP,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.LongType },
+                navArgument("title") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+            ),
+        ) {
+            NotificationGroupRoute(
+                onBack = { navController.safeBack() },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
