@@ -1,5 +1,6 @@
 package com.pixiv.reader.core.network.comment
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Comment
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+private const val TAG = "CommentList"
 
 /**
  * 通用评论列表 ViewModel（novel / illust 共用，core:network 下沉，
@@ -71,6 +74,7 @@ class CommentListViewModel @Inject constructor(
     init {
         // 评论路由必有 type+targetId；排行右栏（无路由参数）不预载，等 switchTo
         if (targetId > 0L) {
+            Log.d(TAG, "打开评论区 type=$type targetId=$targetId")
             loadComments()
             loadStamps()
         }
@@ -105,6 +109,7 @@ class CommentListViewModel @Inject constructor(
     /** 首次加载 / 重新加载评论（按 type 分流）。 */
     fun loadComments() {
         viewModelScope.launch {
+            Log.d(TAG, "加载评论 type=${_type.value} targetId=${_targetId.value}")
             commentsPaged.loadInitial(
                 fetch = {
                     if (_type.value == "illust") {
@@ -115,12 +120,23 @@ class CommentListViewModel @Inject constructor(
                 },
                 fetchNext = { pixivRepository.api.getNextComments(it) },
             )
+            Log.d(
+                TAG,
+                "评论加载完成 type=${_type.value} targetId=${_targetId.value} 条数=${commentsPaged.items.value.size} " +
+                    "hasMore=${commentsPaged.hasMore.value} error=${commentsPaged.error.value}",
+            )
         }
     }
 
     /** 触底加载更多评论。 */
     fun loadMoreComments() {
-        viewModelScope.launch { commentsPaged.loadMore() }
+        viewModelScope.launch {
+            Log.d(
+                TAG,
+                "加载更多评论 type=${_type.value} targetId=${_targetId.value} 当前条数=${commentsPaged.items.value.size}",
+            )
+            commentsPaged.loadMore()
+        }
     }
 
     /** 按需加载某父评论的子回复（防重；成功后写缓存并保持展开态）。 */

@@ -119,7 +119,7 @@ fun CommentListRoute(
             isLoading = isLoading,
             isLoadingMore = isLoadingMore,
             hasMore = hasMore,
-            error = error.orEmpty(),
+            error = error,
             replies = replies,
             repliesLoading = repliesLoading,
             expandedReplies = expandedReplies,

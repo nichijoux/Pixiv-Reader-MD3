@@ -4,7 +4,6 @@
     <string name="novel_cd_refresh">刷新</string>
     <string name="novel_cd_ranking">排行榜</string>
     <string name="novel_feed_empty">暂时没有推荐小说</string>
-    <string name="novel_load_more">上滑加载更多</string>
 
     <!-- 小说 Tab 推荐/关注 + 排行榜（第五十三轮） -->
     <string name="novel_tab_recommend">推荐</string>

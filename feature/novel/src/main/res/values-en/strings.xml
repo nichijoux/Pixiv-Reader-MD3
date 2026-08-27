@@ -4,7 +4,6 @@
     <string name="novel_cd_refresh">Refresh</string>
     <string name="novel_cd_ranking">Ranking</string>
     <string name="novel_feed_empty">No recommended novels yet</string>
-    <string name="novel_load_more">Scroll to load more</string>
 
     <!-- Novel tabs (recommend/follow) + ranking (Round 53) -->
     <string name="novel_tab_recommend">Recommended</string>

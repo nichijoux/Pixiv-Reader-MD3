@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -172,6 +173,9 @@ fun <T> RankingList(
                                 .togetherWith(fadeOut(animationSpec = tween(160)))
                         },
                         label = "rankPage",
+                        // Compose 1.7 AnimatedContent 内部 SharedTransitionScope 要求 content 应用传入
+                        // 的 modifier，否则 lookahead pass 拿不到根坐标 → 冷启动布局崩
+                        // "Uninitialized LayoutCoordinates"（首次运行正常、二次打开必现）
                     ) { state ->
                         when (state) {
                             RankContentState.Content -> RankingPage(
@@ -187,12 +191,14 @@ fun <T> RankingList(
                                 filter = filter,
                                 filteredEmptyText = filteredEmptyText,
                                 itemContent = itemContent,
+                                modifier = Modifier.fillMaxSize(),
                             )
                             RankContentState.Error -> ErrorBox(
                                 message = error,
                                 onRetry = { onRetry(mode.value) },
+                                modifier = Modifier.fillMaxSize(),
                             )
-                            RankContentState.Loading -> skeleton()
+                            RankContentState.Loading -> Box(Modifier.fillMaxSize()) { skeleton() }
                         }
                     }
                 }
@@ -218,11 +224,16 @@ private fun <T> RankingPage(
     filter: ((T) -> Boolean)?,
     filteredEmptyText: String?,
     itemContent: @Composable (T, Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error, onRetry = { onRetry(modeValue) })
-        items.isEmpty() -> EmptyBox(emptyText)
+        isLoading && items.isEmpty() -> LoadingBox(modifier)
+        error != null && items.isEmpty() -> ErrorBox(
+            message = error,
+            onRetry = { onRetry(modeValue) },
+            modifier = modifier,
+        )
+        items.isEmpty() -> EmptyBox(emptyText, modifier)
         else -> {
             // 保留真实排名：rank 取该项在原始 items 中的位置 + 1（即榜单真实名次）。
             // 过滤只隐藏不匹配项，不改变其余项排名——封面左上角显示的是其在榜单中的真实名次。
@@ -231,7 +242,7 @@ private fun <T> RankingPage(
             }
             if (visibleIndexed.isNotEmpty()) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
                 ) {
                     itemsIndexed(visibleIndexed) { _, (index, item) ->
@@ -251,7 +262,7 @@ private fun <T> RankingPage(
                 // 其 LaunchedEffect(Unit) 可见即自动续载下一页，直到出现匹配项或榜单耗尽
                 // （hasMore=false）。耗尽后仍有匹配则展示匹配全集，皆空才落空态。
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = modifier.fillMaxSize(),
                 ) {
                     item(key = "load_more") {
                         LoadMoreItem(
@@ -261,7 +272,7 @@ private fun <T> RankingPage(
                     }
                 }
             } else {
-                EmptyBox(filteredEmptyText ?: emptyText)
+                EmptyBox(filteredEmptyText ?: emptyText, modifier)
             }
         }
     }

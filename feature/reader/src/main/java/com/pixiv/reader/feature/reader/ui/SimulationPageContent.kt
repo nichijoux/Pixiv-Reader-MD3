@@ -223,24 +223,24 @@ fun SimulationPageContent(
         modifier = modifier
             .pointerInput(pages.size, barsVisible) {
                 detectTapGestures(onTap = { offset ->
-                    val third = size.width / 3f
+                    val w = size.width.toFloat()
+                    val ninth = w / 9f
                     when {
-                        offset.x < third -> {
-                            // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）
-                            if (barsVisible) onCloseBars()
-                            else if (currentIndex.intValue > 0) scope.launch { turnTo(false, offset) }
+                        // 触控九等分：左 4/9 翻上一页、右 4/9 翻下一页、中间 1/9 由外层覆盖层处理（切工具栏）。
+                        // 工具栏显示时：仅中间格（覆盖层）关闭，左右格无操作（避免误翻页）
+                        offset.x < 4f * ninth -> {
+                            if (!barsVisible && currentIndex.intValue > 0) scope.launch { turnTo(false, offset) }
                             // 当前章首页向前翻：非系列 / 系列第一章无操作（禁用无效动画），
                             // 系列且有上一章 → 由外层 onPrevChapterRequest 跳上一章尾页
-                            else onPrevChapterRequest()
+                            else if (!barsVisible) onPrevChapterRequest()
                         }
-                        offset.x > size.width - third -> {
-                            if (barsVisible) onCloseBars()
+                        offset.x > 5f * ninth -> {
+                            if (!barsVisible && currentIndex.intValue < pages.size - 1) scope.launch { turnTo(true, offset) }
                             // 最后一页向后翻：系列且有下一章 → 由外层 onNextChapterRequest 跳下一章开头，
                             // 非系列 / 系列最后一章 → 无操作（禁用无效动画）
-                            else if (currentIndex.intValue < pages.size - 1) scope.launch { turnTo(true, offset) }
-                            else onNextChapterRequest()
+                            else if (!barsVisible) onNextChapterRequest()
                         }
-                        else -> Unit // 中间点击切换工具栏由外层处理
+                        else -> Unit // 中间 1/9 点击切换工具栏由外层覆盖层处理
                     }
                 })
             }

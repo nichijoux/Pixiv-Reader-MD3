@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -85,14 +87,20 @@ import kotlinx.coroutines.launch
  * - 长按（按住 ≥ 长按阈值）：抬起时时间差超阈值 → 不回调
  * - 长按后拖动 / 普通拖动（移动超 slop）：break 不回调，事件不消费 → 穿透下层滚动/卷页
  * - 全程不消费 down/move（requireUnconsumed=false、不调 consume），滚动不被打断
+ * - requireUnconsumed=false 收事件：下层 Pager/LazyColumn/卷页 消费的移动也可见，
+ *   翻页/滚动手势的松手 up 不会被误判为轻点（这是"滑动/翻页误触工具栏"的根因）
  * pointerInput block 是受限协程（PointerInputScope），可直接调用受限挂起函数。
+ * @param onTap 轻点回调（点击位置 + 容器尺寸；无位置/尺寸需求的调用方可忽略参数）
  */
-private fun Modifier.quickTap(onTap: () -> Unit): Modifier =
+private fun Modifier.quickTap(onTap: (Offset, Size) -> Unit): Modifier =
     pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
+            var tapPosition = Offset.Zero
             var tapped = false
             while (true) {
+                // awaitPointerEvent 默认 Main pass：下层 Pager/LazyColumn/卷页 消费的移动事件仍可见，
+                // 翻页/滚动手势的松手 up 不会因消费被跳过 → 配合下方移动判定取消误判点击
                 val event = awaitPointerEvent()
                 val change = event.changes.firstOrNull { it.id == down.id } ?: continue
                 if (change.changedToUpIgnoreConsumed()) {
@@ -100,6 +108,7 @@ private fun Modifier.quickTap(onTap: () -> Unit): Modifier =
                     if (change.uptimeMillis - down.uptimeMillis <
                         viewConfiguration.longPressTimeoutMillis
                     ) {
+                        tapPosition = down.position
                         tapped = true
                     }
                     break
@@ -112,7 +121,9 @@ private fun Modifier.quickTap(onTap: () -> Unit): Modifier =
                     break
                 }
             }
-            if (tapped) onTap()
+            if (tapped) {
+                onTap(tapPosition, Size(size.width.toFloat(), size.height.toFloat()))
+            }
         }
     }
 
@@ -307,30 +318,38 @@ fun ReaderRoute(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .pointerInput(pageMode, barsVisible) {
-                    // 中间 1/3 点击切换工具栏：翻页/仿真由内容上方的透明覆盖层处理，滑动由下方
-                    // quickTap modifier 处理（父层、不消费事件，滚动穿透）；
-                    // 工具栏显示时：左右边缘点击关闭工具栏（不翻页）；
-                    // 隐藏时：翻页模式左右边缘翻页；仿真模式左右边缘由内部处理
+                // 点击唤出工具栏统一走 quickTap（无移动轻点才算点击；滑动/翻页手势不误触）。
+                // 触控九等分（翻页模式）：宽度 9 等分，仅最中间 1 格点击切换工具栏（唤出/关闭），
+                // 左 4 格点击翻上一页、右 4 格点击翻下一页；
+                // 工具栏显示时：仅中间格可关闭，左右格无操作（避免误翻页）；
+                // 滑动模式：任意处轻点切换工具栏（quickTap 不消费事件，滚动穿透）；
+                // 仿真模式：左右边缘由内部处理，中间轻点由覆盖层处理。
+                .then(
                     when (pageMode) {
-                        ReaderPageMode.PAGINATE -> detectTapGestures(onTap = { offset ->
-                            val w = size.width.toFloat()
-                            val third = w / 3f
-                            val edge = offset.x < third || offset.x > w - third
+                        ReaderPageMode.PAGINATE -> Modifier.quickTap { offset, containerSize ->
+                            val w = containerSize.width
+                            val ninth = w / 9f
+                            // 中间 1/9 格（[4/9, 5/9]）
+                            val center = offset.x >= 4f * ninth && offset.x <= 5f * ninth
                             if (barsVisible) {
-                                if (edge) barsVisible = false
-                                return@detectTapGestures
+                                // 工具栏显示：仅中间格点击关闭，左右格无操作
+                                if (center) barsVisible = false
+                                return@quickTap
                             }
-                            if (!edge) return@detectTapGestures
-                            val ps = pagerStateRef.value ?: return@detectTapGestures
-                            if (offset.x < third) {
+                            // 隐藏时：中间格切换工具栏，左右格翻页
+                            if (center) {
+                                barsVisible = true
+                                return@quickTap
+                            }
+                            val ps = pagerStateRef.value ?: return@quickTap
+                            if (offset.x < 4f * ninth) {
                                 if (ps.currentPage > 0) {
                                     readerScope.launch { ps.animateScrollToPage(ps.currentPage - 1, animationSpec = tween(220)) }
                                 } else {
                                     // 当前章首页向前翻：系列跳上一章尾页，非系列无操作
                                     onPrevChapterRequest()
                                 }
-                            } else if (offset.x > w - third) {
+                            } else {
                                 if (ps.currentPage < ps.pageCount - 1) {
                                     readerScope.launch { ps.animateScrollToPage(ps.currentPage + 1, animationSpec = tween(220)) }
                                 } else {
@@ -338,20 +357,11 @@ fun ReaderRoute(
                                     onNextChapterRequest()
                                 }
                             }
-                        })
+                        }
 
-                        ReaderPageMode.SCROLL -> Unit // 滑动模式点击唤出由下方 quickTap modifier 处理
+                        ReaderPageMode.SCROLL -> Modifier.quickTap { _, _ -> barsVisible = !barsVisible }
 
-                        ReaderPageMode.SIMULATION -> Unit // 仿真模式左右边缘由内部处理
-                    }
-                }
-                // 滑动模式：点击任意处切换工具栏。quickTap 在父层（与翻页模式边缘点击同层），
-                // 不消费事件——中间区域滚动/长按拖动完全不受干扰
-                .then(
-                    if (pageMode == ReaderPageMode.SCROLL) {
-                        Modifier.quickTap { barsVisible = !barsVisible }
-                    } else {
-                        Modifier
+                        ReaderPageMode.SIMULATION -> Modifier // 仿真模式左右边缘由内部处理
                     }
                 ),
         ) {
@@ -466,16 +476,16 @@ fun ReaderRoute(
                                     }
                                 }
 
-                                // 中间 1/3 透明覆盖层：点击切换工具栏（仅翻页/仿真模式叠加）。
+                                // 中间 1/9 透明覆盖层：点击切换工具栏（仅翻页/仿真模式叠加，与九等分中间格对齐）。
                                 // 滑动模式不叠加覆盖层——LazyColumn 无上层手势节点，中间区域滚动不受任何干扰，
                                 // 其点击唤出由正文容器父层 quickTap 处理（不消费事件，滚动穿透）。
                                 if (pageMode != ReaderPageMode.SCROLL) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxHeight()
-                                            .width(maxWidth / 3f)
+                                            .width(maxWidth / 9f)
                                             .align(Alignment.Center)
-                                            .quickTap { barsVisible = !barsVisible },
+                                            .quickTap { _, _ -> barsVisible = !barsVisible },
                                     )
                                 }
                             }

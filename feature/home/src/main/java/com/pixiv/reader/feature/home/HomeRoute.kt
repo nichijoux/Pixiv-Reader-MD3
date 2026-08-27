@@ -68,8 +68,7 @@ fun HomeRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    // 标题 + 搜索框同行（搜索框占中间剩余宽度，与右侧铃铛对齐）；
-                    // 外层共享元素修饰（MainShell 构造）驱动搜索框 ↔ 发现页 hero 过渡
+                    // 标题 + 搜索框同行（搜索框占中间剩余宽度，与右侧铃铛对齐）。
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = if (tab == HomeTab.RECOMMEND) {
