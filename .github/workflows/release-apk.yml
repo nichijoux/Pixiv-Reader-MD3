@@ -95,6 +95,24 @@ jobs:
             exit 1
           fi
 
+      # Release 正文 = tag 注解消息（更新日志）+ 打包信息页脚；无注解消息时仅页脚
+      - name: Export release body
+        shell: bash
+        run: |
+          BODY="$GITHUB_WORKSPACE/release-body.md"
+          : > "$BODY"
+          MSG="$(git tag -l --format='%(contents)' "${{ github.ref_name }}")"
+          [ -z "$MSG" ] || printf '%s\n' "$MSG" >> "$BODY"
+          printf '%s\n' \
+            '' \
+            '---' \
+            '' \
+            'ARM 瘦身包（按 ABI 拆分，按设备 ABI 安装对应包）：' \
+            '- arm64-v8a（ARMv8 / 64 位）' \
+            '- armeabi-v7a（其它 ARM / 32 位）' \
+            '' \
+            '若未配置签名密钥，产物为未签名 APK（不可直接安装）。' >> "$BODY"
+
       # 发布到 GitHub Release（tag 已存在，因此是更新该 tag 的 release）
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -103,11 +121,4 @@ jobs:
           name: v${{ steps.version.outputs.versionName }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: false
-          body: |
-            ## PixivReader v${{ steps.version.outputs.versionName }}
-
-            ARM 瘦身包（按 ABI 拆分，按设备 ABI 安装对应包）：
-            - arm64-v8a（ARMv8 / 64 位）
-            - armeabi-v7a（其它 ARM / 32 位）
-
-            若未配置签名密钥，产物为未签名 APK（不可直接安装）。
+          body_path: release-body.md
