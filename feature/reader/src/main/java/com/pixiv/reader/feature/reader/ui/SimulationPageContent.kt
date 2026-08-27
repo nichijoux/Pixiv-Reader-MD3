@@ -69,6 +69,7 @@ fun SimulationPageContent(
     onPageInfo: (Int, Int) -> Unit,
     barsVisible: Boolean = false,
     onCloseBars: () -> Unit = {},
+    onToggleBars: () -> Unit = {},
     onPrevChapterRequest: () -> Unit = {},
     onNextChapterRequest: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -224,23 +225,29 @@ fun SimulationPageContent(
             .pointerInput(pages.size, barsVisible) {
                 detectTapGestures(onTap = { offset ->
                     val w = size.width.toFloat()
-                    val ninth = w / 9f
+                    val h = size.height.toFloat()
+                    val x = offset.x
+                    val y = offset.y
+                    // 井字九宫格：宽高各三等分，中间格（1/3 × 1/3 正方形）点击切换工具栏；
+                    // 其余 8 格沿中间对称轴分为左右两半——工具栏显示时点击关闭（避免误翻页），
+                    // 隐藏时左半区翻上一页、右半区翻下一页
+                    val centerCell = x >= w / 3f && x <= 2f * w / 3f && y >= h / 3f && y <= 2f * h / 3f
                     when {
-                        // 触控九等分：左 4/9 翻上一页、右 4/9 翻下一页、中间 1/9 由外层覆盖层处理（切工具栏）。
-                        // 工具栏显示时：仅中间格（覆盖层）关闭，左右格无操作（避免误翻页）
-                        offset.x < 4f * ninth -> {
-                            if (!barsVisible && currentIndex.intValue > 0) scope.launch { turnTo(false, offset) }
+                        centerCell -> onToggleBars()
+                        x < w / 2f -> {
+                            if (barsVisible) onCloseBars()
                             // 当前章首页向前翻：非系列 / 系列第一章无操作（禁用无效动画），
                             // 系列且有上一章 → 由外层 onPrevChapterRequest 跳上一章尾页
-                            else if (!barsVisible) onPrevChapterRequest()
+                            else if (currentIndex.intValue > 0) scope.launch { turnTo(false, offset) }
+                            else onPrevChapterRequest()
                         }
-                        offset.x > 5f * ninth -> {
-                            if (!barsVisible && currentIndex.intValue < pages.size - 1) scope.launch { turnTo(true, offset) }
+                        else -> {
+                            if (barsVisible) onCloseBars()
                             // 最后一页向后翻：系列且有下一章 → 由外层 onNextChapterRequest 跳下一章开头，
                             // 非系列 / 系列最后一章 → 无操作（禁用无效动画）
-                            else if (!barsVisible) onNextChapterRequest()
+                            else if (currentIndex.intValue < pages.size - 1) scope.launch { turnTo(true, offset) }
+                            else onNextChapterRequest()
                         }
-                        else -> Unit // 中间 1/9 点击切换工具栏由外层覆盖层处理
                     }
                 })
             }

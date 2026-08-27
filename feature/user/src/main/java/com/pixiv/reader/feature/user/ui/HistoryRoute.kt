@@ -319,7 +319,7 @@ private fun BrowseHistoryEntity.toNovelCardData(context: Context): NovelCardData
             seriesId = parsed.seriesId,
             favoriteCount = parsed.favoriteCount,
             wordCount = parsed.wordCount,
-            tags = parsed.tags,
+            tags = parsed.tags.orEmpty(),
             isFavorite = parsed.isFavorite,
         )
     }

@@ -256,7 +256,7 @@ private fun NovelDownloadList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
+        items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}_${it.scopeKey}" }) { entry ->
             Column {
                 Box {
                     val card = entry.toDownloadNovelCard(context)
@@ -412,7 +412,7 @@ private fun DownloadEntryEntity.toDownloadNovelCard(context: Context): NovelCard
             seriesId = parsed.seriesId ?: seriesId,
             favoriteCount = parsed.favoriteCount,
             wordCount = parsed.wordCount,
-            tags = parsed.tags,
+            tags = parsed.tags.orEmpty(),
             isFavorite = parsed.isFavorite,
         )
     }
