@@ -2,18 +2,6 @@
 
 Pixiv Reader — Android (Kotlin + Jetpack Compose + Hilt + Room) 客户端。Windows 环境、命令行构建、无 Android Studio。
 
-## 构建与测试（必须用此 JDK）
-
-```powershell
-$env:JAVA_HOME = "C:\Users\nichijoux\.jdks\jbr-21.0.11"; $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
-& .\gradlew.bat :app:compileDebugKotlin --console=plain   # 快速编译（推荐验证手段）
-# 单测（改动涉及模块时跑，core:novel 28 用例 + feature:reader/network/novel/user/common）
-& .\gradlew.bat :core:novel:testDebugUnitTest :feature:reader:testDebugUnitTest :core:network:testDebugUnitTest :feature:novel:testDebugUnitTest :feature:user:testDebugUnitTest :core:common:testDebugUnitTest --console=plain
-```
-
-- 每次改代码后先 `:app:compileDebugKotlin`，涉及数据层再加对应模块单测。
-- Windows 无 Android Studio；编译错误看 `^e: ` 行。
-
 ## 模块架构（依赖方向硬约束）
 
 ```
@@ -61,7 +49,3 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 
 - 提交前自查：`:app:compileDebugKotlin` + 相关单测。
 - **`git add` 与 `git commit` 必须分开执行**（同一命令链会争 `index.lock`）；提交信息用 `feat:` 中文，覆盖本轮改动。
-
-## 参考
-
-- **`agent.md`**：开发轮次完整记录（P0~P7、至第六十五轮 + 各补充），改代码前先看它了解历史决策与既有机制，避免重复踩坑/重复实现。
