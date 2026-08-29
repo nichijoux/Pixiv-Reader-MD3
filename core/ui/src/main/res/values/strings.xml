@@ -1,5 +1,10 @@
 <resources>
     <string name="load_failed">加载失败</string>
+    <!-- Master-Detail 详情 pane 关闭按钮 -->
+    <string name="core_pane_close">关闭详情</string>
+    <!-- 评论 pane：返回详情 / 空评论 -->
+    <string name="core_comment_back_to_detail">返回详情</string>
+    <string name="core_comment_empty">暂无评论</string>
     <string name="retry">重试</string>
     <string name="comment_placeholder">说点什么…</string>
     <string name="comment_send">发布</string>

@@ -93,6 +93,10 @@ class FollowViewModel @Inject constructor(
     private val _contentLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _contentLoading.asStateFlow()
 
+    /** 下拉刷新指示（PullToRefreshBox 用，按当前模式生效）。 */
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     /** 触底加载中（当前模式各流任一加载下一页）。 */
     private val globalLoadingMore = combine(
         illustPaged.isLoadingMore, novelPaged.isLoadingMore,
@@ -234,44 +238,92 @@ class FollowViewModel @Inject constructor(
      * 代次 [userWorksGeneration]：快速切用户时，过期代次的响应落地后立即清空，
      * 防止旧用户数据覆盖当前选中用户。
      */
-    private fun loadUserWorks(userId: Long) {
+    fun loadUserWorks(userId: Long) {
         if (currentUserWorksId == userId) return
+        viewModelScope.launch { loadUserWorksInternal(userId) }
+    }
+
+    /** 单用户模式加载核心（suspend）：重置三流并并行拉取第一页，收尾按代次清除加载态。 */
+    private suspend fun loadUserWorksInternal(userId: Long) {
         currentUserWorksId = userId
         val generation = ++userWorksGeneration
         listOf(userIllustPaged, userMangaPaged, userNovelPaged).forEach { it.reset() }
-        viewModelScope.launch {
-            _contentLoading.value = true
-            coroutineScope {
-                launch {
-                    runCatching {
-                        userIllustPaged.loadInitial(
-                            fetch = { pixivRepository.api.getUserIllusts(userId, "illust") },
-                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                        )
-                    }
-                    if (generation != userWorksGeneration) userIllustPaged.reset()
+        _contentLoading.value = true
+        coroutineScope {
+            launch {
+                runCatching {
+                    userIllustPaged.loadInitial(
+                        fetch = { pixivRepository.api.getUserIllusts(userId, "illust") },
+                        fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                    )
                 }
-                launch {
-                    runCatching {
-                        userMangaPaged.loadInitial(
-                            fetch = { pixivRepository.api.getUserIllusts(userId, "manga") },
-                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                        )
-                    }
-                    if (generation != userWorksGeneration) userMangaPaged.reset()
-                }
-                launch {
-                    runCatching {
-                        userNovelPaged.loadInitial(
-                            fetch = { pixivRepository.api.getUserNovels(userId) },
-                            fetchNext = { pixivRepository.api.getNextNovels(it) },
-                        )
-                    }
-                    if (generation != userWorksGeneration) userNovelPaged.reset()
-                }
+                if (generation != userWorksGeneration) userIllustPaged.reset()
             }
-            // 仅当前代次收尾时清除加载态（过期代次不得提前清，避免骨架闪现空态）
-            if (generation == userWorksGeneration) _contentLoading.value = false
+            launch {
+                runCatching {
+                    userMangaPaged.loadInitial(
+                        fetch = { pixivRepository.api.getUserIllusts(userId, "manga") },
+                        fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                    )
+                }
+                if (generation != userWorksGeneration) userMangaPaged.reset()
+            }
+            launch {
+                runCatching {
+                    userNovelPaged.loadInitial(
+                        fetch = { pixivRepository.api.getUserNovels(userId) },
+                        fetchNext = { pixivRepository.api.getNextNovels(it) },
+                    )
+                }
+                if (generation != userWorksGeneration) userNovelPaged.reset()
+            }
+        }
+        // 仅当前代次收尾时清除加载态（过期代次不得提前清，避免骨架闪现空态）
+        if (generation == userWorksGeneration) _contentLoading.value = false
+    }
+
+    /**
+     * 下拉刷新：按当前模式重拉第一页（全部模式：关注新作品 illust/novel 两流并行；
+     * 单用户模式：该用户全部作品三流），全部完成后复位指示（防重入）。左列关注用户列表不随动。
+     */
+    fun pullRefresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                val uid = _selectedUserId.value
+                if (uid == null) {
+                    // 全部模式：重置并重拉关注新作品两流（骨架占位，复用 isLoading 三态）
+                    _contentLoading.value = true
+                    coroutineScope {
+                        launch {
+                            runCatching {
+                                illustPaged.reset()
+                                illustPaged.loadInitial(
+                                    fetch = { pixivRepository.api.getFollowingIllusts("all") },
+                                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                                )
+                            }
+                        }
+                        launch {
+                            runCatching {
+                                novelPaged.reset()
+                                novelPaged.loadInitial(
+                                    fetch = { pixivRepository.api.getFollowingNovels("all") },
+                                    fetchNext = { pixivRepository.api.getNextNovels(it) },
+                                )
+                            }
+                        }
+                    }
+                    _contentLoading.value = false
+                } else {
+                    // 单用户模式：清幂等短路后走相同重载流程（挂起等完成，指示器不提前消失）
+                    currentUserWorksId = null
+                    loadUserWorksInternal(uid)
+                }
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

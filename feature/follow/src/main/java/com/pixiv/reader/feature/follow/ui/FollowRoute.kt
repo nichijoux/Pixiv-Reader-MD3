@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -35,13 +37,14 @@ private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLU
  * 关注页：左列关注用户 + 右列混合动态流（全部 / 小说 / 插画三段的滑动 Tab）。
  *
  * ## 布局（手机 / 平板统一左右结构）
- * - 左列 [FollowUserColumn]：手机窄版 76dp（头像 + 小字名），平板宽版 208dp（头像 + 完整名）
+ * - 左列 [FollowUserColumn]：手机窄版 60dp（头像 + 小字名），平板宽版 168dp（头像 + 完整名）
  * - 右列：`TabRow`（全部/小说/插画，均分占满）+ `HorizontalPager` 左右滑动切换；
  *   每页是独立类型流（数据驻留 VM，滑动切回不重复请求），手机上单列流、平板上瀑布流
  * - 左列点用户 → 加载该用户全部作品（插画/漫画/小说混合）；点「全部」恢复关注新作品流
  *
  * 回调经 MainShell 上抛到顶层导航（详情 / 查看器 / 用户页等全屏路由）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FollowRoute(
     onOpenIllust: (Long) -> Unit,
@@ -61,6 +64,7 @@ fun FollowRoute(
     val selectedUserId by viewModel.selectedUserId.collectAsStateWithLifecycle()
     val usersLoading by viewModel.usersPaged.isLoading.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.isLoadingMore.collectAsStateWithLifecycle()
     val feedError by viewModel.feedError.collectAsStateWithLifecycle()
 
@@ -113,27 +117,34 @@ fun FollowRoute(
                         )
                     }
                 }
-                HorizontalPager(
-                    state = pagerState,
+                // 下拉刷新：指示器出现在右列信息流顶部（TabRow 下方），按当前模式重拉
+                PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = viewModel::pullRefresh,
                     modifier = Modifier.weight(1f),
-                ) { page ->
-                    val type = TYPE_TABS.getOrNull(page) ?: FollowType.ALL
-                    FollowFeed(
-                        items = itemsByType.getValue(type),
-                        isLoading = isLoading,
-                        isLoadingMore = isLoadingMore,
-                        hasError = feedError,
-                        isCompact = isCompact,
-                        onLoadMore = viewModel::loadMoreFeed,
-                        onRetry = viewModel::retry,
-                        onOpenIllust = onOpenIllust,
-                        onOpenNovel = onOpenNovel,
-                        onOpenUser = onOpenUser,
-                        onOpenCover = onOpenCover,
-                        onOpenSeries = onOpenSeries,
-                        onToggleIllustFavorite = viewModel::toggleIllustFavorite,
-                        onToggleNovelFavorite = viewModel::toggleNovelFavorite,
-                    )
+                ) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                    ) { page ->
+                        val type = TYPE_TABS.getOrNull(page) ?: FollowType.ALL
+                        FollowFeed(
+                            items = itemsByType.getValue(type),
+                            isLoading = isLoading,
+                            isLoadingMore = isLoadingMore,
+                            hasError = feedError,
+                            isCompact = isCompact,
+                            onLoadMore = viewModel::loadMoreFeed,
+                            onRetry = viewModel::retry,
+                            onOpenIllust = onOpenIllust,
+                            onOpenNovel = onOpenNovel,
+                            onOpenUser = onOpenUser,
+                            onOpenCover = onOpenCover,
+                            onOpenSeries = onOpenSeries,
+                            onToggleIllustFavorite = viewModel::toggleIllustFavorite,
+                            onToggleNovelFavorite = viewModel::toggleNovelFavorite,
+                        )
+                    }
                 }
             }
         }

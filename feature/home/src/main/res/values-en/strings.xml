@@ -4,5 +4,20 @@
     <string name="home_for_you">For you</string>
     <string name="home_search">Search</string>
     <string name="home_search_placeholder">Search illustrations, manga and novels</string>
-    <string name="home_cd_notifications">Notifications</string>
+    <!-- Tablet Master-Detail detail pane (IllustDetailStrings, same text as ranking right pane) -->
+    <string name="home_pane_placeholder">Select a work to view details</string>
+    <string name="home_illust_load_retry">Load failed, tap to retry</string>
+    <string name="home_illust_fullscreen">Fullscreen</string>
+    <string name="home_illust_stat_view">Views</string>
+    <string name="home_illust_stat_bookmark">Bookmarks</string>
+    <string name="home_illust_stat_pages">Pages</string>
+    <string name="home_illust_expand">Show more</string>
+    <string name="home_illust_collapse">Collapse</string>
+    <string name="home_illust_follow">Follow</string>
+    <string name="home_illust_followed">Following</string>
+    <string name="home_illust_related">Related works</string>
+    <string name="home_illust_bookmark">Bookmark</string>
+    <string name="home_illust_bookmarked">Bookmarked</string>
+    <string name="home_illust_download">Download</string>
+    <string name="home_illust_comments">Comments</string>
 </resources>

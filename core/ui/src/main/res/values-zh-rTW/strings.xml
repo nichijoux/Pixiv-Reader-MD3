@@ -1,5 +1,10 @@
 <resources>
     <string name="load_failed">載入失敗</string>
+    <!-- Master-Detail 詳情 pane 關閉按鈕 -->
+    <string name="core_pane_close">關閉詳情</string>
+    <!-- 評論 pane：返回詳情 / 空評論 -->
+    <string name="core_comment_back_to_detail">返回詳情</string>
+    <string name="core_comment_empty">暫無評論</string>
     <string name="retry">重試</string>
     <string name="comment_placeholder">說點什麼…</string>
     <string name="comment_send">釋出</string>

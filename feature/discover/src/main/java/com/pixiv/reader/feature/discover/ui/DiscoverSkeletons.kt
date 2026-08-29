@@ -40,7 +40,7 @@ internal fun IllustSearchSkeleton() {
     val color = skeletonPulseColor()
     val coverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
     LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(140.dp),
+        columns = StaggeredGridCells.Adaptive(160.dp),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

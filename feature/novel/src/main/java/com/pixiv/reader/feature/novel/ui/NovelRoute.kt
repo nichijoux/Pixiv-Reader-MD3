@@ -48,7 +48,11 @@ import com.pixiv.reader.core.ui.component.list.RankingBanner
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
+import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelFeedViewModel
 import kotlinx.coroutines.launch
@@ -71,10 +75,15 @@ fun NovelRoute(
     onSearchTag: (String) -> Unit,
     onOpenNovelRanking: () -> Unit,
     onOpenSeries: (Long) -> Unit,
+    onOpenReader: (Long) -> Unit,
     viewModel: NovelFeedViewModel = hiltViewModel(),
 ) {
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+    // Master-Detail：选中小说 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    var selectedNovelId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
+    val detailPaneEnabled = isDetailPaneEnabled()
 
     // 操作通知（收藏等）：collect VM message → NotificationHost
     val notificationHostState = rememberNotificationHostState()
@@ -120,62 +129,90 @@ fun NovelRoute(
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        // 平板限宽居中：PrimaryTabRow + HorizontalPager 不超过 MAX_CONTENT_WIDTH_DP
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                PrimaryTabRow(
-                    selectedTabIndex = pagerState.currentPage.coerceIn(0, 2),
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ) {
-                    Tab(
-                        selected = pagerState.currentPage == 0,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                        text = { Text(stringResource(R.string.novel_tab_recommend)) },
-                    )
-                    Tab(
-                        selected = pagerState.currentPage == 1,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                        text = { Text(stringResource(R.string.novel_tab_follow)) },
-                    )
-                    Tab(
-                        selected = pagerState.currentPage == 2,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(2) } },
-                        text = { Text(stringResource(R.string.novel_tab_watchlist)) },
-                    )
-                }
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f),
-                ) { page ->
-                    when (page) {
-                        0 -> NovelRecommendTab(
-                            onOpenNovelRanking = onOpenNovelRanking,
-                            onOpenNovel = onOpenNovel,
-                            onOpenCover = onOpenCover,
-                            onOpenUser = onOpenUser,
-                            onSearchTag = onSearchTag,
-                            onOpenSeries = onOpenSeries,
-                            onToggleFavorite = viewModel::toggleNovelFavorite,
-                            viewModel = viewModel,
-                        )
-                        1 -> NovelFollowTab(
-                            onOpenNovel = onOpenNovel,
-                            onOpenCover = onOpenCover,
-                            onOpenUser = onOpenUser,
-                            onSearchTag = onSearchTag,
-                            onOpenSeries = onOpenSeries,
-                            onToggleFavorite = viewModel::toggleNovelFavorite,
-                            viewModel = viewModel,
-                        )
-                        else -> NovelWatchlistTab(
-                            onOpenSeries = onOpenSeries,
-                            onOpenUser = onOpenUser,
-                            viewModel = viewModel,
-                        )
+        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
+        ListDetailOverlay(
+            selected = selectedNovelId,
+            onClose = { selectedNovelId = null },
+            modifier = Modifier.padding(padding),
+            listContent = { listMax ->
+                // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
+                AdaptiveContentBox(maxWidth = listMax) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        PrimaryTabRow(
+                            selectedTabIndex = pagerState.currentPage.coerceIn(0, 2),
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ) {
+                            Tab(
+                                selected = pagerState.currentPage == 0,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                                text = { Text(stringResource(R.string.novel_tab_recommend)) },
+                            )
+                            Tab(
+                                selected = pagerState.currentPage == 1,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                                text = { Text(stringResource(R.string.novel_tab_follow)) },
+                            )
+                            Tab(
+                                selected = pagerState.currentPage == 2,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(2) } },
+                                text = { Text(stringResource(R.string.novel_tab_watchlist)) },
+                            )
+                        }
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.weight(1f),
+                        ) { page ->
+                            when (page) {
+                                0 -> NovelRecommendTab(
+                                    onOpenNovelRanking = onOpenNovelRanking,
+                                    // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                                    onOpenNovel = { id ->
+                                        if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
+                                    },
+                                    onOpenCover = onOpenCover,
+                                    onOpenUser = onOpenUser,
+                                    onSearchTag = onSearchTag,
+                                    onOpenSeries = onOpenSeries,
+                                    onToggleFavorite = viewModel::toggleNovelFavorite,
+                                    viewModel = viewModel,
+                                )
+                                1 -> NovelFollowTab(
+                                    onOpenNovel = { id ->
+                                        if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
+                                    },
+                                    onOpenCover = onOpenCover,
+                                    onOpenUser = onOpenUser,
+                                    onSearchTag = onSearchTag,
+                                    onOpenSeries = onOpenSeries,
+                                    onToggleFavorite = viewModel::toggleNovelFavorite,
+                                    viewModel = viewModel,
+                                )
+                                else -> NovelWatchlistTab(
+                                    onOpenSeries = onOpenSeries,
+                                    onOpenUser = onOpenUser,
+                                    viewModel = viewModel,
+                                )
+                            }
+                        }
                     }
                 }
-            }
-        }
+            },
+            detailPane = {
+                // 右侧详情 pane：内嵌 NovelViewModel + CommentListViewModel（同一 backstack entry 作用域）
+                val detailVm: NovelViewModel = hiltViewModel()
+                val commentVm: CommentListViewModel = hiltViewModel()
+                NovelDetailPane(
+                    selectedId = selectedNovelId,
+                    placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
+                    onClose = { selectedNovelId = null },
+                    onOpenReader = onOpenReader,
+                    onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
+                    commentVm = commentVm,
+                    viewModel = detailVm,
+                )
+            },
+        )
     }
 }
 

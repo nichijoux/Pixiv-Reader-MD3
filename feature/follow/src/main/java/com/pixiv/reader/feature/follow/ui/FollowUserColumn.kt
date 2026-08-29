@@ -56,7 +56,7 @@ internal fun FollowUserColumn(
     onSelectUser: (Long?) -> Unit,
     onLoadMoreUsers: () -> Unit,
 ) {
-    val columnWidth = if (isCompact) 76.dp else 208.dp
+    val columnWidth = if (isCompact) 60.dp else 168.dp
     Box(
         modifier = Modifier
             .width(columnWidth)

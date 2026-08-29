@@ -46,7 +46,7 @@ private val SkeletonCoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp
 fun IllustWaterfallSkeleton(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = 96.dp),
-    minColumnWidth: Dp = 140.dp,
+    minColumnWidth: Dp = 160.dp,
     header: (@Composable () -> Unit)? = null,
 ) {
     val color = skeletonPulseColor(label = "illustFeedSkeleton")

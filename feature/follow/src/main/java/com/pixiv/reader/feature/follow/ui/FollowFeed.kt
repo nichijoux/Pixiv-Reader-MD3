@@ -2,6 +2,8 @@ package com.pixiv.reader.feature.follow.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -72,8 +74,16 @@ internal fun FollowFeed(
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
         )
 
-        hasError && items.isEmpty() -> ErrorBox(message = null, onRetry = onRetry)
-        items.isEmpty() -> EmptyBox(stringResource(R.string.follow_empty))
+        hasError && items.isEmpty() -> ErrorBox(
+            message = null,
+            onRetry = onRetry,
+            // 可滚动 → 空态也能触发下拉刷新（否则 PullToRefreshBox 收不到嵌套滚动）
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        )
+        items.isEmpty() -> EmptyBox(
+            stringResource(R.string.follow_empty),
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        )
         else -> if (isCompact) {
             FollowFeedList(
                 items = items,

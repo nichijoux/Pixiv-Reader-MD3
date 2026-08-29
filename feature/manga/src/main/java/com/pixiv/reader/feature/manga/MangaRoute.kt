@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,13 +44,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
+import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
+import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.RankingBannerSkeleton
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.list.RankingBanner
 
 /**
@@ -60,6 +67,7 @@ import com.pixiv.reader.core.ui.component.list.RankingBanner
  * @param onOpenMangaRanking 点击漫画排行榜 banner / 顶栏奖杯打开漫画排行榜全屏页
  * @param onOpenIllustRanking 点击插画排行榜 banner / 顶栏奖杯打开插画排行榜全屏页
  * @param onOpenUser 点击作者行打开用户主页
+ * @param onOpenViewer 打开全屏查看器（平板详情 pane 图片点击）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,10 +76,15 @@ fun MangaRoute(
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenViewer: (Long, Int) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
+    val detailPaneEnabled = isDetailPaneEnabled()
 
     Scaffold(
         topBar = {
@@ -152,63 +165,108 @@ fun MangaRoute(
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        // 平板限宽居中（banner + 瀑布流不超过 MAX_CONTENT_WIDTH_DP）
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = viewModel::pullRefresh,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                when (tab) {
-                    MangaContentType.MANGA -> MangaContentList(
-                        paged = viewModel.recommendPaged,
+        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
+        ListDetailOverlay(
+            selected = selectedIllustId,
+            onClose = { selectedIllustId = null },
+            modifier = Modifier.padding(padding),
+            listContent = { listMax ->
+                // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
+                AdaptiveContentBox(maxWidth = listMax) {
+                    PullToRefreshBox(
                         isRefreshing = isRefreshing,
-                        emptyText = stringResource(R.string.manga_empty),
-                        rankingBanner = {
-                            RankingBanner(
-                                title = stringResource(R.string.manga_ranking_banner),
-                                desc = stringResource(R.string.manga_ranking_banner_desc),
-                                onClick = onOpenMangaRanking,
+                        onRefresh = viewModel::pullRefresh,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        when (tab) {
+                            MangaContentType.MANGA -> MangaContentList(
+                                paged = viewModel.recommendPaged,
+                                isRefreshing = isRefreshing,
+                                emptyText = stringResource(R.string.manga_empty),
+                                rankingBanner = {
+                                    RankingBanner(
+                                        title = stringResource(R.string.manga_ranking_banner),
+                                        desc = stringResource(R.string.manga_ranking_banner_desc),
+                                        onClick = onOpenMangaRanking,
+                                    )
+                                },
+                                onLoadMore = viewModel::loadMore,
+                                onRetry = viewModel::retry,
+                                // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                                onOpenIllust = { id ->
+                                    if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                },
+                                onOpenUser = onOpenUser,
+                                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                             )
-                        },
-                        onLoadMore = viewModel::loadMore,
-                        onRetry = viewModel::retry,
-                        onOpenIllust = onOpenIllust,
-                        onOpenUser = onOpenUser,
-                        onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-                    )
-                    MangaContentType.ILLUST -> MangaContentList(
-                        paged = viewModel.illustPaged,
-                        isRefreshing = isRefreshing,
-                        emptyText = stringResource(R.string.manga_illust_empty),
-                        rankingBanner = {
-                            RankingBanner(
-                                title = stringResource(R.string.illust_ranking_banner),
-                                desc = stringResource(R.string.illust_ranking_banner_desc),
-                                onClick = onOpenIllustRanking,
+                            MangaContentType.ILLUST -> MangaContentList(
+                                paged = viewModel.illustPaged,
+                                isRefreshing = isRefreshing,
+                                emptyText = stringResource(R.string.manga_illust_empty),
+                                rankingBanner = {
+                                    RankingBanner(
+                                        title = stringResource(R.string.illust_ranking_banner),
+                                        desc = stringResource(R.string.illust_ranking_banner_desc),
+                                        onClick = onOpenIllustRanking,
+                                    )
+                                },
+                                onLoadMore = viewModel::loadMore,
+                                onRetry = viewModel::retry,
+                                onOpenIllust = { id ->
+                                    if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                },
+                                onOpenUser = onOpenUser,
+                                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                             )
-                        },
-                        onLoadMore = viewModel::loadMore,
-                        onRetry = viewModel::retry,
-                        onOpenIllust = onOpenIllust,
-                        onOpenUser = onOpenUser,
-                        onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-                    )
-                    MangaContentType.UGOIRA -> MangaContentList(
-                        paged = viewModel.ugoiraPaged,
-                        isRefreshing = isRefreshing,
-                        emptyText = stringResource(R.string.manga_ugoira_empty),
-                        rankingBanner = null,
-                        ugoiraLoader = viewModel.ugoiraLoader,
-                        onLoadMore = viewModel::loadMore,
-                        onRetry = viewModel::retry,
-                        onOpenIllust = onOpenIllust,
-                        onOpenUser = onOpenUser,
-                        onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-                    )
+                            MangaContentType.UGOIRA -> MangaContentList(
+                                paged = viewModel.ugoiraPaged,
+                                isRefreshing = isRefreshing,
+                                emptyText = stringResource(R.string.manga_ugoira_empty),
+                                rankingBanner = null,
+                                ugoiraLoader = viewModel.ugoiraLoader,
+                                onLoadMore = viewModel::loadMore,
+                                onRetry = viewModel::retry,
+                                onOpenIllust = { id ->
+                                    if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                },
+                                onOpenUser = onOpenUser,
+                                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                            )
+                        }
+                    }
                 }
-            }
-        }
+            },
+            detailPane = {
+                // 右侧详情 pane：内嵌 IllustViewModel + CommentListViewModel（同一 backstack entry 作用域）
+                val detailVm: IllustViewModel = hiltViewModel()
+                val commentVm: CommentListViewModel = hiltViewModel()
+                IllustDetailPane(
+                    selectedId = selectedIllustId,
+                    strings = IllustDetailStrings(
+                        loadRetry = stringResource(R.string.manga_illust_load_retry),
+                        fullscreen = stringResource(R.string.manga_illust_fullscreen),
+                        statView = stringResource(R.string.manga_illust_stat_view),
+                        statBookmark = stringResource(R.string.manga_illust_stat_bookmark),
+                        statPages = stringResource(R.string.manga_illust_stat_pages),
+                        expand = stringResource(R.string.manga_illust_expand),
+                        collapse = stringResource(R.string.manga_illust_collapse),
+                        follow = stringResource(R.string.manga_illust_follow),
+                        followed = stringResource(R.string.manga_illust_followed),
+                        related = stringResource(R.string.manga_illust_related),
+                        bookmark = stringResource(R.string.manga_illust_bookmark),
+                        bookmarked = stringResource(R.string.manga_illust_bookmarked),
+                        download = stringResource(R.string.manga_illust_download),
+                        comments = stringResource(R.string.manga_illust_comments),
+                    ),
+                    placeholder = stringResource(R.string.manga_ranking_preview_placeholder),
+                    onClose = { selectedIllustId = null },
+                    onOpenUser = onOpenUser,
+                    onOpenViewer = onOpenViewer,
+                    commentVm = commentVm,
+                    viewModel = detailVm,
+                )
+            },
+        )
     }
 }
 

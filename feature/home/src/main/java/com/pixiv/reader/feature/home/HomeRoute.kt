@@ -28,6 +28,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -35,10 +38,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.TrendingTag
+import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.network.illust.IllustViewModel
+import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
+import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
@@ -49,6 +58,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
  * @param onOpenIllust 点击作品卡片打开详情
  * @param onOpenUser 点击作者行打开用户主页
  * @param onOpenNotifications 打开通知中心（首页右上角铃铛）
+ * @param onOpenViewer 打开全屏查看器（平板详情 pane 图片点击）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,11 +68,14 @@ fun HomeRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenViewer: (Long, Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val trendingTags by viewModel.trendingTags.collectAsStateWithLifecycle()
+    // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
         topBar = {
@@ -100,45 +113,90 @@ fun HomeRoute(
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                // 分区 + 热门标签
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                ) {
-                    item {
-                        FilterChip(
-                            selected = tab == HomeTab.RECOMMEND,
-                            onClick = { viewModel.selectTab(HomeTab.RECOMMEND) },
-                            label = { Text(stringResource(R.string.home_for_you)) },
-                        )
-                    }
-                    item {
-                        FilterChip(
-                            selected = tab == HomeTab.FOLLOW,
-                            onClick = { viewModel.selectTab(HomeTab.FOLLOW) },
-                            label = { Text(stringResource(R.string.home_follow)) },
-                        )
-                    }
-                    items(
-                        trendingTags,
-                        key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
-                        AssistChip(
-                            onClick = { onSearchTag(tag.displayName()) },
-                            label = { Text(tag.displayName()) },
-                        )
-                    }
-                }
+        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
+        ListDetailOverlay(
+            selected = selectedIllustId,
+            onClose = { selectedIllustId = null },
+            modifier = Modifier.padding(padding),
+            listContent = { listMax ->
+                // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
+                AdaptiveContentBox(maxWidth = listMax) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        // 分区 + 热门标签
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = tab == HomeTab.RECOMMEND,
+                                    onClick = { viewModel.selectTab(HomeTab.RECOMMEND) },
+                                    label = { Text(stringResource(R.string.home_for_you)) },
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = tab == HomeTab.FOLLOW,
+                                    onClick = { viewModel.selectTab(HomeTab.FOLLOW) },
+                                    label = { Text(stringResource(R.string.home_follow)) },
+                                )
+                            }
+                            items(
+                                trendingTags,
+                                key = { it.tag.orEmpty() + it.translated_name.orEmpty() }) { tag ->
+                                AssistChip(
+                                    onClick = { onSearchTag(tag.displayName()) },
+                                    label = { Text(tag.displayName()) },
+                                )
+                            }
+                        }
 
-                when (tab) {
-                    HomeTab.RECOMMEND -> RecommendContent(viewModel, onOpenIllust, onOpenUser)
-                    HomeTab.FOLLOW -> FollowContent(viewModel, onOpenIllust, onOpenUser)
+                        when (tab) {
+                            HomeTab.RECOMMEND -> RecommendContent(
+                                viewModel, onOpenIllust, onOpenUser,
+                                onSelectIllust = { selectedIllustId = it },
+                            )
+                            HomeTab.FOLLOW -> FollowContent(
+                                viewModel, onOpenIllust, onOpenUser,
+                                onSelectIllust = { selectedIllustId = it },
+                            )
+                        }
+                    }
                 }
-            }
-        }
+            },
+            detailPane = {
+                // 右侧详情 pane：内嵌 IllustViewModel + CommentListViewModel（同一 backstack entry 作用域）
+                val detailVm: IllustViewModel = hiltViewModel()
+                val commentVm: CommentListViewModel = hiltViewModel()
+                IllustDetailPane(
+                    selectedId = selectedIllustId,
+                    strings = IllustDetailStrings(
+                        loadRetry = stringResource(R.string.home_illust_load_retry),
+                        fullscreen = stringResource(R.string.home_illust_fullscreen),
+                        statView = stringResource(R.string.home_illust_stat_view),
+                        statBookmark = stringResource(R.string.home_illust_stat_bookmark),
+                        statPages = stringResource(R.string.home_illust_stat_pages),
+                        expand = stringResource(R.string.home_illust_expand),
+                        collapse = stringResource(R.string.home_illust_collapse),
+                        follow = stringResource(R.string.home_illust_follow),
+                        followed = stringResource(R.string.home_illust_followed),
+                        related = stringResource(R.string.home_illust_related),
+                        bookmark = stringResource(R.string.home_illust_bookmark),
+                        bookmarked = stringResource(R.string.home_illust_bookmarked),
+                        download = stringResource(R.string.home_illust_download),
+                        comments = stringResource(R.string.home_illust_comments),
+                    ),
+                    placeholder = stringResource(R.string.home_pane_placeholder),
+                    onClose = { selectedIllustId = null },
+                    onOpenUser = onOpenUser,
+                    onOpenViewer = onOpenViewer,
+                    commentVm = commentVm,
+                    viewModel = detailVm,
+                )
+            },
+        )
     }
 }
 
@@ -148,7 +206,10 @@ private fun RecommendContent(
     viewModel: HomeViewModel,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onSelectIllust: (Long) -> Unit,
 ) {
+    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
+    val detailPaneEnabled = isDetailPaneEnabled()
     val items by viewModel.recommendPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.recommendPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.recommendPaged.isLoadingMore.collectAsStateWithLifecycle()
@@ -172,7 +233,8 @@ private fun RecommendContent(
 
             else -> IllustWaterfallGrid(
                 illusts = items,
-                onItemClick = onOpenIllust,
+                // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                onItemClick = { id -> if (detailPaneEnabled) onSelectIllust(id) else onOpenIllust(id) },
                 onLoadMore = viewModel::loadMore,
                 hasMore = hasMore,
                 isLoadingMore = isLoadingMore,
@@ -189,7 +251,10 @@ private fun FollowContent(
     viewModel: HomeViewModel,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onSelectIllust: (Long) -> Unit,
 ) {
+    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
+    val detailPaneEnabled = isDetailPaneEnabled()
     val items by viewModel.followingPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.followingPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.followingPaged.isLoadingMore.collectAsStateWithLifecycle()
@@ -213,7 +278,8 @@ private fun FollowContent(
 
             else -> IllustWaterfallGrid(
                 illusts = items,
-                onItemClick = onOpenIllust,
+                // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                onItemClick = { id -> if (detailPaneEnabled) onSelectIllust(id) else onOpenIllust(id) },
                 onLoadMore = viewModel::loadMore,
                 hasMore = hasMore,
                 isLoadingMore = isLoadingMore,

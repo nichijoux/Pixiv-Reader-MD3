@@ -35,7 +35,7 @@ import com.pixiv.reader.feature.novel.ui.NovelRoute
 import com.pixiv.reader.feature.user.ui.MeRoute
 
 
-/** 底部导航五项：首页 / 漫画 / 小说 / 关注 / 我的（发现页由首页搜索框等入口进入，不在底栏）。 */
+/** 底部导航五项：首页 / 作品 / 小说 / 关注 / 我的（发现页由首页搜索框等入口进入，不在底栏）。 */
 @Composable
 private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
     AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
@@ -76,6 +76,10 @@ fun MainShell(
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenNovelRanking: () -> Unit,
+    /** 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码） */
+    onOpenViewer: (Long, Int) -> Unit,
+    /** 打开小说阅读器（小说 pane「开始阅读」入口） */
+    onOpenReader: (Long) -> Unit,
     initialSearch: String? = null,
 ) {
     val navController = rememberNavController()
@@ -140,6 +144,7 @@ fun MainShell(
                     onOpenIllust = onOpenIllust,
                     onOpenUser = onOpenUser,
                     onOpenNotifications = onOpenNotifications,
+                    onOpenViewer = onOpenViewer,
                 )
             }
             composable("follow_tab") {
@@ -172,6 +177,7 @@ fun MainShell(
                     onOpenMangaRanking = onOpenMangaRanking,
                     onOpenIllustRanking = onOpenIllustRanking,
                     onOpenUser = onOpenUser,
+                    onOpenViewer = onOpenViewer,
                 )
             }
             composable("novel_tab") {
@@ -185,6 +191,7 @@ fun MainShell(
                         pendingSearch = tag
                         navigateToTab("discover_tab")
                     },
+                    onOpenReader = onOpenReader,
                 )
             }
             composable("me_tab") {

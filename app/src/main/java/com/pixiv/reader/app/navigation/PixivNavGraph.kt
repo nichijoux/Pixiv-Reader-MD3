@@ -245,6 +245,14 @@ fun PixivNavGraph(
                 onOpenNovelRanking = {
                     navController.navigate(ROUTE_NOVEL_RANKING)
                 },
+                onOpenViewer = { id, page ->
+                    // 全屏查看器：Tab 内详情 pane 图片点击（定位到指定页）
+                    navController.navigate("viewer/$id?page=$page")
+                },
+                onOpenReader = { id ->
+                    // 小说阅读器：小说 pane「开始阅读」入口
+                    navController.navigate("reader/$id")
+                },
                 initialSearch = initialSearch,
             )
         }

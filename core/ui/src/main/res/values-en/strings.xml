@@ -1,5 +1,10 @@
 <resources>
     <string name="load_failed">Failed to load</string>
+    <!-- Master-Detail pane close button -->
+    <string name="core_pane_close">Close detail</string>
+    <!-- Comment pane: back to detail / empty -->
+    <string name="core_comment_back_to_detail">Back to detail</string>
+    <string name="core_comment_empty">No comments yet</string>
     <string name="retry">Retry</string>
     <string name="comment_placeholder">Say something…</string>
     <string name="comment_send">Send</string>

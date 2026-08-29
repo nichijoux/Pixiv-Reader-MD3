@@ -33,7 +33,7 @@ private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp
  *
  * ## UI 设计方式
  * `LazyVerticalStaggeredGrid` + `StaggeredGridCells.Adaptive(minColumnWidth)`：
- * 手机约 2 列，平板自动 3~4 列。内部每项渲染 [IllustCard]（封面按宽高比完整显示）。
+ * 手机约 2 列，平板自动 4~5 列。内部每项渲染 [IllustCard]（封面按宽高比完整显示）。
  * `hasMore` 时网格尾部自动放一个加载 item 并触发 [onLoadMore]（无需调用方手动监听滚动）。
  *
  * @param illusts 作品列表（需含 `width/height` 以保证完整显示）
@@ -63,7 +63,7 @@ fun IllustWaterfallGrid(
         top = Spacing.sm,
         bottom = 96.dp
     ),
-    minColumnWidth: Dp = 140.dp,
+    minColumnWidth: Dp = 160.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
     onOpenUser: ((Long) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
