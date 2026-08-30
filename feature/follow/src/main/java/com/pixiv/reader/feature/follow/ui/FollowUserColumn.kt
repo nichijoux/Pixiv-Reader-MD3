@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.follow.R
 
 /**
@@ -68,7 +70,7 @@ internal fun FollowUserColumn(
                 .fillMaxSize()
                 // 沉浸式：仅内容让开状态栏，Box 背景 surfaceContainerLow 延伸至状态栏后
                 .statusBarsPadding(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = Spacing.xsPlus),
         ) {
             // 顶部「全部」
             item(key = "all") {
@@ -138,7 +140,7 @@ private fun UserColumnItem(
                     imageVector = Icons.Filled.GridView,
                     contentDescription = null,
                     tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(Sizes.s22),
                 )
             } else {
                 UserAvatar(
@@ -158,7 +160,7 @@ private fun UserColumnItem(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 10.dp),
+                modifier = Modifier.padding(start = Spacing.smPlus),
             )
         }
     }
@@ -173,7 +175,7 @@ private fun UserColumnItem(
         Column(
             modifier = baseModifier.padding(horizontal = 3.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             content()
             Text(
@@ -184,13 +186,13 @@ private fun UserColumnItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xxs),
             )
         }
     } else {
         // 平板宽版：头像 + 名称横排
         Row(
-            modifier = baseModifier.padding(horizontal = 14.dp),
+            modifier = baseModifier.padding(horizontal = Spacing.mdPlus),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             content()

@@ -40,6 +40,7 @@ import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 系列卡片数据（数据驱动：用户页系列列表 / 追更列表共用）。
@@ -85,17 +86,17 @@ fun SeriesCard(
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(AppShapes.large)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(Spacing.mdPlus),
         verticalAlignment = Alignment.Top,
     ) {
         // 封面（96x128）：真实封面 / 图标兜底 + 底部半透明统计条（篇数/字数）
         Box(
             modifier = Modifier
                 .size(width = 96.dp, height = 128.dp)
-                .clip(RoundedCornerShape(12.dp)),
+                .clip(AppShapes.card),
         ) {
             if (!data.coverUrl.isNullOrBlank()) {
                 PixivImage(
@@ -115,11 +116,11 @@ fun SeriesCard(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(Color.Black.copy(alpha = 0.55f))
-                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                    .padding(horizontal = Spacing.xsPlus, vertical = 3.dp),
             ) {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
                 ) {
                     CoverStat(
                         icon = Icons.Filled.Collections,
@@ -140,7 +141,7 @@ fun SeriesCard(
         // 右侧列：撑满封面高度——标题顶对齐封面顶部，作者行抵底对齐封面底部
         Column(
             modifier = Modifier
-                .padding(start = 14.dp)
+                .padding(start = Spacing.mdPlus)
                 .weight(1f)
                 .fillMaxHeight(),
         ) {
@@ -160,14 +161,14 @@ fun SeriesCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = Spacing.xs),
                 )
             }
             // 状态徽章（连载中/已完结 + 已追更，彩色药丸，FlowRow 窄屏换行）
             FlowRow(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
                 val concluded = data.isConcluded
                 if (concluded != null) {
@@ -208,7 +209,7 @@ fun SeriesCard(
                     UserAvatar(
                         name = data.authorName,
                         avatarUrl = data.authorAvatarUrl,
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(Sizes.s24),
                     )
                     Text(
                         text = data.authorName,
@@ -231,7 +232,7 @@ fun SeriesCard(
                             text = data.updatedAt,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(start = 2.dp),
+                            modifier = Modifier.padding(start = Spacing.xxs),
                         )
                     }
                 }
@@ -254,7 +255,7 @@ private fun SeriesStatusBadge(
         modifier = Modifier
             .clip(AppShapes.pill)
             .background(container)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = Spacing.smPlus, vertical = 3.dp),
     )
 }
 
@@ -275,7 +276,7 @@ private fun CoverStat(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             color = Color.White,
-            modifier = Modifier.padding(start = 2.dp),
+            modifier = Modifier.padding(start = Spacing.xxs),
         )
     }
 }

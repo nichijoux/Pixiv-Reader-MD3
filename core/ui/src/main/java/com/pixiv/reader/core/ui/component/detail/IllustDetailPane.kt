@@ -32,6 +32,8 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.comment.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 插画详情 pane（Master-Detail 右栏，首页 / 作品页共用）。
@@ -162,8 +164,8 @@ private fun PaneBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(
         onClick = onClick,
         modifier = modifier
-            .padding(4.dp)
-            .size(40.dp)
+            .padding(Spacing.xs)
+            .size(Sizes.s40)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.35f)),
     ) {

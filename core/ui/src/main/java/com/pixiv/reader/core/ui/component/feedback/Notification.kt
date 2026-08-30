@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.theme.Durations
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.SuccessGreen
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -178,7 +180,7 @@ private fun NotificationCard(
     }
     Surface(
         modifier = modifier.clickable(onClick = onDismiss),
-        shape = RoundedCornerShape(14.dp),
+        shape = AppShapes.cardLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 4.dp,
     ) {
@@ -190,7 +192,7 @@ private fun NotificationCard(
             val accent = notificationTypeColor(notification.type)
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(Sizes.s28)
                     .clip(CircleShape)
                     .background(accent.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center,
@@ -199,7 +201,7 @@ private fun NotificationCard(
                     imageVector = notificationTypeIcon(notification.type),
                     contentDescription = null,
                     tint = accent,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(Sizes.s16),
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -220,12 +222,12 @@ private fun NotificationCard(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(AppShapes.tiny)
                         .clickable {
                             notification.onAction.invoke()
                             onDismiss()
                         }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                 )
             }
             Spacer(Modifier.width(Spacing.sm))
@@ -234,7 +236,7 @@ private fun NotificationCard(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(Sizes.s16)
                     .clickable(onClick = onDismiss),
             )
         }

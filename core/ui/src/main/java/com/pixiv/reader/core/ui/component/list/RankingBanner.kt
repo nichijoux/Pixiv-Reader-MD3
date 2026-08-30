@@ -1,5 +1,8 @@
 package com.pixiv.reader.core.ui.component.list
 
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,20 +44,20 @@ fun RankingBanner(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.mdPlus, vertical = Spacing.xsPlus),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.mdPlus),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.mdPlus),
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .size(Sizes.s48)
+                    .clip(AppShapes.cardLarge)
                     .background(MaterialTheme.colorScheme.onPrimaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
@@ -62,7 +65,7 @@ fun RankingBanner(
                     imageVector = Icons.Filled.Leaderboard,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(Sizes.s24),
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -76,7 +79,7 @@ fun RankingBanner(
                     text = desc,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = Spacing.xxs),
                 )
             }
             Icon(

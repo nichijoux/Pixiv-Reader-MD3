@@ -64,7 +64,6 @@ fun MainShell(
     onLogout: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onOpenHistory: () -> Unit,
@@ -152,7 +151,6 @@ fun MainShell(
                     onOpenIllust = onOpenIllust,
                     onOpenNovel = onOpenNovel,
                     onOpenUser = onOpenUser,
-                    onOpenCover = onOpenCover,
                     onOpenSeries = onOpenSeries,
                 )
             }
@@ -165,7 +163,6 @@ fun MainShell(
                 DiscoverRoute(
                     onOpenIllust = onOpenIllust,
                     onOpenNovel = onOpenNovel,
-                    onOpenCover = onOpenCover,
                     onOpenUser = onOpenUser,
                     onOpenSeries = onOpenSeries,
                     initialQuery = pendingSearch?.also { pendingSearch = null },
@@ -183,7 +180,6 @@ fun MainShell(
             composable("novel_tab") {
                 NovelRoute(
                     onOpenNovel = onOpenNovel,
-                    onOpenCover = onOpenCover,
                     onOpenUser = onOpenUser,
                     onOpenNovelRanking = onOpenNovelRanking,
                     onOpenSeries = onOpenSeries,

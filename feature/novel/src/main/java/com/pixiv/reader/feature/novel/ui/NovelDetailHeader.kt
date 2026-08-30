@@ -46,6 +46,7 @@ import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
 /** 标题信息卡：标题 / 作者（关注按钮）/ 发布时间 / 统计（均分撑满整行）/ 标签 / 简介（首行缩进 + 展开全文）。 */
@@ -81,12 +82,12 @@ internal fun NovelHeader(
                     .weight(1f)
                     .clickable { novel.user?.id?.let(onOpenUser) },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 UserAvatar(
                     name = novel.user?.name,
                     avatarUrl = novel.user?.profile_image_urls?.best(),
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(Sizes.s36),
                 )
                 Text(
                     text = novel.user?.name.orEmpty(),
@@ -99,7 +100,7 @@ internal fun NovelHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(Sizes.s16),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -127,7 +128,7 @@ internal fun NovelHeader(
                     text = stringResource(R.string.novel_publish_date, publishDate),
                     style = novelMetaStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp),
+                    modifier = Modifier.padding(start = Spacing.xs),
                 )
             }
         }
@@ -162,8 +163,8 @@ internal fun NovelHeader(
         if (tags.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier.padding(top = Spacing.md),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 tags.forEach { tag ->
                     Text(
@@ -173,7 +174,7 @@ internal fun NovelHeader(
                         modifier = Modifier
                             .clip(AppShapes.pill)
                             .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .padding(horizontal = Spacing.smPlus, vertical = Spacing.xs),
                     )
                 }
             }
@@ -195,7 +196,7 @@ internal fun NovelHeader(
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
                 // 展开/收起时高度平滑过渡
                 modifier = Modifier
-                    .padding(top = 14.dp)
+                    .padding(top = Spacing.mdPlus)
                     .animateContentSize(),
                 onTextLayout = { layout ->
                     // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
@@ -250,7 +251,7 @@ internal fun AuthorFollowPill(
             .clip(AppShapes.pill)
             .background(container)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
     )
 }
 
@@ -270,13 +271,13 @@ internal fun NovelStatBlock(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizes.s16),
                 tint = MaterialTheme.colorScheme.primary,
             )
             Text(
                 text = value,
                 style = novelStatValueStyle(),
-                modifier = Modifier.padding(start = 4.dp),
+                modifier = Modifier.padding(start = Spacing.xs),
             )
         }
         Text(

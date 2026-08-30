@@ -209,9 +209,6 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
-                onOpenCover = { url ->
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
-                },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
@@ -412,7 +409,6 @@ fun PixivNavGraph(
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
             UserRoute(
-                userId = userId,
                 onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")
@@ -507,9 +503,6 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
-                onOpenCover = { url ->
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
-                },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
@@ -537,9 +530,6 @@ fun PixivNavGraph(
                 },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
-                },
-                onOpenCover = { url ->
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
@@ -624,9 +614,6 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
-                onOpenCover = { url ->
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
-                },
                 onOpenLocalReader = { novelId ->
                     navController.navigate("local_reader/$novelId")
                 },
@@ -680,15 +667,12 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 小说排行榜（全屏页）：条目用 NovelCard（封面→全屏大图、作者→主页、收藏、标签）
+        // 小说排行榜（全屏页）：条目用 NovelCard（整卡→详情、作者→主页、收藏、标签）
         composable(ROUTE_NOVEL_RANKING) {
             NovelRankingRoute(
                 onBack = { navController.safeBack() },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
-                },
-                onOpenCover = { url ->
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")

@@ -59,6 +59,9 @@ import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 屏蔽管理：卡片分组 + pill 标签——
@@ -114,8 +117,8 @@ fun BlockedRoute(
                 isLoading -> LoadingBox()
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     // ── 本地过滤标签卡片 ──
                     item(key = "local_card") {
@@ -125,7 +128,7 @@ fun BlockedRoute(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             ),
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(Spacing.lg)) {
                                 Text(
                                     text = stringResource(R.string.blocked_local_tags_title),
                                     style = MaterialTheme.typography.titleSmall,
@@ -135,13 +138,13 @@ fun BlockedRoute(
                                     text = stringResource(R.string.blocked_local_tags_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
+                                    modifier = Modifier.padding(top = Spacing.xxs),
                                 )
                                 // 添加输入
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                                 ) {
                                     OutlinedTextField(
                                         value = draft,
@@ -172,8 +175,8 @@ fun BlockedRoute(
                                     )
                                 } else {
                                     FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                     ) {
                                         localTags.forEach { tag ->
                                             TagPill(text = tag, onRemove = { pendingDeleteTag = tag })
@@ -192,7 +195,7 @@ fun BlockedRoute(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             ),
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(Spacing.lg)) {
                                 Text(
                                     text = stringResource(R.string.blocked_server_title),
                                     style = MaterialTheme.typography.titleSmall,
@@ -202,22 +205,22 @@ fun BlockedRoute(
                                     text = stringResource(R.string.blocked_server_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp),
+                                    modifier = Modifier.padding(top = Spacing.xxs),
                                 )
                                 if (mutedTags.isEmpty() && mutedUsers.isEmpty()) {
                                     Text(
                                         text = stringResource(R.string.blocked_server_empty),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 12.dp),
+                                        modifier = Modifier.padding(top = Spacing.md),
                                     )
                                 } else {
                                     // 服务端标签
                                     if (mutedTags.isNotEmpty()) {
                                         Spacer(Modifier.height(12.dp))
                                         FlowRow(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                         ) {
                                             mutedTags.forEach { tag ->
                                                 TagPill(
@@ -235,13 +238,13 @@ fun BlockedRoute(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(vertical = 4.dp),
+                                                    .padding(vertical = Spacing.xs),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 UserAvatar(
                                                     name = u?.name,
                                                     avatarUrl = u?.profile_image_urls?.best(),
-                                                    modifier = Modifier.size(36.dp),
+                                                    modifier = Modifier.size(Sizes.s36),
                                                 )
                                                 Text(
                                                     text = u?.name.orEmpty(),
@@ -249,7 +252,7 @@ fun BlockedRoute(
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis,
                                                     modifier = Modifier
-                                                        .padding(start = 12.dp)
+                                                        .padding(start = Spacing.md)
                                                         .weight(1f),
                                                 )
                                                 TextButton(onClick = { viewModel.unblockUser(muted) }) {
@@ -306,10 +309,10 @@ private fun TagPill(
 ) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(AppShapes.large)
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .then(if (onRemove != null) Modifier.clickable(onClick = onRemove) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

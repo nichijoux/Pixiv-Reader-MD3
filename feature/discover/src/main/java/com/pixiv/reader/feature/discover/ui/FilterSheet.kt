@@ -55,6 +55,8 @@ import com.pixiv.api.model.SearchLangOption
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.SearchFilters
 import com.pixiv.reader.feature.discover.state.SearchType
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -314,13 +316,13 @@ private fun MainFilterContent(
         onSelect = { idx -> onDraftChange(draft.copy(resolutionBucket = if (idx == 0) null else RESOLUTION_VALUES[idx - 1])) },
     )
 
-    Column(modifier = Modifier.padding(bottom = 24.dp)) {
+    Column(modifier = Modifier.padding(bottom = Spacing.xl)) {
         // 标题行：标题 + 关闭
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 12.dp),
+                .padding(start = Spacing.lgPlus, end = Spacing.md),
         ) {
             Text(
                 text = stringResource(R.string.filter_title_default),
@@ -338,7 +340,7 @@ private fun MainFilterContent(
                 .fillMaxWidth()
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = Spacing.lgPlus),
         ) {
             // A 段：检索范围 / 排序方式
             FilterCard {
@@ -425,8 +427,8 @@ private fun MainFilterContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(start = Spacing.lgPlus, end = Spacing.lgPlus),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             FilledTonalButton(
                 onClick = onReset,
@@ -456,7 +458,7 @@ private fun FilterCard(content: @Composable ColumnScope.() -> Unit) {
         shape = MaterialTheme.shapes.large,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
+            .padding(bottom = Spacing.md),
     ) {
         Column(content = content)
     }
@@ -469,7 +471,7 @@ private fun FilterRow(title: String, value: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 13.dp),
+            .padding(start = Spacing.lg, end = Spacing.lg, top = 13.dp, bottom = 13.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -481,13 +483,13 @@ private fun FilterRow(title: String, value: String, onClick: () -> Unit) {
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(end = 4.dp),
+                modifier = Modifier.padding(end = Spacing.xs),
             )
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(Sizes.s20),
             )
         }
         HorizontalDivider(modifier = Modifier.padding(top = 13.dp), thickness = 0.5.dp)
@@ -509,12 +511,12 @@ private fun PickerListContent(
 ) {
     Column(modifier = Modifier
         .fillMaxWidth()
-        .padding(bottom = 24.dp)) {
+        .padding(bottom = Spacing.xl)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = Spacing.lgPlus),
         ) {
             Text(
                 text = title,
@@ -529,7 +531,7 @@ private fun PickerListContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = Spacing.lgPlus)
                 .verticalScroll(rememberScrollState()),
         ) {
             labels.forEachIndexed { idx, label ->
@@ -538,7 +540,7 @@ private fun PickerListContent(
                         text = label,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+                        modifier = Modifier.padding(top = Spacing.mdPlus, bottom = Spacing.xsPlus),
                     )
                 } else {
                     Row(
@@ -546,7 +548,7 @@ private fun PickerListContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onSelect(idx) }
-                            .padding(vertical = 14.dp),
+                            .padding(vertical = Spacing.mdPlus),
                     ) {
                         Text(
                             text = label,
@@ -629,12 +631,12 @@ private fun DateRangeContent(
 
     Column(modifier = Modifier
         .fillMaxWidth()
-        .padding(bottom = 24.dp)) {
+        .padding(bottom = Spacing.xl)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = Spacing.lgPlus),
         ) {
             Text(
                 text = stringResource(R.string.filter_date_range),
@@ -646,7 +648,7 @@ private fun DateRangeContent(
                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
             }
         }
-        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.lgPlus)) {
             DateFieldRow(stringResource(R.string.filter_date_start), draftStart) {
                 pickingStart = true
                 showDialog = true
@@ -659,7 +661,7 @@ private fun DateRangeContent(
                 onClick = { onConfirm(draftStart, draftEnd) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 20.dp)
+                    .padding(top = Spacing.lgPlus)
                     .height(48.dp),
             ) { Text(stringResource(R.string.common_confirm)) }
         }
@@ -696,7 +698,7 @@ private fun DateFieldRow(label: String, value: String?, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 14.dp),
+            .padding(vertical = Spacing.mdPlus),
     ) {
         Text(
             text = label,
@@ -842,12 +844,12 @@ private fun OtherPickerContent(
 
     Column(modifier = Modifier
         .fillMaxWidth()
-        .padding(bottom = 24.dp)) {
+        .padding(bottom = Spacing.xl)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = Spacing.lgPlus),
         ) {
             Text(
                 text = stringResource(R.string.filter_row_other),
@@ -862,7 +864,7 @@ private fun OtherPickerContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = Spacing.lgPlus)
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionTitle(stringResource(R.string.filter_ai))
@@ -877,7 +879,7 @@ private fun OtherPickerContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showToolPicker = true }
-                        .padding(vertical = 14.dp),
+                        .padding(vertical = Spacing.mdPlus),
                 ) {
                     Text(
                         text = stringResource(R.string.filter_row_tool),
@@ -920,7 +922,7 @@ private fun OtherPickerContent(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 20.dp)
+                    .padding(top = Spacing.lgPlus)
                     .height(48.dp),
             ) { Text(stringResource(R.string.common_confirm)) }
         }
@@ -933,7 +935,7 @@ private fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+        modifier = Modifier.padding(top = Spacing.lg, bottom = Spacing.xs),
     )
 }
 
@@ -944,7 +946,7 @@ private fun ChoiceRow(label: String, checked: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .padding(vertical = Spacing.smPlus),
     ) {
         Checkbox(checked = checked, onCheckedChange = { onClick() })
         Text(text = label, style = MaterialTheme.typography.bodyLarge)
@@ -958,7 +960,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onChange(!checked) }
-            .padding(vertical = 10.dp),
+            .padding(vertical = Spacing.smPlus),
     ) {
         Text(
             text = label,

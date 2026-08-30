@@ -27,6 +27,7 @@ import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 插画/漫画排行榜加载骨架：仿 [RankingIllustCard] 布局（大图封面 + 左上排名徽标占位 + 标题/作者行）
@@ -70,25 +71,25 @@ fun RankingIllustSkeleton() {
                         )
                     }
                     // 信息区：标题 + 作者行
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(Spacing.smPlus)) {
                         SkeletonBlock(
                             modifier = Modifier
                                 .fillMaxWidth(0.8f)
                                 .height(16.dp)
-                                .clip(RoundedCornerShape(6.dp)),
+                                .clip(AppShapes.tiny),
                             color = color,
                         )
                         Row(
-                            modifier = Modifier.padding(top = 8.dp),
+                            modifier = Modifier.padding(top = Spacing.sm),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                         ) {
                             SkeletonBlock(
-                                modifier = Modifier.size(20.dp).clip(AppShapes.small),
+                                modifier = Modifier.size(Sizes.s20).clip(AppShapes.small),
                                 color = color,
                             )
                             SkeletonBlock(
-                                modifier = Modifier.width(80.dp).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                                modifier = Modifier.width(80.dp).height(12.dp).clip(AppShapes.tiny),
                                 color = color,
                             )
                             Spacer(Modifier.weight(1f))

@@ -19,6 +19,7 @@ import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 
 /** 插画搜索结果（普通模式，分页瀑布流）。 */
@@ -58,7 +59,6 @@ internal fun IllustSearchResults(
 internal fun NovelSearchResults(
     viewModel: DiscoverViewModel,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
@@ -77,18 +77,13 @@ internal fun NovelSearchResults(
 
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.id }) { novel ->
                 NovelRow(
                     novel = novel,
                     onClick = { onOpenNovel(novel.id) },
-                    onOpenCover = {
-                        (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(
-                            onOpenCover
-                        )
-                    },
                     onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                     onToggleFavorite = { nowFavorite ->
                         viewModel.toggleNovelFavorite(
@@ -116,7 +111,6 @@ internal fun NovelSearchResults(
 private fun NovelRow(
     novel: Novel,
     onClick: () -> Unit,
-    onOpenCover: () -> Unit,
     onOpenAuthor: () -> Unit,
     onToggleFavorite: (Boolean) -> Unit,
     onTagClick: (String) -> Unit,
@@ -125,7 +119,6 @@ private fun NovelRow(
     NovelCard(
         novel = novel.toCardData(),
         onClick = onClick,
-        onOpenCover = onOpenCover,
         onOpenAuthor = onOpenAuthor,
         onToggleFavorite = onToggleFavorite,
         onTagClick = onTagClick,
@@ -152,8 +145,8 @@ internal fun UserSearchResults(
 
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.user?.id ?: 0L }) { preview ->
                 UserRow(

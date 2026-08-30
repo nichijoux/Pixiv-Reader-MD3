@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /** 创作者档案数据（用户搜索 / 浏览历史用户类共用）。 */
 data class CreatorProfile(
@@ -110,7 +111,7 @@ fun CreatorProfileCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                .padding(start = Spacing.mdPlus, end = Spacing.mdPlus, bottom = Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 64dp 圆形头像：2dp 主题色边框，上移 24dp 重叠封面区
@@ -120,7 +121,7 @@ fun CreatorProfileCard(
                     contentDescription = profile.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(Sizes.s64)
                         .clip(CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),

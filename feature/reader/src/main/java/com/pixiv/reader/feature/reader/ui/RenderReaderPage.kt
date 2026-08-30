@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.state.PageElement
 import com.pixiv.reader.feature.reader.state.ReaderPage
 
@@ -199,7 +200,7 @@ internal fun ReaderImageBlock(url: String, caption: String?, height: Dp) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = Spacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         PixivImage(
@@ -217,7 +218,7 @@ internal fun ReaderImageBlock(url: String, caption: String?, height: Dp) {
                 text = caption,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = Spacing.xs),
             )
         }
     }

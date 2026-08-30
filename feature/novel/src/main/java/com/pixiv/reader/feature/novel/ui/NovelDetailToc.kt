@@ -38,6 +38,7 @@ import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
 /** 系列目录行（HTML `.trow`）：序号徽标 + 标题 + 字数/收藏 + 当前章胶囊。 */
@@ -52,13 +53,13 @@ internal fun ChapterRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 序号徽标（HTML `.tidx`：28dp、圆角 9、当前章主色）
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(Sizes.s28)
                 .clip(RoundedCornerShape(9.dp))
                 .background(
                     if (isCurrent) MaterialTheme.colorScheme.primary
@@ -76,7 +77,7 @@ internal fun ChapterRow(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 10.dp),
+                .padding(start = Spacing.smPlus),
         ) {
             Text(
                 text = novel.title.orEmpty(),
@@ -86,8 +87,8 @@ internal fun ChapterRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
-                modifier = Modifier.padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(top = Spacing.xxs),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 Text(
                     text = stringResource(R.string.novel_chapter_word, formatCountForNovel(novel.text_length ?: 0)),
@@ -109,7 +110,7 @@ internal fun ChapterRow(
                 modifier = Modifier
                     .clip(AppShapes.pill)
                     .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                    .padding(horizontal = Spacing.sm, vertical = 3.dp),
             )
         }
     }
@@ -137,10 +138,10 @@ internal fun TocTitle(count: Int, modifier: Modifier = Modifier) {
         // 数量胶囊（HTML `.sectitle .cnt`：primary-container 底 + primary 字 + 圆角胶囊）
         Box(
             modifier = Modifier
-                .padding(start = 8.dp)
+                .padding(start = Spacing.sm)
                 .clip(AppShapes.pill)
                 .background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(horizontal = 9.dp, vertical = 2.dp),
+                .padding(horizontal = 9.dp, vertical = Spacing.xxs),
         ) {
             Text(
                 text = count.toString(),
@@ -216,11 +217,11 @@ internal fun NovelTocPanel(
             .clip(AppShapes.card)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(vertical = 4.dp),
+            .padding(vertical = Spacing.xs),
     ) {
         TocTitle(
             count = seriesNovels.size,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = Spacing.mdPlus, vertical = Spacing.smPlus),
         )
         LazyColumn(
             state = listState,
@@ -250,7 +251,7 @@ internal fun SeriesMoreRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onOpenSeries(seriesId) }
-            .padding(vertical = 12.dp),
+            .padding(vertical = Spacing.md),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -262,7 +263,7 @@ internal fun SeriesMoreRow(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(Sizes.s16),
             tint = MaterialTheme.colorScheme.primary,
         )
     }

@@ -48,6 +48,7 @@ import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
@@ -126,8 +127,8 @@ fun HomeRoute(
                     ) {
                         // 分区 + 热门标签
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            contentPadding = PaddingValues(horizontal = Spacing.mdPlus, vertical = Spacing.xs),
                         ) {
                             item {
                                 FilterChip(

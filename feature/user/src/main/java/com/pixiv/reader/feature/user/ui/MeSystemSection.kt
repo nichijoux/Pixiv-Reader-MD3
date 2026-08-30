@@ -24,6 +24,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * SAF 初始定位 URI：内置存储 Download 文件夹。
@@ -95,12 +97,12 @@ internal fun MeSystemSection(
         OutlinedButton(
             // 初始定位到 Download：避免用户从存储根进入时被系统「保护隐私」限制拦截
             onClick = { exportDirLauncher.launch(DOWNLOAD_DOCUMENT_URI) },
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
         ) {
             Icon(
                 imageVector = Icons.Filled.FolderOpen,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(Sizes.s18),
             )
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.me_export_dir_pick))

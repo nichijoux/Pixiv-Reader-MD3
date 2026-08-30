@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Durations
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 骨架呼吸脉冲色：`surfaceVariant` + alpha 0.35↔0.75，替代全屏转圈的加载占位。
@@ -71,20 +73,20 @@ fun RankingBannerSkeleton(modifier: Modifier = Modifier) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.mdPlus, vertical = Spacing.xsPlus),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
         shape = AppShapes.card,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.mdPlus),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.mdPlus),
         ) {
             SkeletonBlock(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(Sizes.s48)
                     .clip(AppShapes.large),
                 color = color,
             )
@@ -98,7 +100,7 @@ fun RankingBannerSkeleton(modifier: Modifier = Modifier) {
                 )
                 SkeletonBlock(
                     modifier = Modifier
-                        .padding(top = 6.dp)
+                        .padding(top = Spacing.xsPlus)
                         .fillMaxWidth(0.3f)
                         .height(12.dp)
                         .clip(AppShapes.small),
@@ -106,7 +108,7 @@ fun RankingBannerSkeleton(modifier: Modifier = Modifier) {
                 )
             }
             SkeletonBlock(
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(Sizes.s20),
                 color = color,
             )
         }

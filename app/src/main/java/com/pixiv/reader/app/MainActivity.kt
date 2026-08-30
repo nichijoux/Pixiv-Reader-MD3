@@ -59,6 +59,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.feature.user.R as UserR
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
+import com.pixiv.reader.core.ui.theme.Spacing
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import javax.inject.Inject
@@ -256,7 +257,7 @@ class MainActivity : ComponentActivity() {
                             notificationHostState,
                             contentModifier = Modifier
                                 .navigationBarsPadding()
-                                .padding(bottom = 8.dp),
+                                .padding(bottom = Spacing.sm),
                         )
                     },
                 ) { padding ->

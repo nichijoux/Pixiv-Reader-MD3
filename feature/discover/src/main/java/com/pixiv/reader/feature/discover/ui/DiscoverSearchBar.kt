@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.discover.R
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 发现页搜索栏（聚焦高亮 + 清除/搜索按钮 + 筛选入口）。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,9 +42,9 @@ internal fun SearchField(
     onOpenFilter: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.mdPlus, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         OutlinedTextField(
             value = query,

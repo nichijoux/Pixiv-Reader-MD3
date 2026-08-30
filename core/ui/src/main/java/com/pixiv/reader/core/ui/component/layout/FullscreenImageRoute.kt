@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.image.ZoomableImage
 import com.pixiv.reader.core.ui.theme.ViewerScrim
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 全屏图片查看（URL 直入）：黑底 + 捏合缩放 + 顶部渐变返回栏。
@@ -62,7 +63,7 @@ fun FullscreenImageRoute(
                     ),
                 )
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {

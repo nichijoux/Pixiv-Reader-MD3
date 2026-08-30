@@ -53,6 +53,8 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.NovelCardData
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.launch
 
 /**
@@ -62,7 +64,6 @@ import kotlinx.coroutines.launch
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
  * @param onOpenNovel 打开小说详情
- * @param onOpenCover 打开小说封面全屏大图
  * @param onOpenUser 打开用户主页
  * @param onOpenSeries 打开小说系列详情
  */
@@ -72,7 +73,6 @@ fun HistoryRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
@@ -108,14 +108,14 @@ fun HistoryRoute(
                             Icon(
                                 imageVector = Icons.Filled.DeleteOutline,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(Sizes.s18),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                             Text(
                                 text = stringResource(R.string.history_clear),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(start = 4.dp),
+                                modifier = Modifier.padding(start = Spacing.xs),
                             )
                         }
                     }
@@ -155,7 +155,6 @@ fun HistoryRoute(
                             entries = history,
                             viewModel = viewModel,
                             onOpenNovel = onOpenNovel,
-                            onOpenCover = onOpenCover,
                             onOpenUser = onOpenUser,
                             onOpenSeries = onOpenSeries,
                             context = context,
@@ -218,7 +217,6 @@ private fun NovelHistoryList(
     entries: List<BrowseHistoryEntity>,
     viewModel: HistoryViewModel,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     context: Context,
@@ -229,15 +227,14 @@ private fun NovelHistoryList(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(entries, key = { it.id }) { entry ->
             val card = entry.toNovelCardData(context)
             NovelCard(
                 novel = card,
                 onClick = { onOpenNovel(entry.targetId) },
-                onOpenCover = { card.coverUrl?.let(onOpenCover) },
                 onOpenAuthor = { card.authorId.takeIf { it != 0L }?.let(onOpenUser) },
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(entry.targetId, fav) },
                 onTagClick = {},
@@ -263,8 +260,8 @@ private fun UserHistoryList(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(users, key = { it.id }) { entry ->
             CreatorProfileCard(

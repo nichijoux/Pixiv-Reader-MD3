@@ -28,6 +28,7 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 用户公开收藏页：拉取指定用户公开收藏的插画瀑布流。
@@ -83,7 +84,7 @@ fun UserBookmarksRoute(
                     onLoadMore = viewModel::loadMore,
                     hasMore = hasMore,
                     isLoadingMore = isLoadingMore,
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
                     onOpenUser = onOpenUser,
                 )
             }

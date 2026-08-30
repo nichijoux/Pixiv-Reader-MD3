@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.config.AppLanguage
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 /** 我的页「外观」设置：主题模式 / 动态取色 / 语言（各独立卡片）。 */
@@ -51,8 +52,8 @@ internal fun MeAppearanceSection(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             listOf(
                 ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
@@ -145,7 +146,7 @@ internal fun MeAppearanceSection(
                 readOnly = true,
                 singleLine = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).menuAnchor(),
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus).menuAnchor(),
             )
             ExposedDropdownMenu(
                 expanded = expanded && !switchingLanguage,

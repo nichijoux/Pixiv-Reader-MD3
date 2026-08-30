@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * pixiv 评论文本表情映射：`(name)` → emoji 数字 id。
@@ -160,7 +161,7 @@ fun PixivEmojiTagChip(
             .clip(AppShapes.card)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick)
-            .size(36.dp),
+            .size(Sizes.s36),
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         PixivEmojiTagImage(tag = tag, contentDescription = tag, size = 24.dp)

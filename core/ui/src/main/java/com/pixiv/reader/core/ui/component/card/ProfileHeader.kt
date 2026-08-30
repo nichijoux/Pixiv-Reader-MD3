@@ -19,6 +19,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /** 个人中心数据（可复用：我的页 / 用户主页头部）。 */
 data class ProfileHeaderData(
@@ -55,12 +57,12 @@ fun ProfileHeader(
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.mdPlus),
     ) {
         UserAvatar(
             name = profile.name,
             avatarUrl = profile.avatarUrl,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(Sizes.s72),
             onClick = onClickProfile,
         )
         Column(modifier = Modifier.weight(1f)) {
@@ -76,7 +78,7 @@ fun ProfileHeader(
                     text = "@${profile.account}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = Spacing.xxs),
                 )
             }
         }

@@ -58,6 +58,8 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.list.RankingBanner
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 漫画 Tab：左上角切换漫画 / 插画 / 动图三种内容流，各自独立分页瀑布流 + 下拉刷新；
@@ -108,17 +110,17 @@ fun MangaRoute(
                                     Icon(
                                         imageVector = tab.icon(),
                                         contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(Sizes.s20),
                                     )
                                     Text(
                                         text = stringResource(tab.labelRes()),
                                         fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 4.dp),
+                                        modifier = Modifier.padding(horizontal = Spacing.xs),
                                     )
                                     Icon(
                                         imageVector = Icons.Filled.ArrowDropDown,
                                         contentDescription = stringResource(R.string.manga_cd_switch_type),
-                                        modifier = Modifier.size(18.dp),
+                                        modifier = Modifier.size(Sizes.s18),
                                     )
                                 }
                                 DropdownMenu(

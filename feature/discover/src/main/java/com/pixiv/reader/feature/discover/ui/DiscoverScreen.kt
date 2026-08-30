@@ -33,7 +33,6 @@ import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 fun DiscoverRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -106,7 +105,6 @@ fun DiscoverRoute(
                     viewModel = viewModel,
                     onOpenIllust = onOpenIllust,
                     onOpenNovel = onOpenNovel,
-                    onOpenCover = onOpenCover,
                     onOpenUser = onOpenUser,
                     onOpenSeries = onOpenSeries,
                 )

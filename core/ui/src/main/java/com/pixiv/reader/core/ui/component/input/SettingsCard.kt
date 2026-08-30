@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 设置导航卡片数据（数据驱动 UI：图标 + 标题 + 描述 + 尾随动作）。
@@ -64,25 +65,25 @@ fun SettingsCard(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.mdPlus),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp),
+                    .size(Sizes.s40),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = item.icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(Sizes.s22),
                 )
             }
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 6.dp),
+                    .padding(start = Spacing.xsPlus),
             ) {
                 Text(
                     text = item.title,
@@ -98,7 +99,7 @@ fun SettingsCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp),
+                        modifier = Modifier.padding(top = Spacing.xxs),
                     )
                 }
             }
@@ -106,7 +107,7 @@ fun SettingsCard(
                 imageVector = item.trailingIcon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(Sizes.s20),
             )
         }
     }

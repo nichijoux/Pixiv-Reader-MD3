@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 我的页区块标题。 */
 @Composable
@@ -28,7 +29,7 @@ internal fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+        modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xsPlus),
     )
 }
 
@@ -104,7 +105,7 @@ internal fun PillSelectButton(
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = content,
             maxLines = 1,
-            modifier = Modifier.padding(horizontal = 8.dp),
+            modifier = Modifier.padding(horizontal = Spacing.sm),
         )
     }
 }
@@ -121,7 +122,7 @@ internal fun MeSettingCard(content: @Composable () -> Unit) {
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             content()
         }
     }

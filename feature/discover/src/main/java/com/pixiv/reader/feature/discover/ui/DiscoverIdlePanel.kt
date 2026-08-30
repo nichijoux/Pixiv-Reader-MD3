@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 
@@ -57,28 +60,28 @@ internal fun IdlePanel(
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(Spacing.lg),
         ) {
             if (history.isNotEmpty()) {
                 item(key = "history_title") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = Spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             Icons.Filled.History,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(Sizes.s18)
                         )
                         Text(
                             text = stringResource(R.string.search_history_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier
-                                .padding(start = 6.dp)
+                                .padding(start = Spacing.xsPlus)
                                 .weight(1f),
                         )
                         TextButton(onClick = {
@@ -94,9 +97,9 @@ internal fun IdlePanel(
                 // 历史胶囊：点击搜索、长按删除单条
                 item(key = "history_chips") {
                     FlowRow(
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = Spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
                         history.forEach { item ->
                             HistoryChip(
@@ -110,7 +113,7 @@ internal fun IdlePanel(
                 item {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        modifier = Modifier.padding(vertical = Spacing.sm)
                     )
                 }
             }
@@ -119,7 +122,7 @@ internal fun IdlePanel(
                     text = stringResource(R.string.search_hot_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
                 )
             }
             items(hotTags.take(6).withIndex().toList(), key = { it.index }) { (index, tag) ->
@@ -192,9 +195,9 @@ internal fun HistoryChip(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(AppShapes.large)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = Spacing.md, vertical = 7.dp),
     )
 }

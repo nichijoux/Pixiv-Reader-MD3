@@ -1,6 +1,5 @@
 package com.pixiv.reader.feature.novel.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 小说通用列表（推荐/关注页共用）：三态 + 下拉刷新 + 触底自动加载（LoadMoreItem 进入可视区自动续载下一页）。
@@ -40,7 +39,6 @@ internal fun NovelPagedList(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
@@ -65,8 +63,8 @@ internal fun NovelPagedList(
             items.isEmpty() -> EmptyBox(emptyText, modifier = Modifier.verticalScroll(rememberScrollState()))
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 if (header != null) {
                     item(key = "list_header") { header() }
@@ -75,7 +73,6 @@ internal fun NovelPagedList(
                     NovelCard(
                         novel = novel.toCardData(),
                         onClick = { onOpenNovel(novel.id) },
-                        onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                         onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                         onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                         onTagClick = onSearchTag,

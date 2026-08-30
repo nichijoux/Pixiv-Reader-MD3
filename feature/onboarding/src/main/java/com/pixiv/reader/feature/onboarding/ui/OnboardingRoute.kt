@@ -40,6 +40,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.onboarding.R
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.launch
 
 /** 引导页单页内容：图标 + 标题 + 描述（图标仅装饰，无内容描述）。 */
@@ -115,7 +117,7 @@ fun OnboardingRoute(
                         Icon(
                             imageVector = item.icon,
                             contentDescription = null,
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.size(Sizes.s64),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -138,10 +140,10 @@ fun OnboardingRoute(
 
         // 底部：指示器 + 主按钮（固定高度容器，文字切换无跳变）
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = Spacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 repeat(ONBOARDING_PAGES.size) { index ->
                     val selected = index == pagerState.currentPage
                     val dotWidth by animateDpAsState(

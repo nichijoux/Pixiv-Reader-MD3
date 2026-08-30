@@ -1,19 +1,12 @@
 package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,10 +22,10 @@ import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
 import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
 
 /** 插画 / 漫画分区内容：三态 + 瀑布流（漫画复用同一组件）。 */
@@ -61,7 +54,7 @@ internal fun SectionIllust(
             onLoadMore = onLoadMore,
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
             onToggleFavorite = onToggleFavorite,
             onOpenUser = onOpenUser,
         )
@@ -73,7 +66,6 @@ internal fun SectionIllust(
 internal fun SectionNovel(
     paged: PagedState<Novel>,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleFavorite: (Long, Boolean) -> Unit,
@@ -93,14 +85,13 @@ internal fun SectionNovel(
         items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_novel))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.id }) { novel ->
                 NovelCard(
                     novel = novel.toCardData(),
                     onClick = { onOpenNovel(novel.id) },
-                    onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                     onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,
@@ -137,8 +128,8 @@ internal fun SectionSeries(
         items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_series))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.id }) { series ->
                 val info = infos[series.id]

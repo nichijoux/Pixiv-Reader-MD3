@@ -29,6 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.input.SettingsCard
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 
 /** 开源仓库地址（与 git remote / CI 发布仓库一致）。 */
@@ -68,9 +70,9 @@ internal fun MeAboutSection(
             Image(
                 bitmap = appIcon.asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(Sizes.s40),
             )
-            Column(modifier = Modifier.padding(start = 12.dp)) {
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
                 Text(
                     text = "Pixiv Reader",
                     style = MaterialTheme.typography.titleMedium,
@@ -87,7 +89,7 @@ internal fun MeAboutSection(
             text = stringResource(R.string.me_about_description),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 10.dp),
+            modifier = Modifier.padding(top = Spacing.smPlus),
         )
     }
     CardSpacer()

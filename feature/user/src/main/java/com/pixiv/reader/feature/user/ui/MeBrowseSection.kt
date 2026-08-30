@@ -31,6 +31,7 @@ import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 我的页「浏览设置」：小说默认页 / 插画查看方向 / 关注页排序 / 剪贴板链接提示 / 小说下载命名（内容/浏览类偏好）。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,8 +56,8 @@ internal fun MeBrowseSection(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             listOf(
                 NovelDefaultTab.RECOMMEND to R.string.me_novel_default_recommend,
@@ -80,8 +81,8 @@ internal fun MeBrowseSection(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             listOf(
                 ViewerOrientation.HORIZONTAL to R.string.me_viewer_orientation_horizontal,
@@ -154,7 +155,7 @@ internal fun MeBrowseSection(
                     text = stringResource(R.string.me_clipboard_link_prompt_desc),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = Spacing.xxs),
                 )
             }
             Switch(
@@ -175,7 +176,7 @@ internal fun MeBrowseSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -190,7 +191,7 @@ internal fun MeBrowseSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = Spacing.xxs),
                 )
             }
             Icon(

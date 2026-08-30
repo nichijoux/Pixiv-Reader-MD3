@@ -36,6 +36,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 确认提示框的视觉种类：决定图标、强调色与确认按钮配色。
@@ -116,7 +117,7 @@ fun ConfirmDialog(
                         // 图标：强调色 8% 圆底 + 强调色图标
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(Sizes.s40)
                                 .clip(CircleShape)
                                 .background(accent.copy(alpha = 0.08f)),
                             contentAlignment = Alignment.Center,
@@ -125,7 +126,7 @@ fun ConfirmDialog(
                                 imageVector = resolvedIcon,
                                 contentDescription = null,
                                 tint = accent,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(Sizes.s20),
                             )
                         }
                         Spacer(Modifier.width(Spacing.md))

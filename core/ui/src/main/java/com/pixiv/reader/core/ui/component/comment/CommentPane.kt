@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.comment.CommentListViewModel
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 评论 pane（Master-Detail 右栏内嵌评论区，首页 / 作品页 / 小说页共用）。
@@ -60,14 +62,14 @@ fun CommentPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onBackToDetail)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(Sizes.s20),
             )
             Spacer(Modifier.width(6.dp))
             Text(

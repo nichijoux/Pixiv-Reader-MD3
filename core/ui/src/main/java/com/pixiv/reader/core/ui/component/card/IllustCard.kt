@@ -49,6 +49,7 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import kotlin.math.roundToInt
 
 /**
@@ -99,7 +100,7 @@ fun IllustCard(
     // 卡片根容器：圆角 + 卡片底色 + 整卡点击
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick),
     ) {
@@ -138,7 +139,7 @@ fun IllustCard(
             Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 if (illust.isAi()) {
                     Surface(
@@ -173,7 +174,7 @@ fun IllustCard(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(Spacing.sm)
-                        .size(28.dp)
+                        .size(Sizes.s28)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.35f))
                         .clickable {
@@ -186,7 +187,7 @@ fun IllustCard(
                         imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
                         tint = if (favorite) FavoriteRed else Color.White,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(Sizes.s18),
                     )
                 }
             }
@@ -194,14 +195,14 @@ fun IllustCard(
             val bookmarkCount = (illust.total_bookmarks ?: 0).toLong()
             if (bookmarkCount > 0) {
                 Surface(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.xsPlus),
                     color = Color.Black.copy(alpha = 0.45f),
                     shape = AppShapes.small,
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
@@ -218,11 +219,11 @@ fun IllustCard(
                 }
             }
         }
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(Spacing.smPlus)) {
             // 下载中 / 下载失败：标题栏替换为进度条 + 状态文案（下载管理用）
             if (progress != null) {
                 val color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     LinearProgressIndicator(
                         progress = { progress.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth().height(4.dp),
@@ -251,17 +252,17 @@ fun IllustCard(
             if (user != null) {
                 Row(
                     modifier = Modifier
-                        .padding(top = 6.dp)
+                        .padding(top = Spacing.xsPlus)
                         .clip(AppShapes.small)
                         .clickable(onClick = onOpenAuthor)
-                        .padding(end = 4.dp),
+                        .padding(end = Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
                     UserAvatar(
                         name = user.name,
                         avatarUrl = user.profile_image_urls?.best(),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizes.s20),
                     )
                     Text(
                         text = user.name.orEmpty(),

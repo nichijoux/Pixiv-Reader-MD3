@@ -40,6 +40,7 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.component.card.toCreatorProfile
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 用户关注列表页：CreatorProfileCard 用户卡片（头像 + 代表作 + 关注按钮）。
@@ -89,8 +90,8 @@ fun UserFollowingRoute(
                 items.isEmpty() -> EmptyBox(stringResource(R.string.user_following_empty))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
                 ) {
                     items(items, key = { it.user?.id ?: 0L }) { preview ->
                         FollowingUserCard(

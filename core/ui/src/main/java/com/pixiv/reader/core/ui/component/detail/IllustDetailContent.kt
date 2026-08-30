@@ -83,6 +83,7 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.ViewerScrim
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 插画详情渲染块（core:ui 下沉，供详情路由与排行榜右栏共用）。
@@ -295,13 +296,13 @@ fun IllustPagePager(
                                         imageVector = Icons.Filled.Refresh,
                                         contentDescription = strings.loadRetry,
                                         tint = Color.White,
-                                        modifier = Modifier.size(28.dp),
+                                        modifier = Modifier.size(Sizes.s28),
                                     )
                                     Text(
                                         text = strings.loadRetry,
                                         style = MaterialTheme.typography.labelMedium,
                                         color = Color.White,
-                                        modifier = Modifier.padding(top = 6.dp),
+                                        modifier = Modifier.padding(top = Spacing.xsPlus),
                                     )
                                 }
                             }
@@ -330,12 +331,12 @@ fun IllustPagePager(
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                         ) {
                                             CircularProgressIndicator(
                                                 color = Color.White,
                                                 strokeWidth = 2.dp,
-                                                modifier = Modifier.size(32.dp),
+                                                modifier = Modifier.size(Sizes.s32),
                                             )
                                             Text(
                                                 text = "${(ugoiraProgress * 100).toInt()}%",
@@ -373,16 +374,16 @@ fun IllustPagePager(
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(10.dp),
+                    .padding(Spacing.smPlus),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
                 Box(
                     modifier = Modifier
                         .height(32.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(AppShapes.card)
                         .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = Spacing.md),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -393,8 +394,8 @@ fun IllustPagePager(
                 }
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(Sizes.s32)
+                        .clip(AppShapes.card)
                         .background(Color.Black.copy(alpha = 0.5f))
                         .clickable { onOpenViewer(pagerState.currentPage) },
                     contentAlignment = Alignment.Center,
@@ -403,7 +404,7 @@ fun IllustPagePager(
                         imageVector = Icons.Filled.Fullscreen,
                         contentDescription = strings.fullscreen,
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(Sizes.s18),
                     )
                 }
             }
@@ -434,7 +435,7 @@ fun IllustInfoSection(
     onOpenNovel: (Long) -> Unit = {},
 ) {
     if (illust == null) return
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
+    Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 18.dp)) {
         Text(
             text = illust.title.orEmpty(),
             style = MaterialTheme.typography.titleLarge,
@@ -444,17 +445,17 @@ fun IllustInfoSection(
         val authorId = illust.user?.id
         Row(
             modifier = Modifier
-                .padding(top = 14.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .padding(top = Spacing.mdPlus)
+                .clip(AppShapes.cardSmall)
                 .clickable(enabled = authorId != null) { authorId?.let(onOpenUser) }
-                .padding(4.dp),
+                .padding(Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             UserAvatar(
                 name = illust.user?.name,
                 avatarUrl = illust.user?.profile_image_urls?.best(),
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(Sizes.s40),
             )
             Text(
                 text = illust.user?.name.orEmpty(),
@@ -473,7 +474,7 @@ fun IllustInfoSection(
             )
         }
         // 统计行：浏览 / 收藏 / 页数 均分（纯文字，无卡片背景）
-        Row(modifier = Modifier.padding(top = 16.dp)) {
+        Row(modifier = Modifier.padding(top = Spacing.lg)) {
             StatBlock(
                 icon = Icons.Filled.Visibility,
                 value = formatCount((illust.total_view ?: 0).toLong()),
@@ -497,9 +498,9 @@ fun IllustInfoSection(
         val tags = illust.tags.orEmpty().take(8)
         if (tags.isNotEmpty()) {
             FlowRow(
-                modifier = Modifier.padding(top = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = Spacing.mdPlus),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 tags.forEach { tag ->
                     val tagName = tag.displayName ?: tag.name.orEmpty()
@@ -509,10 +510,10 @@ fun IllustInfoSection(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(AppShapes.card)
                                 .background(MaterialTheme.colorScheme.secondaryContainer)
                                 .clickable { onSearchTag(tagName) }
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                                .padding(horizontal = Spacing.smPlus, vertical = Spacing.xs),
                         )
                     }
                 }
@@ -547,7 +548,7 @@ fun IllustInfoSection(
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
                 // 展开/收起时高度平滑过渡
                 modifier = Modifier
-                    .padding(top = 14.dp)
+                    .padding(top = Spacing.mdPlus)
                     .animateContentSize(),
                 onTextLayout = { layout: TextLayoutResult ->
                     // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
@@ -588,8 +589,8 @@ private fun ActionButtonsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(top = Spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         VerticalActionButton(
             icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -645,7 +646,7 @@ private fun StatBlock(
                 imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizes.s16),
             )
             Text(
                 text = value,
@@ -658,7 +659,7 @@ private fun StatBlock(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
+            modifier = Modifier.padding(top = Spacing.xxs),
         )
     }
 }
@@ -695,7 +696,7 @@ private fun AuthorFollowPill(
             )
             .background(container)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 5.dp),
+            .padding(horizontal = Spacing.md, vertical = 5.dp),
     )
 }
 
@@ -707,19 +708,19 @@ fun IllustRelatedSection(
     strings: IllustDetailStrings,
     onOpenIllust: (Long) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = Modifier.padding(Spacing.lg)) {
         Text(
             strings.related,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
             items(items, key = { it.id }) { related ->
                 Column(
                     modifier = Modifier
                         .width(150.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(AppShapes.cardSmall)
                         .background(MaterialTheme.colorScheme.surfaceContainer)
                         .clickable { onOpenIllust(related.id) },
                 ) {
@@ -737,7 +738,7 @@ fun IllustRelatedSection(
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(6.dp),
+                        modifier = Modifier.padding(Spacing.xsPlus),
                     )
                 }
             }

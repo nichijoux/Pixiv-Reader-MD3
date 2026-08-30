@@ -49,6 +49,9 @@ import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 private const val TAG = "Notification"
 
@@ -171,7 +174,7 @@ internal fun NotificationRow(item: NotificationItem, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         UserAvatar(name = null, avatarUrl = content?.left_image, modifier = Modifier.size(46.dp))
@@ -220,8 +223,8 @@ internal fun NotificationRow(item: NotificationItem, onClick: () -> Unit) {
                 url = url,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(10.dp)),
+                    .size(Sizes.s44)
+                    .clip(AppShapes.cardSmall),
             )
         }
     }
@@ -233,17 +236,17 @@ internal fun NotificationGroupCard(item: NotificationItem, onClick: () -> Unit) 
     val more = item.view_more ?: return
     Row(
         modifier = Modifier
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = Spacing.mdPlus, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(Sizes.s40)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center,
@@ -252,7 +255,7 @@ internal fun NotificationGroupCard(item: NotificationItem, onClick: () -> Unit) 
                 Icons.Filled.Favorite,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(Sizes.s22),
             )
         }
         Spacer(Modifier.width(12.dp))

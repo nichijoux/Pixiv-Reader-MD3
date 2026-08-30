@@ -53,6 +53,7 @@ import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelFeedViewModel
 import kotlinx.coroutines.launch
@@ -64,13 +65,12 @@ import kotlinx.coroutines.launch
  * 推荐页：排行榜入口 banner（列表头部，随滚动）+ 推荐流；关注页：关注用户的新小说流。
  * 两个流各自独立 PagedState（数据驻留 VM），关注 Tab 首次进入才加载，切回不重复请求；
  * 均支持下拉刷新（PullToRefreshBox）。初始页由「我的-浏览设置-小说默认页」决定。
- * item 与搜索结果一致（NovelCard）：封面→全屏大图、作者→主页、收藏、标签→搜索。
+ * item 与搜索结果一致（NovelCard）：整卡（含封面）→ 详情、作者→主页、收藏、标签→搜索。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelRoute(
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenNovelRanking: () -> Unit,
@@ -169,7 +169,6 @@ fun NovelRoute(
                                     onOpenNovel = { id ->
                                         if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
                                     },
-                                    onOpenCover = onOpenCover,
                                     onOpenUser = onOpenUser,
                                     onSearchTag = onSearchTag,
                                     onOpenSeries = onOpenSeries,
@@ -180,7 +179,6 @@ fun NovelRoute(
                                     onOpenNovel = { id ->
                                         if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
                                     },
-                                    onOpenCover = onOpenCover,
                                     onOpenUser = onOpenUser,
                                     onSearchTag = onSearchTag,
                                     onOpenSeries = onOpenSeries,
@@ -221,7 +219,6 @@ fun NovelRoute(
 private fun NovelRecommendTab(
     onOpenNovelRanking: () -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
@@ -247,7 +244,6 @@ private fun NovelRecommendTab(
         onRetry = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
         onOpenNovel = onOpenNovel,
-        onOpenCover = onOpenCover,
         onOpenUser = onOpenUser,
         onSearchTag = onSearchTag,
         onOpenSeries = onOpenSeries,
@@ -266,7 +262,6 @@ private fun NovelRecommendTab(
 @Composable
 private fun NovelFollowTab(
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
@@ -292,7 +287,6 @@ private fun NovelFollowTab(
         onRetry = viewModel::refreshFollow,
         onLoadMore = viewModel::loadMoreFollow,
         onOpenNovel = onOpenNovel,
-        onOpenCover = onOpenCover,
         onOpenUser = onOpenUser,
         onSearchTag = onSearchTag,
         onOpenSeries = onOpenSeries,
@@ -337,8 +331,8 @@ private fun NovelWatchlistTab(
             else -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 items(items, key = { it.id }) { series ->
                     val info = infos[series.id]

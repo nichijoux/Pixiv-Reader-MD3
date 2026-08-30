@@ -67,7 +67,7 @@ fun ErrorBox(
         )
         Button(onClick = onRetry, modifier = Modifier.padding(top = Spacing.lg)) {
             Icon(Icons.Filled.Refresh, contentDescription = null)
-            Text(stringResource(R.string.retry), modifier = Modifier.padding(start = 6.dp))
+            Text(stringResource(R.string.retry), modifier = Modifier.padding(start = Spacing.xsPlus))
         }
     }
 }

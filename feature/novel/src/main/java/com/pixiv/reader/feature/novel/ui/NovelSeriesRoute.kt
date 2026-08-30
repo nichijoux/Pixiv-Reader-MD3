@@ -45,6 +45,7 @@ import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
@@ -128,7 +129,7 @@ fun NovelSeriesRoute(
                     items.isEmpty() && detail == null -> EmptyBox(stringResource(R.string.novel_not_found))
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
                     ) {
                         if (detail != null) {
                             item(key = "header") {
@@ -157,17 +158,13 @@ fun NovelSeriesRoute(
                                 ),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xsPlus),
                             )
                         }
                         items(items, key = { it.id }) { novel ->
                             NovelCard(
                                 novel = novel.toCardData(),
                                 onClick = { onOpenNovel(novel.id) },
-                                onOpenCover = {
-                                    (novel.image_urls?.square_medium
-                                        ?: novel.image_urls?.medium)?.let(onOpenCover)
-                                },
                                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                                 onToggleFavorite = { fav ->
                                     viewModel.toggleNovelFavorite(
@@ -178,7 +175,7 @@ fun NovelSeriesRoute(
                                 onTagClick = onSearchTag,
                                 // 系列页内分册：点系列标题回到当前系列（同路由，popUpTo 语义由导航处理）
                                 onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                                modifier = Modifier.padding(horizontal = 16.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.lg),
                             )
                         }
                         if (hasMore) {

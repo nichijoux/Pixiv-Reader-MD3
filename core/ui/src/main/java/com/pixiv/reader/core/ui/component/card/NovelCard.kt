@@ -45,12 +45,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
@@ -80,7 +82,7 @@ typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
  * 小说通用卡片（Material 主题自适应，上下两部分布局：上方 左封面|右信息，下方 标签）。
  *
  * ## UI 设计方式
- * - **上部分**（Row）：左封面（104dp 宽 + `aspectRatio(3/4)` 书籍比例，圆角 12dp，点击进阅读器）；
+ * - **上部分**（Row）：左封面（104dp 宽 + `aspectRatio(3/4)` 书籍比例，圆角 12dp，点击随整卡打开详情）；
  *   底部居中角标（无背景、白色加粗 11sp + 轻文字阴影）：红心 + 收藏数 / 字数两行。
  *   右信息（Column 撑满封面高度，作者行抵底）：
  *   - 标题：`titleMedium` 加粗 `onSurface`（最多 2 行省略）+ 右侧收藏切换按钮
@@ -90,13 +92,12 @@ typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
  * 颜色全部取自 `MaterialTheme`，尺寸用 `aspectRatio`/`typography`/相对布局，不硬编码。
  *
  * ## 交互
- * - [onClick] 整卡 → 小说详情；[onOpenCover] 封面 → 全屏查看封面大图
+ * - [onClick] 整卡（含封面）→ 小说详情
  * - [onOpenAuthor] 作者行 → 用户主页；[onToggleFavorite] 收藏切换（组件维护 UI 态 + 回调外部 API）
  * - [onTagClick] 标签 → 搜索该标签
  *
  * @param novel 卡片数据（见 [NovelCardData]）
  * @param onClick 整卡点击（打开小说详情）
- * @param onOpenCover 封面点击（全屏查看封面大图；coverUrl 为空时封面不可点）
  * @param onOpenAuthor 作者行点击（打开用户主页；快照缺 authorId 时传空 lambda）
  * @param onToggleFavorite 收藏切换回调（参数为目标状态 true=收藏）；组件本地维护 UI 态
  * @param onSeriesClick 系列标题点击（打开系列详情页；seriesId 为 null 时系列标题不可点）
@@ -105,6 +106,7 @@ typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
  * @param showFavoriteCount 是否显示封面角标的「红心+收藏数」行（默认 true；下载管理等场景传 false，
  *                          仅隐藏收藏数行，字数行保留）
  * @param coverBadge 封面右上角浮层内容（如下载管理页的格式类型胶囊）；null 时不渲染
+ * @param coverWidth 封面宽度（默认 104dp，3:4 比例；紧凑场景可传更小值）
  * @param modifier 外部传入的 Modifier
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -112,7 +114,6 @@ typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
 fun NovelCard(
     novel: NovelCardData,
     onClick: () -> Unit,
-    onOpenCover: () -> Unit,
     onOpenAuthor: () -> Unit,
     onToggleFavorite: (Boolean) -> Unit,
     onTagClick: (String) -> Unit,
@@ -120,6 +121,7 @@ fun NovelCard(
     rank: Int? = null,
     showFavoriteCount: Boolean = true,
     coverBadge: (@Composable () -> Unit)? = null,
+    coverWidth: Dp = 104.dp,
     modifier: Modifier = Modifier,
 ) {
     // 收藏态：初始化为数据模型中的 isFavorite，点击切换并回调外部执行 API
@@ -145,18 +147,17 @@ fun NovelCard(
         ),
         shape = AppShapes.large,
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(Spacing.mdPlus)) {
             // ── 上部分：左右布局（左封面 | 右信息） ──
             // height(IntrinsicSize.Min)：Row 高度取封面固有高度（104×4/3），
             // 使右信息 Column 的 fillMaxHeight 有确定高度可撑满，作者行才能抵底与封面齐平。
             Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                // 左：封面（书籍比例 + 底部居中角标；无封面 URL 时不可点）
+                // 左：封面（书籍比例 + 底部居中角标；点击随整卡 onClick 打开小说详情）
                 Box(
                     modifier = Modifier
-                        .width(104.dp)
+                        .width(coverWidth)
                         .aspectRatio(3f / 4f)
                         .clip(AppShapes.card)
-                        .clickable(enabled = !novel.coverUrl.isNullOrBlank(), onClick = onOpenCover)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 ) {
                     AsyncImage(
@@ -170,7 +171,7 @@ fun NovelCard(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .padding(6.dp)
+                                .padding(Spacing.xsPlus)
                                 .clip(AppShapes.small)
                                 .background(Color.Black.copy(alpha = 0.45f))
                                 .padding(horizontal = Spacing.sm, vertical = 3.dp),
@@ -189,7 +190,7 @@ fun NovelCard(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(6.dp),
+                                .padding(Spacing.xsPlus),
                         ) {
                             coverBadge()
                         }
@@ -227,7 +228,7 @@ fun NovelCard(
                 // 右：信息区（顶部标题/系列，弹性占位后作者+时间抵底）
                 Column(
                     modifier = Modifier
-                        .padding(start = 14.dp)
+                        .padding(start = Spacing.mdPlus)
                         .weight(1f)
                         .fillMaxHeight(),
                 ) {
@@ -235,7 +236,7 @@ fun NovelCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = novel.title,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
@@ -247,13 +248,13 @@ fun NovelCard(
                                 favorite = !favorite
                                 onToggleFavorite(favorite)
                             },
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(Sizes.s40),
                         ) {
                             Icon(
                                 imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                                 contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
                                 tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(Sizes.s24),
                             )
                         }
                     }
@@ -262,10 +263,10 @@ fun NovelCard(
                     if (!novel.seriesTitle.isNullOrBlank()) {
                         Row(
                             modifier = Modifier
-                                .padding(top = 6.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                                .padding(top = Spacing.xsPlus)
+                                .clip(AppShapes.tiny)
                                 .clickable(enabled = seriesId != null, onClick = { seriesId?.let(onSeriesClick) })
-                                .padding(end = 4.dp, bottom = 2.dp),
+                                .padding(end = Spacing.xs, bottom = Spacing.xxs),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
@@ -280,7 +281,7 @@ fun NovelCard(
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(start = 4.dp),
+                                modifier = Modifier.padding(start = Spacing.xs),
                             )
                         }
                     }
@@ -296,7 +297,7 @@ fun NovelCard(
                         UserAvatar(
                             name = novel.authorName,
                             avatarUrl = novel.authorAvatarUrl,
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(Sizes.s28),
                         )
                         Text(
                             text = novel.authorName,
@@ -322,9 +323,9 @@ fun NovelCard(
             // ── 下部分：标签（FlowRow + 折叠 "+N"，无分隔线） ──
             if (novel.tags.isNotEmpty()) {
                 FlowRow(
-                    modifier = Modifier.padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = Spacing.smPlus),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
                     novel.tags.take(5).forEach { tag ->
                         NovelTagChip(text = "#$tag", onClick = { onTagClick(tag) })

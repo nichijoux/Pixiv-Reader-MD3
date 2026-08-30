@@ -40,6 +40,9 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 追更：已追更的小说系列列表。
@@ -90,8 +93,8 @@ fun WatchlistRoute(
                 items.isEmpty() -> EmptyBox(stringResource(R.string.watchlist_empty))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    contentPadding = PaddingValues(vertical = Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
                 ) {
                     items(items, key = { it.id }) { series ->
                         WatchlistRow(series = series, onClick = {
@@ -120,19 +123,19 @@ private fun WatchlistRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.card)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         UserAvatar(
             name = series.user?.name,
             avatarUrl = series.user?.profile_image_urls?.best(),
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(Sizes.s44),
         )
         Column(
             modifier = Modifier
-                .padding(start = 12.dp)
+                .padding(start = Spacing.md)
                 .weight(1f),
         ) {
             Text(
@@ -143,8 +146,8 @@ private fun WatchlistRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
-                modifier = Modifier.padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(top = Spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 if (!series.user?.name.isNullOrBlank()) {
                     Text(

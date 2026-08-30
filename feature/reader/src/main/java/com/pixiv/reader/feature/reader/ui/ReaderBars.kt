@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 阅读器顶栏浮层：返回 / 标题 / 更多菜单（收藏 / 阅读书签 / 追更）。
@@ -85,7 +86,7 @@ internal fun ReaderTopBar(
                             text = stringResource(R.string.reader_local_badge),
                             style = MaterialTheme.typography.labelSmall,
                             color = themeColors.text.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(start = 6.dp),
+                            modifier = Modifier.padding(start = Spacing.xsPlus),
                         )
                     }
                 }
@@ -210,7 +211,7 @@ private fun ReaderToolBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(themeColors.topBar)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {

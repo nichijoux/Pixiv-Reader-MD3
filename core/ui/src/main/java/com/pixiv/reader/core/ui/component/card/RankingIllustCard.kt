@@ -49,6 +49,7 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 排行榜大图卡片（插画/漫画通用，作为 [RankingList] 的 itemContent 渲染）。
@@ -87,7 +88,7 @@ fun RankingIllustCard(
     // 卡片根容器：圆角 + 卡片底色 + 整卡点击
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick),
     ) {
@@ -125,7 +126,7 @@ fun RankingIllustCard(
             Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 // 排名徽标：1金/2橙/3灰，斜体加粗大号（排行榜灵魂）
                 Surface(
@@ -174,7 +175,7 @@ fun RankingIllustCard(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(Spacing.sm)
-                        .size(28.dp)
+                        .size(Sizes.s28)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.35f))
                         .clickable {
@@ -187,7 +188,7 @@ fun RankingIllustCard(
                         imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
                         tint = if (favorite) FavoriteRed else Color.White,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(Sizes.s18),
                     )
                 }
             }
@@ -195,14 +196,14 @@ fun RankingIllustCard(
             val bookmarkCount = (illust.total_bookmarks ?: 0).toLong()
             if (bookmarkCount > 0) {
                 Surface(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.xsPlus),
                     color = Color.Black.copy(alpha = 0.45f),
                     shape = AppShapes.small,
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
@@ -219,7 +220,7 @@ fun RankingIllustCard(
                 }
             }
         }
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(Spacing.smPlus)) {
             Text(
                 text = illust.title.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
@@ -231,17 +232,17 @@ fun RankingIllustCard(
             if (user != null) {
                 Row(
                     modifier = Modifier
-                        .padding(top = 6.dp)
+                        .padding(top = Spacing.xsPlus)
                         .clip(AppShapes.small)
                         .clickable(onClick = onOpenAuthor)
-                        .padding(end = 4.dp),
+                        .padding(end = Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
                     UserAvatar(
                         name = user.name,
                         avatarUrl = user.profile_image_urls?.best(),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizes.s20),
                     )
                     Text(
                         text = user.name.orEmpty(),

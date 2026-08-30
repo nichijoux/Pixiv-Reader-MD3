@@ -49,6 +49,9 @@ import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 // ── 下载底部弹窗 ─────────────────────────────────────────────────────────────
 
@@ -142,12 +145,12 @@ internal fun DownloadSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(bottom = 16.dp),
+                .padding(bottom = Spacing.lg),
         ) {
             Text(
                 text = stringResource(R.string.novel_download_title),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lgPlus, vertical = Spacing.xs),
             )
             if (isSeriesPage || (config as? DownloadSheetConfig.Detail)?.hasSeries == true) {
                 // 范围选择器：系列页「整个系列 / 选取部分」；详情页「单个文件 / 整个系列」
@@ -165,7 +168,7 @@ internal fun DownloadSheet(
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                        .padding(horizontal = Spacing.lgPlus, vertical = Spacing.xs),
                 ) {
                     labels.forEachIndexed { index, (labelRes, s) ->
                         SegmentedButton(
@@ -191,7 +194,7 @@ internal fun DownloadSheet(
                     ),
                     style = novelMetaStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.lgPlus, vertical = Spacing.xs),
                 )
                 LazyColumn(
                     modifier = Modifier
@@ -256,20 +259,20 @@ private fun PartialChapterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.card)
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.lgPlus, vertical = Spacing.xsPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(Sizes.s20),
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 10.dp),
+                .padding(start = Spacing.smPlus),
         ) {
             Text(
                 text = novel.title.orEmpty(),
@@ -298,7 +301,7 @@ private fun DialogGroupTitle(text: String) {
         text = text,
         style = novelMetaStyle(),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp, start = 20.dp, end = 20.dp),
+        modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xxs, start = Spacing.lgPlus, end = Spacing.lgPlus),
     )
 }
 
@@ -313,21 +316,21 @@ private fun DownloadOption(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.card)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = Spacing.lgPlus, vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(Sizes.s24),
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 14.dp),
+                .padding(start = Spacing.mdPlus),
         ) {
             Text(
                 text = title,
@@ -338,7 +341,7 @@ private fun DownloadOption(
                 text = subtitle,
                 style = novelSmallLabelStyle(),
                 color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = Spacing.xxs),
             )
         }
     }

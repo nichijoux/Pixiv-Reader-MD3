@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.reader.R
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -98,7 +100,7 @@ fun ReaderSettingsSheet(
                 .widthIn(max = 560.dp)
                 .heightIn(max = 640.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = Spacing.lgPlus)
                 .padding(bottom = 28.dp),
         ) {
             Text(
@@ -109,7 +111,7 @@ fun ReaderSettingsSheet(
 
             // ── 排版：两两分组一行 ──
             SectionLabel(stringResource(R.string.reader_settings_section_typography))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
                 // 字号：Stepper（MD3：outlined 按钮自带边框，中间值，间距拉开）
                 TypographyCard(
                     title = stringResource(R.string.reader_settings_font_size),
@@ -118,7 +120,7 @@ fun ReaderSettingsSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 2.dp),
+                            .padding(top = Spacing.xxs),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
                     ) {
@@ -126,7 +128,7 @@ fun ReaderSettingsSheet(
                             onClick = { onFontSizeChange((fontSize - 1f).coerceAtLeast(14f)) },
                             modifier = Modifier.size(30.dp),
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(Sizes.s16))
                         }
                         Text(
                             "${fontSize.roundToInt()}sp",
@@ -137,7 +139,7 @@ fun ReaderSettingsSheet(
                             onClick = { onFontSizeChange((fontSize + 1f).coerceAtMost(24f)) },
                             modifier = Modifier.size(30.dp),
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(Sizes.s16))
                         }
                     }
                 }
@@ -163,7 +165,7 @@ fun ReaderSettingsSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(28.dp)
-                            .padding(horizontal = 2.dp),
+                            .padding(horizontal = Spacing.xxs),
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -177,7 +179,7 @@ fun ReaderSettingsSheet(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
                 SliderCard(
                     title = stringResource(R.string.reader_settings_indent),
                     valueText = stringResource(R.string.reader_settings_indent_value, paragraphIndent),
@@ -201,7 +203,7 @@ fun ReaderSettingsSheet(
                     modifier = Modifier.weight(1f),
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
                 SliderCard(
                     title = stringResource(R.string.reader_settings_line_spacing),
                     valueText = String.format(Locale.US, "%.2f", lineHeight),
@@ -239,7 +241,7 @@ fun ReaderSettingsSheet(
                 onValueChange = onBrightnessChange,
                 minLabel = "5%",
                 maxLabel = stringResource(R.string.reader_settings_brightness_auto),
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
             )
 
             SectionLabel(stringResource(R.string.reader_settings_section_font))
@@ -257,9 +259,9 @@ fun ReaderSettingsSheet(
             }
             // 自定义字体：导入 / 清除
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 OutlinedButton(onClick = onImportFont, modifier = Modifier.weight(1f)) {
                     Text(if (hasCustomFont) stringResource(R.string.reader_settings_change_custom_font) else stringResource(R.string.reader_settings_import_custom_font))
@@ -288,7 +290,7 @@ fun ReaderSettingsSheet(
             }
             // 跟随系统深色模式
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -357,17 +359,17 @@ private fun FontWeightCard(
         title = stringResource(R.string.reader_settings_font_weight),
         modifier = modifier,
     ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(top = Spacing.xxs)) {
             OutlinedButton(
                 onClick = { menuOpen = true },
                 modifier = Modifier.fillMaxWidth().height(30.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp),
+                contentPadding = PaddingValues(horizontal = Spacing.smPlus),
             ) {
                 Text(label, fontSize = 13.sp)
                 Icon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(Sizes.s18),
                 )
             }
             DropdownMenu(
@@ -407,7 +409,7 @@ private fun TypographyCard(
         modifier = modifier
             .clip(AppShapes.card)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.smPlus, vertical = Spacing.xsPlus),
     ) {
         if (valueText != null) {
             Row(
@@ -463,7 +465,7 @@ private fun SliderCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(28.dp)
-                .padding(horizontal = 2.dp),
+                .padding(horizontal = Spacing.xxs),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -503,7 +505,7 @@ private fun SectionLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
+        modifier = Modifier.padding(top = 18.dp, bottom = Spacing.xsPlus),
     )
 }
 

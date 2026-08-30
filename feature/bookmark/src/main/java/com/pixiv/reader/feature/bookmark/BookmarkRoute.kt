@@ -1,12 +1,9 @@
 package com.pixiv.reader.feature.bookmark
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -15,7 +12,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -30,12 +26,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,10 +42,10 @@ import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 /**
@@ -68,7 +61,6 @@ fun BookmarkRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
@@ -128,8 +120,8 @@ fun BookmarkRoute(
                 // 标签筛选（当前类型的标签）
                 if (tags.isNotEmpty()) {
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
                     ) {
                         item(key = "all") {
                             FilterChip(
@@ -159,7 +151,6 @@ fun BookmarkRoute(
                         BookmarkType.NOVEL -> BookmarkNovelList(
                             paged = viewModel.novelPaged,
                             onOpenNovel = onOpenNovel,
-                            onOpenCover = onOpenCover,
                             onOpenUser = onOpenUser,
                             onOpenSeries = onOpenSeries,
                             onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
@@ -197,7 +188,7 @@ private fun BookmarkIllustList(
             onLoadMore = onLoadMore,
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
             onOpenUser = onOpenUser,
         )
     }
@@ -207,7 +198,6 @@ private fun BookmarkIllustList(
 private fun BookmarkNovelList(
     paged: PagedState<com.pixiv.api.model.Novel>,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleFavorite: (Long, Boolean) -> Unit,
@@ -226,14 +216,13 @@ private fun BookmarkNovelList(
         items.isEmpty() -> EmptyBox(stringResource(R.string.bookmark_empty))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.id }) { novel ->
                 NovelCard(
                     novel = novel.toCardData(),
                     onClick = { onOpenNovel(novel.id) },
-                    onOpenCover = { (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(onOpenCover) },
                     onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,

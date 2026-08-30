@@ -1,5 +1,7 @@
 package com.pixiv.reader.core.ui.component.input
 
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,11 +45,11 @@ fun VerticalActionButton(
     Column(
         modifier = modifier
             .height(56.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.card)
             .border(
                 width = 1.dp,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                shape = RoundedCornerShape(12.dp),
+                shape = AppShapes.card,
             )
             .background(
                 if (active) MaterialTheme.colorScheme.primaryContainer
@@ -72,7 +74,7 @@ fun VerticalActionButton(
             text = label,
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
             color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = Spacing.xs),
         )
     }
 }

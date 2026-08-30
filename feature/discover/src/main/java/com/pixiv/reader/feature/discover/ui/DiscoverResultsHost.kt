@@ -24,6 +24,7 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
@@ -35,7 +36,6 @@ internal fun SearchResultPager(
     viewModel: DiscoverViewModel,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
@@ -73,12 +73,11 @@ internal fun SearchResultPager(
                 }
 
                 SearchType.NOVEL -> if (filters.sort == "popular_preview") {
-                    HotNovelList(viewModel, onOpenNovel, onOpenCover, onOpenUser, onOpenSeries)
+                    HotNovelList(viewModel, onOpenNovel, onOpenUser, onOpenSeries)
                 } else {
                     NovelSearchResults(
                         viewModel,
                         onOpenNovel,
-                        onOpenCover,
                         onOpenUser,
                         onOpenSeries
                     )
@@ -118,7 +117,6 @@ private fun HotIllustGrid(
 private fun HotNovelList(
     viewModel: DiscoverViewModel,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
@@ -129,18 +127,13 @@ private fun HotNovelList(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(popular, key = { it.id }) { novel ->
             NovelCard(
                 novel = novel.toCardData(),
                 onClick = { onOpenNovel(novel.id) },
-                onOpenCover = {
-                    (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(
-                        onOpenCover
-                    )
-                },
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(novel.id, fav) },
                 onTagClick = { tag ->

@@ -2,8 +2,6 @@ package com.pixiv.reader.feature.follow.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -36,6 +36,8 @@ import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.follow.R
 import com.pixiv.reader.feature.follow.data.FollowFeedItem
 import androidx.compose.foundation.lazy.items as lazyItems
@@ -63,7 +65,6 @@ internal fun FollowFeed(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
@@ -71,7 +72,7 @@ internal fun FollowFeed(
     when {
         isLoading && items.isEmpty() -> if (isCompact) FollowFeedListSkeleton() else IllustWaterfallSkeleton(
             minColumnWidth = 240.dp,
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.md, bottom = Spacing.lg),
         )
 
         hasError && items.isEmpty() -> ErrorBox(
@@ -92,7 +93,6 @@ internal fun FollowFeed(
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
                 onOpenUser = onOpenUser,
-                onOpenCover = onOpenCover,
                 onOpenSeries = onOpenSeries,
                 onToggleIllustFavorite = onToggleIllustFavorite,
                 onToggleNovelFavorite = onToggleNovelFavorite,
@@ -105,7 +105,6 @@ internal fun FollowFeed(
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
                 onOpenUser = onOpenUser,
-                onOpenCover = onOpenCover,
                 onOpenSeries = onOpenSeries,
                 onToggleIllustFavorite = onToggleIllustFavorite,
                 onToggleNovelFavorite = onToggleNovelFavorite,
@@ -123,15 +122,14 @@ private fun FollowFeedList(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = Spacing.smPlus, end = Spacing.smPlus, top = Spacing.smPlus, bottom = Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         lazyItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
@@ -139,7 +137,6 @@ private fun FollowFeedList(
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
                 onOpenUser = onOpenUser,
-                onOpenCover = onOpenCover,
                 onOpenSeries = onOpenSeries,
                 onToggleIllustFavorite = onToggleIllustFavorite,
                 onToggleNovelFavorite = onToggleNovelFavorite,
@@ -160,7 +157,6 @@ private fun FollowFeedGrid(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
@@ -168,7 +164,7 @@ private fun FollowFeedGrid(
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(240.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.md, bottom = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalItemSpacing = Spacing.sm,
     ) {
@@ -179,7 +175,6 @@ private fun FollowFeedGrid(
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
                 onOpenUser = onOpenUser,
-                onOpenCover = onOpenCover,
                 onOpenSeries = onOpenSeries,
                 onToggleIllustFavorite = onToggleIllustFavorite,
                 onToggleNovelFavorite = onToggleNovelFavorite,
@@ -197,13 +192,13 @@ private fun FollowFeedListSkeleton() {
     val color = skeletonPulseColor(label = "followFeedSkeleton")
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = Spacing.smPlus, end = Spacing.smPlus, top = Spacing.smPlus, bottom = Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(count = 3) {
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(AppShapes.cardLarge)
                     .background(MaterialTheme.colorScheme.surfaceContainer),
             ) {
                 SkeletonBlock(
@@ -213,38 +208,38 @@ private fun FollowFeedListSkeleton() {
                         .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
                     color = color,
                 )
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.smPlus)) {
                     SkeletonBlock(
                         modifier = Modifier
                             .fillMaxWidth(0.8f)
                             .height(14.dp)
-                            .clip(RoundedCornerShape(6.dp)),
+                            .clip(AppShapes.tiny),
                         color = color,
                     )
                     SkeletonBlock(
                         modifier = Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = Spacing.sm)
                             .fillMaxWidth(0.55f)
                             .height(12.dp)
-                            .clip(RoundedCornerShape(6.dp)),
+                            .clip(AppShapes.tiny),
                         color = color,
                     )
                     Row(
-                        modifier = Modifier.padding(top = 10.dp),
+                        modifier = Modifier.padding(top = Spacing.smPlus),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         SkeletonBlock(
                             modifier = Modifier
-                                .size(20.dp)
+                                .size(Sizes.s20)
                                 .clip(CircleShape),
                             color = color,
                         )
                         SkeletonBlock(
                             modifier = Modifier
-                                .padding(start = 6.dp)
+                                .padding(start = Spacing.xsPlus)
                                 .width(80.dp)
                                 .height(10.dp)
-                                .clip(RoundedCornerShape(6.dp)),
+                                .clip(AppShapes.tiny),
                             color = color,
                         )
                     }
@@ -262,7 +257,6 @@ private fun FollowFeedItemCard(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
@@ -284,11 +278,8 @@ private fun FollowFeedItemCard(
             NovelCard(
                 novel = novel.toCardData(),
                 onClick = { onOpenNovel(novel.id) },
-                onOpenCover = {
-                    (novel.image_urls?.square_medium ?: novel.image_urls?.medium)?.let(
-                        onOpenCover
-                    )
-                },
+                // 关注流紧凑排版：封面缩窄（默认 104dp → 88dp）
+                coverWidth = 88.dp,
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> onToggleNovelFavorite(novel.id, fav) },
                 onTagClick = {},

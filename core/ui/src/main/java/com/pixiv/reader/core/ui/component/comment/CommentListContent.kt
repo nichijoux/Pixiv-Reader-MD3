@@ -49,6 +49,8 @@ import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.input.CommentInput
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 评论列表内容块（core:ui 下沉，供 feature:comments 评论页与排行右栏评论区共用）。
@@ -133,10 +135,10 @@ fun CommentListContent(
                 if (isLoadingMore) {
                     item {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
                             horizontalArrangement = Arrangement.Center,
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(Sizes.s24), strokeWidth = 2.dp)
                         }
                     }
                 }
@@ -163,7 +165,7 @@ fun CommentListContent(
                 mentionName = replyTarget?.user?.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
             )
         }
     }
@@ -184,20 +186,20 @@ private fun CommentRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
         verticalAlignment = Alignment.Top,
     ) {
         UserAvatar(
             name = comment.user?.name,
             avatarUrl = comment.user?.profile_image_urls?.best(),
             modifier = Modifier
-                .size(36.dp)
+                .size(Sizes.s36)
                 .clickable { comment.user?.id?.let(onOpenUser) },
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 10.dp),
+                .padding(start = Spacing.smPlus),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -217,7 +219,7 @@ private fun CommentRow(
             }
             CommentText(
                 text = comment.comment.orEmpty(),
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = Spacing.xs),
             )
             // 贴纸（stamp）：正文下方渲染，固定 120dp 方形，比例保持
             comment.stamp?.stamp_url?.takeIf { it.isNotBlank() }?.let { stampUrl ->
@@ -225,16 +227,16 @@ private fun CommentRow(
                     url = stampUrl,
                     contentDescription = stringResource(R.string.comment_stamp_cd),
                     modifier = Modifier
-                        .padding(top = 6.dp)
+                        .padding(top = Spacing.xsPlus)
                         .size(120.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(AppShapes.small),
                     contentScale = ContentScale.Fit,
                 )
             }
             // 回复入口（胶囊，对齐 HTML `.replybtn`）
             ReplyPill(
                 text = stringResource(R.string.comment_reply),
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = Spacing.xsPlus),
                 onClick = { onReply(comment) },
             )
             // 树形对话：父评论下方渲染子回复（浅色块 + 缩进）。
@@ -245,13 +247,13 @@ private fun CommentRow(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .padding(top = Spacing.sm)
+                            .clip(AppShapes.card)
                             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                            .padding(10.dp),
+                            .padding(Spacing.smPlus),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(Sizes.s18), strokeWidth = 2.dp)
                     }
                     LaunchedEffect(comment.id) { onLoadReplies() }
                 } else if (replies.isNotEmpty()) {
@@ -261,10 +263,10 @@ private fun CommentRow(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .padding(top = Spacing.sm)
+                            .clip(AppShapes.card)
                             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .padding(horizontal = Spacing.smPlus, vertical = Spacing.sm),
                     ) {
                         visibleReplies.forEachIndexed { index, reply ->
                             ReplyRow(
@@ -283,10 +285,10 @@ private fun CommentRow(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
-                                    .padding(top = 6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .padding(top = Spacing.xsPlus)
+                                    .clip(AppShapes.small)
                                     .clickable(onClick = onToggleExpanded)
-                                    .padding(vertical = 2.dp),
+                                    .padding(vertical = Spacing.xxs),
                             )
                         }
                     }
@@ -318,7 +320,7 @@ private fun ReplyPill(
             .clip(AppShapes.pill)
             .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
     )
 }
 
@@ -332,12 +334,12 @@ private fun ReplyRow(
         UserAvatar(
             name = reply.user?.name,
             avatarUrl = reply.user?.profile_image_urls?.best(),
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(Sizes.s28),
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 8.dp),
+                .padding(start = Spacing.sm),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -365,7 +367,7 @@ private fun ReplyRow(
                     if (prefix != null) append(prefix)
                     append(reply.comment.orEmpty())
                 },
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = Spacing.xxs),
             )
             // 贴纸（stamp）：子回复同样渲染
             reply.stamp?.stamp_url?.takeIf { it.isNotBlank() }?.let { stampUrl ->
@@ -373,16 +375,16 @@ private fun ReplyRow(
                     url = stampUrl,
                     contentDescription = stringResource(R.string.comment_stamp_cd),
                     modifier = Modifier
-                        .padding(top = 6.dp)
+                        .padding(top = Spacing.xsPlus)
                         .size(120.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(AppShapes.small),
                     contentScale = ContentScale.Fit,
                 )
             }
             // 回复入口（胶囊，可回复子评论）
             ReplyPill(
                 text = stringResource(R.string.comment_reply),
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = Spacing.xs),
                 onClick = onReply,
             )
         }
@@ -420,32 +422,32 @@ private fun CommentSkeleton(modifier: Modifier = Modifier) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
                 verticalAlignment = Alignment.Top,
             ) {
-                SkeletonBlock(Modifier.size(36.dp).clip(CircleShape), color)
+                SkeletonBlock(Modifier.size(Sizes.s36).clip(CircleShape), color)
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 10.dp),
+                        .padding(start = Spacing.smPlus),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SkeletonBlock(
-                            modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(AppShapes.tiny),
                             color = color,
                         )
                         Spacer(Modifier.weight(1f))
                         SkeletonBlock(
-                            modifier = Modifier.width(48.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier.width(48.dp).height(10.dp).clip(AppShapes.tiny),
                             color = color,
                         )
                     }
                     SkeletonBlock(
-                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth(0.9f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.padding(top = Spacing.sm).fillMaxWidth(0.9f).height(12.dp).clip(AppShapes.tiny),
                         color = color,
                     )
                     SkeletonBlock(
-                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth(0.65f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.padding(top = Spacing.xsPlus).fillMaxWidth(0.65f).height(12.dp).clip(AppShapes.tiny),
                         color = color,
                     )
                 }

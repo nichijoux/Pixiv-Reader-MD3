@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /** 瀑布流骨架封面高度循环（与 [IllustWaterfallGrid] 的 CoverHeights 一致，模拟错落）。 */
 private val SkeletonCoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
@@ -65,7 +67,7 @@ fun IllustWaterfallSkeleton(
         items(count = 8) { index ->
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(AppShapes.cardLarge)
                     .background(MaterialTheme.colorScheme.surfaceContainer),
             ) {
                 SkeletonBlock(
@@ -75,32 +77,32 @@ fun IllustWaterfallSkeleton(
                         .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
                     color = color,
                 )
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.smPlus)) {
                     SkeletonBlock(
                         modifier = Modifier
                             .fillMaxWidth(0.7f)
                             .height(14.dp)
-                            .clip(RoundedCornerShape(6.dp)),
+                            .clip(AppShapes.tiny),
                         color = color,
                     )
                     SkeletonBlock(
                         modifier = Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = Spacing.sm)
                             .fillMaxWidth(0.5f)
                             .height(12.dp)
-                            .clip(RoundedCornerShape(6.dp)),
+                            .clip(AppShapes.tiny),
                         color = color,
                     )
                     Row(
-                        modifier = Modifier.padding(top = 10.dp),
+                        modifier = Modifier.padding(top = Spacing.smPlus),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         SkeletonBlock(
-                            modifier = Modifier.size(20.dp).clip(CircleShape),
+                            modifier = Modifier.size(Sizes.s20).clip(CircleShape),
                             color = color,
                         )
                         SkeletonBlock(
-                            modifier = Modifier.padding(start = 6.dp).width(80.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier.padding(start = Spacing.xsPlus).width(80.dp).height(10.dp).clip(AppShapes.tiny),
                             color = color,
                         )
                     }

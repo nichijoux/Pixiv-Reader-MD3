@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
  * @param onOpenNovel 打开小说详情
- * @param onOpenCover 打开全屏大图（小说封面 / 头部头像共用）
+ * @param onOpenCover 打开全屏大图（头部头像点击）
  * @param onOpenUser 打开用户主页
  * @param onSearchTag 标签搜索（跳发现页）
  * @param onOpenSeries 打开小说系列详情
@@ -55,7 +55,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserRoute(
-    userId: Long,
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
@@ -176,7 +175,6 @@ fun UserRoute(
                             UserSection.NOVEL -> SectionNovel(
                                 paged = viewModel.novelPaged,
                                 onOpenNovel = onOpenNovel,
-                                onOpenCover = onOpenCover,
                                 onOpenUser = onOpenUser,
                                 onOpenSeries = onOpenSeries,
                                 onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },

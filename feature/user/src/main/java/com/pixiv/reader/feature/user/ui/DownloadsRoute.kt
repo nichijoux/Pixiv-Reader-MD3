@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Article
@@ -76,6 +75,8 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.google.gson.Gson
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -87,7 +88,6 @@ import kotlinx.coroutines.launch
  * @param onBack 返回
  * @param onOpenIllust 打开插画详情
  * @param onOpenNovel 打开小说详情
- * @param onOpenCover 打开小说封面全屏大图
  * @param onOpenLocalReader 打开本地文件阅读（local_reader）
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,7 +96,6 @@ fun DownloadsRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenLocalReader: (Long) -> Unit,
     onRetry: (DownloadEntryEntity) -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
@@ -158,7 +157,6 @@ fun DownloadsRoute(
                         DownloadFilter.NOVEL -> NovelDownloadList(
                             entries = entries.filter { it.targetType == "novel" },
                             context = context,
-                            onOpenCover = onOpenCover,
                             onOpen = { entry ->
                                 when {
                                     isParsableLocalFile(entry) ->
@@ -208,8 +206,8 @@ private fun IllustDownloadList(
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(140.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = Spacing.xl),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalItemSpacing = 8.dp,
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
@@ -223,12 +221,12 @@ private fun IllustDownloadList(
                 )
                 if (entry.status == "failed") {
                     RetryOverlay(
-                        modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+                        modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
                         onRetry = { onRetry(entry) },
                     )
                 }
                 DeleteOverlay(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
                     onDelete = { onDelete(entry) },
                 )
             }
@@ -242,7 +240,6 @@ private fun IllustDownloadList(
 private fun NovelDownloadList(
     entries: List<DownloadEntryEntity>,
     context: Context,
-    onOpenCover: (String) -> Unit,
     onOpen: (DownloadEntryEntity) -> Unit,
     onRetry: (DownloadEntryEntity) -> Unit,
     onDelete: (DownloadEntryEntity) -> Unit,
@@ -253,8 +250,8 @@ private fun NovelDownloadList(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}_${it.scopeKey}" }) { entry ->
             Column {
@@ -263,7 +260,6 @@ private fun NovelDownloadList(
                     NovelCard(
                         novel = card,
                         onClick = { onOpen(entry) },
-                        onOpenCover = { card.coverUrl?.let(onOpenCover) },
                         onOpenAuthor = {},
                         onToggleFavorite = {},
                         onTagClick = {},
@@ -273,12 +269,12 @@ private fun NovelDownloadList(
                     )
                     if (entry.status == "failed") {
                         RetryOverlay(
-                            modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+                            modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
                             onRetry = { onRetry(entry) },
                         )
                     }
                     DeleteOverlay(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                        modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
                         onDelete = { onDelete(entry) },
                     )
                 }
@@ -296,7 +292,7 @@ private fun DownloadStatusRow(
     modifier: Modifier = Modifier,
 ) {
     when (entry.status) {
-        "downloading" -> Column(modifier = modifier.fillMaxWidth().padding(top = 6.dp)) {
+        "downloading" -> Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.xsPlus)) {
             LinearProgressIndicator(
                 progress = { entry.progress.coerceIn(0, 100) / 100f },
                 modifier = Modifier.fillMaxWidth().height(4.dp),
@@ -306,14 +302,14 @@ private fun DownloadStatusRow(
                 text = stringResource(R.string.downloads_downloading, entry.progress.coerceIn(0, 100)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = Spacing.xs),
             )
         }
         "failed" -> Text(
             text = stringResource(R.string.downloads_failed),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.error,
-            modifier = modifier.padding(top = 4.dp),
+            modifier = modifier.padding(top = Spacing.xs),
         )
         else -> {}
     }
@@ -328,7 +324,7 @@ private fun DeleteOverlay(
     IconButton(
         onClick = onDelete,
         modifier = modifier
-            .size(28.dp)
+            .size(Sizes.s28)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.45f)),
     ) {
@@ -350,7 +346,7 @@ private fun RetryOverlay(
     IconButton(
         onClick = onRetry,
         modifier = modifier
-            .size(28.dp)
+            .size(Sizes.s28)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.45f)),
     ) {
@@ -439,7 +435,7 @@ private fun DownloadFormatBadge(format: String) {
         modifier = Modifier
             .clip(AppShapes.small)
             .background(Color.Black.copy(alpha = 0.45f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -453,7 +449,7 @@ private fun DownloadFormatBadge(format: String) {
             style = MaterialTheme.typography.labelSmall,
             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
             color = Color.White,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier.padding(start = Spacing.xs),
         )
     }
 }

@@ -48,6 +48,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.list.RankingList
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelLanguageFilter
 import com.pixiv.reader.feature.novel.state.NovelRankingViewModel
@@ -66,8 +67,7 @@ import com.pixiv.reader.feature.novel.state.matchesLanguageFilter
  * 不重复请求、无过渡动画。
  *
  * @param onBack 返回
- * @param onOpenNovel 点击卡片打开小说详情（小屏单栏路径）
- * @param onOpenCover 点击封面打开全屏大图
+ * @param onOpenNovel 点击卡片（含封面）打开小说详情（小屏单栏路径）
  * @param onOpenUser 点击作者行打开用户主页
  * @param onSearchTag 点击标签搜索（排行榜页暂不跳转，由调用方决定）
  * @param onOpenReader 右栏「开始阅读」打开阅读器
@@ -77,7 +77,6 @@ import com.pixiv.reader.feature.novel.state.matchesLanguageFilter
 fun NovelRankingRoute(
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
@@ -135,7 +134,7 @@ fun NovelRankingRoute(
                             Text(
                                 text = stringResource(languageFilter.labelRes()),
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 4.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.xs),
                             )
                             Icon(
                                 Icons.Filled.ArrowDropDown,
@@ -198,16 +197,11 @@ fun NovelRankingRoute(
                                 rank = rank,
                                 // 点击分流：pane 启用 → 进右栏；否则全屏跳转（paneEnabled 顶层捕获）
                                 onClick = { if (paneEnabled) selected = item else onOpenNovel(item.id) },
-                                onOpenCover = {
-                                    (item.image_urls?.square_medium ?: item.image_urls?.medium)?.let(
-                                        onOpenCover
-                                    )
-                                },
                                 onOpenAuthor = { item.user?.id?.let(onOpenUser) },
                                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(item.id, fav) },
                                 onTagClick = onSearchTag,
                                 onSeriesClick = { item.series?.id?.let(onOpenSeries) },
-                                modifier = Modifier.padding(bottom = 10.dp),
+                                modifier = Modifier.padding(bottom = Spacing.smPlus),
                             )
                         }
                     }
@@ -245,16 +239,11 @@ fun NovelRankingRoute(
                     novel = item.toCardData(),
                     rank = rank,
                     onClick = { onOpenNovel(item.id) },
-                    onOpenCover = {
-                        (item.image_urls?.square_medium ?: item.image_urls?.medium)?.let(
-                            onOpenCover
-                        )
-                    },
                     onOpenAuthor = { item.user?.id?.let(onOpenUser) },
                     onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(item.id, fav) },
                     onTagClick = onSearchTag,
                     onSeriesClick = { item.series?.id?.let(onOpenSeries) },
-                    modifier = Modifier.padding(bottom = 10.dp),
+                    modifier = Modifier.padding(bottom = Spacing.smPlus),
                 )
             }
         }

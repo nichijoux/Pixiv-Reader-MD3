@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.feedback.RankingBannerSkeleton
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 小说列表加载骨架：仿 [NovelCard] 布局（封面 104dp 3:4 + 标题/系列/作者行 + 底部标签胶囊）
@@ -41,8 +44,8 @@ internal fun NovelFeedSkeleton(showBannerHeader: Boolean) {
     val color = skeletonPulseColor(label = "novelFeedSkeleton")
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         if (showBannerHeader) {
             item(key = "skeleton_header") { RankingBannerSkeleton() }
@@ -53,42 +56,42 @@ internal fun NovelFeedSkeleton(showBannerHeader: Boolean) {
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = AppShapes.large,
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(Spacing.mdPlus)) {
                     // 上部分：左封面 | 右信息（作者行抵底）
                     Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                         SkeletonBlock(
                             modifier = Modifier
                                 .width(104.dp)
                                 .aspectRatio(3f / 4f)
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(AppShapes.card),
                             color = color,
                         )
                         Column(
                             modifier = Modifier
-                                .padding(start = 14.dp)
+                                .padding(start = Spacing.mdPlus)
                                 .weight(1f)
                                 .fillMaxHeight(),
                         ) {
                             SkeletonBlock(
-                                modifier = Modifier.fillMaxWidth(0.75f).height(16.dp).clip(RoundedCornerShape(6.dp)),
+                                modifier = Modifier.fillMaxWidth(0.75f).height(16.dp).clip(AppShapes.tiny),
                                 color = color,
                             )
                             SkeletonBlock(
-                                modifier = Modifier.padding(top = 8.dp).fillMaxWidth(0.35f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                                modifier = Modifier.padding(top = Spacing.sm).fillMaxWidth(0.35f).height(12.dp).clip(AppShapes.tiny),
                                 color = color,
                             )
                             Spacer(Modifier.weight(1f))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                SkeletonBlock(Modifier.size(24.dp).clip(CircleShape), color)
+                                SkeletonBlock(Modifier.size(Sizes.s24).clip(CircleShape), color)
                                 SkeletonBlock(
-                                    modifier = Modifier.padding(start = 8.dp).width(80.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                                    modifier = Modifier.padding(start = Spacing.sm).width(80.dp).height(10.dp).clip(AppShapes.tiny),
                                     color = color,
                                 )
                                 Spacer(Modifier.weight(1f))
                                 SkeletonBlock(
-                                    modifier = Modifier.width(40.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                                    modifier = Modifier.width(40.dp).height(10.dp).clip(AppShapes.tiny),
                                     color = color,
                                 )
                             }
@@ -96,12 +99,12 @@ internal fun NovelFeedSkeleton(showBannerHeader: Boolean) {
                     }
                     // 下部分：标签胶囊占位
                     Row(
-                        modifier = Modifier.padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = Spacing.md),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                     ) {
                         repeat(3) {
                             SkeletonBlock(
-                                modifier = Modifier.width(56.dp).height(20.dp).clip(RoundedCornerShape(10.dp)),
+                                modifier = Modifier.width(56.dp).height(20.dp).clip(AppShapes.cardSmall),
                                 color = color,
                             )
                         }

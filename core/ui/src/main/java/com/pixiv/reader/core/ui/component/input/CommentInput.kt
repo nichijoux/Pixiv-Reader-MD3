@@ -60,6 +60,8 @@ import com.pixiv.reader.core.ui.component.emoji.PIXIV_EMOJI_TAGS
 import com.pixiv.reader.core.ui.component.emoji.PixivEmojiTagChip
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.launch
 
 /**
@@ -139,7 +141,7 @@ fun CommentInput(
     Column(modifier = modifier) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
         ) {
             // 表情按钮：键盘↔面板互斥切换（微信式，输入行始终可见于面板正上方）
             IconButton(
@@ -169,7 +171,7 @@ fun CommentInput(
                     .heightIn(min = FieldMinHeight)
                     .clip(RoundedCornerShape(24.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = Spacing.md),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 EmoteCommentField(
@@ -269,8 +271,8 @@ private fun CommentEmojiPanel(
                             .padding(Spacing.md),
                     ) {
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                         ) {
                             PIXIV_EMOJI_TAGS.forEach { tag ->
                                 PixivEmojiTagChip(tag = tag, onClick = { onEmojiPick(tag) })
@@ -298,17 +300,17 @@ private fun CommentEmojiPanel(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(Spacing.md),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                             ) {
                                 items(stamps, key = { it.stamp_id }) { stamp ->
                                     PixivImage(
                                         url = stamp.stamp_url,
                                         contentDescription = stringResource(R.string.comment_stamp_cd),
                                         modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                            .size(Sizes.s72)
+                                            .clip(AppShapes.small)
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.small)
                                             .clickable { onStampPick(stamp) },
                                         contentScale = ContentScale.Fit,
                                     )

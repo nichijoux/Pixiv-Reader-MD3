@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 阅读器全文搜索面板（底部弹层）。
@@ -51,7 +52,7 @@ internal fun ReaderSearchSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 560.dp)
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = Spacing.lgPlus)
                 .padding(bottom = 28.dp),
         ) {
             OutlinedTextField(
@@ -64,7 +65,7 @@ internal fun ReaderSearchSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -99,7 +100,7 @@ internal fun ReaderSearchSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 320.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
+                    contentPadding = PaddingValues(top = Spacing.sm, bottom = Spacing.sm),
                 ) {
                     items(searchResults.take(100)) { offset ->
                         val ctx = searchSnippet(fullText, offset)
@@ -111,7 +112,7 @@ internal fun ReaderSearchSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onSelect(offset) }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = Spacing.sm),
                         )
                     }
                 }

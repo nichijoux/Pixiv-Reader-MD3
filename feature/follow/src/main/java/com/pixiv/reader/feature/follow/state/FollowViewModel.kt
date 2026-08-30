@@ -192,6 +192,23 @@ class FollowViewModel @Inject constructor(
             viewModelScope.launch {
                 _contentLoading.value = true
                 coroutineScope {
+                    // 左列关注用户与右侧流首屏并行加载，失败时一并重试（否则左列永远空白）
+                    if (usersPaged.items.value.isEmpty() && usersPaged.error.value != null) {
+                        launch {
+                            runCatching {
+                                usersPaged.loadInitial(
+                                    fetch = {
+                                        pixivRepository.api.getFollowingUsers(
+                                            loggedInUid,
+                                            "public",
+                                            null
+                                        )
+                                    },
+                                    fetchNext = { pixivRepository.api.getNextUsers(it) },
+                                )
+                            }
+                        }
+                    }
                     if (illustPaged.items.value.isEmpty() && illustPaged.error.value != null) {
                         launch {
                             runCatching {

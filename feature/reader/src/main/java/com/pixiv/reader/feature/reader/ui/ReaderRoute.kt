@@ -584,7 +584,7 @@ fun ReaderRoute(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 8.dp),
+                .padding(bottom = Spacing.sm),
         )
     }
 

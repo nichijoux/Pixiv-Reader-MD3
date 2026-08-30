@@ -40,6 +40,7 @@ import com.pixiv.reader.core.ui.component.input.SettingsCard
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
 
@@ -99,7 +100,7 @@ fun MeRoute(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
             ) {
                 // ── 个人头部（头像/名称/@account + 退出登录） ──
                 ProfileHeader(

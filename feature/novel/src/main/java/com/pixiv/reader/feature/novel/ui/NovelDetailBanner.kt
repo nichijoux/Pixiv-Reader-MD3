@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
 /** 沉浸式封面 banner：仅作背景（非完整展示），无视差，底部渐变过渡到 surface。 */
@@ -82,8 +84,8 @@ internal fun FloatingBackButton(onBack: () -> Unit, modifier: Modifier = Modifie
         onClick = onBack,
         modifier = modifier
             .statusBarsPadding()
-            .padding(4.dp)
-            .size(40.dp),
+            .padding(Spacing.xs)
+            .size(Sizes.s40),
     ) {
         Icon(
             Icons.AutoMirrored.Filled.ArrowBack,

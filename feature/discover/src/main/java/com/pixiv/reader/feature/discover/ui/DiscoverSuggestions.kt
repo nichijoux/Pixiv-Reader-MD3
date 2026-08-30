@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.AutocompleteTag
 import com.pixiv.reader.feature.discover.R
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /** 聚焦态：搜索联想列表（空时显示提示）。 */
 @Composable
@@ -35,7 +37,7 @@ internal fun SuggestionList(
                     text = stringResource(R.string.search_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.padding(Spacing.lgPlus),
                 )
             }
         }
@@ -44,14 +46,14 @@ internal fun SuggestionList(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { tag.name?.let(onPick) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(Sizes.s18))
                 Text(
                     text = tag.name.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 12.dp),
+                    modifier = Modifier.padding(start = Spacing.md),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

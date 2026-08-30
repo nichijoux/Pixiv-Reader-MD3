@@ -50,7 +50,6 @@ fun FollowRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
-    onOpenCover: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
     viewModel: FollowViewModel = hiltViewModel(),
 ) {
@@ -139,7 +138,6 @@ fun FollowRoute(
                             onOpenIllust = onOpenIllust,
                             onOpenNovel = onOpenNovel,
                             onOpenUser = onOpenUser,
-                            onOpenCover = onOpenCover,
                             onOpenSeries = onOpenSeries,
                             onToggleIllustFavorite = viewModel::toggleIllustFavorite,
                             onToggleNovelFavorite = viewModel::toggleNovelFavorite,

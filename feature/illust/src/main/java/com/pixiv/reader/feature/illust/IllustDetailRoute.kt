@@ -104,6 +104,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -205,8 +206,8 @@ fun IllustDetailRoute(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 VerticalActionButton(
                     icon = Icons.Filled.Fullscreen,

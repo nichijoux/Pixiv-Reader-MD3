@@ -69,6 +69,8 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.ViewerScrim
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
@@ -222,7 +224,7 @@ fun ViewerRoute(
                         ),
                     )
                     .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
@@ -298,7 +300,7 @@ fun ViewerRoute(
                         .padding(top = 52.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.45f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus),
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -343,7 +345,7 @@ fun ViewerRoute(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, bottom = 100.dp),
+                .padding(start = Spacing.xl, end = Spacing.xl, bottom = 100.dp),
         )
     }
 }
@@ -410,7 +412,7 @@ private fun ViewerActionBar(
                 ),
             )
             .navigationBarsPadding()
-            .padding(vertical = 16.dp),
+            .padding(vertical = Spacing.lg),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -465,7 +467,7 @@ private fun ViewerActionButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = tint,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(Sizes.s22),
         )
     }
 }

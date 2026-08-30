@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderTocItem
+import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 阅读器目录面板（底部弹层）。
@@ -41,28 +42,28 @@ internal fun ReaderTocSheet(
             text = stringResource(R.string.reader_panel_toc),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lgPlus, vertical = Spacing.sm),
         )
         when {
             tocLoading -> Text(
                 text = stringResource(R.string.reader_toc_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(Spacing.lgPlus),
             )
 
             toc.isEmpty() -> Text(
                 text = stringResource(R.string.reader_toc_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(Spacing.lgPlus),
             )
 
             else -> LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 420.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
+                contentPadding = PaddingValues(bottom = Spacing.xl),
             ) {
                 items(toc, key = { it.novelId }) { item ->
                     val isCurrent = item.novelId == currentNovelId || item.novelId == -1L
@@ -91,11 +92,11 @@ internal fun ReaderTocSheet(
                                 }
                                 onDismiss()
                             }
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                            .padding(horizontal = Spacing.lgPlus, vertical = Spacing.md),
                     )
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.lgPlus),
                     )
                 }
             }

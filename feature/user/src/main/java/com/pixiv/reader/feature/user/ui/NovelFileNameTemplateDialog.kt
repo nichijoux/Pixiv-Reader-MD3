@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.format.renderNovelFileName
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 
 /**
@@ -133,22 +135,22 @@ internal fun NovelFileNameTemplateDialog(
                             )
                         )
                     },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
                 )
                 // 帮助开关（按需展示）：点击展开/收起占位符语义说明
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
+                        .padding(top = Spacing.sm)
                         .clickable { showHelp = !showHelp },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
                     Icon(
                         imageVector = if (showHelp) Icons.Filled.ExpandLess else Icons.Outlined.Info,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(Sizes.s16),
                     )
                     Text(
                         text = stringResource(R.string.me_file_name_help_toggle),
@@ -161,13 +163,13 @@ internal fun NovelFileNameTemplateDialog(
                         text = stringResource(R.string.me_file_name_placeholder_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
                 // 占位符插入按钮（浅色容器 + 全圆胶囊，点击追加到当前编辑模板末尾）
                 FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
                     NovelFileNameTemplate.ALL.forEach { token ->
                         SuggestionChip(
@@ -183,8 +185,8 @@ internal fun NovelFileNameTemplateDialog(
                 }
                 // 预览
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
                     Text(
                         text = stringResource(R.string.me_file_name_preview),

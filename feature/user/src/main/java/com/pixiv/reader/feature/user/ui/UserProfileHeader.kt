@@ -40,6 +40,9 @@ import com.pixiv.api.model.Profile
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
 
@@ -62,15 +65,15 @@ internal fun UserHeader(
     onOpenUserFollowing: () -> Unit,
     onOpenAvatar: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(top = Spacing.sm)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             UserAvatar(
                 name = user.name,
                 avatarUrl = user.profile_image_urls?.best(),
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(Sizes.s64),
                 onClick = { user.profile_image_urls?.best()?.let(onOpenAvatar) },
             )
-            Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+            Column(modifier = Modifier.padding(start = Spacing.md).weight(1f)) {
                 Text(
                     text = user.name.orEmpty(),
                     style = MaterialTheme.typography.titleMedium,
@@ -119,7 +122,7 @@ internal fun UserHeader(
                 maxLines = if (clamped) MAX_COMMENT_LINES else Int.MAX_VALUE,
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
                 modifier = Modifier
-                    .padding(top = 10.dp)
+                    .padding(top = Spacing.smPlus)
                     .animateContentSize(),
                 onTextLayout = { layout: TextLayoutResult ->
                     if (clamped) truncated = layout.hasVisualOverflow
@@ -139,7 +142,7 @@ internal fun UserHeader(
         }
         // 统计格：插画 / 小说 / 收藏 / 关注（可点击）
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.mdPlus),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             StatItem(stringResource(R.string.user_stat_illust), profile?.total_illusts) {
@@ -168,9 +171,9 @@ private fun StatItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.card)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus),
     ) {
         Text(
             text = value?.toString() ?: "-",
@@ -191,29 +194,29 @@ internal fun UserProfileSkeleton() {
     val color = skeletonPulseColor(label = "userSkeleton")
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(Sizes.s64)
                     .clip(RoundedCornerShape(32.dp))
                     .background(color),
             )
-            Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+            Column(modifier = Modifier.padding(start = Spacing.md).weight(1f)) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.5f)
                         .height(18.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(AppShapes.small)
                         .background(color),
                 )
                 Box(
                     modifier = Modifier
-                        .padding(top = 8.dp)
+                        .padding(top = Spacing.sm)
                         .fillMaxWidth(0.3f)
                         .height(12.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(AppShapes.tiny)
                         .background(color),
                 )
             }
@@ -225,42 +228,42 @@ internal fun UserProfileSkeleton() {
             )
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             repeat(4) {
                 Box(
                     modifier = Modifier
                         .size(56.dp, 34.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(AppShapes.cardSmall)
                         .background(color),
                 )
             }
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             repeat(4) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(44.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(AppShapes.cardSmall)
                         .background(color),
                 )
             }
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             repeat(3) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .aspectRatio(3f / 4f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(AppShapes.card)
                         .background(color),
                 )
             }

@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -72,12 +74,12 @@ fun UgoiraCardPlayer(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
                     CircularProgressIndicator(
                         color = Color.White,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(Sizes.s22),
                     )
                     Text(
                         text = "${(p * 100).toInt()}%",

@@ -1,5 +1,7 @@
+
 package com.pixiv.reader.core.ui.component.image
 
+import com.pixiv.reader.core.ui.theme.Sizes
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -109,7 +111,7 @@ private fun PixivImageErrorContent(
             imageVector = Icons.Filled.BrokenImage,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(Sizes.s28),
         )
     }
 }

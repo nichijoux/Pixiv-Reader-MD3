@@ -29,6 +29,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 插画搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.IllustWaterfallGrid]
@@ -42,14 +45,14 @@ internal fun IllustSearchSkeleton() {
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(160.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = 96.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalItemSpacing = 8.dp,
     ) {
         items(count = 8) { index ->
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(AppShapes.cardLarge)
                     .background(MaterialTheme.colorScheme.surfaceContainer),
             ) {
                 SkeletonBlock(
@@ -59,32 +62,32 @@ internal fun IllustSearchSkeleton() {
                         .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
                     color = color,
                 )
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.smPlus)) {
                     SkeletonBlock(
                         modifier = Modifier
                             .fillMaxWidth(0.7f)
                             .height(14.dp)
-                            .clip(RoundedCornerShape(6.dp)),
+                            .clip(AppShapes.tiny),
                         color = color,
                     )
                     SkeletonBlock(
                         modifier = Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = Spacing.sm)
                             .fillMaxWidth(0.5f)
                             .height(12.dp)
-                            .clip(RoundedCornerShape(6.dp)),
+                            .clip(AppShapes.tiny),
                         color = color,
                     )
                     Row(
-                        modifier = Modifier.padding(top = 10.dp),
+                        modifier = Modifier.padding(top = Spacing.smPlus),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         SkeletonBlock(
-                            modifier = Modifier.size(20.dp).clip(CircleShape),
+                            modifier = Modifier.size(Sizes.s20).clip(CircleShape),
                             color = color,
                         )
                         SkeletonBlock(
-                            modifier = Modifier.padding(start = 6.dp).width(80.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier.padding(start = Spacing.xsPlus).width(80.dp).height(10.dp).clip(AppShapes.tiny),
                             color = color,
                         )
                     }
@@ -103,8 +106,8 @@ internal fun NovelSearchSkeleton() {
     val color = skeletonPulseColor()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(count = 6) {
             androidx.compose.material3.Card(
@@ -112,35 +115,35 @@ internal fun NovelSearchSkeleton() {
                 colors = androidx.compose.material3.CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = AppShapes.large,
             ) {
-                Row(modifier = Modifier.padding(14.dp)) {
+                Row(modifier = Modifier.padding(Spacing.mdPlus)) {
                     SkeletonBlock(
                         modifier = Modifier
                             .width(104.dp)
                             .aspectRatio(3f / 4f)
-                            .clip(RoundedCornerShape(12.dp)),
+                            .clip(AppShapes.card),
                         color = color,
                     )
-                    Column(modifier = Modifier.padding(start = 14.dp).weight(1f)) {
+                    Column(modifier = Modifier.padding(start = Spacing.mdPlus).weight(1f)) {
                         SkeletonBlock(
-                            modifier = Modifier.fillMaxWidth(0.75f).height(16.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier.fillMaxWidth(0.75f).height(16.dp).clip(AppShapes.tiny),
                             color = color,
                         )
                         SkeletonBlock(
-                            modifier = Modifier.padding(top = 10.dp).fillMaxWidth(0.4f).height(12.dp).clip(RoundedCornerShape(6.dp)),
+                            modifier = Modifier.padding(top = Spacing.smPlus).fillMaxWidth(0.4f).height(12.dp).clip(AppShapes.tiny),
                             color = color,
                         )
                         Row(
-                            modifier = Modifier.padding(top = 12.dp),
+                            modifier = Modifier.padding(top = Spacing.md),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             SkeletonBlock(
-                                modifier = Modifier.size(28.dp).clip(CircleShape),
+                                modifier = Modifier.size(Sizes.s28).clip(CircleShape),
                                 color = color,
                             )
                             SkeletonBlock(
-                                modifier = Modifier.padding(start = 8.dp).width(90.dp).height(10.dp).clip(RoundedCornerShape(6.dp)),
+                                modifier = Modifier.padding(start = Spacing.sm).width(90.dp).height(10.dp).clip(AppShapes.tiny),
                                 color = color,
                             )
                         }
@@ -160,14 +163,14 @@ internal fun UserSearchSkeleton() {
     val color = skeletonPulseColor()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(count = 5) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(AppShapes.large)
                     .background(MaterialTheme.colorScheme.surfaceContainer),
             ) {
                 Row(modifier = Modifier.fillMaxWidth().height(120.dp)) {
@@ -179,18 +182,18 @@ internal fun UserSearchSkeleton() {
                     }
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = Spacing.mdPlus, end = Spacing.mdPlus, bottom = Spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(modifier = Modifier.offset(y = (-24).dp)) {
                         SkeletonBlock(
-                            modifier = Modifier.size(64.dp).clip(CircleShape),
+                            modifier = Modifier.size(Sizes.s64).clip(CircleShape),
                             color = color,
                         )
                     }
                     Spacer(Modifier.width(12.dp))
                     SkeletonBlock(
-                        modifier = Modifier.weight(1f).height(16.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.weight(1f).height(16.dp).clip(AppShapes.tiny),
                         color = color,
                     )
                     Spacer(Modifier.width(10.dp))

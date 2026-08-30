@@ -36,6 +36,7 @@ import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
 /** 系列信息头：大封面（真实图/图标兜底）+ 标题/简介 + 篇数/连载态徽章 + 作者行（头像/名称/关注）+ 下载按钮 + 总字数。 */
@@ -55,7 +56,7 @@ internal fun SeriesHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(horizontal = Spacing.lg, vertical = Spacing.lg),
     ) {
         Row(verticalAlignment = Alignment.Top) {
             // 大封面：3:4（110×148dp）；有真实封面图走 PixivImage（自动 Referer），无则 MD3 图标容器兜底
@@ -66,7 +67,7 @@ internal fun SeriesHeader(
                     modifier = Modifier
                         .width(110.dp)
                         .aspectRatio(3f / 4f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(AppShapes.card)
                         .clickable(onClick = onOpenCover),
                 )
             } else {
@@ -75,7 +76,7 @@ internal fun SeriesHeader(
                     iconSize = 44.dp,
                 )
             }
-            Column(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
+            Column(modifier = Modifier.padding(start = Spacing.lg).weight(1f)) {
                 Text(
                     text = detail.title.orEmpty(),
                     style = MaterialTheme.typography.headlineSmall,
@@ -85,8 +86,8 @@ internal fun SeriesHeader(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(
-                    modifier = Modifier.padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = Spacing.smPlus),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SeriesMetaChip(
@@ -110,7 +111,7 @@ internal fun SeriesHeader(
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 10.dp),
+                        modifier = Modifier.padding(top = Spacing.smPlus),
                     )
                 }
             }
@@ -125,7 +126,7 @@ internal fun SeriesHeader(
                 color = scheme.onSurfaceVariant,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 14.dp),
+                modifier = Modifier.padding(top = Spacing.mdPlus),
             )
         }
         // 作者行：头像 + 名称（可点击进主页）+ 关注/取关按钮（占满整行）
@@ -133,13 +134,13 @@ internal fun SeriesHeader(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 14.dp),
+                    .padding(top = Spacing.mdPlus),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 UserAvatar(
                     name = author.name,
                     avatarUrl = author.profile_image_urls?.best(),
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(Sizes.s44),
                 )
                 Text(
                     text = author.name.orEmpty(),
@@ -150,7 +151,7 @@ internal fun SeriesHeader(
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onOpenAuthor(author.id) }
-                        .padding(start = 12.dp),
+                        .padding(start = Spacing.md),
                 )
                 AuthorFollowPill(
                     isFollowed = isAuthorFollowed,
@@ -163,12 +164,12 @@ internal fun SeriesHeader(
         Button(
             onClick = onDownload,
             enabled = !downloading,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
         ) {
             Icon(
                 imageVector = Icons.Filled.Download,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(Sizes.s18),
             )
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.novel_download))
@@ -190,6 +191,6 @@ private fun SeriesMetaChip(
         modifier = Modifier
             .clip(AppShapes.pill)
             .background(container)
-            .padding(horizontal = 12.dp, vertical = 5.dp),
+            .padding(horizontal = Spacing.md, vertical = 5.dp),
     )
 }

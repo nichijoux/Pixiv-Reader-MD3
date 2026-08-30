@@ -31,6 +31,7 @@ import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
 /** 操作区（内容区）：阅读主按钮（AutoStories 图标）+ 下载进度；四个竖排按钮固定在底部见 [NovelActionBar]。 */
@@ -50,12 +51,12 @@ internal fun NovelActions(
             Icon(
                 Icons.Filled.AutoStories,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(Sizes.s18)
             )
             Text(
                 text = readLabel,
                 style = novelReadButtonStyle(),
-                modifier = Modifier.padding(start = 6.dp),
+                modifier = Modifier.padding(start = Spacing.xsPlus),
             )
         }
         if (downloading && !downloadProgress.isNullOrBlank()) {
@@ -63,7 +64,7 @@ internal fun NovelActions(
                 text = downloadProgress,
                 style = novelMetaStyle(),
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = Spacing.sm),
             )
         }
     }
@@ -97,8 +98,8 @@ internal fun NovelActionBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = MAX_CONTENT_WIDTH_DP.dp)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             VerticalActionButton(
                 icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
