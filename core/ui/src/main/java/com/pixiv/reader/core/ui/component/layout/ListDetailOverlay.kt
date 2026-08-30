@@ -110,15 +110,19 @@ fun ListDetailOverlay(
             ) {
                 listContent(listMax)
             }
-            // 详情 pane：从屏幕右侧滑入，停靠在列表让出的空间
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .width(paneWidth!!.dp)
-                    .graphicsLayer { translationX = panePx * (1f - progress) },
-            ) {
-                detailPane()
+            // 详情 pane：从屏幕右侧滑入，停靠在列表让出的空间。
+            // 仅内容区 ≥ [LIST_MIN_DP]（[paneWidth] 非 null）时组合——空间不足（手机竖屏）
+            // 组件退化为主列表全宽，此时组合 pane 会因 `paneWidth!!` 空指针崩溃
+            if (enabled) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(paneWidth!!.dp)
+                        .graphicsLayer { translationX = panePx * (1f - progress) },
+                ) {
+                    detailPane()
+                }
             }
         }
     }
@@ -126,14 +130,17 @@ fun ListDetailOverlay(
 
 /**
  * 当前窗口是否启用 Master-Detail pane 模式（列表让位后仍有 ≥ [LIST_MIN_DP] 剩余）。
- * 与 [ListDetailOverlay] 内部判定一致：平板减 NavigationRail 后计算内容区宽。
+ * 与 [ListDetailOverlay] 内部判定一致（[ListDetailOverlay] 用真实可用宽计算，此处按窗口宽估算）。
  * 调用方在「点击列表项」分流时使用：启用 → 设置选中项进 pane；否则 → 全屏路由跳转。
+ *
+ * @param subtractRail 是否减去左侧 NavigationRail 宽（84dp）。壳内 Tab（MainShell）传默认
+ *   true；全屏路由页（排行榜等，无 rail，TopAppBar 全宽）传 false，否则阈值偏严漏启 pane。
  */
 @Composable
-fun isDetailPaneEnabled(): Boolean {
+fun isDetailPaneEnabled(subtractRail: Boolean = true): Boolean {
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp
     // 平板（≥600dp）内容区需减左侧 NavigationRail 宽（84dp）
-    val contentWidth = if (screenWidth >= 600) screenWidth - 84 else screenWidth
+    val contentWidth = if (subtractRail && screenWidth >= 600) screenWidth - 84 else screenWidth
     return detailPaneWidth(contentWidth.toFloat()) != null
 }

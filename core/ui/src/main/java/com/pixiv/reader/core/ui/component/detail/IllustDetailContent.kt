@@ -72,11 +72,17 @@ import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
+import com.pixiv.reader.core.ui.component.image.ZoomableImage
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
+import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.ViewerScrim
 
 /**
  * 插画详情渲染块（core:ui 下沉，供详情路由与排行榜右栏共用）。
@@ -130,6 +136,8 @@ fun IllustDetailContent(
     expandableIntro: Boolean = true,
     showActionRow: Boolean = true,
     modifier: Modifier = Modifier,
+    // 简介内 `pixiv://novels/{id}` 链接回调（默认不接线，样式仍显示）
+    onOpenNovel: (Long) -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -150,6 +158,7 @@ fun IllustDetailContent(
             illust = illust,
             strings = strings,
             onOpenUser = onOpenUser,
+            onOpenIllust = onOpenIllust,
             onSearchTag = onSearchTag,
             onOpenViewer = onOpenViewer,
             isAuthorFollowed = isAuthorFollowed,
@@ -162,6 +171,7 @@ fun IllustDetailContent(
             onOpenComments = onOpenComments,
             expandableIntro = expandableIntro,
             showActionRow = showActionRow,
+            onOpenNovel = onOpenNovel,
         )
         IllustRelatedSection(
             items = relatedItems,
@@ -419,6 +429,9 @@ fun IllustInfoSection(
     onOpenComments: () -> Unit,
     expandableIntro: Boolean,
     showActionRow: Boolean = true,
+    // 简介富文本链接回调（pixiv://illusts / novels / users）
+    onOpenIllust: (Long) -> Unit = {},
+    onOpenNovel: (Long) -> Unit = {},
 ) {
     if (illust == null) return
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
@@ -518,14 +531,15 @@ fun IllustInfoSection(
                 strings = strings,
             )
         }
-        // 简介：首行缩进两格；手机 6 行截断 + 展开/收起（短简介不显示按钮），平板完整显示
+        // 简介：HTML 富文本（加粗/换行/pixiv 深链可点），首行缩进两格；
+        // 手机 6 行截断 + 展开/收起（短简介不显示按钮），平板完整显示
         val caption = illust.caption
         if (!caption.isNullOrBlank()) {
             var expanded by rememberSaveable { mutableStateOf(false) }
             var truncated by remember { mutableStateOf(false) }
             val clamped = expandableIntro && !expanded
-            Text(
-                text = caption,
+            HtmlCaptionText(
+                html = caption,
                 // 首行缩进两格放 style（Text 无 textIndent 参数）
                 style = MaterialTheme.typography.bodyMedium.copy(textIndent = TextIndent(firstLine = 2.em)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -539,6 +553,9 @@ fun IllustInfoSection(
                     // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
                     if (clamped) truncated = layout.hasVisualOverflow
                 },
+                onOpenIllust = onOpenIllust,
+                onOpenNovel = onOpenNovel,
+                onOpenUser = onOpenUser,
             )
             if (expandableIntro && (truncated || expanded)) {
                 // 展开 / 收起：居中按钮（未截断时不出现）

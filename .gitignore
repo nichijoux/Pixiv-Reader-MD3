@@ -44,3 +44,5 @@ build-release.bat
 build-release.ps1
 design/
 DESIGN.md
+.codegraph
+dist/

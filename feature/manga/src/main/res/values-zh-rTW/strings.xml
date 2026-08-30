@@ -47,6 +47,4 @@
     <string name="manga_illust_bookmarked">已收藏</string>
     <string name="manga_illust_download">下載</string>
     <string name="manga_illust_comments">評論</string>
-    <string name="manga_ranking_back_to_detail">返回詳情</string>
-    <string name="manga_ranking_comment_empty">暫無評論</string>
 </resources>

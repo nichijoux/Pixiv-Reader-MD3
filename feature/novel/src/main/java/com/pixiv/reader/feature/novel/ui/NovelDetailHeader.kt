@@ -42,8 +42,8 @@ import androidx.compose.ui.unit.em
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.common.format.formatCountForNovel
-import com.pixiv.reader.core.novel.util.htmlToPlainText
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
@@ -58,6 +58,9 @@ internal fun NovelHeader(
     isAuthorFollowed: Boolean = false,
     isAuthorFollowing: Boolean = false,
     onToggleFollowAuthor: () -> Unit = {},
+    // 简介富文本链接回调（pixiv://novels / illusts；不接线时链接仅显示样式）
+    onOpenNovel: (Long) -> Unit = {},
+    onOpenIllust: (Long) -> Unit = {},
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
         // 标题：titleLarge 派生 + 22sp Bold
@@ -175,15 +178,15 @@ internal fun NovelHeader(
                 }
             }
         }
-        // 简介：13.5sp + 首行缩进两格；手机 6 行截断 + 展开全文，平板完整显示
-        // 展开/收起按钮仅在 clamped 截断（内容超 6 行）时出现，短简介不显示按钮
+        // 简介：HTML 富文本（加粗/换行/pixiv 深链可点），13.5sp + 首行缩进两格；
+        // 手机 6 行截断 + 展开全文，平板完整显示；展开/收起按钮仅在 clamped 截断时出现
         val caption = novel.caption
         if (!caption.isNullOrBlank()) {
             var expanded by rememberSaveable { mutableStateOf(false) }
             var truncated by remember { mutableStateOf(false) }
             val clamped = expandableIntro && !expanded
-            Text(
-                text = htmlToPlainText(caption),
+            HtmlCaptionText(
+                html = caption,
                 style = novelIntroStyle().copy(
                     textIndent = TextIndent(firstLine = 2.em),
                 ),
@@ -198,6 +201,9 @@ internal fun NovelHeader(
                     // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
                     if (clamped) truncated = layout.hasVisualOverflow
                 },
+                onOpenNovel = onOpenNovel,
+                onOpenIllust = onOpenIllust,
+                onOpenUser = onOpenUser,
             )
             if (expandableIntro && (truncated || expanded)) {
                 // 展开 / 收起：居中按钮（未截断时不出现）

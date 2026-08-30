@@ -214,6 +214,8 @@ internal fun NovelDetailContent(
                                 isAuthorFollowed = isAuthorFollowed,
                                 isAuthorFollowing = isAuthorFollowing,
                                 onToggleFollowAuthor = onToggleFollowAuthor,
+                                // 简介内 pixiv://novels 链接 → 系列内/详情切换
+                                onOpenNovel = onOpenNovel,
                             )
                             NovelActions(
                                 downloading = downloading,
@@ -300,6 +302,8 @@ private fun PhoneNovelDetail(
                             isAuthorFollowed = isAuthorFollowed,
                             isAuthorFollowing = isAuthorFollowing,
                             onToggleFollowAuthor = onToggleFollowAuthor,
+                            // 简介内 pixiv://novels 链接 → 系列内/详情切换
+                            onOpenNovel = onOpenNovel,
                         )
                         NovelActions(
                             downloading = downloading,

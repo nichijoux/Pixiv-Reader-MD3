@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
@@ -76,6 +82,10 @@ import kotlinx.coroutines.launch
  * @param filteredEmptyText 过滤后无任何命中且榜单耗尽时的空态文案（null 时回落 [emptyText]）
  * @param skeleton 加载骨架占位（调用方应传入与 itemContent 布局一致的骨架；默认空占位，需调用方指定，
  *                 如漫画/插画榜 `RankingIllustSkeleton`、小说榜 `NovelFeedSkeleton`）
+ * @param gridMinColumnWidth 条目瀑布流自适应列宽（dp）。null = 单列列表（小说等大卡）；
+ *                           非 null 时条目按 `StaggeredGridCells.Adaptive` 瀑布流分列
+ *                           （宽屏 2-3 列，pane 让位/小屏自动减少列数；卡片宽高比各异，
+ *                           各列独立流动不按行对齐），排名顺序不变、尾部加载项横跨整行
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `RankingIllustCard`
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -92,6 +102,7 @@ fun <T> RankingList(
     filter: ((T) -> Boolean)? = null,
     filteredEmptyText: String? = null,
     skeleton: @Composable () -> Unit = {},
+    gridMinColumnWidth: Dp? = null,
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -190,6 +201,7 @@ fun <T> RankingList(
                                 emptyText = emptyText,
                                 filter = filter,
                                 filteredEmptyText = filteredEmptyText,
+                                gridMinColumnWidth = gridMinColumnWidth,
                                 itemContent = itemContent,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -223,6 +235,7 @@ private fun <T> RankingPage(
     emptyText: String,
     filter: ((T) -> Boolean)?,
     filteredEmptyText: String?,
+    gridMinColumnWidth: Dp?,
     itemContent: @Composable (T, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -241,19 +254,44 @@ private fun <T> RankingPage(
                 filter == null || filter(item)
             }
             if (visibleIndexed.isNotEmpty()) {
-                LazyColumn(
-                    modifier = modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
-                ) {
-                    itemsIndexed(visibleIndexed) { _, (index, item) ->
-                        itemContent(item, index + 1)
+                // 网格模式（gridMinColumnWidth 非 null，漫画/插画榜）：瀑布流自适应分列 2-3 列
+                // （卡片宽高比各异，各列独立流动不按行对齐）；否则单列列表（小说榜大卡）
+                if (gridMinColumnWidth != null) {
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(gridMinColumnWidth),
+                        modifier = modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalItemSpacing = Spacing.sm,
+                    ) {
+                        itemsIndexed(visibleIndexed) { _, (index, item) ->
+                            itemContent(item, index + 1)
+                        }
+                        if (hasMore) {
+                            // 尾部加载项横跨整行（不占用条目列）
+                            item(key = "load_more", span = StaggeredGridItemSpan.FullLine) {
+                                LoadMoreItem(
+                                    isLoadingMore = isLoadingMore,
+                                    onLoadMore = { onLoadMore(modeValue) },
+                                )
+                            }
+                        }
                     }
-                    if (hasMore) {
-                        item(key = "load_more") {
-                            LoadMoreItem(
-                                isLoadingMore = isLoadingMore,
-                                onLoadMore = { onLoadMore(modeValue) },
-                            )
+                } else {
+                    LazyColumn(
+                        modifier = modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+                    ) {
+                        itemsIndexed(visibleIndexed) { _, (index, item) ->
+                            itemContent(item, index + 1)
+                        }
+                        if (hasMore) {
+                            item(key = "load_more") {
+                                LoadMoreItem(
+                                    isLoadingMore = isLoadingMore,
+                                    onLoadMore = { onLoadMore(modeValue) },
+                                )
+                            }
                         }
                     }
                 }

@@ -28,8 +28,6 @@
     <string name="novel_cd_language_filter">语言筛选</string>
     <string name="novel_ranking_filter_empty">该分类下暂无作品</string>
     <string name="novel_ranking_preview_placeholder">选择左侧任意作品查看预览</string>
-    <string name="novel_ranking_back_to_detail">返回详情</string>
-    <string name="novel_ranking_comment_empty">暂无评论</string>
     <string name="novel_ranking_preview_open_detail">查看详情</string>
     <string name="novel_ranking_preview_word_count">约 %1$s 字</string>
 

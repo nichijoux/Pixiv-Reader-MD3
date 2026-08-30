@@ -32,7 +32,10 @@ import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.card.SeriesBookCover
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 
 /** 系列信息头：大封面（真实图/图标兜底）+ 标题/简介 + 篇数/连载态徽章 + 作者行（头像/名称/关注）+ 下载按钮 + 总字数。 */
@@ -115,8 +118,9 @@ internal fun SeriesHeader(
         val caption = detail.caption?.takeIf { it.isNotBlank() }
             ?: detail.display_text?.takeIf { it.isNotBlank() }
         if (caption != null) {
-            Text(
-                text = caption,
+            // 简介：HTML 富文本（加粗/换行/pixiv 深链样式），3 行截断；系列页无链接跳转回调
+            HtmlCaptionText(
+                html = caption,
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant,
                 maxLines = 3,
