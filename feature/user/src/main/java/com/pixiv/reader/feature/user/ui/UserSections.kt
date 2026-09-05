@@ -2,7 +2,10 @@ package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -54,7 +57,13 @@ internal fun SectionIllust(
             onLoadMore = onLoadMore,
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
-            contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
+            // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
+            contentPadding = PaddingValues(
+                start = Spacing.md,
+                end = Spacing.md,
+                top = Spacing.xs,
+                bottom = Spacing.xl + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            ),
             onToggleFavorite = onToggleFavorite,
             onOpenUser = onOpenUser,
         )
@@ -85,7 +94,13 @@ internal fun SectionNovel(
         items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_novel))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+            // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
+            contentPadding = PaddingValues(
+                start = Spacing.lg,
+                end = Spacing.lg,
+                top = Spacing.xs,
+                bottom = Spacing.xl + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            ),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.id }) { novel ->
@@ -128,7 +143,13 @@ internal fun SectionSeries(
         items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_series))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
+            // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
+            contentPadding = PaddingValues(
+                start = Spacing.lg,
+                end = Spacing.lg,
+                top = Spacing.xs,
+                bottom = Spacing.xl + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            ),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             items(items, key = { it.id }) { series ->

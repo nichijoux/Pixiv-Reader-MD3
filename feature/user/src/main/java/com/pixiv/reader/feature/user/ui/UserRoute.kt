@@ -1,7 +1,10 @@
 package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -20,13 +23,23 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.network.illust.IllustViewModel
+import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
+import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
+import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
@@ -42,15 +55,26 @@ import kotlinx.coroutines.launch
  * 顶部 Tab 支持左右滑动切换（HorizontalPager），每段独立分页（PagedState 驻留 VM）。
  * 统计格可点击：插画/小说 → 滑动切段；收藏/关注 → 进入该用户的公开收藏/关注列表页。
  *
+ * ## 平板 Master-Detail
+ * 点作品/小说卡 → 右侧详情 pane 滑入（[ListDetailOverlay]，Scaffold 内容区内、
+ * TopAppBar 下方起步，状态栏由顶栏避让）：作品卡 → core:ui [IllustDetailPane]（直接复用）；
+ * 小说卡 → [novelDetailPane] 槽位（feature:novel 的小说详情 pane 由 app 组合根注入，
+ * feature 间禁止依赖，故经槽位反转）。系列分区与小说卡上的系列入口保持全屏路由
+ * （与全仓系列入口行为一致，系列为列表页不适合 pane）。未启用 pane（手机竖屏）时
+ * 点击回退全屏路由跳转。
+ *
  * @param onBack 返回
- * @param onOpenIllust 打开作品详情
- * @param onOpenNovel 打开小说详情
+ * @param onOpenIllust 打开作品详情（pane 未启用时的全屏路由跳转）
+ * @param onOpenNovel 打开小说详情（pane 未启用时的全屏路由跳转）
+ * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
  * @param onOpenCover 打开全屏大图（头部头像点击）
  * @param onOpenUser 打开用户主页
  * @param onSearchTag 标签搜索（跳发现页）
- * @param onOpenSeries 打开小说系列详情
+ * @param onOpenSeries 打开小说系列详情（全屏路由，系列不进 pane）
  * @param onOpenUserBookmarks 打开该用户公开收藏
  * @param onOpenUserFollowing 打开该用户关注列表
+ * @param novelDetailPane 小说详情 pane 槽位（app 组合根注入；参数为选中小说 id、
+ *   本页作用域的 [NovelViewModel] / [CommentListViewModel] 与关闭 pane 回调）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,12 +82,19 @@ fun UserRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenViewer: (Long, Int) -> Unit,
     onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onOpenUserBookmarks: () -> Unit,
     onOpenUserFollowing: () -> Unit,
+    novelDetailPane: @Composable (
+        selectedId: Long?,
+        novelViewModel: NovelViewModel,
+        commentViewModel: CommentListViewModel,
+        onClose: () -> Unit,
+    ) -> Unit,
     viewModel: UserViewModel = hiltViewModel(),
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
@@ -76,6 +107,16 @@ fun UserRoute(
     val isBlocking by viewModel.isBlocking.collectAsStateWithLifecycle()
     val section by viewModel.section.collectAsStateWithLifecycle()
     val seriesInfos by viewModel.seriesInfos.collectAsStateWithLifecycle()
+
+    // 平板 pane 选中态：作品 / 小说互斥（关闭时双清）；系列不进 pane
+    var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedNovelId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val closePane = {
+        selectedIllustId = null
+        selectedNovelId = null
+    }
+    // 用户页为全屏路由（无 NavigationRail），启用判定不减 rail 宽（排行页同款）
+    val detailPaneEnabled = isDetailPaneEnabled(subtractRail = false)
 
     val sections = UserSection.entries
     val pagerState = rememberPagerState(
@@ -109,91 +150,151 @@ fun UserRoute(
                 ),
             )
         },
-        snackbarHost = { NotificationHost(notificationHostState) },
+        snackbarHost = {
+            // 沉浸式底部：通知条自行避让系统导航栏（Scaffold 已不垫内容，无双重避让）
+            NotificationHost(notificationHostState, modifier = Modifier.navigationBarsPadding())
+        },
         modifier = Modifier.fillMaxSize(),
+        // 沉浸式底部：不再由 Scaffold 垫高内容（系统导航栏区域留给列表/详情直通，
+        // 列表尾部 contentPadding 与 pane 内部 inset 自行避让，与小说/漫画 Tab 同款）
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            when {
-                isLoading && user == null -> UserProfileSkeleton()
-                error != null && user == null -> error!!.let { msg ->
-                    ErrorBox(message = stringResource(msg.res, *msg.args.toTypedArray()), onRetry = viewModel::load)
+        ListDetailOverlay(
+            selected = selectedIllustId ?: selectedNovelId,
+            onClose = closePane,
+            // 消费已应用的 padding，pane 内 navigationBarsPadding 按剩余可见 inset 自适应
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+            listContent = { listMax ->
+                AdaptiveContentBox(maxWidth = listMax) {
+                    when {
+                        isLoading && user == null -> UserProfileSkeleton()
+                        error != null && user == null -> error!!.let { msg ->
+                            ErrorBox(message = stringResource(msg.res, *msg.args.toTypedArray()), onRetry = viewModel::load)
+                        }
+                        user == null -> EmptyBox(stringResource(R.string.user_not_found))
+                        else -> Column(modifier = Modifier.fillMaxSize()) {
+                            val detail = checkNotNull(user)
+                            UserHeader(
+                                user = detail,
+                                profile = profile,
+                                isFollowed = isFollowed,
+                                isFollowing = isFollowing,
+                                isBlocked = isBlocked,
+                                isBlocking = isBlocking,
+                                onToggleFollow = viewModel::toggleFollow,
+                                onToggleBlock = viewModel::toggleBlock,
+                                onScrollToSection = { sec ->
+                                    scope.launch { pagerState.animateScrollToPage(sections.indexOf(sec)) }
+                                },
+                                onOpenUserBookmarks = onOpenUserBookmarks,
+                                onOpenUserFollowing = onOpenUserFollowing,
+                                onOpenAvatar = onOpenCover,
+                            )
+                            // 分区 Tab：PrimaryTabRow 均分占满（手机/平板一致，4 个短标签均放得下）
+                            PrimaryTabRow(
+                                selectedTabIndex = pagerState.currentPage.coerceIn(0, (sections.size - 1).coerceAtLeast(0)),
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ) {
+                                for (index in sections.indices) {
+                                    Tab(
+                                        selected = pagerState.currentPage == index,
+                                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                        text = { Text(stringResource(sections[index].labelRes)) },
+                                    )
+                                }
+                            }
+                            // 分区内容（Pager 每页只 collect 自己段的状态）
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.weight(1f),
+                            ) { page ->
+                                when (sections.getOrNull(page)) {
+                                    UserSection.ILLUST -> SectionIllust(
+                                        paged = viewModel.illustPaged,
+                                        // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                                        onOpenIllust = { id ->
+                                            if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                        },
+                                        onOpenUser = onOpenUser,
+                                        onToggleFavorite = viewModel::toggleIllustFavorite,
+                                        onRetry = viewModel::load,
+                                        onLoadMore = viewModel::loadMore,
+                                    )
+                                    UserSection.MANGA -> SectionIllust(
+                                        paged = viewModel.mangaPaged,
+                                        onOpenIllust = { id ->
+                                            if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                        },
+                                        onOpenUser = onOpenUser,
+                                        onToggleFavorite = viewModel::toggleIllustFavorite,
+                                        onRetry = viewModel::load,
+                                        onLoadMore = viewModel::loadMore,
+                                    )
+                                    UserSection.NOVEL -> SectionNovel(
+                                        paged = viewModel.novelPaged,
+                                        onOpenNovel = { id ->
+                                            if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
+                                        },
+                                        onOpenUser = onOpenUser,
+                                        onOpenSeries = onOpenSeries,
+                                        onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
+                                        onTagClick = onSearchTag,
+                                        onRetry = viewModel::load,
+                                        onLoadMore = viewModel::loadMore,
+                                    )
+                                    UserSection.SERIES -> SectionSeries(
+                                        paged = viewModel.seriesPaged,
+                                        infos = seriesInfos,
+                                        onOpenSeries = onOpenSeries,
+                                        onRetry = viewModel::load,
+                                        onLoadMore = viewModel::loadMore,
+                                    )
+                                    null -> EmptyBox("")
+                                }
+                            }
+                        }
+                    }
                 }
-                user == null -> EmptyBox(stringResource(R.string.user_not_found))
-                else -> Column(modifier = Modifier.fillMaxSize()) {
-                    val detail = checkNotNull(user)
-                    UserHeader(
-                        user = detail,
-                        profile = profile,
-                        isFollowed = isFollowed,
-                        isFollowing = isFollowing,
-                        isBlocked = isBlocked,
-                        isBlocking = isBlocking,
-                        onToggleFollow = viewModel::toggleFollow,
-                        onToggleBlock = viewModel::toggleBlock,
-                        onScrollToSection = { sec ->
-                            scope.launch { pagerState.animateScrollToPage(sections.indexOf(sec)) }
-                        },
-                        onOpenUserBookmarks = onOpenUserBookmarks,
-                        onOpenUserFollowing = onOpenUserFollowing,
-                        onOpenAvatar = onOpenCover,
+            },
+            detailPane = {
+                // pane 作用域 ViewModel（本 backstack entry 级，与首页/关注页 pane 同款模式）
+                val illustDetailVm: IllustViewModel = hiltViewModel()
+                val novelDetailVm: NovelViewModel = hiltViewModel()
+                val commentVm: CommentListViewModel = hiltViewModel()
+                when {
+                    selectedNovelId != null -> novelDetailPane(
+                        selectedNovelId,
+                        novelDetailVm,
+                        commentVm,
+                        closePane,
                     )
-                    // 分区 Tab：PrimaryTabRow 均分占满（手机/平板一致，4 个短标签均放得下）
-                    PrimaryTabRow(
-                        selectedTabIndex = pagerState.currentPage.coerceIn(0, (sections.size - 1).coerceAtLeast(0)),
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ) {
-                        for (index in sections.indices) {
-                            Tab(
-                                selected = pagerState.currentPage == index,
-                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                text = { Text(stringResource(sections[index].labelRes)) },
-                            )
-                        }
-                    }
-                    // 分区内容（Pager 每页只 collect 自己段的状态）
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.weight(1f),
-                    ) { page ->
-                        when (sections.getOrNull(page)) {
-                            UserSection.ILLUST -> SectionIllust(
-                                paged = viewModel.illustPaged,
-                                onOpenIllust = onOpenIllust,
-                                onOpenUser = onOpenUser,
-                                onToggleFavorite = viewModel::toggleIllustFavorite,
-                                onRetry = viewModel::load,
-                                onLoadMore = viewModel::loadMore,
-                            )
-                            UserSection.MANGA -> SectionIllust(
-                                paged = viewModel.mangaPaged,
-                                onOpenIllust = onOpenIllust,
-                                onOpenUser = onOpenUser,
-                                onToggleFavorite = viewModel::toggleIllustFavorite,
-                                onRetry = viewModel::load,
-                                onLoadMore = viewModel::loadMore,
-                            )
-                            UserSection.NOVEL -> SectionNovel(
-                                paged = viewModel.novelPaged,
-                                onOpenNovel = onOpenNovel,
-                                onOpenUser = onOpenUser,
-                                onOpenSeries = onOpenSeries,
-                                onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
-                                onTagClick = onSearchTag,
-                                onRetry = viewModel::load,
-                                onLoadMore = viewModel::loadMore,
-                            )
-                            UserSection.SERIES -> SectionSeries(
-                                paged = viewModel.seriesPaged,
-                                infos = seriesInfos,
-                                onOpenSeries = onOpenSeries,
-                                onRetry = viewModel::load,
-                                onLoadMore = viewModel::loadMore,
-                            )
-                            null -> EmptyBox("")
-                        }
-                    }
+                    selectedIllustId != null -> IllustDetailPane(
+                        selectedId = selectedIllustId,
+                        strings = IllustDetailStrings(
+                            loadRetry = stringResource(R.string.user_illust_load_retry),
+                            fullscreen = stringResource(R.string.user_illust_fullscreen),
+                            statView = stringResource(R.string.user_illust_stat_view),
+                            statBookmark = stringResource(R.string.user_illust_stat_bookmark),
+                            statPages = stringResource(R.string.user_illust_stat_pages),
+                            expand = stringResource(R.string.user_illust_expand),
+                            collapse = stringResource(R.string.user_illust_collapse),
+                            follow = stringResource(R.string.user_illust_follow),
+                            followed = stringResource(R.string.user_illust_followed),
+                            related = stringResource(R.string.user_illust_related),
+                            bookmark = stringResource(R.string.user_illust_bookmark),
+                            bookmarked = stringResource(R.string.user_illust_bookmarked),
+                            download = stringResource(R.string.user_illust_download),
+                            comments = stringResource(R.string.user_illust_comments),
+                        ),
+                        placeholder = stringResource(R.string.user_pane_placeholder),
+                        onClose = closePane,
+                        onOpenUser = onOpenUser,
+                        onOpenViewer = onOpenViewer,
+                        commentVm = commentVm,
+                        viewModel = illustDetailVm,
+                    )
                 }
-            }
-        }
+            },
+        )
     }
 }

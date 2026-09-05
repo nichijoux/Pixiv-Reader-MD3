@@ -12,6 +12,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -31,6 +32,7 @@ import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
 import com.pixiv.reader.feature.notification.NotificationRoute
+import com.pixiv.reader.feature.novel.ui.NovelDetailPane
 import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
@@ -416,6 +418,10 @@ fun PixivNavGraph(
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
+                onOpenViewer = { id, page ->
+                    // 全屏查看器：pane 内图片点击（定位到指定页）
+                    navController.navigate("viewer/$id?page=$page")
+                },
                 onOpenCover = { url ->
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
@@ -436,6 +442,28 @@ fun PixivNavGraph(
                 },
                 onOpenUserFollowing = {
                     navController.navigate("user_following/$userId")
+                },
+                // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
+                // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款）
+                novelDetailPane = { selectedId, novelVm, commentVm, onClose ->
+                    NovelDetailPane(
+                        selectedId = selectedId,
+                        placeholder = stringResource(
+                            com.pixiv.reader.feature.novel.R.string.novel_ranking_preview_placeholder
+                        ),
+                        onClose = onClose,
+                        onOpenReader = { novelId ->
+                            navController.navigate("reader/$novelId")
+                        },
+                        onOpenUser = { target ->
+                            navController.navigate("user/$target")
+                        },
+                        onOpenSeries = { seriesId ->
+                            navController.navigate("novel_series/$seriesId")
+                        },
+                        commentVm = commentVm,
+                        viewModel = novelVm,
+                    )
                 },
             )
         }

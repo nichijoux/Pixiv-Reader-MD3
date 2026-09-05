@@ -8,6 +8,23 @@
     <string name="untitled">Untitled</string>
     <string name="unknown_user">Unknown user</string>
 
+    <!-- tablet detail pane (user page right column) -->
+    <string name="user_pane_placeholder">Select a work to view details</string>
+    <string name="user_illust_load_retry">Load failed, tap to retry</string>
+    <string name="user_illust_fullscreen">Fullscreen</string>
+    <string name="user_illust_stat_view">Views</string>
+    <string name="user_illust_stat_bookmark">Bookmarks</string>
+    <string name="user_illust_stat_pages">Pages</string>
+    <string name="user_illust_expand">Show more</string>
+    <string name="user_illust_collapse">Collapse</string>
+    <string name="user_illust_follow">Follow</string>
+    <string name="user_illust_followed">Following</string>
+    <string name="user_illust_related">Related works</string>
+    <string name="user_illust_bookmark">Bookmark</string>
+    <string name="user_illust_bookmarked">Bookmarked</string>
+    <string name="user_illust_download">Download</string>
+    <string name="user_illust_comments">Comments</string>
+
     <!-- History filters -->
     <string name="history_filter_illust">Illustrations</string>
     <string name="history_filter_novel">Novels</string>

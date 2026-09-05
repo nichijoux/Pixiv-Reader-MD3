@@ -8,6 +8,23 @@
     <string name="untitled">無標題</string>
     <string name="unknown_user">未知使用者</string>
 
+    <!-- 平板詳情 pane（使用者頁右欄） -->
+    <string name="user_pane_placeholder">選擇作品查看詳情</string>
+    <string name="user_illust_load_retry">載入失敗，點擊重試</string>
+    <string name="user_illust_fullscreen">全螢幕</string>
+    <string name="user_illust_stat_view">瀏覽</string>
+    <string name="user_illust_stat_bookmark">收藏</string>
+    <string name="user_illust_stat_pages">頁數</string>
+    <string name="user_illust_expand">展開</string>
+    <string name="user_illust_collapse">收起</string>
+    <string name="user_illust_follow">關注</string>
+    <string name="user_illust_followed">已關注</string>
+    <string name="user_illust_related">相關作品</string>
+    <string name="user_illust_bookmark">收藏</string>
+    <string name="user_illust_bookmarked">已收藏</string>
+    <string name="user_illust_download">下載</string>
+    <string name="user_illust_comments">評論</string>
+
     <!-- 历史 HistoryFilter -->
     <string name="history_filter_illust">插畫</string>
     <string name="history_filter_novel">小說</string>
