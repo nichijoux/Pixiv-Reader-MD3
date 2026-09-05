@@ -163,8 +163,8 @@ fun RankingDateChipRow(
 /**
  * 日期选择弹窗（内部共用）：M3 DatePicker，仅允许选 [MIN_RANKING_DATE] ~ 昨天——
  * 当日榜约中午才生成，传当天/未来日期接口返回空；默认定位到昨天（最新可查的历史日）。
- * 仅开放日历模式（showModeToggle = false）：库内「日历 ↔ 输入」模式切换会以
- * SizeTransform 逐帧缩放对话框窗口造成掉帧；排行榜选日期无需键盘输入，故直接隐藏切换入口。
+ * 仅开放日历模式（showModeToggle = false）：排行榜选日期无需键盘输入，
+ * 点标题年份/月份可弹年份列表快选较早日期。
  *
  * @param selectedDate 当前已选日期（yyyy-MM-dd），null 时默认选中昨天
  * @param onSelect 确认选择回调（参数为 yyyy-MM-dd）

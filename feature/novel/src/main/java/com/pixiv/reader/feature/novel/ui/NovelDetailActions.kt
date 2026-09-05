@@ -73,6 +73,21 @@ internal fun NovelActions(
 /**
  * 底部固定操作条：收藏 / 追更 / 下载 / 评论 四个竖排 icon+文字按钮（对齐插画详情页风格，
  * 复用 core:ui [VerticalActionButton]），Scaffold 外 Box 底部固定，限宽居中（平板与内容对齐）。
+ *
+ * @param navigationBarInset 是否追加系统导航栏避让——Scaffold bottomBar 场景（手机全屏详情页）
+ *   为 true；Master-Detail 右栏内嵌场景为 false（外层 Scaffold padding 已含导航栏避让，
+ *   再加会导致操作条比左栏底部高出一个导航栏高度、无法对齐）
+ * @param seriesId 所属系列 id（null/非正数表示无系列，追更按钮禁用）
+ * @param isBookmarked 是否已收藏（决定收藏按钮图标与文案）
+ * @param isBookmarking 收藏请求进行中（进行中禁用收藏按钮防连点）
+ * @param isWatchlisted 是否已追更（决定追更按钮图标与文案）
+ * @param isWatchlisting 追更请求进行中（进行中禁用追更按钮防连点）
+ * @param downloading 下载进行中（进行中禁用下载按钮）
+ * @param onBookmark 收藏/取消收藏回调
+ * @param onWatchlist 追更/取消追更回调
+ * @param onDownload 打开下载格式选择弹窗回调
+ * @param onComments 打开评论区回调
+ * @param modifier 外部传入的 Modifier
  */
 @Composable
 internal fun NovelActionBar(
@@ -86,13 +101,15 @@ internal fun NovelActionBar(
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
     onComments: () -> Unit,
+    navigationBarInset: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .navigationBarsPadding(),
+            // 导航栏避让按场景开关：bottomBar 场景自带，pane 内嵌场景由外层统一处理
+            .then(if (navigationBarInset) Modifier.navigationBarsPadding() else Modifier),
     ) {
         Row(
             modifier = Modifier
