@@ -61,13 +61,6 @@ private const val VELOCITY_WINDOW_MS = 120L
 /** 折痕阴影长度（单页宽比例）。 */
 private const val FOLD_SHADOW_FRACTION = 0.35f
 
-/**
- * 背面内容可见的进度阈值：折痕越过书脊中点（进度 0.5，页面翻过竖直位置）之前，
- * 掀起的折回区只画纸背（真实书页未翻过半程时看不见背面文字），
- * 避免掀起一角就提前露出下一页文字与当前页叠字。
- */
-private const val BACK_CONTENT_PROGRESS = 0.5f
-
 /** 翻页阶段（规则十：PRESS 并入 DRAGGING 起手，SETTLING 后仅 COMPLETED/CANCELED 两出边）。 */
 private enum class Phase { IDLE, DRAGGING, SETTLING }
 
@@ -547,10 +540,10 @@ fun SimulationPageContent(
                             clipPath(flapPath) {
                                 // 先铺纸底，保证背面不透明
                                 drawRect(backgroundColor)
-                                // 背面文字只在翻过半程（折痕越过书脊中点）后显现：
-                                // 掀角阶段折回区是看不见文字的纸背，否则下一页文字会提前
-                                // 叠进当前页区域（规则十六：P3 随翻页「逐渐」出现）
-                                if (backPage != null && foldResult.progress >= BACK_CONTENT_PROGRESS) {
+                                // 背面文字随折叠逐渐露出（规则十六）：折回区反射到哪里，
+                                // 就显示背面内容对应的那一条——掀角初期只有自由边一角，
+                                // 翻过书脊后逐渐铺满对页槽位
+                                if (backPage != null) {
                                     withTransform({
                                             rotate(
                                                 degrees = foldResult.fold.angleDeg,
