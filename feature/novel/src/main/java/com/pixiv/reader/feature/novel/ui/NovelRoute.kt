@@ -62,6 +62,7 @@ import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelFeedViewModel
+import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import kotlinx.coroutines.launch
 
 /**
@@ -82,12 +83,42 @@ fun NovelRoute(
     onOpenNovelRanking: () -> Unit,
     onOpenSeries: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
+    onOpenCover: (String) -> Unit,
     viewModel: NovelFeedViewModel = hiltViewModel(),
 ) {
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
-    // Master-Detail：选中小说 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    // Master-Detail：选中小说 / 系列 id（平板详情 pane，互斥；手机端不启用恒为 null 不生效）
     var selectedNovelId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedSeriesId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // pane 间互跳返回栈（"N:小说"/"S:系列"）：每次互跳压栈当前选中，
+    // 返回键逐级还原上一个 pane，栈空才关闭 pane（防互跳链被返回键一步清空）
+    var paneHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
+    val closePane = {
+        selectedNovelId = null
+        selectedSeriesId = null
+        paneHistory = emptyList()
+    }
+    // 互跳前压栈当前选中（调用方先 push 再切换目标）
+    val pushPaneHistory = {
+        val current = selectedNovelId?.let { "N:$it" } ?: selectedSeriesId?.let { "S:$it" }
+        if (current != null) paneHistory = paneHistory + current
+    }
+    // 返回键：栈非空逐级还原上一个选中（pane 间回退），栈空关闭 pane
+    val popPaneOrClose = {
+        val last = paneHistory.lastOrNull()
+        if (last == null) {
+            closePane()
+        } else {
+            paneHistory = paneHistory.dropLast(1)
+            selectedNovelId = null
+            selectedSeriesId = null
+            when (last.substringBefore(":")) {
+                "N" -> selectedNovelId = last.substringAfter(":").toLongOrNull()
+                "S" -> selectedSeriesId = last.substringAfter(":").toLongOrNull()
+            }
+        }
+    }
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
 
@@ -147,8 +178,10 @@ fun NovelRoute(
     ) { padding ->
         // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
         ListDetailOverlay(
-            selected = selectedNovelId,
-            onClose = { selectedNovelId = null },
+            selected = selectedNovelId ?: selectedSeriesId,
+            onClose = closePane,
+            // 返回键沿 pane 互跳链逐级回退，栈空才关闭
+            onBack = popPaneOrClose,
             // 消费已应用的 padding，内部 navigationBarsPadding/imePadding 按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             listContent = { listMax ->
@@ -188,7 +221,10 @@ fun NovelRoute(
                                     },
                                     onOpenUser = onOpenUser,
                                     onSearchTag = onSearchTag,
-                                    onOpenSeries = onOpenSeries,
+                                    // 系列 pane 启用 → 进右栏；否则全屏路由
+                                    onOpenSeries = { id ->
+                                        if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                    },
                                     onToggleFavorite = viewModel::toggleNovelFavorite,
                                     viewModel = viewModel,
                                 )
@@ -198,12 +234,16 @@ fun NovelRoute(
                                     },
                                     onOpenUser = onOpenUser,
                                     onSearchTag = onSearchTag,
-                                    onOpenSeries = onOpenSeries,
+                                    onOpenSeries = { id ->
+                                        if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                    },
                                     onToggleFavorite = viewModel::toggleNovelFavorite,
                                     viewModel = viewModel,
                                 )
                                 else -> NovelWatchlistTab(
-                                    onOpenSeries = onOpenSeries,
+                                    onOpenSeries = { id ->
+                                        if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                    },
                                     onOpenUser = onOpenUser,
                                     viewModel = viewModel,
                                 )
@@ -216,16 +256,52 @@ fun NovelRoute(
                 // 右侧详情 pane：内嵌 NovelViewModel + CommentListViewModel（同一 backstack entry 作用域）
                 val detailVm: NovelViewModel = hiltViewModel()
                 val commentVm: CommentListViewModel = hiltViewModel()
-                NovelDetailPane(
-                    selectedId = selectedNovelId,
-                    placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
-                    onClose = { selectedNovelId = null },
-                    onOpenReader = onOpenReader,
-                    onOpenUser = onOpenUser,
-                    onOpenSeries = onOpenSeries,
-                    commentVm = commentVm,
-                    viewModel = detailVm,
-                )
+                when {
+                    selectedNovelId != null -> NovelDetailPane(
+                        selectedId = selectedNovelId,
+                        placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
+                        onOpenReader = onOpenReader,
+                        onOpenUser = onOpenUser,
+                        // 「查看完整系列」：pane 启用 → 压栈当前选中、切换到系列 pane；否则全屏路由
+                        onOpenSeries = { id ->
+                            if (detailPaneEnabled) {
+                                pushPaneHistory()
+                                selectedNovelId = null
+                                selectedSeriesId = id
+                            } else {
+                                onOpenSeries(id)
+                            }
+                        },
+                        commentVm = commentVm,
+                        viewModel = detailVm,
+                    )
+                    else -> {
+                        // 系列 pane：与本模块 NovelSeriesPane 直连（无槽位），分册点击切回小说 pane
+                        val seriesVm: NovelSeriesViewModel = hiltViewModel()
+                        NovelSeriesPane(
+                            selectedId = selectedSeriesId,
+                            placeholder = stringResource(R.string.novel_series_pane_placeholder),
+                            onOpenNovel = { id ->
+                                if (detailPaneEnabled) {
+                                    pushPaneHistory()
+                                    selectedSeriesId = null
+                                    selectedNovelId = id
+                                } else {
+                                    onOpenNovel(id)
+                                }
+                            },
+                            // 分册卡系列标题：压栈当前选中、原地切换系列（返回键可回退）
+                            onOpenSeries = { id ->
+                                pushPaneHistory()
+                                selectedSeriesId = id
+                            },
+                            onOpenUser = onOpenUser,
+                            onOpenCover = onOpenCover,
+                            onSearchTag = onSearchTag,
+                            viewModel = seriesVm,
+                        )
+                    }
+                }
             },
         )
     }

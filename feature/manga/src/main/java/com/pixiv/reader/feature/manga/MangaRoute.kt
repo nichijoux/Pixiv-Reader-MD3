@@ -267,7 +267,6 @@ fun MangaRoute(
                         comments = stringResource(R.string.manga_illust_comments),
                     ),
                     placeholder = stringResource(R.string.manga_ranking_preview_placeholder),
-                    onClose = { selectedIllustId = null },
                     onOpenUser = onOpenUser,
                     onOpenViewer = onOpenViewer,
                     commentVm = commentVm,

@@ -235,7 +235,6 @@ fun NovelRankingRoute(
                     NovelDetailPane(
                         selectedId = selected?.id,
                         placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
-                        onClose = { selected = null },
                         onOpenReader = onOpenReader,
                         onOpenUser = onOpenUser,
                         onOpenSeries = onOpenSeries,

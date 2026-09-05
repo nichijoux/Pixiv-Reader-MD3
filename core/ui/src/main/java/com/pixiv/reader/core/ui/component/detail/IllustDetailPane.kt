@@ -4,13 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,19 +14,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.comment.CommentListViewModel
 import com.pixiv.reader.core.network.illust.IllustViewModel
-import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.comment.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
-import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 插画详情 pane（Master-Detail 右栏，首页 / 作品页共用）。
@@ -43,12 +30,11 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * 评论内嵌：点评论按钮切到 [CommentPane]（右栏限定，不开全屏页），返回键/顶部返回条
  * 切回详情；再按返回键关闭 pane（BackHandler 由外层 [ListDetailOverlay] 处理，
  * 本层注册的 BackHandler 先于外层触发——导航链：评论 → 详情 → 列表）。
- * 关闭按钮为左上角悬浮返回按钮（半透明黑底，任何背景可见；与小说 pane 返回键风格一致）。
+ * 无内建关闭按钮：pane 关闭由系统返回 / 外层关闭入口承担。
  *
  * @param selectedId 当前选中作品 id（null = 未选中，显示 [placeholder]）
  * @param strings 详情块文案（调用方模块提供，避免 core:ui 引用 feature 资源）
  * @param placeholder 未选中时的占位提示文案
- * @param onClose 关闭 pane 回调
  * @param onOpenUser 点击作者打开用户主页（全屏路由）
  * @param onOpenViewer 点击图片打开全屏查看器（全屏路由，参数为作品 id + 页码）
  * @param commentVm 评论 ViewModel（调用方注入；进入评论区时按当前作品 switchTo）
@@ -59,7 +45,6 @@ fun IllustDetailPane(
     selectedId: Long?,
     strings: IllustDetailStrings,
     placeholder: String,
-    onClose: () -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     commentVm: CommentListViewModel,
@@ -141,38 +126,5 @@ fun IllustDetailPane(
                 },
             )
         }
-        // 关闭按钮：左上角悬浮返回（覆盖在内容上，任何背景可见）。
-        // 评论区显示时隐藏——CommentPane 自带「返回详情」条，避免两个按钮重叠冲突
-        if (!showComments) {
-            PaneBackButton(
-                onClick = onClose,
-                modifier = Modifier.align(Alignment.TopStart),
-            )
-        }
-    }
-}
-
-/**
- * pane 关闭按钮：悬浮返回箭头（与小说详情页返回按钮同款风格，加半透明黑底保证
- * 在浅色内容/图片任意背景下可见）。
- *
- * @param onClick 点击回调（关闭 pane）
- * @param modifier 外部传入的 Modifier（通常 align 定位）
- */
-@Composable
-private fun PaneBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier
-            .padding(Spacing.xs)
-            .size(Sizes.s40)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.35f)),
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = stringResource(R.string.core_pane_close),
-            tint = Color.White,
-        )
     }
 }

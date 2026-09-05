@@ -46,7 +46,8 @@ class NovelSeriesViewModel @Inject constructor(
     private val favoriteActions: FavoriteActions,
 ) : MessageViewModel() {
 
-    private val seriesId: Long = savedStateHandle.get<Long>("seriesId") ?: 0L
+    // 路由场景由 SavedStateHandle 提供（init 自动加载）；pane 场景为 0，由 [switchTo] 显式指定加载目标
+    private var seriesId: Long = savedStateHandle.get<Long>("seriesId") ?: 0L
 
     private val _detail = MutableStateFlow<NovelSeriesDetail?>(null)
     val detail: StateFlow<NovelSeriesDetail?> = _detail.asStateFlow()
@@ -78,6 +79,27 @@ class NovelSeriesViewModel @Inject constructor(
     val allChapters: StateFlow<List<Novel>> = _allChapters.asStateFlow()
 
     init {
+        // 仅路由场景自动加载（seriesId 非 0）；pane 场景等待 switchTo 指定目标
+        if (seriesId != 0L) load()
+    }
+
+    /**
+     * pane 场景切换加载目标（类比 [NovelViewModel.switchTo]）：重置全部状态后重新加载。
+     * 幂等：同 id 且已有详情时不重载（重组 / 重复点击不触发多余请求）。
+     *
+     * @param id 目标系列 id
+     * @return 无返回值
+     */
+    fun switchTo(id: Long) {
+        if (id == seriesId && _detail.value != null) return
+        seriesId = id
+        // 重置状态：详情 / 封面 / 作者关注态 / 全量分册清空，分页游标重置防旧系列数据串页
+        _detail.value = null
+        _firstNovelCover.value = null
+        _isAuthorFollowed.value = false
+        _isAuthorFollowing.value = false
+        _allChapters.value = emptyList()
+        paged.reset()
         load()
     }
 

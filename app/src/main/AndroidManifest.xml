@@ -10,9 +10,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- 会话 token（access/refresh）明文存 MMKV：禁止云备份/ADB 备份，防止 refresh_token 随备份外泄 -->
+    <!-- Android 16 起 targetSdk 36+ 默认开启预测性返回：手势中先播「页面缩小」预览、
+         松手后又播 app 自己的滑动转场，两者拼接观感割裂（缩小然后消失）。
+         显式关闭后返回手势直接提交，统一走应用内既定转场（220ms slide + fade） -->
     <application
         android:name=".PixivApp"
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"

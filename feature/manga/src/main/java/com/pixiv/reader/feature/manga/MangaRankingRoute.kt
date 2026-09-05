@@ -173,7 +173,6 @@ fun MangaRankingRoute(
                         selectedId = selected?.id,
                         strings = detailStrings,
                         placeholder = stringResource(R.string.manga_ranking_preview_placeholder),
-                        onClose = { selected = null },
                         onOpenUser = onOpenUser,
                         onOpenViewer = onOpenViewer,
                         commentVm = commentVm,

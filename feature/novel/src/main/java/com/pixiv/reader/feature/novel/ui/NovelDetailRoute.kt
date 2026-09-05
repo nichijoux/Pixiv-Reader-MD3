@@ -189,6 +189,8 @@ internal fun NovelDetailContent(
     onToggleFollowAuthor: () -> Unit,
     modifier: Modifier = Modifier,
     forceSingleColumn: Boolean = false,
+    // 是否显示悬浮返回按钮：全屏路由页显示；右栏 pane 隐藏（关闭由返回手势 / 外层入口承担）
+    showBackButton: Boolean = true,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
     val seriesId = detail.series?.id
@@ -243,8 +245,10 @@ internal fun NovelDetailContent(
                         .fillMaxHeight(),
                 )
             }
-            // 平板返回按钮：右上角
-            FloatingBackButton(onBack = onBack, modifier = Modifier.align(Alignment.TopEnd))
+            // 平板返回按钮：右上角（pane 场景隐藏）
+            if (showBackButton) {
+                FloatingBackButton(onBack = onBack, modifier = Modifier.align(Alignment.TopEnd))
+            }
         }
     } else {
         PhoneNovelDetail(
@@ -261,6 +265,7 @@ internal fun NovelDetailContent(
             onOpenUser = onOpenUser,
             onOpenSeries = onOpenSeries,
             onToggleFollowAuthor = onToggleFollowAuthor,
+            showBackButton = showBackButton,
             modifier = modifier,
         )
     }
@@ -283,6 +288,7 @@ private fun PhoneNovelDetail(
     onOpenSeries: (Long) -> Unit,
     onToggleFollowAuthor: () -> Unit,
     modifier: Modifier = Modifier,
+    showBackButton: Boolean = true,
 ) {
     val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
     val seriesId = detail.series?.id
@@ -329,7 +335,9 @@ private fun PhoneNovelDetail(
                 }
             }
         }
-        // 手机返回按钮：左上角
-        FloatingBackButton(onBack = onBack, modifier = Modifier.align(Alignment.TopStart))
+        // 手机返回按钮：左上角（pane 场景隐藏）
+        if (showBackButton) {
+            FloatingBackButton(onBack = onBack, modifier = Modifier.align(Alignment.TopStart))
+        }
     }
 }

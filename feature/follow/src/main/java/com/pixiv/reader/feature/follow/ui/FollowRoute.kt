@@ -58,8 +58,9 @@ private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLU
  *
  * ## 平板 Master-Detail
  * 点动态卡片 → 动态流左移让位 + 右侧详情 pane 滑入（[ListDetailOverlay]，作用域为用户列
- * 右侧区域）：小说卡 → [novelDetailPane] 槽位（feature:novel 的小说详情 pane 由 app 组合根
- * 注入，feature 间禁止依赖，故经槽位反转）；作品卡 → core:ui [IllustDetailPane]（直接复用）。
+ * 右侧区域）：小说卡 → [novelDetailPane] 槽位、系列卡（小说卡系列标题）→ [seriesDetailPane]
+ * 槽位（feature:novel 的小说详情 / 系列 pane 由 app 组合根注入，feature 间禁止依赖，
+ * 故经槽位反转）；作品卡 → core:ui [IllustDetailPane]（直接复用）。
  * pane 可用性按「内容区 − 用户列宽」实算（[detailPaneWidth]，保底 240dp = 关注流单列下限），
  * 保证竖屏窄平板仍可启用；未启用时点击卡片回退全屏路由跳转。
  * 本页无 Scaffold/TopAppBar，状态栏 inset 由列表侧（TabRow）与 pane 侧（[detailPane]
@@ -73,7 +74,11 @@ private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLU
  * @param onOpenSeries 打开系列页全屏路由
  * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
  * @param novelDetailPane 小说详情 pane 槽位（app 组合根注入；参数为选中小说 id、
- *   本页作用域的 [NovelViewModel] / [CommentListViewModel] 与关闭 pane 回调）
+ *   本页作用域的 [NovelViewModel] / [CommentListViewModel] 与「查看完整系列」回调
+ *   （宿主分流 pane 内切换系列 pane / 全屏））
+ * @param seriesDetailPane 小说系列 pane 槽位（app 组合根注入；参数为选中系列 id、
+ *   分册点击回调（宿主分流 pane 内切换小说详情 / 全屏）与分册卡系列标题回调
+ *   （宿主压栈后原地切换系列））
  * @param viewModel 关注页 ViewModel
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,7 +93,12 @@ fun FollowRoute(
         selectedId: Long?,
         novelViewModel: NovelViewModel,
         commentViewModel: CommentListViewModel,
-        onClose: () -> Unit,
+        onOpenSeries: (Long) -> Unit,
+    ) -> Unit,
+    seriesDetailPane: @Composable (
+        selectedId: Long?,
+        onOpenNovel: (Long) -> Unit,
+        onOpenSeries: (Long) -> Unit,
     ) -> Unit,
     viewModel: FollowViewModel = hiltViewModel(),
 ) {
@@ -98,12 +108,42 @@ fun FollowRoute(
     }
     val isCompact = windowClass == WindowSizeClass.Compact
 
-    // 平板 pane 选中态：小说 / 作品卡二选一（互相排斥，关闭时双清）
+    // 平板 pane 选中态：小说 / 作品 / 系列卡三选一（互相排斥，关闭时全清）
     var selectedNovelId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedSeriesId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // pane 间互跳返回栈（"N:小说"/"S:系列"/"I:作品"）：每次互跳压栈当前选中，
+    // 返回键逐级还原上一个 pane，栈空才关闭 pane（防互跳链被返回键一步清空）
+    var paneHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
     val closePane = {
         selectedNovelId = null
         selectedIllustId = null
+        selectedSeriesId = null
+        paneHistory = emptyList()
+    }
+    // 互跳前压栈当前选中（调用方先 push 再切换目标）
+    val pushPaneHistory = {
+        val current = selectedNovelId?.let { "N:$it" }
+            ?: selectedIllustId?.let { "I:$it" }
+            ?: selectedSeriesId?.let { "S:$it" }
+        if (current != null) paneHistory = paneHistory + current
+    }
+    // 返回键：栈非空逐级还原上一个选中（pane 间回退），栈空关闭 pane
+    val popPaneOrClose = {
+        val last = paneHistory.lastOrNull()
+        if (last == null) {
+            closePane()
+        } else {
+            paneHistory = paneHistory.dropLast(1)
+            selectedNovelId = null
+            selectedIllustId = null
+            selectedSeriesId = null
+            when (last.substringBefore(":")) {
+                "N" -> selectedNovelId = last.substringAfter(":").toLongOrNull()
+                "S" -> selectedSeriesId = last.substringAfter(":").toLongOrNull()
+                "I" -> selectedIllustId = last.substringAfter(":").toLongOrNull()
+            }
+        }
     }
 
     // 详情 pane 作用域 ViewModel（本 backstack entry 级，与小说 Tab / 作品 Tab pane 同款模式）
@@ -151,8 +191,10 @@ fun FollowRoute(
             // ── 右列：动态流 + 详情 pane（Master-Detail 作用域为用户列右侧区域） ──
             Box(modifier = Modifier.weight(1f).fillMaxSize()) {
                 ListDetailOverlay(
-                    selected = selectedNovelId ?: selectedIllustId,
+                    selected = selectedNovelId ?: selectedIllustId ?: selectedSeriesId,
                     onClose = closePane,
+                    // 返回键沿 pane 互跳链逐级回退，栈空才关闭
+                    onBack = popPaneOrClose,
                     modifier = Modifier.fillMaxSize(),
                     // 保底 240dp：关注流瀑布流单列宽度下限，竖屏窄平板（内容区 ~716dp）仍可启用 pane
                     minListWidth = 240.dp,
@@ -213,7 +255,10 @@ fun FollowRoute(
                                                 if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
                                             },
                                             onOpenUser = onOpenUser,
-                                            onOpenSeries = onOpenSeries,
+                                            // 系列 pane 启用 → 进右栏；否则全屏路由
+                                            onOpenSeries = { id ->
+                                                if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                            },
                                             onToggleIllustFavorite = viewModel::toggleIllustFavorite,
                                             onToggleNovelFavorite = viewModel::toggleNovelFavorite,
                                         )
@@ -233,7 +278,34 @@ fun FollowRoute(
                                     selectedNovelId,
                                     novelDetailVm,
                                     commentVm,
-                                    closePane,
+                                    // 「查看完整系列」：pane 启用 → 压栈当前选中、切换到系列 pane；否则全屏路由
+                                    { id ->
+                                        if (detailPaneEnabled) {
+                                            pushPaneHistory()
+                                            selectedNovelId = null
+                                            selectedSeriesId = id
+                                        } else {
+                                            onOpenSeries(id)
+                                        }
+                                    },
+                                )
+                                selectedSeriesId != null -> seriesDetailPane(
+                                    selectedSeriesId,
+                                    // 分册点击：pane 启用 → 压栈当前选中、切换到小说详情 pane；否则全屏路由
+                                    { id ->
+                                        if (detailPaneEnabled) {
+                                            pushPaneHistory()
+                                            selectedSeriesId = null
+                                            selectedNovelId = id
+                                        } else {
+                                            onOpenNovel(id)
+                                        }
+                                    },
+                                    // 分册卡系列标题：压栈当前选中、原地切换系列（返回键可回退）
+                                    { id ->
+                                        pushPaneHistory()
+                                        selectedSeriesId = id
+                                    },
                                 )
                                 selectedIllustId != null -> IllustDetailPane(
                                     selectedId = selectedIllustId,
@@ -254,7 +326,6 @@ fun FollowRoute(
                                         comments = stringResource(R.string.follow_illust_comments),
                                     ),
                                     placeholder = stringResource(R.string.follow_detail_placeholder),
-                                    onClose = closePane,
                                     onOpenUser = onOpenUser,
                                     onOpenViewer = onOpenViewer,
                                     commentVm = commentVm,

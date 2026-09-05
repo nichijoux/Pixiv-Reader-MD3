@@ -24,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.pixiv.reader.app.R
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
@@ -33,6 +34,8 @@ import com.pixiv.reader.feature.home.HomeRoute
 import com.pixiv.reader.feature.manga.MangaRoute
 import com.pixiv.reader.feature.novel.ui.NovelDetailPane
 import com.pixiv.reader.feature.novel.ui.NovelRoute
+import com.pixiv.reader.feature.novel.ui.NovelSeriesPane
+import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import com.pixiv.reader.feature.user.ui.MeRoute
 
 
@@ -80,6 +83,8 @@ fun MainShell(
     onOpenViewer: (Long, Int) -> Unit,
     /** 打开小说阅读器（小说 pane「开始阅读」入口） */
     onOpenReader: (Long) -> Unit,
+    /** 打开封面/头像全屏大图（系列 pane 封面点击） */
+    onOpenCover: (String) -> Unit,
     initialSearch: String? = null,
 ) {
     val navController = rememberNavController()
@@ -156,18 +161,38 @@ fun MainShell(
                     onOpenViewer = onOpenViewer,
                     // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
                     // （feature 间禁止依赖，关注页经此槽位复用；作品 pane 在 core:ui，关注页直用）
-                    novelDetailPane = { selectedId, novelVm, commentVm, onClose ->
+                    novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
                         NovelDetailPane(
                             selectedId = selectedId,
                             placeholder = stringResource(
                                 com.pixiv.reader.feature.novel.R.string.novel_ranking_preview_placeholder
                             ),
-                            onClose = onClose,
                             onOpenReader = onOpenReader,
                             onOpenUser = onOpenUser,
+                            // 「查看完整系列」由宿主分流（pane 内切换系列 pane / 全屏）
                             onOpenSeries = onOpenSeries,
                             commentVm = commentVm,
                             viewModel = novelVm,
+                        )
+                    },
+                    // 平板 pane：系列卡（小说卡系列标题）点击 → 注入 feature:novel 的小说系列 pane
+                    //（槽位签名不暴露 feature:novel 类型，VM 由本槽位内 hiltViewModel 创建）
+                    seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
+                        val seriesVm: NovelSeriesViewModel = hiltViewModel()
+                        NovelSeriesPane(
+                            selectedId = selectedId,
+                            placeholder = stringResource(
+                                com.pixiv.reader.feature.novel.R.string.novel_series_pane_placeholder
+                            ),
+                            onOpenNovel = onOpenNovel,
+                            onOpenSeries = onOpenSeries,
+                            onOpenUser = onOpenUser,
+                            onOpenCover = onOpenCover,
+                            onSearchTag = { tag ->
+                                pendingSearch = tag
+                                navigateToTab("discover_tab")
+                            },
+                            viewModel = seriesVm,
                         )
                     },
                 )
@@ -206,6 +231,7 @@ fun MainShell(
                         navigateToTab("discover_tab")
                     },
                     onOpenReader = onOpenReader,
+                    onOpenCover = onOpenCover,
                 )
             }
             composable("me_tab") {

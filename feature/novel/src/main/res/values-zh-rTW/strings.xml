@@ -28,6 +28,7 @@
     <string name="novel_cd_language_filter">語言篩選</string>
     <string name="novel_ranking_filter_empty">該分類下暫無作品</string>
     <string name="novel_ranking_preview_placeholder">選擇左側任意作品查看預覽</string>
+    <string name="novel_series_pane_placeholder">選擇系列查看詳情</string>
     <string name="novel_ranking_preview_open_detail">查看詳情</string>
     <string name="novel_ranking_preview_word_count">約 %1$s 字</string>
 

@@ -196,7 +196,6 @@ fun HomeRoute(
                         comments = stringResource(R.string.home_illust_comments),
                     ),
                     placeholder = stringResource(R.string.home_pane_placeholder),
-                    onClose = { selectedIllustId = null },
                     onOpenUser = onOpenUser,
                     onOpenViewer = onOpenViewer,
                     commentVm = commentVm,

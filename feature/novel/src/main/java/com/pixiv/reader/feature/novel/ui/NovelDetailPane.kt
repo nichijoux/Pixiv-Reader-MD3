@@ -30,13 +30,12 @@ import com.pixiv.reader.feature.novel.data.NovelExportFormat
  *
  * 复用 [NovelViewModel]（调用方 `hiltViewModel()` 注入）——选中项变化时 [switchTo] 加载；
  * 系列目录内分册点击原地替换。详情内容复用 [NovelDetailContent]
- * （`forceSingleColumn=true` 单栏，避免 pane 宽度下双栏挤压）+ [NovelActionBar] 操作行
+ * （`forceSingleColumn=true` 单栏，避免 pane 宽度下双栏挤压；`showBackButton=false`
+ * 不显示悬浮返回按钮，关闭由返回手势 / 外层入口承担）+ [NovelActionBar] 操作行
  * + 下载格式弹窗（复用详情页 [DownloadSheet]）。
- * 关闭按钮复用 [NovelDetailContent] 内置的左上角悬浮返回按钮（[onClose]），无独立顶部条。
  *
  * @param selectedId 当前选中小说 id（null = 未选中，显示 [placeholder]）
  * @param placeholder 未选中时的占位提示文案
- * @param onClose 关闭 pane 回调（同时是内置悬浮返回按钮的点击）
  * @param onOpenReader 打开阅读器（全屏路由）
  * @param onOpenUser 点击作者打开用户主页（全屏路由）
  * @param onOpenSeries 打开系列页（全屏路由）
@@ -47,7 +46,6 @@ import com.pixiv.reader.feature.novel.data.NovelExportFormat
 fun NovelDetailPane(
     selectedId: Long?,
     placeholder: String,
-    onClose: () -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
@@ -114,24 +112,25 @@ fun NovelDetailPane(
                         )
                     } else {
                         Column(Modifier.fillMaxSize()) {
-                            NovelDetailContent(
-                                detail = detail,
-                                seriesNovels = seriesNovels,
-                                progress = progress,
-                                isAuthorFollowed = isAuthorFollowed,
-                                isAuthorFollowing = isAuthorFollowing,
-                                downloading = downloading,
-                                downloadProgress = downloadProgress,
-                                // 复用 NovelDetailContent 内置悬浮返回按钮（左上角）关闭 pane
-                                onBack = onClose,
-                                onOpenNovel = viewModel::switchTo,
-                                onOpenReader = onOpenReader,
-                                onOpenUser = onOpenUser,
-                                onOpenSeries = onOpenSeries,
-                                onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                                modifier = Modifier.weight(1f),
-                                forceSingleColumn = true,
-                            )
+                        NovelDetailContent(
+                            detail = detail,
+                            seriesNovels = seriesNovels,
+                            progress = progress,
+                            isAuthorFollowed = isAuthorFollowed,
+                            isAuthorFollowing = isAuthorFollowing,
+                            downloading = downloading,
+                            downloadProgress = downloadProgress,
+                            // pane 无悬浮返回按钮（onBack 不会被触发，占位安全）
+                            onBack = {},
+                            onOpenNovel = viewModel::switchTo,
+                            onOpenReader = onOpenReader,
+                            onOpenUser = onOpenUser,
+                            onOpenSeries = onOpenSeries,
+                            onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                            modifier = Modifier.weight(1f),
+                            forceSingleColumn = true,
+                            showBackButton = false,
+                        )
                             NovelActionBar(
                                 seriesId = detail.series?.id,
                                 isBookmarked = isBookmarked,

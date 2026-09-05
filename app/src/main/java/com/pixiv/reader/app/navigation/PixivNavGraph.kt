@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -35,7 +36,9 @@ import com.pixiv.reader.feature.notification.NotificationRoute
 import com.pixiv.reader.feature.novel.ui.NovelDetailPane
 import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
+import com.pixiv.reader.feature.novel.ui.NovelSeriesPane
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
+import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import com.pixiv.reader.feature.onboarding.ui.OnboardingRoute
 import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.ui.BlockedRoute
@@ -252,6 +255,10 @@ fun PixivNavGraph(
                     // 小说阅读器：小说 pane「开始阅读」入口
                     navController.navigate("reader/$id")
                 },
+                onOpenCover = { url ->
+                    // 封面/头像全屏大图（系列 pane 封面点击）
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
+                },
                 initialSearch = initialSearch,
             )
         }
@@ -445,24 +452,48 @@ fun PixivNavGraph(
                 },
                 // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
                 // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款）
-                novelDetailPane = { selectedId, novelVm, commentVm, onClose ->
+                novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
                     NovelDetailPane(
                         selectedId = selectedId,
                         placeholder = stringResource(
                             com.pixiv.reader.feature.novel.R.string.novel_ranking_preview_placeholder
                         ),
-                        onClose = onClose,
                         onOpenReader = { novelId ->
                             navController.navigate("reader/$novelId")
                         },
                         onOpenUser = { target ->
                             navController.navigate("user/$target")
                         },
-                        onOpenSeries = { seriesId ->
-                            navController.navigate("novel_series/$seriesId")
-                        },
+                        // 「查看完整系列」由宿主分流（pane 内切换系列 pane / 全屏）
+                        onOpenSeries = onOpenSeries,
                         commentVm = commentVm,
                         viewModel = novelVm,
+                    )
+                },
+                // 平板 pane：系列卡点击 → 注入 feature:novel 的小说系列 pane
+                //（槽位签名不暴露 feature:novel 类型，VM 由本槽位内 hiltViewModel 创建）
+                seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
+                    val seriesVm: NovelSeriesViewModel = hiltViewModel()
+                    NovelSeriesPane(
+                        selectedId = selectedId,
+                        placeholder = stringResource(
+                            com.pixiv.reader.feature.novel.R.string.novel_series_pane_placeholder
+                        ),
+                        onOpenNovel = onOpenNovel,
+                        onOpenSeries = onOpenSeries,
+                        onOpenUser = { target ->
+                            navController.navigate("user/$target")
+                        },
+                        onOpenCover = { url ->
+                            navController.navigate("image_preview?url=${Uri.encode(url)}")
+                        },
+                        onSearchTag = { tag ->
+                            navController.navigate("main?search=${Uri.encode(tag)}") {
+                                popUpTo(ROUTE_MAIN) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                        viewModel = seriesVm,
                     )
                 },
             )

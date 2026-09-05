@@ -73,6 +73,9 @@ fun detailPaneWidth(contentWidth: Float, minListWidth: Float = LIST_MIN_DP.toFlo
  *
  * @param selected 当前选中项（null = 未选中，列表居中显示）
  * @param onClose 关闭 pane 回调（返回键与 pane 关闭按钮共用）
+ * @param onBack 返回键回调（null = 默认 [onClose]）：pane 间互跳维护返回栈的宿主传
+ *   「逐级 pop，栈空则 [onClose]」，让返回键沿 pane 跳转链逐级回退而非直接关闭。
+ *   仅接管 overlay 自身的返回键；pane 内更深层 BackHandler（如评论区）注册更晚、优先级更高，不受影响
  * @param modifier 外部传入的 Modifier（通常带 padding；必须位于内容区**全宽**位置）
  * @param minListWidth 列表保底宽度（dp）：pane 启用判定的列表下限。默认 400dp（通用页面）；
  *   有固定前导列或列表可接受单列的页面（如关注页，瀑布流单列下限 240dp）传更小值，
@@ -88,6 +91,7 @@ fun ListDetailOverlay(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     minListWidth: Dp = LIST_MIN_DP.dp,
+    onBack: (() -> Unit)? = null,
     listContent: @Composable (listMaxWidth: Dp) -> Unit,
     detailPane: @Composable () -> Unit,
 ) {
@@ -111,8 +115,10 @@ fun ListDetailOverlay(
         val listShiftBasePx = with(density) { ((contentWidth - listWidth) / 2).toPx() }
         val panePx = with(density) { (paneWidth ?: 300f).dp.toPx() }
 
-        // 返回键关闭 pane（仅 pane 可见时拦截，不干扰列表自身返回行为）
-        BackHandler(enabled = enabled && selected != null) { onClose() }
+        // 返回键：优先走宿主返回栈（pane 间互跳逐级回退），无栈时关闭 pane。
+        // 仅 pane 可见时拦截，不干扰列表自身返回行为；pane 内更深层 BackHandler（如评论区）
+        // 注册更晚、优先级更高，先于本回调触发
+        BackHandler(enabled = enabled && selected != null) { (onBack ?: onClose)() }
 
         Box(modifier = Modifier.fillMaxSize()) {
             // 主列表：整体平移（GPU 层属性动画；宽度恒定，动画中零重排）

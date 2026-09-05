@@ -107,6 +107,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.hilt.android)
+    // 组合根 pane 槽位内 hiltViewModel()（系列 pane VM 由 app 层创建）
+    implementation(libs.hilt.navigation.compose)
     implementation(libs.coil)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
