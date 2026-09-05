@@ -1,5 +1,12 @@
 package com.pixiv.reader.core.ui.component.layout
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -72,7 +79,13 @@ fun AdaptiveNavScaffold(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (!useRail && showBottomBar) {
+            // 底栏显隐动画（进入发现页等全屏页时收起）：用 expand/shrink 平滑过渡尺寸，
+            // Scaffold 的 bottom padding 逐帧变化、内容区不跳变；硬切会整帧消失显突兀
+            AnimatedVisibility(
+                visible = !useRail && showBottomBar,
+                enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+                exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
+            ) {
                 NavigationBar {
                     items.forEach { item ->
                         NavigationBarItem(
@@ -101,7 +114,12 @@ fun AdaptiveNavScaffold(
                 .fillMaxSize()
                 .consumeWindowInsets(padding),
         ) {
-            if (useRail && showBottomBar) {
+            // 侧栏显隐动画（平板进入发现页等全屏页时收起）：向左收起 + 淡出，内容区宽度平滑扩展
+            AnimatedVisibility(
+                visible = useRail && showBottomBar,
+                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
+            ) {
                 NavigationRail(
                     modifier = Modifier.width(84.dp).fillMaxHeight().statusBarsPadding(),
                 ) {
