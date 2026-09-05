@@ -14,7 +14,6 @@ import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
-import com.pixiv.reader.feature.novel.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow

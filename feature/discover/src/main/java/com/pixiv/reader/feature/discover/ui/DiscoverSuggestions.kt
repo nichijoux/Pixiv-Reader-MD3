@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.AutocompleteTag
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.core.ui.theme.Spacing

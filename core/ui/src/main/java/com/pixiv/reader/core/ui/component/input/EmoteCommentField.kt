@@ -1,8 +1,6 @@
 package com.pixiv.reader.core.ui.component.input
 
-import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
@@ -23,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.doAfterTextChanged
 import coil.imageLoader
@@ -377,7 +374,8 @@ private class SwapDrawable(initial: Drawable) : Drawable() {
     }
 
     @Deprecated("Deprecated in Java")
-    override fun getOpacity(): Int = delegate.opacity
+    // getOpacity 本身与委托查询均已被 Android 废弃：表情胶囊为半透明位图，直接声明 TRANSLUCENT
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
     override fun getIntrinsicWidth(): Int = delegate.intrinsicWidth
 

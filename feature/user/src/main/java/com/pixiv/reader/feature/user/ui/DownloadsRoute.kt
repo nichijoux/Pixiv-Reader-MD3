@@ -25,11 +25,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,8 +38,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -59,7 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.DownloadFilter
 import com.pixiv.reader.feature.user.state.DownloadsViewModel
@@ -134,7 +134,7 @@ fun DownloadsRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                TabRow(
+                SecondaryTabRow(
                     selectedTabIndex = filter.ordinal.coerceAtMost(DownloadFilter.entries.size - 1),
                     containerColor = MaterialTheme.colorScheme.surface,
                 ) {
@@ -462,10 +462,10 @@ private data class FormatInfo(
 
 private fun formatInfo(format: String): FormatInfo? = when (format) {
     DownloadEntryEntity.FORMAT_TXT -> FormatInfo(Icons.Filled.Description, R.string.downloads_format_txt)
-    DownloadEntryEntity.FORMAT_EPUB -> FormatInfo(Icons.Filled.MenuBook, R.string.downloads_format_epub)
+    DownloadEntryEntity.FORMAT_EPUB -> FormatInfo(Icons.AutoMirrored.Filled.MenuBook, R.string.downloads_format_epub)
     DownloadEntryEntity.FORMAT_PDF -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
-    DownloadEntryEntity.FORMAT_MARKDOWN -> FormatInfo(Icons.Filled.Notes, R.string.downloads_format_markdown)
-    DownloadEntryEntity.FORMAT_DOCX -> FormatInfo(Icons.Filled.Article, R.string.downloads_format_docx)
+    DownloadEntryEntity.FORMAT_MARKDOWN -> FormatInfo(Icons.AutoMirrored.Filled.Notes, R.string.downloads_format_markdown)
+    DownloadEntryEntity.FORMAT_DOCX -> FormatInfo(Icons.AutoMirrored.Filled.Article, R.string.downloads_format_docx)
     else -> null
 }
 

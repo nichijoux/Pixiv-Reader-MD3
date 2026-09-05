@@ -24,7 +24,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
  * 通用排行榜容器（数据驱动，供漫画/插画/小说排行榜复用）。
  *
  * ## 交互
- * 顶部 `ScrollableTabRow` 分段（[modes] 任意数量）+ `HorizontalPager` 左右滑动切换；
+ * 顶部 `SecondaryScrollableTabRow` 分段（[modes] 任意数量）+ `HorizontalPager` 左右滑动切换；
  * 点 Tab `animateScrollToPage` 平滑滑动，滑动切页后回调 [onModeSelect]（触发调用方加载该段）。
  *
  * ## 每段独立分页（消除滑动突兀与状态错配）
@@ -141,7 +141,7 @@ fun <T> RankingList(
         Column(modifier = Modifier.fillMaxSize()) {
             // 列表头（如日期筛选 chip 行）：位于 TabRow 上方、限宽内容块内，随 pane 让位整体移动
             listHeader?.invoke()
-            // 限宽生效（平板）→ PrimaryTabRow 均分占满居中；手机 → ScrollableTabRow 内容宽度可滑动
+            // 限宽生效（平板）→ PrimaryTabRow 均分占满居中；手机 → SecondaryScrollableTabRow 内容宽度可滑动
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val isWide = maxWidth >= MAX_CONTENT_WIDTH_DP.dp
                 val selectedIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0))
@@ -159,7 +159,7 @@ fun <T> RankingList(
                         }
                     }
                 } else {
-                    ScrollableTabRow(
+                    SecondaryScrollableTabRow(
                         selectedTabIndex = selectedIndex,
                         edgePadding = Spacing.sm,
                         containerColor = MaterialTheme.colorScheme.surface,

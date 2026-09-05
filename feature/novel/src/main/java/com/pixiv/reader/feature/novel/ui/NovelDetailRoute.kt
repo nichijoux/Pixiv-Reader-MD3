@@ -27,7 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity

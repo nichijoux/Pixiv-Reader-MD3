@@ -1,7 +1,7 @@
 package com.pixiv.reader.core.ui.component.text
 
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import org.junit.Assert.assertEquals
@@ -36,23 +36,23 @@ class HtmlCaptionTextTest {
     @Test
     fun `pixiv 深链注解可查`() {
         val parsed = parseCaptionHtml("<a href=\"pixiv://illusts/123\">作品</a>", linkColor)
-        val ann = parsed.getStringAnnotations("pixivLink", 0, 2).firstOrNull()
-        assertEquals("illusts:123", ann?.item)
+        val link = parsed.getLinkAnnotations(0, 2).firstOrNull()?.item as? LinkAnnotation.Clickable
+        assertEquals("illusts:123", link?.tag)
     }
 
     @Test
     fun `novels 与 users 深链注解`() {
         val novel = parseCaptionHtml("<a href=\"pixiv://novels/456\">小说</a>", linkColor)
-        assertEquals("novels:456", novel.getStringAnnotations("pixivLink", 0, 2).first()?.item)
+        assertEquals("novels:456", (novel.getLinkAnnotations(0, 2).firstOrNull()?.item as? LinkAnnotation.Clickable)?.tag)
         val user = parseCaptionHtml("<a href=\"pixiv://users/789\">作者</a>", linkColor)
-        assertEquals("users:789", user.getStringAnnotations("pixivLink", 0, 2).first()?.item)
+        assertEquals("users:789", (user.getLinkAnnotations(0, 2).firstOrNull()?.item as? LinkAnnotation.Clickable)?.tag)
     }
 
     @Test
     fun `非 pixiv 链接保留文字无注解`() {
         val parsed = parseCaptionHtml("<a href=\"https://example.com\">外部</a>", linkColor)
         assertEquals("外部", parsed.text)
-        assertTrue(parsed.getStringAnnotations("pixivLink", 0, 2).isEmpty())
+        assertTrue(parsed.getLinkAnnotations(0, 2).isEmpty())
     }
 
     @Test

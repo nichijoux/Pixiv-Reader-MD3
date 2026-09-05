@@ -26,7 +26,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.pixiv.reader.app.R
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold

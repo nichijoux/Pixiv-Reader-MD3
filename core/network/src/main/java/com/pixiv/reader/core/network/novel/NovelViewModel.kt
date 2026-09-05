@@ -2,7 +2,6 @@ package com.pixiv.reader.core.network.novel
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.pixiv.api.model.Novel

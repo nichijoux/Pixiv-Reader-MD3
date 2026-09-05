@@ -12,10 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +25,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.input.SettingsCard
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -96,10 +94,10 @@ internal fun MeAboutSection(
     // 开源仓库
     SettingsCard(
         SettingsCardItem(
-            icon = Icons.Filled.OpenInNew,
+            icon = Icons.AutoMirrored.Filled.OpenInNew,
             title = stringResource(R.string.me_open_source_repo),
             description = OPEN_SOURCE_URL_DISPLAY,
-            trailingIcon = Icons.Filled.OpenInNew,
+            trailingIcon = Icons.AutoMirrored.Filled.OpenInNew,
             onClick = {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_URL)))
@@ -114,7 +112,7 @@ internal fun MeAboutSection(
             icon = Icons.Filled.Code,
             title = stringResource(R.string.me_open_source_license),
             description = stringResource(R.string.me_open_source_license_desc),
-            trailingIcon = Icons.Filled.OpenInNew,
+            trailingIcon = Icons.AutoMirrored.Filled.OpenInNew,
             onClick = {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_LICENSE_URL)))

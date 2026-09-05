@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.reader.state.PageElement
 
 /**

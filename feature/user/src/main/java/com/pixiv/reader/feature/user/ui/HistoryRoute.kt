@@ -19,8 +19,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -35,8 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.HistoryFilter
 import com.pixiv.reader.feature.user.state.HistoryViewModel
@@ -130,7 +129,7 @@ fun HistoryRoute(
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // TabRow：插画 / 小说 / 用户
-                TabRow(
+                SecondaryTabRow(
                     selectedTabIndex = filter.ordinal.coerceAtMost(HistoryFilter.entries.size - 1),
                     containerColor = MaterialTheme.colorScheme.surface,
                 ) {

@@ -1,7 +1,6 @@
 package com.pixiv.reader.feature.novel.data
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** 下载范围键派生：区分同一小说的单本/整系列/部分分册下载索引条目。 */

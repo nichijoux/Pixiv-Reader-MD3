@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.image.ZoomableImage
 import com.pixiv.reader.core.ui.theme.ViewerScrim

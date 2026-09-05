@@ -25,7 +25,7 @@ dependencies {
 
     api(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
     // SAF 目录访问（下载位置 DocumentFile）
     implementation(libs.androidx.documentfile)

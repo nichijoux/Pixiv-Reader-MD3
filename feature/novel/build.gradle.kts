@@ -30,7 +30,7 @@ dependencies {
     implementation(project(":core:datastore"))
     api(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
     // 后台下载（普通 Worker + EntryPoint，无需 @HiltWorker）
     implementation(libs.androidx.work.runtime.ktx)

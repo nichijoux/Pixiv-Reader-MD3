@@ -4,7 +4,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.TextUnitType
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.pixiv.reader.feature.reader.state.PageElement
 import com.pixiv.reader.feature.reader.state.stripParagraphIndent

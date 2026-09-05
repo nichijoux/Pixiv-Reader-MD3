@@ -26,7 +26,7 @@ dependencies {
 
     api(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
     // 简繁转换（OpenCC JNI，词典内置于 aar assets）
     implementation(libs.android.opencc)

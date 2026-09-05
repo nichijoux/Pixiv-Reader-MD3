@@ -39,6 +39,11 @@
     <string name="reader_settings_follow_system">跟隨系統</string>
     <string name="reader_settings_follow_system_desc">按系統深色模式自動切換夜間/紙張</string>
     <string name="reader_settings_section_page_mode">翻頁模式</string>
+    <string name="reader_settings_dual_page">雙頁顯示</string>
+    <string name="reader_dual_page_off">關閉</string>
+    <string name="reader_dual_page_always">開啟</string>
+    <string name="reader_dual_page_landscape">僅橫屏</string>
+    <string name="reader_dual_page_landscape_or_tablet">自動</string>
     <string name="reader_settings_chinese_convert">簡繁轉換</string>
     <string name="reader_settings_convert_off">不轉換</string>
     <string name="reader_settings_convert_s2t">簡體 → 繁體</string>

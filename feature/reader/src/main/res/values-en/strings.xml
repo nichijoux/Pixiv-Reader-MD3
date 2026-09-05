@@ -39,6 +39,11 @@
     <string name="reader_settings_follow_system">Follow system</string>
     <string name="reader_settings_follow_system_desc">Switch night/paper automatically with system dark mode</string>
     <string name="reader_settings_section_page_mode">Page mode</string>
+    <string name="reader_settings_dual_page">Dual page</string>
+    <string name="reader_dual_page_off">Off</string>
+    <string name="reader_dual_page_always">On</string>
+    <string name="reader_dual_page_landscape">Landscape</string>
+    <string name="reader_dual_page_landscape_or_tablet">Auto</string>
     <string name="reader_settings_chinese_convert">Chinese conversion</string>
     <string name="reader_settings_convert_off">Off</string>
     <string name="reader_settings_convert_s2t">Simplified → Traditional</string>

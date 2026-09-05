@@ -30,7 +30,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Collections
@@ -75,17 +74,13 @@ import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.ui.component.card.UserAvatar
-import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
-import com.pixiv.reader.core.ui.component.image.ZoomableImage
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.ViewerScrim
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
