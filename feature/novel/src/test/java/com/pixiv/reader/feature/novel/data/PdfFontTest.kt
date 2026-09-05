@@ -9,6 +9,7 @@ import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -109,7 +110,7 @@ class PdfFontTest {
 
     @Test
     fun `CJK 候选发现：glyf 中文字体命中，符号与 CFF 被过滤`() {
-        val dir = createTempDir("cjkscan").apply {
+        val dir = createTempDirectory("cjkscan").toFile().apply {
             // 真实中文 glyf 字体（模拟老设备 DroidSansFallback.ttf）
             resourceFile(cjkFontResource).copyTo(File(this, "DroidSansFallback.ttf"))
             // 符号字体（名字排除）
@@ -197,7 +198,7 @@ class PdfFontTest {
 
     @Test
     fun `符号字体目录扫描：按名字特征命中且排除彩色 emoji`() {
-        val dir = createTempDir("fontscan").apply {
+        val dir = createTempDirectory("fontscan").toFile().apply {
             File(this, "NotoSansSymbols-Regular.ttf").writeBytes(byteArrayOf(0))
             File(this, "NotoSansSymbols2-Regular.otf").writeBytes(byteArrayOf(0))
             File(this, "NotoColorEmoji.ttf").writeBytes(byteArrayOf(0))
@@ -219,7 +220,7 @@ class PdfFontTest {
 
     @Test
     fun `CFF 检测：含 CFF 表的字体返回 true`() {
-        val dir = createTempDir("cffcheck")
+        val dir = createTempDirectory("cffcheck").toFile()
         try {
             val f = File(dir, "fake-cff.otf")
             f.writeBytes(fakeCffSfnt())
@@ -231,7 +232,7 @@ class PdfFontTest {
 
     @Test
     fun `CFF 检测：TTC 容器保守返回 true`() {
-        val dir = createTempDir("ttccheck")
+        val dir = createTempDirectory("ttccheck").toFile()
         try {
             val f = File(dir, "fake.ttc")
             f.writeBytes("ttcf".toByteArray() + ByteArray(32))
