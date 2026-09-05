@@ -26,7 +26,7 @@ import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 
 /**
- * 小说详情 pane（小说 Tab Master-Detail 右栏）。
+ * 小说详情 pane（Master-Detail 右栏，小说 Tab / 小说排行页共用；关注页经 app 组合根注入槽位复用）。
  *
  * 复用 [NovelViewModel]（调用方 `hiltViewModel()` 注入）——选中项变化时 [switchTo] 加载；
  * 系列目录内分册点击原地替换。详情内容复用 [NovelDetailContent]
@@ -44,7 +44,7 @@ import com.pixiv.reader.feature.novel.data.NovelExportFormat
  * @param viewModel 小说详情 ViewModel（调用方注入）
  */
 @Composable
-internal fun NovelDetailPane(
+fun NovelDetailPane(
     selectedId: Long?,
     placeholder: String,
     onClose: () -> Unit,

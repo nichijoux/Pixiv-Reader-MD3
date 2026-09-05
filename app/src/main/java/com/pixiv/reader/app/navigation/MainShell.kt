@@ -31,6 +31,7 @@ import com.pixiv.reader.feature.discover.ui.DiscoverRoute
 import com.pixiv.reader.feature.follow.ui.FollowRoute
 import com.pixiv.reader.feature.home.HomeRoute
 import com.pixiv.reader.feature.manga.MangaRoute
+import com.pixiv.reader.feature.novel.ui.NovelDetailPane
 import com.pixiv.reader.feature.novel.ui.NovelRoute
 import com.pixiv.reader.feature.user.ui.MeRoute
 
@@ -152,6 +153,23 @@ fun MainShell(
                     onOpenNovel = onOpenNovel,
                     onOpenUser = onOpenUser,
                     onOpenSeries = onOpenSeries,
+                    onOpenViewer = onOpenViewer,
+                    // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
+                    // （feature 间禁止依赖，关注页经此槽位复用；作品 pane 在 core:ui，关注页直用）
+                    novelDetailPane = { selectedId, novelVm, commentVm, onClose ->
+                        NovelDetailPane(
+                            selectedId = selectedId,
+                            placeholder = stringResource(
+                                com.pixiv.reader.feature.novel.R.string.novel_ranking_preview_placeholder
+                            ),
+                            onClose = onClose,
+                            onOpenReader = onOpenReader,
+                            onOpenUser = onOpenUser,
+                            onOpenSeries = onOpenSeries,
+                            commentVm = commentVm,
+                            viewModel = novelVm,
+                        )
+                    },
                 )
             }
             // 发现页：跨 Tab 标签 / main?search 深链进入

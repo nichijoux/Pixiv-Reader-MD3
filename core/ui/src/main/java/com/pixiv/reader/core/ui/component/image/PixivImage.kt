@@ -19,11 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import coil.request.ImageRequest
+import coil.size.Precision
 
 /**
  * Pixiv 图片加载（全项目统一图片入口）。
@@ -60,9 +63,15 @@ fun PixivImage(
         Box(modifier = modifier.background(placeholder))
         return
     }
+    // INEXACT 精度：允许用内存缓存中更大的已解码位图满足较小目标尺寸（Crop 下视觉无差）——
+    // 容器宽度动画（Master-Detail 重排等）时尺寸逐帧变化，避免每帧重启解码导致卡顿/闪烁
+    val model = ImageRequest.Builder(LocalContext.current)
+        .data(url)
+        .precision(Precision.INEXACT)
+        .build()
     if (showProgress) {
         SubcomposeAsyncImage(
-            model = url,
+            model = model,
             contentDescription = contentDescription,
             modifier = modifier,
             contentScale = contentScale,
@@ -81,7 +90,7 @@ fun PixivImage(
         }
     } else {
         AsyncImage(
-            model = url,
+            model = model,
             contentDescription = contentDescription,
             modifier = modifier,
             contentScale = contentScale,

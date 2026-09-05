@@ -4,4 +4,19 @@
     <string name="follow_tab_illust">插畫</string>
     <string name="follow_all_users">全部</string>
     <string name="follow_empty">暫無動態</string>
+    <string name="follow_detail_placeholder">選擇動態查看詳情</string>
+    <string name="follow_illust_load_retry">載入失敗，點擊重試</string>
+    <string name="follow_illust_fullscreen">全螢幕</string>
+    <string name="follow_illust_stat_view">瀏覽</string>
+    <string name="follow_illust_stat_bookmark">收藏</string>
+    <string name="follow_illust_stat_pages">頁數</string>
+    <string name="follow_illust_expand">展開</string>
+    <string name="follow_illust_collapse">收起</string>
+    <string name="follow_illust_follow">關注</string>
+    <string name="follow_illust_followed">已關注</string>
+    <string name="follow_illust_related">相關作品</string>
+    <string name="follow_illust_bookmark">收藏</string>
+    <string name="follow_illust_bookmarked">已收藏</string>
+    <string name="follow_illust_download">下載</string>
+    <string name="follow_illust_comments">評論</string>
 </resources>

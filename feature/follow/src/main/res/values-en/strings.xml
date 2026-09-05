@@ -4,4 +4,19 @@
     <string name="follow_tab_illust">Illustrations</string>
     <string name="follow_all_users">All</string>
     <string name="follow_empty">No updates yet</string>
+    <string name="follow_detail_placeholder">Select an update to view details</string>
+    <string name="follow_illust_load_retry">Load failed, tap to retry</string>
+    <string name="follow_illust_fullscreen">Fullscreen</string>
+    <string name="follow_illust_stat_view">Views</string>
+    <string name="follow_illust_stat_bookmark">Bookmarks</string>
+    <string name="follow_illust_stat_pages">Pages</string>
+    <string name="follow_illust_expand">Show more</string>
+    <string name="follow_illust_collapse">Collapse</string>
+    <string name="follow_illust_follow">Follow</string>
+    <string name="follow_illust_followed">Following</string>
+    <string name="follow_illust_related">Related works</string>
+    <string name="follow_illust_bookmark">Bookmark</string>
+    <string name="follow_illust_bookmarked">Bookmarked</string>
+    <string name="follow_illust_download">Download</string>
+    <string name="follow_illust_comments">Comments</string>
 </resources>

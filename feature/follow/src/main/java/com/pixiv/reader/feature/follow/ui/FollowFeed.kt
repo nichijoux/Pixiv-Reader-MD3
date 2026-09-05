@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -128,7 +131,13 @@ private fun FollowFeedList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spacing.smPlus, end = Spacing.smPlus, top = Spacing.smPlus, bottom = Spacing.lg),
+        // 沉浸式底部：尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+        contentPadding = PaddingValues(
+            start = Spacing.smPlus,
+            end = Spacing.smPlus,
+            top = Spacing.smPlus,
+            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         lazyItems(items, key = { it.key }) { item ->
@@ -164,7 +173,13 @@ private fun FollowFeedGrid(
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(240.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.md, bottom = Spacing.lg),
+        // 沉浸式底部：尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+        contentPadding = PaddingValues(
+            start = Spacing.md,
+            end = Spacing.md,
+            top = Spacing.md,
+            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+        ),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalItemSpacing = Spacing.sm,
     ) {
@@ -192,7 +207,13 @@ private fun FollowFeedListSkeleton() {
     val color = skeletonPulseColor(label = "followFeedSkeleton")
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spacing.smPlus, end = Spacing.smPlus, top = Spacing.smPlus, bottom = Spacing.lg),
+        // 沉浸式底部：尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+        contentPadding = PaddingValues(
+            start = Spacing.smPlus,
+            end = Spacing.smPlus,
+            top = Spacing.smPlus,
+            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(count = 3) {
