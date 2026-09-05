@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.network.comment.CommentListViewModel
 import com.pixiv.reader.core.network.illust.IllustViewModel
@@ -35,6 +35,8 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
+import com.pixiv.reader.core.ui.component.list.RankingDateChipRow
+import com.pixiv.reader.core.ui.component.list.RankingDatePickerButton
 import com.pixiv.reader.core.ui.component.list.RankingIllustSkeleton
 import com.pixiv.reader.core.ui.component.list.RankingList
 
@@ -47,6 +49,9 @@ import com.pixiv.reader.core.ui.component.list.RankingList
  *
  * 每段数据由 ViewModel 内独立 PagedState 承载（RankingList 按段 collect），滑动切回已加载段
  * 不重复请求、无过渡动画。
+ *
+ * 支持按日期回看历史榜单：TopAppBar 日历入口选日期（仅昨天及更早），TabRow 上方日期 chip
+ * 显示/清除；「mode × 日期」各段独立缓存，切回已看过的日期不重复请求。
  *
  * @param onBack 返回
  * @param onOpenIllust 点击排名行打开插画/漫画详情（小屏单栏路径）
@@ -64,6 +69,8 @@ fun IllustRankingRoute(
 ) {
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
+    // 日期筛选状态（null = 最新榜）：驱动 TopAppBar 入口着色与 TabRow 上方日期 chip 行
+    val currentDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     // pane 模式判定（全屏页无 NavigationRail，不减 rail 宽）——顶层捕获，
     // 与 ListDetailOverlay 内部判定一致；点击分流用同一值
     val paneEnabled = isDetailPaneEnabled(subtractRail = false)
@@ -104,12 +111,11 @@ fun IllustRankingRoute(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* 更多（暂保留） */ }) {
-                        Icon(
-                            Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.manga_cd_more),
-                        )
-                    }
+                    // 日期筛选入口：查看过去某天的历史榜单（替换原空 MoreVert 占位）
+                    RankingDatePickerButton(
+                        selectedDate = currentDate,
+                        onSelectDate = viewModel::selectDate,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -135,7 +141,18 @@ fun IllustRankingRoute(
                             onLoadMore = viewModel::loadMore,
                             emptyText = stringResource(R.string.illust_ranking_empty),
                             skeleton = { RankingIllustSkeleton() },
-                            gridMinColumnWidth = 240.dp,
+                            gridMinColumnWidth = 200.dp,
+                            stateKey = currentDate.orEmpty(),
+                            listHeader = {
+                                // 日期 chip 行：TabRow 上方、限宽内容块内（pane 让位时随列表移动）
+                                currentDate?.let { date ->
+                                    RankingDateChipRow(
+                                        date = date,
+                                        onSelectDate = viewModel::selectDate,
+                                        onClear = { viewModel.selectDate(null) },
+                                    )
+                                }
+                            },
                         ) { item, rank ->
                             RankingIllustCard(
                                 rank = rank,
@@ -174,7 +191,18 @@ fun IllustRankingRoute(
                 modifier = Modifier.padding(padding),
                 emptyText = stringResource(R.string.illust_ranking_empty),
                 skeleton = { RankingIllustSkeleton() },
-                gridMinColumnWidth = 240.dp,
+                gridMinColumnWidth = 200.dp,
+                stateKey = currentDate.orEmpty(),
+                listHeader = {
+                    // 日期 chip 行：TabRow 上方、限宽内容块内
+                    currentDate?.let { date ->
+                        RankingDateChipRow(
+                            date = date,
+                            onSelectDate = viewModel::selectDate,
+                            onClear = { viewModel.selectDate(null) },
+                        )
+                    }
+                },
             ) { item, rank ->
                 RankingIllustCard(
                     rank = rank,

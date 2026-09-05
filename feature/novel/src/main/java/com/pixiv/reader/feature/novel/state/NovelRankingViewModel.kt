@@ -16,8 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * 小说排行榜 ViewModel：6 段榜单（日榜/周榜/男性向/女性向/新人/R18）滑动切换，
- * `GET /v1/novel/ranking?mode=` 游标分页（分段/惰性加载/重试/触底骨架在 [RankingPagedViewModel]，
- * mode 与插画榜通用，无小说专属 mode）。
+ * `GET /v1/novel/ranking?mode=&date=` 游标分页（分段/惰性加载/重试/触底骨架在
+ * [RankingPagedViewModel]，mode 与插画榜通用无小说专属 mode，支持 [selectDate]
+ * 按日期回看历史榜单）。
  */
 @HiltViewModel
 class NovelRankingViewModel @Inject constructor(
@@ -43,9 +44,10 @@ class NovelRankingViewModel @Inject constructor(
         _languageFilter.value = filter
     }
 
-    override suspend fun loadInitialFor(paged: PagedState<Novel>, mode: String) {
+    /** 段数据首载：拉取指定 mode（可选历史日期）的小说榜单第一页，翻页走 next_url。 */
+    override suspend fun loadInitialFor(paged: PagedState<Novel>, mode: String, date: String?) {
         paged.loadInitial(
-            fetch = { pixivRepository.api.getRankingNovels(mode) },
+            fetch = { pixivRepository.api.getRankingNovels(mode, date) },
             fetchNext = { pixivRepository.api.getNextNovels(it) },
         )
     }

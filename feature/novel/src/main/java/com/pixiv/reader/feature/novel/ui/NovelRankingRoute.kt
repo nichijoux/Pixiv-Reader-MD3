@@ -47,6 +47,8 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
+import com.pixiv.reader.core.ui.component.list.RankingDateChipRow
+import com.pixiv.reader.core.ui.component.list.RankingDatePickerButton
 import com.pixiv.reader.core.ui.component.list.RankingList
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
@@ -65,6 +67,9 @@ import com.pixiv.reader.feature.novel.state.matchesLanguageFilter
  *
  * 每段数据由 ViewModel 内独立 PagedState 承载（RankingList 按段 collect），滑动切回已加载段
  * 不重复请求、无过渡动画。
+ *
+ * 支持按日期回看历史榜单：TopAppBar 日历入口（语言筛选旁）选日期（仅昨天及更早），TabRow
+ * 上方日期 chip 显示/清除；「mode × 日期」各段独立缓存，语言筛选与日期筛选互不影响。
  *
  * @param onBack 返回
  * @param onOpenNovel 点击卡片（含封面）打开小说详情（小屏单栏路径）
@@ -94,6 +99,8 @@ fun NovelRankingRoute(
         }
     }
     val languageFilter by viewModel.languageFilter.collectAsStateWithLifecycle()
+    // 日期筛选状态（null = 最新榜）：驱动 TopAppBar 入口着色与 TabRow 上方日期 chip 行
+    val currentDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     var menuExpanded by remember { mutableStateOf(false) }
     // pane 模式判定（全屏页无 NavigationRail，不减 rail 宽）——顶层捕获，
     // 与 ListDetailOverlay 内部判定一致；点击分流用同一值
@@ -164,6 +171,11 @@ fun NovelRankingRoute(
                             }
                         }
                     }
+                    // 日期筛选入口：查看过去某天的历史榜单（与语言筛选并列）
+                    RankingDatePickerButton(
+                        selectedDate = currentDate,
+                        onSelectDate = viewModel::selectDate,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -191,6 +203,17 @@ fun NovelRankingRoute(
                             filter = { novel -> novel.matchesLanguageFilter(languageFilter) },
                             filteredEmptyText = stringResource(R.string.novel_ranking_filter_empty),
                             skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
+                            stateKey = currentDate.orEmpty(),
+                            listHeader = {
+                                // 日期 chip 行：TabRow 上方、限宽内容块内（pane 让位时随列表移动）
+                                currentDate?.let { date ->
+                                    RankingDateChipRow(
+                                        date = date,
+                                        onSelectDate = viewModel::selectDate,
+                                        onClear = { viewModel.selectDate(null) },
+                                    )
+                                }
+                            },
                         ) { item, rank ->
                             NovelCard(
                                 novel = item.toCardData(),
@@ -234,6 +257,17 @@ fun NovelRankingRoute(
                 filter = { novel -> novel.matchesLanguageFilter(languageFilter) },
                 filteredEmptyText = stringResource(R.string.novel_ranking_filter_empty),
                 skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
+                stateKey = currentDate.orEmpty(),
+                listHeader = {
+                    // 日期 chip 行：TabRow 上方、限宽内容块内
+                    currentDate?.let { date ->
+                        RankingDateChipRow(
+                            date = date,
+                            onSelectDate = viewModel::selectDate,
+                            onClear = { viewModel.selectDate(null) },
+                        )
+                    }
+                },
             ) { item, rank ->
                 NovelCard(
                     novel = item.toCardData(),

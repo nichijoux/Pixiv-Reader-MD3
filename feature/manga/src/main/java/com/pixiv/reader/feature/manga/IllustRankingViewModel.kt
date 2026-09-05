@@ -12,7 +12,8 @@ import javax.inject.Inject
 
 /**
  * 插画排行榜 ViewModel：7 段榜单（日/周/月/男性向/女性向/新人/R18）滑动切换，
- * `GET /v1/illust/ranking?mode=` 游标分页（分段/惰性加载/重试/触底骨架在 [RankingPagedViewModel]）。
+ * `GET /v1/illust/ranking?mode=&date=` 游标分页（分段/惰性加载/重试/触底骨架在
+ * [RankingPagedViewModel]，支持 [selectDate] 按日期回看历史榜单）。
  *
  * 分段 mode（插画专属 `day`/`day_male`/`day_female`；周/月/新人/R18 为通用 mode）：
  * - 日榜 `day` / 周榜 `week` / 月榜 `month` / 男性向 `day_male` / 女性向 `day_female` / 新人 `week_rookie` / R18 `day_r18`
@@ -34,9 +35,10 @@ class IllustRankingViewModel @Inject constructor(
 ) {
 
 
-    override suspend fun loadInitialFor(paged: PagedState<Illust>, mode: String) {
+    /** 段数据首载：拉取指定 mode（可选历史日期）的插画榜单第一页，翻页走 next_url。 */
+    override suspend fun loadInitialFor(paged: PagedState<Illust>, mode: String, date: String?) {
         paged.loadInitial(
-            fetch = { pixivRepository.api.getRanking(mode) },
+            fetch = { pixivRepository.api.getRanking(mode, date) },
             fetchNext = { pixivRepository.api.getNextIllusts(it) },
         )
     }

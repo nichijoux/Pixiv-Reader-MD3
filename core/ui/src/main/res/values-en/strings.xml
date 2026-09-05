@@ -36,4 +36,9 @@
     <string name="series_ongoing">Ongoing</string>
     <string name="series_concluded">Completed</string>
     <string name="series_watchlisted">Watching</string>
+    <!-- Ranking date filter (RankingDatePickerButton / RankingDateChipRow) -->
+    <string name="common_ok">OK</string>
+    <string name="core_ranking_pick_date">Pick a date</string>
+    <string name="core_ranking_back_to_latest">Back to latest</string>
+    <string name="core_ranking_history_hint">historical ranking · tap to change</string>
 </resources>

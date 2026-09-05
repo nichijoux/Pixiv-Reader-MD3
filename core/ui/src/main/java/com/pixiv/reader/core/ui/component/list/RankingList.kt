@@ -86,6 +86,11 @@ import kotlinx.coroutines.launch
  *                           非 null 时条目按 `StaggeredGridCells.Adaptive` 瀑布流分列
  *                           （宽屏 2-3 列，pane 让位/小屏自动减少列数；卡片宽高比各异，
  *                           各列独立流动不按行对齐），排名顺序不变、尾部加载项横跨整行
+ * @param stateKey 段状态键（如当前日期筛选）：变更时各页经 [stateFor] 取到新维度的 [PagedState]
+ *                 实例（页级 remember 键含 stateKey），并重新触发当前段 [onModeSelect] 加载；
+ *                 默认空串 = 无额外维度（Tab 选中位不受影响，各段旧数据仍在 VM 缓存）
+ * @param listHeader 列表头（渲染在 TabRow 上方、限宽内容块内，如日期筛选 chip 行）；null = 无。
+ *                   平板 pane 让位时随列表整体移动，与 TabRow/列表左缘对齐
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `RankingIllustCard`
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -103,6 +108,8 @@ fun <T> RankingList(
     filteredEmptyText: String? = null,
     skeleton: @Composable () -> Unit = {},
     gridMinColumnWidth: Dp? = null,
+    stateKey: String = "",
+    listHeader: (@Composable () -> Unit)? = null,
     itemContent: @Composable (T, Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -119,9 +126,21 @@ fun <T> RankingList(
         }
     }
 
+    // stateKey 变更（如切换日期）→ 当前段换用新的 PagedState，需重新触发当前 mode 加载
+    // （pagerState.currentPage 未变，上面的 LaunchedEffect 不会重跑；首次组合时会与上面
+    // 重复回调一次 onPageSelected，由 ViewModel 侧 initialized 集合保证幂等）
+    LaunchedEffect(stateKey) {
+        val page = pagerState.currentPage
+        if (page in modes.indices) {
+            onModeSelect(modes[page].value)
+        }
+    }
+
     // 平板限宽居中：TabRow + 列表整体不超过 MAX_CONTENT_WIDTH_DP（手机 <760 自然占满）
     AdaptiveContentBox(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize()) {
+            // 列表头（如日期筛选 chip 行）：位于 TabRow 上方、限宽内容块内，随 pane 让位整体移动
+            listHeader?.invoke()
             // 限宽生效（平板）→ PrimaryTabRow 均分占满居中；手机 → ScrollableTabRow 内容宽度可滑动
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val isWide = maxWidth >= MAX_CONTENT_WIDTH_DP.dp
@@ -163,8 +182,9 @@ fun <T> RankingList(
                 if (mode == null) {
                     LoadingBox()
                 } else {
-                    // 该页独立的 PagedState（实例由 ViewModel 缓存，数据驻留 VM）
-                    val paged = remember(mode.value) { stateFor(mode.value) }
+                    // 该页独立的 PagedState（实例由 ViewModel 缓存，数据驻留 VM；
+                    // stateKey（日期维度）变更时按新复合键取到新实例并重新加载）
+                    val paged = remember(mode.value, stateKey) { stateFor(mode.value) }
                     val items by paged.items.collectAsStateWithLifecycle()
                     val isLoading by paged.isLoading.collectAsStateWithLifecycle()
                     val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()

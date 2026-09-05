@@ -46,3 +46,4 @@ design/
 DESIGN.md
 .codegraph
 dist/
+.zcode/

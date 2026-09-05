@@ -36,4 +36,9 @@
     <string name="series_ongoing">连载中</string>
     <string name="series_concluded">已完结</string>
     <string name="series_watchlisted">已追更</string>
+    <!-- 排行榜日期筛选（RankingDatePickerButton / RankingDateChipRow） -->
+    <string name="common_ok">确定</string>
+    <string name="core_ranking_pick_date">选择日期</string>
+    <string name="core_ranking_back_to_latest">回到最新榜单</string>
+    <string name="core_ranking_history_hint">的历史榜单 · 点击可修改</string>
 </resources>
