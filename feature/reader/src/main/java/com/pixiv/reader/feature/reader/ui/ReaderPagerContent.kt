@@ -2,7 +2,6 @@ package com.pixiv.reader.feature.reader.ui
 
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
@@ -17,14 +16,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.feature.reader.R
-import com.pixiv.reader.feature.reader.state.ReaderPage
-import com.pixiv.reader.feature.reader.state.pageIndexForChar
+import com.pixiv.reader.feature.reader.state.ReaderSpread
+import com.pixiv.reader.feature.reader.state.spreadIndexForChar
 
-/** 翻页模式：普通横向滑动翻页（无 3D 特效）。 */
+/**
+ * 翻页模式：普通横向滑动翻页（无 3D 特效）。
+ * 双页显示时每个 Pager 页 = 一个跨页（左右两半页并排 + 中缝阴影）。
+ */
 @Composable
 internal fun PagerReaderContent(
     pagerState: PagerState,
-    pages: List<ReaderPage>,
+    spreads: List<ReaderSpread>,
     pageHeight: Dp,
     restoreCharOffset: Int,
     onPageChange: (Int) -> Unit,
@@ -35,9 +37,9 @@ internal fun PagerReaderContent(
 ) {
     var restored by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pages, restoreCharOffset) {
-        if (restored || pages.isEmpty()) return@LaunchedEffect
-        val index = pages.pageIndexForChar(restoreCharOffset)
+    LaunchedEffect(spreads, restoreCharOffset) {
+        if (restored || spreads.isEmpty()) return@LaunchedEffect
+        val index = spreads.spreadIndexForChar(restoreCharOffset)
         pagerState.scrollToPage(index)
         restored = true
     }
@@ -45,17 +47,17 @@ internal fun PagerReaderContent(
     // 目录/搜索跳转
     LaunchedEffect(jumpToChar) {
         val j = jumpToChar ?: return@LaunchedEffect
-        if (pages.isEmpty()) return@LaunchedEffect
-        pagerState.scrollToPage(pages.pageIndexForChar(j))
+        if (spreads.isEmpty()) return@LaunchedEffect
+        pagerState.scrollToPage(spreads.spreadIndexForChar(j))
     }
 
-    LaunchedEffect(pagerState.settledPage, pages.size) {
+    LaunchedEffect(pagerState.settledPage, spreads.size) {
         val index = pagerState.settledPage
-        onPageInfo(index, pages.size)
+        onPageInfo(index, spreads.size)
         onPageChange(index)
     }
 
-    if (pages.isEmpty()) {
+    if (spreads.isEmpty()) {
         EmptyBox(stringResource(R.string.reader_empty_content), modifier = modifier)
         return
     }
@@ -68,13 +70,13 @@ internal fun PagerReaderContent(
     )
 
     HorizontalPager(state = pagerState, flingBehavior = flingBehavior, modifier = modifier) { index ->
-        RenderReaderPage(
-            pages[index],
-            pageHeight,
-            Modifier
-                .fillMaxSize()
-                .padding(PAGE_H_PADDING, PAGE_V_PADDING),
-
+        val spread = spreads[index]
+        RenderSpreadColumns(
+            left = spread.left,
+            right = spread.right,
+            columns = spread.columns,
+            containerHeight = pageHeight,
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }

@@ -1,16 +1,23 @@
 package com.pixiv.reader.feature.reader.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -141,6 +148,86 @@ internal fun RenderReaderPage(
                 )
             }
         }
+    }
+}
+
+/** 中缝阴影宽度（dp）：跨页中缝立体感渐变条。 */
+internal val SPREAD_SEAM_WIDTH = 12.dp
+
+/**
+ * 渲染跨页（翻页/仿真模式的翻页单元，见 [com.pixiv.reader.feature.reader.state.ReaderSpread]）。
+ *
+ * - columns = 1：单页模式，[left] 占满整宽（与单页渲染完全一致）
+ * - columns = 2：双页并排，左右各半宽；[right] 为 null（章节末页落单）时右半留纸底色；
+ *   叠加中缝竖向渐变阴影形成书脊立体感
+ *
+ * @param left 左页（columns = 1 时为整宽页；为 null 时不渲染内容，仅留背景）
+ * @param right 右页（columns = 1 恒为 null；columns = 2 末页落单时为 null）
+ * @param columns 列数：1 单页整宽 / 2 双页并排
+ * @param containerHeight 容器高度（RenderReaderPage 底部贴底微调用）
+ * @param showSeam 是否绘制中缝阴影（静态跨页显示 true；仿真叶翻的叶面层不需要）
+ */
+@Composable
+internal fun RenderSpreadColumns(
+    left: ReaderPage?,
+    right: ReaderPage?,
+    columns: Int,
+    containerHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    // 单页模式：与原单页渲染路径完全一致（同一 padding、同一整宽约束）
+    if (columns <= 1) {
+        if (left != null) {
+            RenderReaderPage(
+                left,
+                containerHeight,
+                modifier
+                    .fillMaxSize()
+                    .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+            )
+        }
+        return
+    }
+    // 双页模式：两列各占一半，各自内边距；末页落单时右半留纸底色
+    Box(modifier.fillMaxSize()) {
+        Row(modifier = Modifier.matchParentSize()) {
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                if (left != null) {
+                    RenderReaderPage(
+                        left,
+                        containerHeight,
+                        Modifier
+                            .fillMaxSize()
+                            .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+                    )
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                if (right != null) {
+                    RenderReaderPage(
+                        right,
+                        containerHeight,
+                        Modifier
+                            .fillMaxSize()
+                            .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+                    )
+                }
+            }
+        }
+        // 中缝阴影：居中竖向渐变条（中心深、两侧渐隐），营造书脊凹陷感
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(SPREAD_SEAM_WIDTH)
+                .fillMaxHeight()
+                .background(
+                    Brush.horizontalGradient(
+                        0f to Color.Black.copy(alpha = 0f),
+                        0.5f to Color.Black.copy(alpha = 0.10f),
+                        1f to Color.Black.copy(alpha = 0f),
+                    ),
+                ),
+        )
     }
 }
 

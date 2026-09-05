@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
@@ -121,6 +122,10 @@ class ReaderViewModel @Inject constructor(
 
     private val _pageMode = MutableStateFlow(ReaderPageMode.SCROLL)
     val pageMode: StateFlow<ReaderPageMode> = _pageMode.asStateFlow()
+
+    /** 双页显示模式：关闭 / 强制开启 / 仅横屏 / 横屏或平板（仅翻页与仿真模式生效） */
+    private val _dualPageMode = MutableStateFlow(ReaderDualPageMode.LANDSCAPE_OR_TABLET)
+    val dualPageMode: StateFlow<ReaderDualPageMode> = _dualPageMode.asStateFlow()
 
     private val _brightness = MutableStateFlow(1f)
     val brightness: StateFlow<Float> = _brightness.asStateFlow()
@@ -245,6 +250,9 @@ class ReaderViewModel @Inject constructor(
         }
         viewModelScope.launch {
             runCatching { userPreferences.readerPageMode.collect { _pageMode.value = it } }
+        }
+        viewModelScope.launch {
+            runCatching { userPreferences.readerDualPageMode.collect { _dualPageMode.value = it } }
         }
         viewModelScope.launch {
             runCatching { userPreferences.readerBrightness.collect { _brightness.value = it } }
@@ -578,6 +586,11 @@ class ReaderViewModel @Inject constructor(
     fun onPageModeChange(value: ReaderPageMode) {
         _pageMode.value = value
         viewModelScope.launch { runCatching { userPreferences.setReaderPageMode(value) } }
+    }
+
+    fun onDualPageModeChange(value: ReaderDualPageMode) {
+        _dualPageMode.value = value
+        viewModelScope.launch { runCatching { userPreferences.setReaderDualPageMode(value) } }
     }
 
     fun onBrightnessChange(value: Float) {

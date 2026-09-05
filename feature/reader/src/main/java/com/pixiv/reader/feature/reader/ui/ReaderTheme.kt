@@ -79,6 +79,13 @@ val READER_PAGE_MODE_NAME_RES = intArrayOf(
     R.string.reader_page_mode_paginate,
     R.string.reader_page_mode_simulation,
 )
+/** 双页显示四档文案（顺序对应 [ReaderDualPageMode.entries]）。 */
+val READER_DUAL_PAGE_NAME_RES = intArrayOf(
+    R.string.reader_dual_page_off,
+    R.string.reader_dual_page_always,
+    R.string.reader_dual_page_landscape,
+    R.string.reader_dual_page_landscape_or_tablet,
+)
 val READER_FONT_FAMILY_NAME_RES = intArrayOf(
     R.string.reader_font_family_serif,
     R.string.reader_font_family_sans,

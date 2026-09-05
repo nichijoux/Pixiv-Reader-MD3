@@ -19,6 +19,23 @@ fun List<ReaderPage>.pageIndexForChar(charOffset: Int): Int {
 }
 
 /**
+ * 找到字符区间覆盖给定偏移的跨页下标；找不到则就近返回（开头 → 0，结尾 → 最后一页）。
+ * 逻辑与 [pageIndexForChar] 一致，区间为跨页 [ReaderSpread.startChar]..[ReaderSpread.endChar]。
+ */
+fun List<ReaderSpread>.spreadIndexForChar(charOffset: Int): Int {
+    if (isEmpty()) return 0
+    val index = indexOfFirst { spread ->
+        spread.startChar >= 0 && spread.endChar >= 0 &&
+                charOffset >= spread.startChar && charOffset < spread.endChar
+    }
+    if (index >= 0) return index
+    // 没有命中：取最后一个 startChar <= offset 的跨页
+    val lastLe = lastOrNull { spread -> spread.startChar in 0..charOffset }
+        ?: first()
+    return indexOf(lastLe)
+}
+
+/**
  * 字符偏移 → 官方 marker 页码（官方分页按比例换算，clamp 到 1..pageCount）。
  */
 fun estimateOfficialPage(charOffset: Int, textLength: Int, officialPageCount: Int): Int {

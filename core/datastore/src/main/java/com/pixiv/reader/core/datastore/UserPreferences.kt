@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.pixiv.reader.core.common.config.AppLanguage
 import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
+import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.common.config.ThemeMode
@@ -66,6 +67,11 @@ class UserPreferences @Inject constructor(
     val readerFontFamily: Flow<String> = context.dataStore.data.map { it[KEY_FONT_FAMILY] ?: "serif" }
     val readerTheme: Flow<ReaderThemeMode> = context.dataStore.data.map { ReaderThemeMode.from(it[KEY_READER_THEME] ?: ReaderThemeMode.PAPER.value) }
     val readerPageMode: Flow<ReaderPageMode> = context.dataStore.data.map { ReaderPageMode.from(it[KEY_PAGE_MODE] ?: ReaderPageMode.SCROLL.value) }
+    /** 阅读器双页显示：0 关闭 / 1 强制开启 / 2 仅横屏 / 3 横屏或平板（默认，仅翻页与仿真模式生效） */
+    val readerDualPageMode: Flow<ReaderDualPageMode> =
+        context.dataStore.data.map {
+            ReaderDualPageMode.from(it[KEY_DUAL_PAGE] ?: ReaderDualPageMode.LANDSCAPE_OR_TABLET.value)
+        }
     val readerBrightness: Flow<Float> = context.dataStore.data.map { it[KEY_BRIGHTNESS] ?: 1f }
     /** 阅读器主题是否跟随系统深色模式 */
     val readerFollowSystem: Flow<Boolean> = context.dataStore.data.map { it[KEY_FOLLOW_SYSTEM] ?: false }
@@ -151,6 +157,8 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderFontFamily(value: String) = context.dataStore.edit { it[KEY_FONT_FAMILY] = value }
     suspend fun setReaderTheme(value: ReaderThemeMode) = context.dataStore.edit { it[KEY_READER_THEME] = value.value }
     suspend fun setReaderPageMode(value: ReaderPageMode) = context.dataStore.edit { it[KEY_PAGE_MODE] = value.value }
+    suspend fun setReaderDualPageMode(value: ReaderDualPageMode) =
+        context.dataStore.edit { it[KEY_DUAL_PAGE] = value.value }
     suspend fun setReaderBrightness(value: Float) = context.dataStore.edit { it[KEY_BRIGHTNESS] = value }
     suspend fun setReaderFollowSystem(value: Boolean) = context.dataStore.edit { it[KEY_FOLLOW_SYSTEM] = value }
     suspend fun setReaderCustomFontPath(value: String) = context.dataStore.edit { it[KEY_CUSTOM_FONT_PATH] = value }
@@ -201,6 +209,7 @@ class UserPreferences @Inject constructor(
         val KEY_FONT_FAMILY = stringPreferencesKey("reader_font_family")
         val KEY_READER_THEME = intPreferencesKey("reader_theme")
         val KEY_PAGE_MODE = intPreferencesKey("reader_page_mode")
+        val KEY_DUAL_PAGE = intPreferencesKey("reader_dual_page_mode")
         val KEY_BRIGHTNESS = floatPreferencesKey("reader_brightness")
         val KEY_FOLLOW_SYSTEM = booleanPreferencesKey("reader_follow_system")
         val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")

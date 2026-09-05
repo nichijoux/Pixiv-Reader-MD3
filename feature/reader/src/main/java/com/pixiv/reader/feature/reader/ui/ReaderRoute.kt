@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.novel.model.NovelDocument
@@ -70,6 +71,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderViewModel
 import com.pixiv.reader.feature.reader.state.ReaderPage
+import com.pixiv.reader.feature.reader.state.buildSpreads
 import com.pixiv.reader.feature.reader.state.rememberReaderElements
 import com.pixiv.reader.feature.reader.state.rememberReaderFontFamily
 import com.pixiv.reader.feature.reader.state.rememberReaderPages
@@ -212,6 +214,7 @@ fun ReaderRoute(
     val letterSpacing by viewModel.letterSpacing.collectAsStateWithLifecycle()
     val readerTheme by viewModel.readerTheme.collectAsStateWithLifecycle()
     val pageMode by viewModel.pageMode.collectAsStateWithLifecycle()
+    val dualPageMode by viewModel.dualPageMode.collectAsStateWithLifecycle()
     val brightness by viewModel.brightness.collectAsStateWithLifecycle()
 
     val charOffset by viewModel.charOffset.collectAsStateWithLifecycle()
@@ -406,9 +409,23 @@ fun ReaderRoute(
 
                     doc == null -> EmptyBox(stringResource(R.string.reader_empty_content))
                     else -> {
-                        AdaptiveContentBox {
+                        // 双页判定：按应用配置（横屏 = 宽 > 高；平板 = smallestScreenWidthDp ≥ 600）；
+                        // 滑动模式恒为单列（legado 同语义，翻页/仿真模式才生效）
+                        val configuration = LocalConfiguration.current
+                        val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+                        val isTablet = configuration.smallestScreenWidthDp >= 600
+                        val dualPageActive = when (dualPageMode) {
+                            ReaderDualPageMode.OFF -> false
+                            ReaderDualPageMode.ALWAYS -> true
+                            ReaderDualPageMode.LANDSCAPE -> isLandscape
+                            ReaderDualPageMode.LANDSCAPE_OR_TABLET -> isLandscape || isTablet
+                        } && pageMode != ReaderPageMode.SCROLL
+
+                        val readerSurface: @Composable () -> Unit = {
                             BoxWithConstraints {
-                                val contentWidth = maxWidth - PAGE_H_PADDING * 2
+                                // 双页时每列宽度 = 视口一半（列内容宽再减去页内边距）；单页时整宽
+                                val columnWidth = if (dualPageActive) maxWidth / 2 else maxWidth
+                                val contentWidth = columnWidth - PAGE_H_PADDING * 2
                                 // 页高减去系统导航栏高度：文字排版避开导航栏（纸面仍延伸到屏幕底，沉浸式）
                                 val navBarBottom = WindowInsets.navigationBars
                                     .asPaddingValues()
@@ -449,6 +466,7 @@ fun ReaderRoute(
                                             .padding(bottom = READER_STATUS_BAR_HEIGHT),
                                     )
                                 } else {
+                                    // 按列内容宽分页（双页时每页为半宽页）
                                     val pages: List<ReaderPage> = rememberReaderPages(
                                         document = doc,
                                         baseStyle = baseStyle,
@@ -456,16 +474,23 @@ fun ReaderRoute(
                                         contentWidthDp = contentWidth,
                                         pageHeightDp = pageHeight,
                                     )
+                                    // 两页配对成跨页：单页模式逐页包装（渲染整宽，行为与旧版一致），
+                                    // 双页模式两两配对（章节末页落单右半留白）
+                                    val spreads = remember(pages, dualPageActive) {
+                                        buildSpreads(pages, if (dualPageActive) 2 else 1)
+                                    }
                                     if (pageMode == ReaderPageMode.SIMULATION) {
-                                        // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）
+                                        // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）；
+                                        // 双页为真书单叶翻页（被翻半页绕中缝卷起）
                                         SimulationPageContent(
-                                            pages = pages,
+                                            spreads = spreads,
+                                            columns = if (dualPageActive) 2 else 1,
                                             pageHeight = pageHeight,
                                             backgroundColor = themeColors.background,
                                             restoreCharOffset = restoreOffset,
                                             jumpToChar = jumpToChar,
                                             onPageChange = { index ->
-                                                pages.getOrNull(index)?.let {
+                                                spreads.getOrNull(index)?.let {
                                                     viewModel.reportPage(
                                                         it.startChar
                                                     )
@@ -480,18 +505,18 @@ fun ReaderRoute(
                                         )
                                     } else {
                                         val pagerState =
-                                            rememberPagerState(pageCount = { pages.size })
+                                            rememberPagerState(pageCount = { spreads.size })
                                         LaunchedEffect(pagerState) {
                                             pagerStateRef.value = pagerState
                                         }
                                         PagerReaderContent(
                                             pagerState = pagerState,
-                                            pages = pages,
+                                            spreads = spreads,
                                             pageHeight = pageHeight,
                                             restoreCharOffset = restoreOffset,
                                             jumpToChar = jumpToChar,
                                             onPageChange = { index ->
-                                                pages.getOrNull(index)?.let {
+                                                spreads.getOrNull(index)?.let {
                                                     viewModel.reportPage(
                                                         it.startChar
                                                     )
@@ -502,6 +527,12 @@ fun ReaderRoute(
                                     }
                                 }
                             }
+                        }
+                        if (dualPageActive) {
+                            // 双页跨页需要全宽：绕过 AdaptiveContentBox 的限宽（否则每列过窄）
+                            readerSurface()
+                        } else {
+                            AdaptiveContentBox { readerSurface() }
                         }
                     }
                 }
@@ -597,6 +628,7 @@ fun ReaderRoute(
             letterSpacing = letterSpacing,
             theme = effectiveTheme,
             pageMode = pageMode,
+            dualPageMode = dualPageMode,
             brightness = brightness,
             followSystem = followSystem,
             hasCustomFont = customFontPath.isNotBlank(),
@@ -609,6 +641,7 @@ fun ReaderRoute(
             onLetterSpacingChange = viewModel::onLetterSpacingChange,
             onThemeChange = viewModel::onReaderThemeChange,
             onPageModeChange = viewModel::onPageModeChange,
+            onDualPageModeChange = viewModel::onDualPageModeChange,
             onBrightnessChange = viewModel::onBrightnessChange,
             onFollowSystemChange = viewModel::onFollowSystemChange,
             chineseConvert = chineseConvert,

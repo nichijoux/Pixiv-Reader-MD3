@@ -73,3 +73,48 @@ internal data class MeasuredLine(
     /** 两端对齐富余宽度（px），见 [PageElement.TextLine.justifyExtraPx]。 */
     val justifyExtraPx: Float = 0f,
 )
+
+/**
+ * 跨页：翻页/仿真模式的翻页单元。
+ *
+ * - [columns] = 1：单页模式，[left] 为整宽页、[right] 恒为 null；
+ * - [columns] = 2：双页模式，[left]/[right] 为按列宽分页出的两个半页；
+ *   章节末页落单时 [right] 为 null（右半按纸色留白）。
+ *
+ * 字符区间取左页起点到右页（无右页则左页）终点，进度/跳转锚点与单页语义一致。
+ */
+data class ReaderSpread(
+    val left: ReaderPage?,
+    val right: ReaderPage?,
+    val columns: Int,
+) {
+    /** 跨页起始字符偏移（左页起点；空跨页返回 0）。 */
+    val startChar: Int
+        get() = left?.startChar ?: right?.startChar ?: 0
+
+    /** 跨页结束字符偏移（右页终点，无右页则左页终点；空跨页返回 0）。 */
+    val endChar: Int
+        get() = right?.endChar ?: left?.endChar ?: 0
+}
+
+/**
+ * 把按列宽分页出的页面列表配对成跨页列表。
+ *
+ * @param pages 按列内容宽分页出的页面列表（双页时每页已是半宽）
+ * @param columns 列数：1 = 单页模式（逐页包装，渲染占满整宽）；2 = 双页模式（两两配对，末页落单右半留白）
+ * @return 跨页列表（空输入返回空列表）
+ */
+fun buildSpreads(pages: List<ReaderPage>, columns: Int): List<ReaderSpread> {
+    if (pages.isEmpty()) return emptyList()
+    return if (columns <= 1) {
+        pages.map { ReaderSpread(left = it, right = null, columns = 1) }
+    } else {
+        pages.chunked(2).map { pair ->
+            ReaderSpread(
+                left = pair.getOrNull(0),
+                right = pair.getOrNull(1),
+                columns = 2,
+            )
+        }
+    }
+}

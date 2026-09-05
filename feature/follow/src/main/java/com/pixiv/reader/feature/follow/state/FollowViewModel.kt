@@ -48,7 +48,7 @@ import kotlinx.coroutines.launch
 class FollowViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     sessionRepository: SessionRepository,
-    private val userPreferences: UserPreferences,
+    userPreferences: UserPreferences,
     private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 

@@ -46,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -72,6 +73,7 @@ fun ReaderSettingsSheet(
     letterSpacing: Float,
     theme: ReaderThemeMode,
     pageMode: ReaderPageMode,
+    dualPageMode: ReaderDualPageMode,
     brightness: Float,
     followSystem: Boolean,
     hasCustomFont: Boolean,
@@ -87,6 +89,7 @@ fun ReaderSettingsSheet(
     onLetterSpacingChange: (Float) -> Unit,
     onThemeChange: (ReaderThemeMode) -> Unit,
     onPageModeChange: (ReaderPageMode) -> Unit,
+    onDualPageModeChange: (ReaderDualPageMode) -> Unit,
     onBrightnessChange: (Float) -> Unit,
     onFollowSystemChange: (Boolean) -> Unit,
     onImportFont: () -> Unit,
@@ -314,6 +317,23 @@ fun ReaderSettingsSheet(
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
                             count = READER_PAGE_MODE_NAME_RES.size
+                        ),
+                    ) { Text(stringResource(res)) }
+                }
+            }
+
+            // 双页显示：翻页/仿真模式下按视口宽度对半分页并排成跨页（滑动模式不生效）
+            SectionLabel(stringResource(R.string.reader_settings_dual_page))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                READER_DUAL_PAGE_NAME_RES.forEachIndexed { index, res ->
+                    val mode = ReaderDualPageMode.entries.getOrNull(index)
+                        ?: ReaderDualPageMode.LANDSCAPE_OR_TABLET
+                    SegmentedButton(
+                        selected = dualPageMode == mode,
+                        onClick = { onDualPageModeChange(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = READER_DUAL_PAGE_NAME_RES.size
                         ),
                     ) { Text(stringResource(res)) }
                 }

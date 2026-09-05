@@ -52,6 +52,23 @@ enum class ReaderPageMode(val value: Int) {
     }
 }
 
+/**
+ * 阅读器双页显示（仅翻页与仿真模式生效，滑动模式恒为单列）：
+ * 关闭 / 强制开启 / 仅横屏 / 横屏或平板（默认）。
+ * 横屏判定 = 视口宽 > 高；平板判定 = smallestScreenWidthDp >= 600。
+ */
+enum class ReaderDualPageMode(val value: Int) {
+    OFF(0),
+    ALWAYS(1),
+    LANDSCAPE(2),
+    LANDSCAPE_OR_TABLET(3);
+
+    companion object {
+        fun from(value: Int): ReaderDualPageMode =
+            entries.firstOrNull { it.value == value } ?: LANDSCAPE_OR_TABLET
+    }
+}
+
 /** 阅读器主题：日间 / 纸张 / 夜间 / 深黑。 */
 enum class ReaderThemeMode(val value: Int) {
     DAY(0),
