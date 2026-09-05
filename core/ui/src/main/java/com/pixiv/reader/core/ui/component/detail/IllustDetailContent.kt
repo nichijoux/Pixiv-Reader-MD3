@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -179,6 +182,9 @@ fun IllustDetailContent(
             strings = strings,
             onOpenIllust = onOpenIllust,
         )
+        // 沉浸式底部收尾：内容直通系统导航栏的页面（平板 Master-Detail pane）尾部留出
+        // 导航栏高度，让最底部内容能滚出导航栏区域；inset 已被上层消费时高度为 0（手机）
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 

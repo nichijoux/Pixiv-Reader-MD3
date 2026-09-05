@@ -4,9 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -92,14 +96,28 @@ fun MeRoute(
     UiMessageEffect(viewModel.message, notificationHostState)
 
     Scaffold(
-        snackbarHost = { NotificationHost(notificationHostState) },
+        snackbarHost = {
+            // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏，
+            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
+            NotificationHost(
+                notificationHostState,
+                modifier = Modifier.navigationBarsPadding(),
+            )
+        },
+        // 沉浸式底部：底部 inset 置 0（内容直通系统导航栏），顶部保留状态栏避让（本页无 TopAppBar）
+        contentWindowInsets = WindowInsets.statusBars,
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
+        AdaptiveContentBox(
+            // 消费已应用的 padding，内部 navigationBarsPadding 按剩余可见 inset 自适应
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    // 沉浸式底部：内容尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+                    .navigationBarsPadding()
                     .padding(Spacing.lg),
             ) {
                 // ── 个人头部（头像/名称/@account + 退出登录） ──

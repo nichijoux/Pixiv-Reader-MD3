@@ -4,8 +4,14 @@ import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -107,7 +113,14 @@ fun NovelRoute(
     }
 
     Scaffold(
-        snackbarHost = { NotificationHost(notificationHostState) },
+        snackbarHost = {
+            // 沉浸式底部（contentWindowInsets=0）后 Scaffold 不再自动避开导航栏，
+            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
+            NotificationHost(
+                notificationHostState,
+                modifier = Modifier.navigationBarsPadding(),
+            )
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -128,12 +141,16 @@ fun NovelRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
+        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
+        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
         ListDetailOverlay(
             selected = selectedNovelId,
             onClose = { selectedNovelId = null },
-            modifier = Modifier.padding(padding),
+            // 消费已应用的 padding，内部 navigationBarsPadding/imePadding 按剩余可见 inset 自适应
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             listContent = { listMax ->
                 // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
                 AdaptiveContentBox(maxWidth = listMax) {
@@ -331,7 +348,13 @@ private fun NovelWatchlistTab(
             else -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(Spacing.lg),
+                // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+                contentPadding = PaddingValues(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    top = Spacing.lg,
+                    bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 items(items, key = { it.id }) { series ->

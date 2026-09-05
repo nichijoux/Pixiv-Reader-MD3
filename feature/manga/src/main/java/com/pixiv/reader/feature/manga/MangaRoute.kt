@@ -2,6 +2,8 @@ package com.pixiv.reader.feature.manga
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -166,12 +168,16 @@ fun MangaRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
+        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
+        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
         ListDetailOverlay(
             selected = selectedIllustId,
             onClose = { selectedIllustId = null },
-            modifier = Modifier.padding(padding),
+            // 消费已应用的 padding，pane 内 navigationBarsPadding/imePadding 按剩余可见 inset 自适应
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             listContent = { listMax ->
                 // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
                 AdaptiveContentBox(maxWidth = listMax) {

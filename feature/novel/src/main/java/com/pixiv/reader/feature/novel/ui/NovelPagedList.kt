@@ -2,7 +2,10 @@ package com.pixiv.reader.feature.novel.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -63,7 +66,13 @@ internal fun NovelPagedList(
             items.isEmpty() -> EmptyBox(emptyText, modifier = Modifier.verticalScroll(rememberScrollState()))
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(Spacing.lg),
+                // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+                contentPadding = PaddingValues(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    top = Spacing.lg,
+                    bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {
                 if (header != null) {

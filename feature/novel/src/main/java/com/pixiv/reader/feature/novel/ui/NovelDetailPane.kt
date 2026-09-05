@@ -146,8 +146,8 @@ internal fun NovelDetailPane(
                                     showComments = true
                                     commentVm.switchTo("novel", currentId)
                                 },
-                                // pane 底部与左栏列表共用外层 Scaffold 的导航栏避让，
-                                // 不再重复避让，保证四个操作按钮与左栏底部对齐
+                                // pane 操作条不自行避让导航栏（底边与左栏列表底边一致，
+                                // 直通屏幕底）；导航栏避让由沉浸式页面整体方案处理
                                 navigationBarInset = false,
                             )
                             // 下载格式选择弹窗（复用详情页 DownloadSheet）
