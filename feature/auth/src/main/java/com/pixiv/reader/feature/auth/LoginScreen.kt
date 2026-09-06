@@ -14,10 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,13 +43,13 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // 应用 Logo（对应 Launcher 图标：蓝底白字 P）
+        // 应用 Logo（对应 Launcher 图标：蓝底白字 P；底形用 Expressive 12 边软多边形）
         Box(
             modifier = Modifier
                 .size(96.dp)
                 .background(
                     color = PixivBlue,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = MaterialShapes.Cookie12Sided.toShape(),
                 ),
             contentAlignment = Alignment.Center,
         ) {

@@ -24,11 +24,14 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,9 +73,21 @@ private val ONBOARDING_PAGES = listOf(
 )
 
 /**
+ * 各页图标底的 Expressive 有机形状（MaterialShapes，与排行榜徽标同一形状语言）：
+ * 探索 = Sunny / 阅读 = Clover8Leaf / 收藏 = Cookie9Sided。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private val PAGE_SHAPES = listOf(
+    MaterialShapes.Sunny,
+    MaterialShapes.Clover8Leaf,
+    MaterialShapes.Cookie9Sided,
+)
+
+/**
  * 首次启动引导页：三页横向滑动介绍 + 圆点指示器 + 底部主按钮（下一步/开始使用）。
  * 无状态无注入：完成/跳过通过 [onFinished] 上抛，由调用方写入 DataStore 并跳转。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun OnboardingRoute(
     onFinished: () -> Unit,
@@ -109,7 +124,7 @@ fun OnboardingRoute(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Surface(
-                    shape = CircleShape,
+                    shape = PAGE_SHAPES[page].toShape(),
                     color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.size(140.dp),
                 ) {
