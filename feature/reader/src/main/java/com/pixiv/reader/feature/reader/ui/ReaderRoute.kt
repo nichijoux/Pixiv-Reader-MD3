@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +73,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderViewModel
 import com.pixiv.reader.feature.reader.state.ReaderPage
+import com.pixiv.reader.feature.reader.state.ReaderSpread
 import com.pixiv.reader.feature.reader.state.buildSpreads
 import com.pixiv.reader.feature.reader.state.rememberReaderElements
 import com.pixiv.reader.feature.reader.state.rememberReaderFontFamily
@@ -270,6 +272,8 @@ fun ReaderRoute(
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // 底栏进度条跳转所需的跨页列表（readerSurface 内经 SideEffect 回写，仅排版变化时更新）
+    var chapterSpreads by remember { mutableStateOf<List<ReaderSpread>>(emptyList()) }
     // 系列上一章「尾页」进入（reader/{id}?toEnd=true）：正文就绪后定位到文档末尾。
     // 走 jumpToChar 通道（无 restored 门闩）：避免 progressRestored 未就绪时先定位到开头，
     // 之后尾页偏移就绪却因门闩被拦截（表现为"跳到上一章是开头"）。
@@ -488,6 +492,8 @@ fun ReaderRoute(
                                     val spreads = remember(pages, dualPageActive) {
                                         buildSpreads(pages, if (dualPageActive) 2 else 1)
                                     }
+                                    // 跨页列表提升到底栏进度条（仅排版变化时身份更新，不逐帧回写）
+                                    SideEffect { chapterSpreads = spreads }
                                     if (pageMode == ReaderPageMode.SIMULATION) {
                                         // 仿真模式：位置驱动的贝塞尔卷页（legado 移植）；
                                         // 双页为真书单叶翻页（被翻半页绕中缝卷起）
@@ -605,7 +611,39 @@ fun ReaderRoute(
             }
         }
 
-        // 底栏浮层：目录 / 搜索 / 设置；进出场动画：从底部滑入 / 滑出 + 淡入淡出
+        // 底栏进度胶囊：翻页/仿真按跨页页码显示与跳转，滚动模式按全章百分比跳字符
+        val progressFraction = if (pageMode == ReaderPageMode.SCROLL) {
+            percentage / 100f
+        } else if (pageInfo.second > 0) {
+            (pageInfo.first + 0.5f) / pageInfo.second
+        } else {
+            0f
+        }
+        val onProgressSeek: (Float) -> Unit = { f ->
+            if (pageMode == ReaderPageMode.SCROLL) {
+                // 滚动模式：比例 → 全章字符偏移（行级锚点定位）
+                document?.let { d ->
+                    jumpToChar = (d.textLength * f).toInt().coerceIn(0, d.textLength)
+                }
+            } else if (chapterSpreads.isNotEmpty()) {
+                // 翻页/仿真：比例 → 跨页起始字符（复用目录/搜索的 jumpToChar 通道）
+                val idx = (f * chapterSpreads.size).toInt()
+                    .coerceIn(0, chapterSpreads.size - 1)
+                jumpToChar = chapterSpreads[idx].startChar
+            } else {
+                document?.let { d ->
+                    jumpToChar = (d.textLength * f).toInt().coerceIn(0, d.textLength)
+                }
+            }
+        }
+
+        // 底栏进度卡片的上/下一章圆钮可用性：按目录内当前章节的邻章判定
+        // （非系列只有当前一条 → 双向禁用），与 onPrev/NextChapterRequest 内部边界一致
+        val tocIndex = toc.indexOfFirst { it.novelId == novelId }
+        val canPrevChapter = tocIndex > 0
+        val canNextChapter = tocIndex in 0 until toc.lastIndex
+
+        // 底栏浮层：进度卡片 + 目录 / 搜索 / 设置；进出场动画：从底部滑入 / 滑出 + 淡入淡出
         AnimatedVisibility(
             visible = barsVisible,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(200)),
@@ -614,6 +652,12 @@ fun ReaderRoute(
         ) {
             ReaderBottomToolBar(
                 themeColors = themeColors,
+                progressFraction = progressFraction,
+                onSeekFinished = onProgressSeek,
+                canPrevChapter = canPrevChapter,
+                canNextChapter = canNextChapter,
+                onPrevChapter = onPrevChapterRequest,
+                onNextChapter = onNextChapterRequest,
                 onToc = { tocOpen = true },
                 onSearch = { searchOpen = true },
                 onSettings = { settingsOpen = true },

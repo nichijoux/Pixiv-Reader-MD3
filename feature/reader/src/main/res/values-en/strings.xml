@@ -65,6 +65,8 @@
     <string name="reader_cd_toc">Contents</string>
     <string name="reader_cd_search">Search</string>
     <string name="reader_cd_settings">Reader settings</string>
+    <string name="reader_cd_prev_chapter">Previous chapter</string>
+    <string name="reader_cd_next_chapter">Next chapter</string>
     <string name="reader_panel_toc">Contents</string>
     <string name="reader_toc_loading">Loading…</string>
     <string name="reader_toc_empty">No contents available</string>

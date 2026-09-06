@@ -65,6 +65,8 @@
     <string name="reader_cd_toc">目录</string>
     <string name="reader_cd_search">搜索</string>
     <string name="reader_cd_settings">阅读设置</string>
+    <string name="reader_cd_prev_chapter">上一章</string>
+    <string name="reader_cd_next_chapter">下一章</string>
     <string name="reader_panel_toc">目录</string>
     <string name="reader_toc_loading">加载中…</string>
     <string name="reader_toc_empty">没有可展示的目录</string>
