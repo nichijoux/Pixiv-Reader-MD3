@@ -13,6 +13,9 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -52,20 +55,21 @@ internal fun MeAppearanceSection(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Row(
+        val themeModes = listOf(
+            ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
+            ThemeMode.LIGHT to R.string.me_theme_light,
+            ThemeMode.DARK to R.string.me_theme_dark,
+        )
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            listOf(
-                ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
-                ThemeMode.LIGHT to R.string.me_theme_light,
-                ThemeMode.DARK to R.string.me_theme_dark,
-            ).forEach { (mode, labelRes) ->
-                PillSelectButton(
+            themeModes.forEachIndexed { index, (mode, labelRes) ->
+                SegmentedButton(
                     selected = themeMode == mode,
                     onClick = { onSetThemeMode(mode) },
-                    text = stringResource(labelRes),
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themeModes.size),
                     modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(labelRes)) },
                 )
             }
         }

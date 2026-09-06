@@ -1,6 +1,5 @@
 package com.pixiv.reader.feature.user.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +15,9 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,19 +57,20 @@ internal fun MeBrowseSection(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Row(
+        val tabOptions = listOf(
+            NovelDefaultTab.RECOMMEND to R.string.me_novel_default_recommend,
+            NovelDefaultTab.FOLLOW to R.string.me_novel_default_follow,
+        )
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            listOf(
-                NovelDefaultTab.RECOMMEND to R.string.me_novel_default_recommend,
-                NovelDefaultTab.FOLLOW to R.string.me_novel_default_follow,
-            ).forEach { (value, labelRes) ->
-                PillSelectButton(
+            tabOptions.forEachIndexed { index, (value, labelRes) ->
+                SegmentedButton(
                     selected = novelDefaultTab == value,
                     onClick = { onSetNovelDefaultTab(value) },
-                    text = stringResource(labelRes),
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabOptions.size),
                     modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(labelRes)) },
                 )
             }
         }
@@ -80,20 +83,21 @@ internal fun MeBrowseSection(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Row(
+        val orientationOptions = listOf(
+            ViewerOrientation.HORIZONTAL to R.string.me_viewer_orientation_horizontal,
+            ViewerOrientation.VERTICAL to R.string.me_viewer_orientation_vertical,
+            ViewerOrientation.SEAMLESS to R.string.me_viewer_orientation_seamless,
+        )
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            listOf(
-                ViewerOrientation.HORIZONTAL to R.string.me_viewer_orientation_horizontal,
-                ViewerOrientation.VERTICAL to R.string.me_viewer_orientation_vertical,
-                ViewerOrientation.SEAMLESS to R.string.me_viewer_orientation_seamless,
-            ).forEach { (value, labelRes) ->
-                PillSelectButton(
+            orientationOptions.forEachIndexed { index, (value, labelRes) ->
+                SegmentedButton(
                     selected = viewerOrientation == value,
                     onClick = { onSetViewerOrientation(value) },
-                    text = stringResource(labelRes),
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = orientationOptions.size),
                     modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(labelRes)) },
                 )
             }
         }
