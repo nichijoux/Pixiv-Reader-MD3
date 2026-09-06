@@ -119,31 +119,35 @@ internal fun MeAppearanceSection(
         MeRowDivider()
         // 语言（值行 + 下拉菜单；切换写入落盘后由调用方重建 Activity 生效）
         var languageExpanded by remember { mutableStateOf(false) }
-        Box {
-            MeRow(
-                icon = Icons.Filled.Translate,
-                title = stringResource(R.string.me_language),
-                trailing = { MeValueTrailing(languageLabel(appLanguage)) },
-                onClick = { languageExpanded = true },
-            )
-            DropdownMenu(
-                expanded = languageExpanded,
-                onDismissRequest = { languageExpanded = false },
-            ) {
-                LANG_OPTIONS.forEach { (value, labelRes) ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(labelRes)) },
-                        onClick = {
-                            languageExpanded = false
-                            // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
-                            if (!switchingLanguage && appLanguage != value) {
-                                onSetAppLanguage(value, onLanguageApplied)
-                            }
-                        },
-                    )
+        MeRow(
+            icon = Icons.Filled.Translate,
+            title = stringResource(R.string.me_language),
+            trailing = {
+                // 菜单锚点 = 行尾「值 + 箭头」：DropdownMenu 锚定最近父布局的 top-start，
+                // 包在值区 Box 内才会从行尾右对齐展开（包在整行 Box 会从左缘弹出）
+                Box {
+                    MeValueTrailing(languageLabel(appLanguage))
+                    DropdownMenu(
+                        expanded = languageExpanded,
+                        onDismissRequest = { languageExpanded = false },
+                    ) {
+                        LANG_OPTIONS.forEach { (value, labelRes) ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(labelRes)) },
+                                onClick = {
+                                    languageExpanded = false
+                                    // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
+                                    if (!switchingLanguage && appLanguage != value) {
+                                        onSetAppLanguage(value, onLanguageApplied)
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
-            }
-        }
+            },
+            onClick = { languageExpanded = true },
+        )
     }
 }
 

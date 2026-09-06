@@ -107,7 +107,7 @@ internal fun MeBrowseSection(
             }
         }
         MeRowDivider()
-        // 关注页排序（值行 + 下拉菜单）
+        // 关注页排序（值行 + 下拉菜单，菜单锚定行尾值区右对齐展开）
         var sortExpanded by remember { mutableStateOf(false) }
         val sortOptions = listOf(
             FollowSortMode.FOLLOW_TIME to R.string.me_follow_sort_follow_time,
@@ -115,30 +115,30 @@ internal fun MeBrowseSection(
             FollowSortMode.NAME_DESC to R.string.me_follow_sort_name_desc,
             FollowSortMode.LATEST_WORK to R.string.me_follow_sort_latest_work,
         )
-        Box {
-            MeRow(
-                icon = Icons.Filled.Sort,
-                title = stringResource(R.string.me_follow_sort),
-                trailing = {
+        MeRow(
+            icon = Icons.Filled.Sort,
+            title = stringResource(R.string.me_follow_sort),
+            trailing = {
+                Box {
                     MeValueTrailing(stringResource(sortOptions.first { it.first == followSortMode }.second))
-                },
-                onClick = { sortExpanded = true },
-            )
-            DropdownMenu(
-                expanded = sortExpanded,
-                onDismissRequest = { sortExpanded = false },
-            ) {
-                sortOptions.forEach { (value, labelRes) ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(labelRes)) },
-                        onClick = {
-                            onSetFollowSortMode(value)
-                            sortExpanded = false
-                        },
-                    )
+                    DropdownMenu(
+                        expanded = sortExpanded,
+                        onDismissRequest = { sortExpanded = false },
+                    ) {
+                        sortOptions.forEach { (value, labelRes) ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(labelRes)) },
+                                onClick = {
+                                    onSetFollowSortMode(value)
+                                    sortExpanded = false
+                                },
+                            )
+                        }
+                    }
                 }
-            }
-        }
+            },
+            onClick = { sortExpanded = true },
+        )
         MeRowDivider()
         // 剪贴板链接提示（开关行：整行可点切换）
         MeRow(
