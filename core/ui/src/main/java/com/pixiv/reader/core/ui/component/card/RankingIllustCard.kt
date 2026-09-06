@@ -127,10 +127,11 @@ fun RankingIllustCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
-                // 排名徽标：1金/2橙/3灰，斜体加粗大号（排行榜灵魂）
+                // 排名徽标：1金/2橙/3灰，斜体加粗大号（排行榜灵魂）；
+                // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
                 Surface(
                     color = Color.Black.copy(alpha = 0.45f),
-                    shape = AppShapes.small,
+                    shape = rankBadgeShape(rank),
                 ) {
                     Text(
                         text = "$rank",

@@ -165,13 +165,14 @@ fun NovelCard(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    // 排名徽标（排行榜用，左上角）：1金/2橙/3灰，其余白色，黑底圆角块
+                    // 排名徽标（排行榜用，左上角）：1金/2橙/3灰，其余白色；
+                    // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
                     if (rank != null) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .padding(Spacing.xsPlus)
-                                .clip(AppShapes.small)
+                                .clip(rankBadgeShape(rank))
                                 .background(Color.Black.copy(alpha = 0.45f))
                                 .padding(horizontal = Spacing.sm, vertical = 3.dp),
                         ) {
