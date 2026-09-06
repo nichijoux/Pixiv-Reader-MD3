@@ -66,8 +66,8 @@ import kotlin.math.roundToInt
  * 用户主页（P5 重设计）：详情统计 + 关注/取关/拉黑 + 4 分区（插画/漫画/小说/系列）。
  * 顶部 Tab 支持左右滑动切换（HorizontalPager），每段独立分页（PagedState 驻留 VM）。
  * 统计格可点击：插画/小说 → 滑动切段；收藏/关注 → 进入该用户的公开收藏/关注列表页。
- * 头部可折叠：列表上滑时头像/简介/统计行整体收起（NestedScrollConnection 接管），
- * 分区 Tab 钉在顶栏下方；列表到顶下滑时头部先展开再滚动内容。
+ * 头部可折叠：列表上滑时简介与统计行收起（NestedScrollConnection 接管），
+ * 头像/名称/关注·拉黑行与分区 Tab 常驻；列表到顶下滑时折叠区先展开再滚动内容。
  *
  * ## 平板 Master-Detail
  * 点作品/小说/系列卡 → 右侧详情 pane 滑入（[ListDetailOverlay]，Scaffold 内容区内、
@@ -189,8 +189,8 @@ fun UserRoute(
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    // ── 个人头部折叠（下滑收起头像/简介/统计行，分区 Tab 钉在顶栏下）──
-    // headerMaxPx：头部自然总高（内容测量回写）；headerCollapsePx：已收起高度（0..headerMaxPx）
+    // ── 个人头部折叠（下滑收起简介 + 统计行；头像/关注/拉黑行与分区 Tab 常驻）──
+    // headerMaxPx：可折叠区自然总高（内容测量回写）；headerCollapsePx：已收起高度（0..headerMaxPx）
     var headerMaxPx by remember { mutableStateOf(0) }
     var headerCollapsePx by remember { mutableStateOf(0f) }
     val headerNestedScroll = remember(headerMaxPx) {
@@ -262,8 +262,19 @@ fun UserRoute(
                                 .nestedScroll(headerNestedScroll),
                         ) {
                             val detail = checkNotNull(user)
-                            // 折叠头部容器：显示高度 = 总高 - 已折叠，内容整体上移并裁剪
-                            // （顶部头像先滑出，底部统计行最后收起，全收后 Tab 紧贴顶栏）
+                            // 第一行（头像/名称/关注·拉黑）常驻不折叠
+                            UserHeaderProfileRow(
+                                user = detail,
+                                isFollowed = isFollowed,
+                                isFollowing = isFollowing,
+                                isBlocked = isBlocked,
+                                isBlocking = isBlocking,
+                                onToggleFollow = viewModel::toggleFollow,
+                                onToggleBlock = viewModel::toggleBlock,
+                                onOpenAvatar = onOpenCover,
+                            )
+                            // 折叠区：简介 + 统计行。显示高度 = 总高 - 已折叠，
+                            // 内容整体上移并裁剪（简介先收，统计行最后消失，全收后 Tab 紧贴头像行）
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -288,21 +299,14 @@ fun UserRoute(
                                         if (size.height > 0) headerMaxPx = size.height
                                     },
                                 ) {
-                                    UserHeader(
+                                    UserHeaderDetails(
                                         user = detail,
                                         profile = profile,
-                                        isFollowed = isFollowed,
-                                        isFollowing = isFollowing,
-                                        isBlocked = isBlocked,
-                                        isBlocking = isBlocking,
-                                        onToggleFollow = viewModel::toggleFollow,
-                                        onToggleBlock = viewModel::toggleBlock,
                                         onScrollToSection = { sec ->
                                             scope.launch { pagerState.animateScrollToPage(sections.indexOf(sec)) }
                                         },
                                         onOpenUserBookmarks = onOpenUserBookmarks,
                                         onOpenUserFollowing = onOpenUserFollowing,
-                                        onOpenAvatar = onOpenCover,
                                     )
                                 }
                             }

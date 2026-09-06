@@ -49,66 +49,102 @@ import com.pixiv.reader.feature.user.state.UserSection
 /** 简介默认截断行数（防过长简介挤压下方分区内容）。 */
 private const val MAX_COMMENT_LINES = 4
 
-/** 用户主页头部：头像 / 名称 / @account / 关注·拉黑按钮 / 签名 / 统计格（可点击）。 */
+/**
+ * 用户主页头部第一行（常驻不折叠）：头像 / 名称 / @account / 关注·拉黑按钮。
+ * 下滑时本行保持可见，仅下方 [UserHeaderDetails]（简介 + 统计格）收起。
+ *
+ * @param user 用户实体
+ * @param isFollowed 是否已关注
+ * @param isFollowing 关注请求进行中（防重复点击）
+ * @param isBlocked 是否已拉黑
+ * @param isBlocking 拉黑请求进行中
+ * @param onToggleFollow 关注/取关回调
+ * @param onToggleBlock 拉黑/解除拉黑回调
+ * @param onOpenAvatar 头像点击（打开全屏大图）
+ * @return 无返回值
+ */
 @Composable
-internal fun UserHeader(
+internal fun UserHeaderProfileRow(
     user: User,
-    profile: Profile?,
     isFollowed: Boolean,
     isFollowing: Boolean,
     isBlocked: Boolean,
     isBlocking: Boolean,
     onToggleFollow: () -> Unit,
     onToggleBlock: () -> Unit,
+    onOpenAvatar: (String) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.lg)
+            .padding(top = Spacing.sm, bottom = Spacing.sm),
+    ) {
+        UserAvatar(
+            name = user.name,
+            avatarUrl = user.profile_image_urls?.best(),
+            modifier = Modifier.size(Sizes.s64),
+            onClick = { user.profile_image_urls?.best()?.let(onOpenAvatar) },
+        )
+        Column(modifier = Modifier.padding(start = Spacing.md).weight(1f)) {
+            Text(
+                text = user.name.orEmpty(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!user.account.isNullOrBlank()) {
+                Text(
+                    text = "@${user.account}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        // 关注 / 拉黑 双按钮（移除三点下拉）
+        FilledTonalButton(
+            onClick = onToggleFollow,
+            enabled = !isFollowing,
+        ) {
+            Text(if (isFollowed) stringResource(R.string.user_following) else stringResource(R.string.user_follow))
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        OutlinedButton(
+            onClick = onToggleBlock,
+            enabled = !isBlocking,
+            colors = if (isBlocked) {
+                ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            } else {
+                ButtonDefaults.outlinedButtonColors()
+            },
+        ) {
+            Text(if (isBlocked) stringResource(R.string.user_unblock) else stringResource(R.string.user_block))
+        }
+    }
+}
+
+/**
+ * 用户主页头部可折叠区：签名简介（可展开/收起）+ 统计格（可点击）。
+ * 下滑列表时整块向上收起，常驻的 [UserHeaderProfileRow] 与分区 Tab 不受影响。
+ *
+ * @param user 用户实体（取简介文案）
+ * @param profile 用户统计（插画/小说/公开收藏/关注数）
+ * @param onScrollToSection 点击统计格滑动切换分区
+ * @param onOpenUserBookmarks 打开该用户公开收藏
+ * @param onOpenUserFollowing 打开该用户关注列表
+ * @return 无返回值
+ */
+@Composable
+internal fun UserHeaderDetails(
+    user: User,
+    profile: Profile?,
     onScrollToSection: (UserSection) -> Unit,
     onOpenUserBookmarks: () -> Unit,
     onOpenUserFollowing: () -> Unit,
-    onOpenAvatar: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(top = Spacing.sm)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            UserAvatar(
-                name = user.name,
-                avatarUrl = user.profile_image_urls?.best(),
-                modifier = Modifier.size(Sizes.s64),
-                onClick = { user.profile_image_urls?.best()?.let(onOpenAvatar) },
-            )
-            Column(modifier = Modifier.padding(start = Spacing.md).weight(1f)) {
-                Text(
-                    text = user.name.orEmpty(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!user.account.isNullOrBlank()) {
-                    Text(
-                        text = "@${user.account}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            // 关注 / 拉黑 双按钮（移除三点下拉）
-            FilledTonalButton(
-                onClick = onToggleFollow,
-                enabled = !isFollowing,
-            ) {
-                Text(if (isFollowed) stringResource(R.string.user_following) else stringResource(R.string.user_follow))
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            OutlinedButton(
-                onClick = onToggleBlock,
-                enabled = !isBlocking,
-                colors = if (isBlocked) {
-                    ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                } else {
-                    ButtonDefaults.outlinedButtonColors()
-                },
-            ) {
-                Text(if (isBlocked) stringResource(R.string.user_unblock) else stringResource(R.string.user_block))
-            }
-        }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
         val comment = user.comment
         if (!comment.isNullOrBlank()) {
             // 简介限高：默认 4 行截断 + 展开/收起（防过长简介挤压下方分区内容；短简介无按钮）
