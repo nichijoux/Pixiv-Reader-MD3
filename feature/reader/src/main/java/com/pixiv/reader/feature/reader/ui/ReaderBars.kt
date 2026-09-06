@@ -2,7 +2,6 @@ package com.pixiv.reader.feature.reader.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -35,8 +34,12 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -341,10 +344,14 @@ private val CAPSULE_HEIGHT = 52.dp
 private val THUMB_SIZE = 32.dp
 
 /**
- * 章节跳转圆形按钮（上一章/下一章）：独立圆形浮钮，禁用时降透明度且不可点。
+ * 章节跳转圆形按钮（上一章/下一章）：Expressive [FilledIconButton] 圆钮，
+ * 按压自带 spring 形变动效；禁用时降透明度且不可点。
  *
  * @param enabled 是否可点（存在邻章）
  * @param forward true = 下一章（快进图标），false = 上一章（快退图标）
+ * @param themeColors 阅读主题色
+ * @param onClick 点击回调
+ * @return 无返回值
  */
 @Composable
 private fun ReaderChapterButton(
@@ -353,15 +360,17 @@ private fun ReaderChapterButton(
     themeColors: ReaderThemeColors,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .size(CAPSULE_HEIGHT)
-            .background(
-                color = themeColors.text.copy(alpha = if (enabled) 0.08f else 0.04f),
-                shape = CircleShape,
-            )
-            .clickable(enabled = enabled) { onClick() },
-        contentAlignment = Alignment.Center,
+    FilledIconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.size(CAPSULE_HEIGHT),
+        shape = CircleShape,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = themeColors.text.copy(alpha = 0.08f),
+            contentColor = themeColors.text,
+            disabledContainerColor = themeColors.text.copy(alpha = 0.04f),
+            disabledContentColor = themeColors.text.copy(alpha = 0.3f),
+        ),
     ) {
         Icon(
             imageVector = if (forward) {
@@ -372,12 +381,22 @@ private fun ReaderChapterButton(
             contentDescription = stringResource(
                 if (forward) R.string.reader_cd_next_chapter else R.string.reader_cd_prev_chapter
             ),
-            tint = themeColors.text.copy(alpha = if (enabled) 1f else 0.3f),
             modifier = Modifier.size(24.dp),
         )
     }
 }
 
+/**
+ * 工具行（目录/搜索/设置）：Expressive [HorizontalFloatingToolbar] 胶囊，居中于
+ * 主题色沉浸条之上；胶囊底色取阅读文字色的低透明度（深浅主题均成立），
+ * 内容色随 LocalContentColor 由工具栏注入。
+ *
+ * @param themeColors 阅读主题色
+ * @param onToc 打开目录面板
+ * @param onSearch 打开搜索面板
+ * @param onSettings 打开设置面板
+ * @return 无返回值
+ */
 @Composable
 private fun ReaderToolBar(
     themeColors: ReaderThemeColors,
@@ -385,35 +404,33 @@ private fun ReaderToolBar(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(themeColors.topBar)
-            .padding(horizontal = Spacing.sm, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceEvenly,
-    ) {
-        // 紧凑高度：40dp 触控（标准 48dp 降低观感高度，仍满足最低触控要求）
-        IconButton(onClick = onToc, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.AutoMirrored.Filled.List,
-                contentDescription = stringResource(R.string.reader_cd_toc),
-                tint = themeColors.text
-            )
-        }
-        IconButton(onClick = onSearch, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.Filled.Search,
-                contentDescription = stringResource(R.string.reader_cd_search),
-                tint = themeColors.text
-            )
-        }
-        IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.Filled.Settings,
-                contentDescription = stringResource(R.string.reader_cd_settings),
-                tint = themeColors.text
-            )
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        HorizontalFloatingToolbar(
+            expanded = true,
+            colors = FloatingToolbarDefaults.standardFloatingToolbarColors().copy(
+                toolbarContainerColor = themeColors.text.copy(alpha = 0.06f),
+                toolbarContentColor = themeColors.text,
+            ),
+        ) {
+            // 紧凑高度：40dp 触控（标准 48dp 降低观感高度，仍满足最低触控要求）
+            IconButton(onClick = onToc, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Icons.AutoMirrored.Filled.List,
+                    contentDescription = stringResource(R.string.reader_cd_toc),
+                )
+            }
+            IconButton(onClick = onSearch, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Icons.Filled.Search,
+                    contentDescription = stringResource(R.string.reader_cd_search),
+                )
+            }
+            IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Icons.Filled.Settings,
+                    contentDescription = stringResource(R.string.reader_cd_settings),
+                )
+            }
         }
     }
 }

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -38,6 +37,9 @@ import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledIconToggleButton
+import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -70,7 +71,6 @@ import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.ViewerScrim
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
@@ -390,8 +390,22 @@ private fun SeamlessViewer(
     }
 }
 
-// ── 底部圆形操作条 ───────────────────────────────────────────────────────────
+// ── 底部操作条（Material 3 Expressive 浮动工具栏） ────────────────────────────
 
+/**
+ * 底部操作条：Expressive 胶囊形 [HorizontalFloatingToolbar] 承载收藏 / 下载 / 壁纸 / 原图
+ * 四个操作，浮在底部渐变遮罩上；GIF 场景禁用壁纸与原图。
+ *
+ * @param modifier 外部传入的 Modifier
+ * @param isBookmarked 当前作品是否已收藏
+ * @param isGif 是否为动图（动图不支持壁纸/原图切换）
+ * @param isOriginal 是否处于原图浏览模式
+ * @param onBookmark 收藏/取消收藏回调
+ * @param onDownload 下载原图回调
+ * @param onWallpaper 设为壁纸回调
+ * @param onOriginal 切换原图/预览模式回调
+ * @return 无返回值
+ */
 @Composable
 private fun ViewerActionBar(
     modifier: Modifier = Modifier,
@@ -403,7 +417,7 @@ private fun ViewerActionBar(
     onWallpaper: () -> Unit,
     onOriginal: () -> Unit,
 ) {
-    Row(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
@@ -412,62 +426,47 @@ private fun ViewerActionBar(
                 ),
             )
             .navigationBarsPadding()
-            .padding(vertical = Spacing.lg),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = Spacing.md),
+        contentAlignment = Alignment.Center,
     ) {
-        ViewerActionButton(
-            icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = stringResource(if (isBookmarked) R.string.viewer_cd_unbookmark else R.string.viewer_cd_bookmark),
-            tint = if (isBookmarked) FavoriteRed else Color.White,
-            onClick = onBookmark,
-        )
-        ViewerActionButton(
-            icon = Icons.Filled.Download,
-            contentDescription = stringResource(R.string.viewer_cd_download_original),
-            onClick = onDownload,
-        )
-        ViewerActionButton(
-            icon = Icons.Filled.Wallpaper,
-            contentDescription = stringResource(R.string.viewer_cd_set_wallpaper),
-            enabled = !isGif,
-            onClick = onWallpaper,
-        )
-        ViewerActionButton(
-            icon = Icons.Filled.HighQuality,
-            contentDescription = stringResource(R.string.viewer_cd_view_original),
-            enabled = !isGif,
-            selected = isOriginal,
-            onClick = onOriginal,
-        )
-    }
-}
-
-@Composable
-private fun ViewerActionButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    selected: Boolean = false,
-    tint: Color = Color.White,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier
-            .size(52.dp)
-            .clip(CircleShape)
-            .background(
-                if (selected) Color.White.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.45f),
+        HorizontalFloatingToolbar(
+            expanded = true,
+            colors = FloatingToolbarDefaults.standardFloatingToolbarColors().copy(
+                // 黑底浏览场景：深色半透明胶囊 + 白色内容，融入底部渐变遮罩
+                toolbarContainerColor = Color.Black.copy(alpha = 0.55f),
+                toolbarContentColor = Color.White,
             ),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(Sizes.s22),
-        )
+        ) {
+            IconButton(onClick = onBookmark) {
+                Icon(
+                    imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = stringResource(if (isBookmarked) R.string.viewer_cd_unbookmark else R.string.viewer_cd_bookmark),
+                    tint = if (isBookmarked) FavoriteRed else Color.White,
+                )
+            }
+            IconButton(onClick = onDownload) {
+                Icon(
+                    imageVector = Icons.Filled.Download,
+                    contentDescription = stringResource(R.string.viewer_cd_download_original),
+                )
+            }
+            IconButton(onClick = onWallpaper, enabled = !isGif) {
+                Icon(
+                    imageVector = Icons.Filled.Wallpaper,
+                    contentDescription = stringResource(R.string.viewer_cd_set_wallpaper),
+                )
+            }
+            // 原图切换：选中态用填充圆形按钮表达（Expressive 选中语言）
+            FilledIconToggleButton(
+                checked = isOriginal,
+                onCheckedChange = { onOriginal() },
+                enabled = !isGif,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.HighQuality,
+                    contentDescription = stringResource(R.string.viewer_cd_view_original),
+                )
+            }
+        }
     }
 }
