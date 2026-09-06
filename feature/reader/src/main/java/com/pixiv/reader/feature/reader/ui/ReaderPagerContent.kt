@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderSpread
@@ -22,12 +23,15 @@ import com.pixiv.reader.feature.reader.state.spreadIndexForChar
 /**
  * 翻页模式：普通横向滑动翻页（无 3D 特效）。
  * 双页显示时每个 Pager 页 = 一个跨页（左右两半页并排 + 中缝阴影）。
+ *
+ * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度）
  */
 @Composable
 internal fun PagerReaderContent(
     pagerState: PagerState,
     spreads: List<ReaderSpread>,
     pageHeight: Dp,
+    contentTopInset: Dp = 0.dp,
     restoreCharOffset: Int,
     onPageChange: (Int) -> Unit,
     onPageInfo: (Int, Int) -> Unit,
@@ -76,6 +80,7 @@ internal fun PagerReaderContent(
             right = spread.right,
             columns = spread.columns,
             containerHeight = pageHeight,
+            contentTopInset = contentTopInset,
             modifier = Modifier.fillMaxSize(),
         )
     }

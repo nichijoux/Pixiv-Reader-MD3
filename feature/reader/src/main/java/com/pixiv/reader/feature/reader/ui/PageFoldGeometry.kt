@@ -48,13 +48,15 @@ internal data class BookGeometry(val pageWidth: Float, val pageHeight: Float)
  * @property midPoint 线上一点（AB 中点）
  * @property normal 单位法向（A→B 方向）
  * @property angleDeg 折痕线方向角（度，画布反射变换用）
- * @property spineHitY 折痕与书脊（x=0）交点 y；折痕平行于书脊（纯横向折叠）时为 null
+ * @property spineHitY 折痕与书脊（x=0）交点 y（**可为页外值**，复合旋转的旋转中心用）
+ * @property parallelToSpine 折痕是否平行于书脊（纯横向折叠，无交点；复合变换退化为平移）
  */
 internal data class FoldLine(
     val midPoint: Offset,
     val normal: Offset,
     val angleDeg: Float,
     val spineHitY: Float?,
+    val parallelToSpine: Boolean,
 )
 
 /**
@@ -144,12 +146,13 @@ internal fun computeFold(geom: BookGeometry, corner: Offset, touch: Offset): Fol
     // 折痕方向角（线方向垂直于法向 N）：d = (ny, -nx)
     val angleDeg = Math.toDegrees(atan2(-nx, ny).toDouble()).toFloat()
 
-    // 折痕与书脊（x=0）交点：X = M + t·d 且 X.x = 0；折痕平行书脊（d.x≈0）时无交点
+    // 折痕与书脊（x=0）交点：X = M + t·d 且 X.x = 0。交点允许落在页外
+    // （斜向折叠的旋转中心常在页外），仅当折痕平行于书脊（d.x≈0）时无交点
     val dirX = ny
-    val spineHitY = if (kotlin.math.abs(dirX) > 1e-6f) {
+    val parallelToSpine = kotlin.math.abs(dirX) <= 1e-6f
+    val spineHitY = if (!parallelToSpine) {
         val t = -mid.x / dirX
-        val hitY = mid.y + t * (-nx)
-        hitY.takeIf { it in 0f..h }
+        mid.y + t * (-nx)
     } else {
         null
     }
@@ -173,6 +176,7 @@ internal fun computeFold(geom: BookGeometry, corner: Offset, touch: Offset): Fol
         normal = Offset(nx, ny),
         angleDeg = angleDeg,
         spineHitY = spineHitY,
+        parallelToSpine = parallelToSpine,
     )
     val progress = (dist / (2f * w)).coerceIn(0f, 1f)
     return FoldResult(

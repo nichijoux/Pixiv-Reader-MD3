@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -344,12 +345,12 @@ fun ReaderRoute(
             .background(themeColors.background)
     ) {
         // 正文容器：始终全屏（工具栏为浮层，不挤压正文）。
-        // 底部不做 navigationBarsPadding：页面纸面（含仿真卷页几何）延伸到系统导航栏实现沉浸，
-        // 文字避让由下方 pageHeight 减去导航栏高度承担（最后一行不会进导航栏）。
+        // 沉浸式：顶部不做 statusBarsPadding——纸面（含翻页/仿真几何）从屏幕最顶开始
+        // 覆盖状态栏区域，文字避让由 pageHeight 与各内容组件的 contentTopInset 承担；
+        // 底部不做 navigationBarsPadding：纸面延伸到系统导航栏，文字避让由 pageHeight 承担。
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 // 触控井字九宫格：宽高各三等分，仅中间格点击切换工具栏（唤出/关闭）；
                 // 其余 8 格沿中间对称轴平分左右两半——工具栏显示时点击关闭（避免误翻页），
                 // 隐藏时左半区翻上一页、右半区翻下一页（滑动模式无翻页，左右半区仅关闭工具栏）；
@@ -426,12 +427,16 @@ fun ReaderRoute(
                                 // 双页时每列宽度 = 视口一半（列内容宽再减去页内边距）；单页时整宽
                                 val columnWidth = if (dualPageActive) maxWidth / 2 else maxWidth
                                 val contentWidth = columnWidth - PAGE_H_PADDING * 2
-                                // 页高减去系统导航栏高度：文字排版避开导航栏（纸面仍延伸到屏幕底，沉浸式）
+                                // 沉浸式：纸面从屏幕顶（覆盖状态栏）延伸到导航栏上沿，
+                                // 文字排版避开状态栏与导航栏（由 pageHeight 与内容顶部 inset 承担）
+                                val statusBarTop = WindowInsets.statusBars
+                                    .asPaddingValues()
+                                    .calculateTopPadding()
                                 val navBarBottom = WindowInsets.navigationBars
                                     .asPaddingValues()
                                     .calculateBottomPadding()
-                                val pageHeight =
-                                    maxHeight - PAGE_V_PADDING * 2 - navBarBottom - READER_STATUS_BAR_HEIGHT
+                                val pageHeight = maxHeight - PAGE_V_PADDING * 2 - statusBarTop -
+                                    navBarBottom - READER_STATUS_BAR_HEIGHT
                                 val fontFamilyInstance =
                                     rememberReaderFontFamily(fontFamily, customFont)
                                 val baseStyle = rememberReaderTextStyle(
@@ -462,6 +467,8 @@ fun ReaderRoute(
                                         onScrollOffset = viewModel::reportScrollOffset,
                                         onPageInfo = { c, t -> pageInfo = c to t },
                                         modifier = Modifier
+                                            // 滚动模式非纸面页：内容整体避让状态栏（翻页/仿真才沉浸覆盖）
+                                            .statusBarsPadding()
                                             .navigationBarsPadding()
                                             .padding(bottom = READER_STATUS_BAR_HEIGHT),
                                     )
@@ -486,6 +493,7 @@ fun ReaderRoute(
                                             spreads = spreads,
                                             columns = if (dualPageActive) 2 else 1,
                                             pageHeight = pageHeight,
+                                            contentTopInset = statusBarTop,
                                             backgroundColor = themeColors.background,
                                             restoreCharOffset = restoreOffset,
                                             jumpToChar = jumpToChar,
@@ -513,6 +521,7 @@ fun ReaderRoute(
                                             pagerState = pagerState,
                                             spreads = spreads,
                                             pageHeight = pageHeight,
+                                            contentTopInset = statusBarTop,
                                             restoreCharOffset = restoreOffset,
                                             jumpToChar = jumpToChar,
                                             onPageChange = { index ->

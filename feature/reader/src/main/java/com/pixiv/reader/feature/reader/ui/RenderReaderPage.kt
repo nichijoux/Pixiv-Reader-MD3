@@ -165,6 +165,8 @@ internal val SPREAD_SEAM_WIDTH = 12.dp
  * @param right 右页（columns = 1 恒为 null；columns = 2 末页落单时为 null）
  * @param columns 列数：1 单页整宽 / 2 双页并排
  * @param containerHeight 容器高度（RenderReaderPage 底部贴底微调用）
+ * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度，
+ *   文字从状态栏下方开始而纸面延伸到屏幕顶）
  * @param showSeam 是否绘制中缝阴影（静态跨页显示 true；仿真叶翻的叶面层不需要）
  */
 @Composable
@@ -173,6 +175,7 @@ internal fun RenderSpreadColumns(
     right: ReaderPage?,
     columns: Int,
     containerHeight: Dp,
+    contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     // 单页模式：与原单页渲染路径完全一致（同一 padding、同一整宽约束）
@@ -183,7 +186,12 @@ internal fun RenderSpreadColumns(
                 containerHeight,
                 modifier
                     .fillMaxSize()
-                    .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+                    .padding(
+                        start = PAGE_H_PADDING,
+                        end = PAGE_H_PADDING,
+                        top = PAGE_V_PADDING + contentTopInset,
+                        bottom = PAGE_V_PADDING,
+                    ),
             )
         }
         return
@@ -198,7 +206,12 @@ internal fun RenderSpreadColumns(
                         containerHeight,
                         Modifier
                             .fillMaxSize()
-                            .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+                            .padding(
+                                start = PAGE_H_PADDING,
+                                end = PAGE_H_PADDING,
+                                top = PAGE_V_PADDING + contentTopInset,
+                                bottom = PAGE_V_PADDING,
+                            ),
                     )
                 }
             }
@@ -209,7 +222,12 @@ internal fun RenderSpreadColumns(
                         containerHeight,
                         Modifier
                             .fillMaxSize()
-                            .padding(PAGE_H_PADDING, PAGE_V_PADDING),
+                            .padding(
+                                start = PAGE_H_PADDING,
+                                end = PAGE_H_PADDING,
+                                top = PAGE_V_PADDING + contentTopInset,
+                                bottom = PAGE_V_PADDING,
+                            ),
                     )
                 }
             }
