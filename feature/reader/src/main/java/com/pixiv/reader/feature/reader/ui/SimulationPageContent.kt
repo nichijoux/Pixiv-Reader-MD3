@@ -135,6 +135,7 @@ fun SimulationPageContent(
     jumpToChar: Int?,
     onPageChange: (Int) -> Unit,
     onPageInfo: (Int, Int) -> Unit,
+    onOpenImage: (String) -> Unit = {},
     barsVisible: Boolean = false,
     onCloseBars: () -> Unit = {},
     onToggleBars: () -> Unit = {},
@@ -457,6 +458,7 @@ fun SimulationPageContent(
             columns = columns,
             containerHeight = pageHeight,
             contentTopInset = contentTopInset,
+            onOpenImage = onOpenImage,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -563,6 +565,7 @@ fun SimulationPageContent(
                             RenderReaderPage(
                                 frontPage,
                                 pageHeight,
+                                onOpenImage,
                                 Modifier
                                     .fillMaxSize()
                                     .padding(
@@ -603,6 +606,7 @@ fun SimulationPageContent(
                             slotWidthDp = slotWidthDp,
                             slotTranslatePx = slotOffsetPx,
                             contentTopInset = contentTopInset,
+                            onOpenImage = onOpenImage,
                             backgroundColor = backgroundColor,
                             shadowBrush = Brush.linearGradient(
                                 colors = listOf(
@@ -674,6 +678,7 @@ fun SimulationPageContent(
                                 RenderReaderPage(
                                     backPage,
                                     pageHeight,
+                                    onOpenImage,
                                     Modifier
                                         .fillMaxSize()
                                         .padding(
@@ -722,6 +727,7 @@ private fun SingleFoldBackLayer(
     slotWidthDp: Dp,
     slotTranslatePx: Float,
     contentTopInset: Dp,
+    onOpenImage: (String) -> Unit,
     backgroundColor: Color,
     shadowBrush: Brush,
     modifier: Modifier = Modifier,
@@ -763,6 +769,7 @@ private fun SingleFoldBackLayer(
                 RenderReaderPage(
                     backPage,
                     pageHeight,
+                    onOpenImage,
                     Modifier
                         .fillMaxSize()
                         .padding(

@@ -65,6 +65,7 @@ internal fun ScrollReaderContent(
     jumpToChar: Int?,
     onScrollOffset: (Int) -> Unit,
     onPageInfo: (Int, Int) -> Unit,
+    onOpenImage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val items = remember(elements) { buildScrollItems(elements) }
@@ -147,6 +148,7 @@ internal fun ScrollReaderContent(
                     url = element.url,
                     caption = element.caption,
                     height = with(density) { element.heightPx.toDp() },
+                    onOpenImage = onOpenImage,
                 )
             }
         }

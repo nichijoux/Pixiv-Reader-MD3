@@ -36,6 +36,7 @@ internal fun PagerReaderContent(
     onPageChange: (Int) -> Unit,
     onPageInfo: (Int, Int) -> Unit,
     jumpToChar: Int?,
+    onOpenImage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 
 ) {
@@ -81,6 +82,7 @@ internal fun PagerReaderContent(
             columns = spread.columns,
             containerHeight = pageHeight,
             contentTopInset = contentTopInset,
+            onOpenImage = onOpenImage,
             modifier = Modifier.fillMaxSize(),
         )
     }

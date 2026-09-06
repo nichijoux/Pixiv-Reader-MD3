@@ -1,6 +1,7 @@
 package com.pixiv.reader.feature.reader.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -77,6 +78,7 @@ internal fun bottomJustifyGapPx(
 internal fun RenderReaderPage(
     page: ReaderPage,
     containerHeight: Dp,
+    onOpenImage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
@@ -145,6 +147,7 @@ internal fun RenderReaderPage(
                     url = el.url,
                     caption = el.caption,
                     height = with(density) { el.heightPx.toDp() },
+                    onOpenImage = onOpenImage,
                 )
             }
         }
@@ -167,6 +170,7 @@ internal val SPREAD_SEAM_WIDTH = 12.dp
  * @param containerHeight 容器高度（RenderReaderPage 底部贴底微调用）
  * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度，
  *   文字从状态栏下方开始而纸面延伸到屏幕顶）
+ * @param onOpenImage 点击图片回调（全屏查看，透传给 [RenderReaderPage]）
  * @param showSeam 是否绘制中缝阴影（静态跨页显示 true；仿真叶翻的叶面层不需要）
  */
 @Composable
@@ -176,6 +180,7 @@ internal fun RenderSpreadColumns(
     columns: Int,
     containerHeight: Dp,
     contentTopInset: Dp = 0.dp,
+    onOpenImage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // 单页模式：与原单页渲染路径完全一致（同一 padding、同一整宽约束）
@@ -184,6 +189,7 @@ internal fun RenderSpreadColumns(
             RenderReaderPage(
                 left,
                 containerHeight,
+                onOpenImage,
                 modifier
                     .fillMaxSize()
                     .padding(
@@ -204,6 +210,7 @@ internal fun RenderSpreadColumns(
                     RenderReaderPage(
                         left,
                         containerHeight,
+                        onOpenImage,
                         Modifier
                             .fillMaxSize()
                             .padding(
@@ -220,6 +227,7 @@ internal fun RenderSpreadColumns(
                     RenderReaderPage(
                         right,
                         containerHeight,
+                        onOpenImage,
                         Modifier
                             .fillMaxSize()
                             .padding(
@@ -299,9 +307,21 @@ internal fun justifyLine(line: PageElement.TextLine, density: Density): Annotate
     }
 }
 
-/** 插图块：图片 + 可选说明文字。 */
+/**
+ * 插图块：图片 + 可选说明文字，点击图片全屏查看。
+ *
+ * @param url 图片地址
+ * @param caption 说明文字（可空）
+ * @param height 图片高度
+ * @param onOpenImage 点击图片回调（全屏查看）
+ */
 @Composable
-internal fun ReaderImageBlock(url: String, caption: String?, height: Dp) {
+internal fun ReaderImageBlock(
+    url: String,
+    caption: String?,
+    height: Dp,
+    onOpenImage: (String) -> Unit = {},
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -313,7 +333,9 @@ internal fun ReaderImageBlock(url: String, caption: String?, height: Dp) {
             contentDescription = caption,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(height),
+                .height(height)
+                // 点击全屏查看；语义标签让无障碍服务可识别为可点击图片
+                .clickable(onClickLabel = caption) { onOpenImage(url) },
             contentScale = ContentScale.Fit,
             // 阅读器图片需明确反馈：加载中底部进度条、失败断图图标（否则占位块无法区分加载/失败）
             showProgress = true,

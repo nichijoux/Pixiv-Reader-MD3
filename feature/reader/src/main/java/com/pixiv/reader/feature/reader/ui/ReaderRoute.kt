@@ -176,6 +176,7 @@ fun ReaderRoute(
     novelId: Long,
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
+    onOpenImage: (String) -> Unit = {},
     localDocument: NovelDocument? = null,
     localTitle: String? = null,
     toEnd: Boolean = false,
@@ -466,6 +467,7 @@ fun ReaderRoute(
                                         jumpToChar = jumpToChar,
                                         onScrollOffset = viewModel::reportScrollOffset,
                                         onPageInfo = { c, t -> pageInfo = c to t },
+                                        onOpenImage = onOpenImage,
                                         modifier = Modifier
                                             // 滚动模式非纸面页：内容整体避让状态栏（翻页/仿真才沉浸覆盖）
                                             .statusBarsPadding()
@@ -505,6 +507,7 @@ fun ReaderRoute(
                                                 }
                                             },
                                             onPageInfo = { c, t -> pageInfo = c to t },
+                                            onOpenImage = onOpenImage,
                                             barsVisible = barsVisible,
                                             onCloseBars = { barsVisible = false },
                                             onToggleBars = { barsVisible = !barsVisible },
@@ -532,6 +535,7 @@ fun ReaderRoute(
                                                 }
                                             },
                                             onPageInfo = { c, t -> pageInfo = c to t },
+                                            onOpenImage = onOpenImage,
                                         )
                                     }
                                 }

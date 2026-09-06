@@ -408,6 +408,10 @@ fun PixivNavGraph(
                         popUpTo(ROUTE_READER) { inclusive = true }
                     }
                 },
+                onOpenImage = { url ->
+                    // 正文插图全屏查看
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
+                },
             )
         }
         // 用户主页：支持 pixiv://user/{id} 深链；标签点击跳 main 搜索
@@ -691,6 +695,10 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
                 onOpenNovel = { id ->
                     navController.navigate("reader/$id")
+                },
+                onOpenImage = { url ->
+                    // 本地书正文插图全屏查看
+                    navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 localDocument = local?.first,
                 localTitle = local?.second,
