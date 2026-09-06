@@ -35,8 +35,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FloatingToolbarDefaults
-import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -387,9 +385,8 @@ private fun ReaderChapterButton(
 }
 
 /**
- * 工具行（目录/搜索/设置）：Expressive [HorizontalFloatingToolbar] 胶囊，居中于
- * 主题色沉浸条之上；胶囊底色取阅读文字色的低透明度（深浅主题均成立），
- * 内容色随 LocalContentColor 由工具栏注入。
+ * 工具行（目录/搜索/设置）：全宽沉浸条样式，主题色背景延伸覆盖导航栏区域，
+ * 三钮 SpaceEvenly 均布。
  *
  * @param themeColors 阅读主题色
  * @param onToc 打开目录面板
@@ -404,33 +401,35 @@ private fun ReaderToolBar(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
 ) {
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        HorizontalFloatingToolbar(
-            expanded = true,
-            colors = FloatingToolbarDefaults.standardFloatingToolbarColors().copy(
-                toolbarContainerColor = themeColors.text.copy(alpha = 0.06f),
-                toolbarContentColor = themeColors.text,
-            ),
-        ) {
-            // 紧凑高度：40dp 触控（标准 48dp 降低观感高度，仍满足最低触控要求）
-            IconButton(onClick = onToc, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    Icons.AutoMirrored.Filled.List,
-                    contentDescription = stringResource(R.string.reader_cd_toc),
-                )
-            }
-            IconButton(onClick = onSearch, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    Icons.Filled.Search,
-                    contentDescription = stringResource(R.string.reader_cd_search),
-                )
-            }
-            IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    Icons.Filled.Settings,
-                    contentDescription = stringResource(R.string.reader_cd_settings),
-                )
-            }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(themeColors.topBar)
+            .padding(horizontal = Spacing.sm, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        // 紧凑高度：40dp 触控（标准 48dp 降低观感高度，仍满足最低触控要求）
+        IconButton(onClick = onToc, modifier = Modifier.size(40.dp)) {
+            Icon(
+                Icons.AutoMirrored.Filled.List,
+                contentDescription = stringResource(R.string.reader_cd_toc),
+                tint = themeColors.text
+            )
+        }
+        IconButton(onClick = onSearch, modifier = Modifier.size(40.dp)) {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = stringResource(R.string.reader_cd_search),
+                tint = themeColors.text
+            )
+        }
+        IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
+            Icon(
+                Icons.Filled.Settings,
+                contentDescription = stringResource(R.string.reader_cd_settings),
+                tint = themeColors.text
+            )
         }
     }
 }
