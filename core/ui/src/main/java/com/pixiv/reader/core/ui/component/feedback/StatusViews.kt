@@ -8,7 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,17 +22,18 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
- * 加载中占位：全屏居中 `CircularProgressIndicator`。
+ * 加载中占位：全屏居中 Expressive `ContainedLoadingIndicator`（形状形变加载指示器）。
  *
  * ## UI 设计方式
- * `Box` + `fillMaxSize` + `contentAlignment.Center`，转圈指示器居中。
+ * `Box` + `fillMaxSize` + `contentAlignment.Center`，带容器底的加载指示器居中。
  *
  * @param modifier 外部传入的 Modifier
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingBox(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+        ContainedLoadingIndicator()
     }
 }
 

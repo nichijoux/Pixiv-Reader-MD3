@@ -20,8 +20,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  *
  * @param viewModelState 评论 VM 的公开状态（列表/回复/草稿/贴纸等），由调用方 collect 后传入
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CommentListContent(
     comments: List<Comment>,
@@ -137,7 +139,7 @@ fun CommentListContent(
                             modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
                             horizontalArrangement = Arrangement.Center,
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(Sizes.s24), strokeWidth = 2.dp)
+                            LoadingIndicator()
                         }
                     }
                 }
@@ -171,6 +173,7 @@ fun CommentListContent(
 }
 
 /** 评论行：头像 + 昵称 + 时间 + 正文 + 树形子回复（最多 3 条，超出可展开）+ 回复入口。 */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CommentRow(
     comment: Comment,
@@ -252,7 +255,7 @@ private fun CommentRow(
                             .padding(Spacing.smPlus),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(Sizes.s18), strokeWidth = 2.dp)
+                        LoadingIndicator()
                     }
                     LaunchedEffect(comment.id) { onLoadReplies() }
                 } else if (replies.isNotEmpty()) {

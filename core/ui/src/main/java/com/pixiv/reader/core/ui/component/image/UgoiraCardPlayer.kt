@@ -4,8 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,11 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -38,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * @param illustId 作品 id（zip/帧缓存与 metadata 均按 id）
  * @param maxDecodeSize 帧采样解码最长边上限（px），传封面宽度避免解码原图浪费内存
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun UgoiraCardPlayer(
     loader: UgoiraLoader,
@@ -76,11 +75,7 @@ fun UgoiraCardPlayer(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(Sizes.s22),
-                    )
+                    LoadingIndicator(color = Color.White)
                     Text(
                         text = "${(p * 100).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,

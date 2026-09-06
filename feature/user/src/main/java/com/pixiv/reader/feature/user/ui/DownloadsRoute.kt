@@ -35,7 +35,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryTabRow
@@ -293,9 +293,9 @@ private fun DownloadStatusRow(
 ) {
     when (entry.status) {
         "downloading" -> Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.xsPlus)) {
-            LinearProgressIndicator(
+            LinearWavyProgressIndicator(
                 progress = { entry.progress.coerceIn(0, 100) / 100f },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(

@@ -40,9 +40,10 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -193,6 +194,7 @@ fun IllustDetailContent(
  * @param ugoiraProgress 动图 zip 下载进度 0..1；非 null 且帧未就绪时首页叠加转圈 + 百分比
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun IllustPagePager(
     pages: List<IllustPageInfo>,
@@ -334,11 +336,7 @@ fun IllustPagePager(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                         ) {
-                                            CircularProgressIndicator(
-                                                color = Color.White,
-                                                strokeWidth = 2.dp,
-                                                modifier = Modifier.size(Sizes.s32),
-                                            )
+                                            LoadingIndicator(color = Color.White)
                                             Text(
                                                 text = "${(ugoiraProgress * 100).toInt()}%",
                                                 style = MaterialTheme.typography.labelMedium,
@@ -365,10 +363,7 @@ fun IllustPagePager(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                    )
+                    LoadingIndicator(color = Color.White)
                 }
             }
             // 页码 + 全屏入口（统一 32dp 高胶囊，视觉一致）

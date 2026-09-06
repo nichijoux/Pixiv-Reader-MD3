@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -223,9 +223,9 @@ fun IllustCard(
             if (progress != null) {
                 val color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    LinearProgressIndicator(
+                    LinearWavyProgressIndicator(
                         progress = { progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         color = color,
                     )
                     Text(

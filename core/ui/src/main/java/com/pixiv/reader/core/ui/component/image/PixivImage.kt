@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -124,7 +124,7 @@ private fun PixivImageErrorContent(
     }
 }
 
-/** 加载中覆盖层：占位背景上底部显示不确定进度条（[PixivImage.showProgress] 路径）。 */
+/** 加载中覆盖层：占位背景上底部显示不确定 Expressive 波浪进度条（[PixivImage.showProgress] 路径）。 */
 @Composable
 private fun PixivImageLoadingContent(
     placeholder: Color,
@@ -134,7 +134,7 @@ private fun PixivImageLoadingContent(
             .fillMaxSize()
             .background(placeholder),
     ) {
-        LinearProgressIndicator(
+        LinearWavyProgressIndicator(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),
