@@ -4,8 +4,8 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -40,11 +41,14 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -660,7 +664,10 @@ private fun StatBlock(
     }
 }
 
-/** 作者关注 / 取关胶囊（作者行顶右）：未关注 = 实心主色胶囊，已关注 = 浅底 + 主色边框。 */
+/**
+ * 作者关注 / 取关按钮（作者行顶右）：全圆 pill + Expressive 按压形变。
+ * 未关注 = 实心主色 [Button]；已关注 = 主色描边 + 浅底 [OutlinedButton]。
+ */
 @Composable
 private fun AuthorFollowPill(
     isFollowed: Boolean,
@@ -668,32 +675,42 @@ private fun AuthorFollowPill(
     onClick: () -> Unit,
     strings: IllustDetailStrings,
 ) {
-    val container = if (isFollowed) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.primary
-    }
-    val content = if (isFollowed) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onPrimary
-    }
-    Text(
-        text = if (isFollowed) strings.followed else strings.follow,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-        color = content,
-        maxLines = 1,
-        modifier = Modifier
-            .clip(AppShapes.pill)
-            .border(
-                width = 1.dp,
-                color = if (isFollowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
-                shape = AppShapes.pill,
+    if (isFollowed) {
+        OutlinedButton(
+            onClick = onClick,
+            enabled = enabled,
+            shape = AppShapes.pill,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
+            contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs),
+        ) {
+            Text(
+                text = strings.followed,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
             )
-            .background(container)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = Spacing.md, vertical = 5.dp),
-    )
+        }
+    } else {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            shape = AppShapes.pill,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+            contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs),
+        ) {
+            Text(
+                text = strings.follow,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
+            )
+        }
+    }
 }
 
 // ── 相关作品 ──
