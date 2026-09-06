@@ -1,9 +1,11 @@
 package com.pixiv.reader.feature.user.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -24,12 +26,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.comment.CommentListViewModel
@@ -49,11 +60,14 @@ import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
 import com.pixiv.reader.feature.user.state.UserViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * 用户主页（P5 重设计）：详情统计 + 关注/取关/拉黑 + 4 分区（插画/漫画/小说/系列）。
  * 顶部 Tab 支持左右滑动切换（HorizontalPager），每段独立分页（PagedState 驻留 VM）。
  * 统计格可点击：插画/小说 → 滑动切段；收藏/关注 → 进入该用户的公开收藏/关注列表页。
+ * 头部可折叠：列表上滑时头像/简介/统计行整体收起（NestedScrollConnection 接管），
+ * 分区 Tab 钉在顶栏下方；列表到顶下滑时头部先展开再滚动内容。
  *
  * ## 平板 Master-Detail
  * 点作品/小说/系列卡 → 右侧详情 pane 滑入（[ListDetailOverlay]，Scaffold 内容区内、
@@ -175,6 +189,34 @@ fun UserRoute(
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
 
+    // ── 个人头部折叠（下滑收起头像/简介/统计行，分区 Tab 钉在顶栏下）──
+    // headerMaxPx：头部自然总高（内容测量回写）；headerCollapsePx：已收起高度（0..headerMaxPx）
+    var headerMaxPx by remember { mutableStateOf(0) }
+    var headerCollapsePx by remember { mutableStateOf(0f) }
+    val headerNestedScroll = remember(headerMaxPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // 上滑（dy < 0）：列表滚动前先把头部收完，消费对应位移
+                if (available.y < 0f && headerCollapsePx < headerMaxPx) {
+                    val previous = headerCollapsePx
+                    headerCollapsePx = (headerCollapsePx - available.y).coerceAtMost(headerMaxPx.toFloat())
+                    return Offset(0f, previous - headerCollapsePx)
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                // 下滑（dy > 0）：列表已滚到顶（内容未消费的位移）时先展开头部
+                if (available.y > 0f && headerCollapsePx > 0f) {
+                    val previous = headerCollapsePx
+                    headerCollapsePx = (headerCollapsePx - available.y).coerceAtLeast(0f)
+                    return Offset(0f, previous - headerCollapsePx)
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -213,24 +255,57 @@ fun UserRoute(
                             ErrorBox(message = stringResource(msg.res, *msg.args.toTypedArray()), onRetry = viewModel::load)
                         }
                         user == null -> EmptyBox(stringResource(R.string.user_not_found))
-                        else -> Column(modifier = Modifier.fillMaxSize()) {
+                        else -> Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                // 头部折叠的嵌套滚动接管：Pager 内列表上滑先收头部，到顶下滑先展头部
+                                .nestedScroll(headerNestedScroll),
+                        ) {
                             val detail = checkNotNull(user)
-                            UserHeader(
-                                user = detail,
-                                profile = profile,
-                                isFollowed = isFollowed,
-                                isFollowing = isFollowing,
-                                isBlocked = isBlocked,
-                                isBlocking = isBlocking,
-                                onToggleFollow = viewModel::toggleFollow,
-                                onToggleBlock = viewModel::toggleBlock,
-                                onScrollToSection = { sec ->
-                                    scope.launch { pagerState.animateScrollToPage(sections.indexOf(sec)) }
-                                },
-                                onOpenUserBookmarks = onOpenUserBookmarks,
-                                onOpenUserFollowing = onOpenUserFollowing,
-                                onOpenAvatar = onOpenCover,
-                            )
+                            // 折叠头部容器：显示高度 = 总高 - 已折叠，内容整体上移并裁剪
+                            // （顶部头像先滑出，底部统计行最后收起，全收后 Tab 紧贴顶栏）
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clipToBounds()
+                                    .layout { measurable, constraints ->
+                                        // 内容按自然高度测量（放开 maxHeight），裁剪由本容器负责
+                                        val placeable = measurable.measure(
+                                            constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity),
+                                        )
+                                        val visible = if (headerMaxPx == 0) {
+                                            placeable.height
+                                        } else {
+                                            (headerMaxPx - headerCollapsePx.roundToInt()).coerceAtLeast(0)
+                                        }
+                                        layout(placeable.width, visible) {
+                                            placeable.place(0, -headerCollapsePx.roundToInt())
+                                        }
+                                    },
+                            ) {
+                                Box(
+                                    modifier = Modifier.onSizeChanged { size ->
+                                        if (size.height > 0) headerMaxPx = size.height
+                                    },
+                                ) {
+                                    UserHeader(
+                                        user = detail,
+                                        profile = profile,
+                                        isFollowed = isFollowed,
+                                        isFollowing = isFollowing,
+                                        isBlocked = isBlocked,
+                                        isBlocking = isBlocking,
+                                        onToggleFollow = viewModel::toggleFollow,
+                                        onToggleBlock = viewModel::toggleBlock,
+                                        onScrollToSection = { sec ->
+                                            scope.launch { pagerState.animateScrollToPage(sections.indexOf(sec)) }
+                                        },
+                                        onOpenUserBookmarks = onOpenUserBookmarks,
+                                        onOpenUserFollowing = onOpenUserFollowing,
+                                        onOpenAvatar = onOpenCover,
+                                    )
+                                }
+                            }
                             // 分区 Tab：PrimaryTabRow 均分占满（手机/平板一致，4 个短标签均放得下）
                             PrimaryTabRow(
                                 selectedTabIndex = pagerState.currentPage.coerceIn(0, (sections.size - 1).coerceAtLeast(0)),
