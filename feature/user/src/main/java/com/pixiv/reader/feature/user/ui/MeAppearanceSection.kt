@@ -1,30 +1,27 @@
 package com.pixiv.reader.feature.user.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.pixiv.reader.core.common.config.AppLanguage
@@ -33,8 +30,22 @@ import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlin.math.roundToInt
 
-/** 我的页「外观」设置：主题模式 / 动态取色 / 语言（各独立卡片）。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 我的页「外观」设置：主题模式 / 动态取色 / 字号缩放 / 语言。
+ * Expressive 分组面板：四项聚入单张 28dp 圆角卡，组内行用分隔线区隔。
+ *
+ * @param themeMode 当前主题模式
+ * @param dynamicColor 当前动态取色开关
+ * @param fontScale 当前全局字体缩放
+ * @param appLanguage 当前应用语言（存储值）
+ * @param switchingLanguage 语言切换写盘中（锁定重复触发）
+ * @param onSetThemeMode 设置主题模式
+ * @param onSetDynamicColor 设置动态取色
+ * @param onSetFontScale 设置字体缩放（写入 DataStore 后 MainActivity 覆盖 fontScale 即时生效）
+ * @param onSetAppLanguage 设置语言（参数 = 存储值 + 落盘完成回调）
+ * @param onLanguageApplied 语言落盘完成回调（调用方重建 Activity 生效）
+ * @return 无返回值
+ */
 @Composable
 internal fun MeAppearanceSection(
     themeMode: ThemeMode,
@@ -48,20 +59,18 @@ internal fun MeAppearanceSection(
     onSetAppLanguage: (String, () -> Unit) -> Unit,
     onLanguageApplied: () -> Unit,
 ) {
-    // 主题模式
-    MeSettingCard {
-        Text(
-            text = stringResource(R.string.me_theme_mode),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+    MeGroupCard {
+        // 主题模式：宽控件行（标题行 + 全宽分段选择）
+        MeRow(icon = Icons.Filled.Palette, title = stringResource(R.string.me_theme_mode))
         val themeModes = listOf(
             ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
             ThemeMode.LIGHT to R.string.me_theme_light,
             ThemeMode.DARK to R.string.me_theme_dark,
         )
         SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
         ) {
             themeModes.forEachIndexed { index, (mode, labelRes) ->
                 SegmentedButton(
@@ -73,95 +82,59 @@ internal fun MeAppearanceSection(
                 )
             }
         }
-    }
-    CardSpacer()
-    // 动态取色
-    MeSettingCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+        MeRowDivider()
+        // 动态取色（开关行：整行可点切换）
+        MeRow(
+            icon = Icons.Filled.AutoAwesome,
+            title = stringResource(R.string.me_dynamic_color),
+            subtitle = stringResource(R.string.me_dynamic_color_desc),
+            trailing = { Switch(checked = dynamicColor, onCheckedChange = onSetDynamicColor) },
+            onClick = { onSetDynamicColor(!dynamicColor) },
+        )
+        MeRowDivider()
+        // 字号缩放（滑杆行：标题 + 当前百分比，滑杆全宽）
+        MeRow(
+            icon = Icons.Filled.FormatSize,
+            title = stringResource(R.string.me_font_scale),
+            subtitle = stringResource(R.string.me_font_scale_desc),
+            trailing = {
+                // 语言中性 token：百分比档位（80%~130%）
                 Text(
-                    text = stringResource(R.string.me_dynamic_color),
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = "${(fontScale * 100).roundToInt()}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
                 )
-                Text(
-                    text = stringResource(R.string.me_dynamic_color_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = dynamicColor,
-                onCheckedChange = onSetDynamicColor,
-            )
-        }
-    }
-    CardSpacer()
-    // 字号缩放（滑动条；写入 DataStore 后 MainActivity 覆盖 fontScale 即时生效）
-    MeSettingCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.me_font_scale),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = stringResource(R.string.me_font_scale_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            // 语言中性 token：百分比档位（80%~130%）
-            Text(
-                text = "${(fontScale * 100).roundToInt()}%",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
+            },
+        )
         Slider(
             value = fontScale,
             onValueChange = onSetFontScale,
             valueRange = 0.8f..1.3f,
             // 六档：0.80 / 0.90 / 1.00 / 1.10 / 1.20 / 1.30
             steps = 5,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
         )
-    }
-    CardSpacer()
-    // 语言（下拉选择框；切换后重建 Activity 生效）
-    MeSettingCard {
-        Text(
-            text = stringResource(R.string.me_language),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        var expanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = expanded && !switchingLanguage,
-            onExpandedChange = { if (!switchingLanguage) expanded = it },
-        ) {
-            OutlinedTextField(
-                value = languageLabel(appLanguage),
-                onValueChange = {},
-                readOnly = true,
-                singleLine = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus).menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        MeRowDivider()
+        // 语言（值行 + 下拉菜单；切换写入落盘后由调用方重建 Activity 生效）
+        var languageExpanded by remember { mutableStateOf(false) }
+        Box {
+            MeRow(
+                icon = Icons.Filled.Translate,
+                title = stringResource(R.string.me_language),
+                trailing = { MeValueTrailing(languageLabel(appLanguage)) },
+                onClick = { languageExpanded = true },
             )
-            ExposedDropdownMenu(
-                expanded = expanded && !switchingLanguage,
-                onDismissRequest = { expanded = false },
+            DropdownMenu(
+                expanded = languageExpanded,
+                onDismissRequest = { languageExpanded = false },
             ) {
                 LANG_OPTIONS.forEach { (value, labelRes) ->
                     DropdownMenuItem(
                         text = { Text(stringResource(labelRes)) },
                         onClick = {
-                            expanded = false
+                            languageExpanded = false
                             // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
                             if (!switchingLanguage && appLanguage != value) {
                                 onSetAppLanguage(value, onLanguageApplied)

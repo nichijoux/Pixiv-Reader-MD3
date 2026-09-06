@@ -9,12 +9,15 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,11 +28,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import com.pixiv.reader.core.ui.component.input.SettingsCard
-import com.pixiv.reader.core.ui.component.input.SettingsCardItem
+import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
-import com.pixiv.reader.feature.user.R
 
 /** 开源仓库地址（与 git remote / CI 发布仓库一致）。 */
 private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Reader-MD3"
@@ -52,7 +53,14 @@ private fun drawableToBitmap(drawable: Drawable): Bitmap {
     return bitmap
 }
 
-/** 我的页「关于」：应用信息 / 开源仓库 / 开源许可 / 检查更新。 */
+/**
+ * 我的页「关于」：应用信息 / 开源仓库 / 开源许可 / 检查更新。
+ * Expressive 分组面板：应用信息头 + 三行导航，单张 28dp 圆角卡。
+ *
+ * @param versionName 当前版本号
+ * @param onCheckUpdate 手动检查更新
+ * @return 无返回值
+ */
 @Composable
 internal fun MeAboutSection(
     versionName: String,
@@ -63,70 +71,87 @@ internal fun MeAboutSection(
     val appIcon = remember {
         drawableToBitmap(context.packageManager.getApplicationIcon(context.packageName))
     }
-    MeSettingCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                bitmap = appIcon.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier.size(Sizes.s40),
-            )
-            Column(modifier = Modifier.padding(start = Spacing.md)) {
-                Text(
-                    text = "Pixiv Reader",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+    MeGroupCard {
+        // 应用信息头（非行式：图标 + 名称/版本 + 一句话描述）
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    bitmap = appIcon.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.size(Sizes.s40),
                 )
-                Text(
-                    text = stringResource(R.string.me_version, versionName),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(modifier = Modifier.padding(start = Spacing.md)) {
+                    Text(
+                        text = "Pixiv Reader",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.me_version, versionName),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
+            Text(
+                text = stringResource(R.string.me_about_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.smPlus),
+            )
         }
-        Text(
-            text = stringResource(R.string.me_about_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Spacing.smPlus),
-        )
-    }
-    CardSpacer()
-    // 开源仓库
-    SettingsCard(
-        SettingsCardItem(
+        MeRowDivider()
+        // 开源仓库（外链行）
+        MeRow(
             icon = Icons.AutoMirrored.Filled.OpenInNew,
             title = stringResource(R.string.me_open_source_repo),
-            description = OPEN_SOURCE_URL_DISPLAY,
-            trailingIcon = Icons.AutoMirrored.Filled.OpenInNew,
+            subtitle = OPEN_SOURCE_URL_DISPLAY,
+            subtitleMaxLines = 1,
+            trailing = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
             onClick = {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_URL)))
                 }
             },
-        ),
-    )
-    CardSpacer()
-    // 开源许可（独立入口，与开源仓库同款按钮；描述说明放在标题下方）
-    SettingsCard(
-        SettingsCardItem(
+        )
+        MeRowDivider()
+        // 开源许可（外链行）
+        MeRow(
             icon = Icons.Filled.Code,
             title = stringResource(R.string.me_open_source_license),
-            description = stringResource(R.string.me_open_source_license_desc),
-            trailingIcon = Icons.AutoMirrored.Filled.OpenInNew,
+            subtitle = stringResource(R.string.me_open_source_license_desc),
+            trailing = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
             onClick = {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_LICENSE_URL)))
                 }
             },
-        ),
-    )
-    CardSpacer()
-    // 检查更新
-    SettingsCard(
-        SettingsCardItem(
+        )
+        MeRowDivider()
+        // 检查更新
+        MeRow(
             icon = Icons.Filled.SystemUpdate,
             title = stringResource(R.string.me_check_update),
+            trailing = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
             onClick = onCheckUpdate,
-        ),
-    )
+        )
+    }
 }

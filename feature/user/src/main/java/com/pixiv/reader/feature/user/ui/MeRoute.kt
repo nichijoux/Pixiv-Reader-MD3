@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,7 +41,6 @@ import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.card.ProfileHeader
 import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
-import com.pixiv.reader.core.ui.component.input.SettingsCard
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
@@ -50,8 +50,8 @@ import com.pixiv.reader.feature.user.state.MeViewModel
 
 /**
  * 我的 Tab：个人中心/设置页——
- * ProfileHeader（头像/名称/@account/退出登录）+ 分组设置导航卡片 + 外观/语言/系统设置内嵌 + 关于信息。
- * 数据驱动（SettingsCardItem），Material 主题，自适应布局。
+ * ProfileHeader（头像/名称/@account/退出登录）+ Expressive 分组设置面板（导航行 / 外观 / 浏览 / 系统 / 关于）。
+ * 数据驱动（SettingsCardItem + MeRow），Material 主题，自适应布局。
  * 各区块组件见 [MeAppearanceSection] / [MeBrowseSection] / [MeSystemSection] / [MeAboutSection]。
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -131,21 +131,30 @@ fun MeRoute(
                 // ── 用户内容管理 ──
                 SectionSpacer()
                 SectionTitle(stringResource(R.string.me_section_content))
-                SettingsCard(
+                val contentItems = listOf(
                     SettingsCardItem(Icons.Filled.Favorite, stringResource(R.string.me_bookmarks_title), stringResource(R.string.me_bookmarks_desc), onClick = onOpenBookmarks),
-                )
-                CardSpacer()
-                SettingsCard(
                     SettingsCardItem(Icons.Filled.History, stringResource(R.string.me_history_title), stringResource(R.string.me_history_desc), onClick = onOpenHistory),
-                )
-                CardSpacer()
-                SettingsCard(
                     SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), onClick = onOpenDownloads),
-                )
-                CardSpacer()
-                SettingsCard(
                     SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), onClick = onOpenBlocked),
                 )
+                MeGroupCard {
+                    contentItems.forEachIndexed { index, item ->
+                        if (index > 0) MeRowDivider()
+                        MeRow(
+                            icon = item.icon,
+                            title = item.title,
+                            subtitle = item.description.takeIf { it.isNotBlank() },
+                            trailing = {
+                                Icon(
+                                    imageVector = item.trailingIcon,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = item.onClick,
+                        )
+                    }
+                }
 
                 // ── 外观设置（每项独立卡片：主题模式 / 动态取色 / 语言） ──
                 SectionSpacer()
