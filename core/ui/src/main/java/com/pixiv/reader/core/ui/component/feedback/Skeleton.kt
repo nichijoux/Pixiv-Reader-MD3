@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -30,8 +31,8 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * 骨架呼吸脉冲色：`surfaceVariant` + alpha 0.35↔0.75，替代全屏转圈的加载占位。
- * 全项目骨架统一动画源（搜索/排行榜/用户主页/小说页/插画页/评论区共用）。
+ * 骨架呼吸脉冲色：`surfaceVariant` + alpha 0.35↔0.75，单程 1s 缓慢呼吸（[Durations.SKELETON_PULSE_MS]），
+ * 替代全屏转圈的加载占位。全项目骨架统一动画源（搜索/排行榜/用户主页/小说页/插画页/评论区共用）。
  *
  * @param label 动画 label（同一组合树内多个骨架用于区分，默认足够）
  */
@@ -42,7 +43,7 @@ fun skeletonPulseColor(label: String = "skeleton"): Color {
         initialValue = 0.35f,
         targetValue = 0.75f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = Durations.PAGE_SWITCH_ANIM_MS),
+            animation = tween(durationMillis = Durations.SKELETON_PULSE_MS),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "${label}Alpha",
@@ -63,8 +64,9 @@ fun SkeletonBlock(modifier: Modifier, color: Color) {
 
 /**
  * 排行榜入口 banner 骨架占位：仿 [RankingList] 页顶排行榜入口（NovelRankingBanner / MangaRankingBanner）布局
- * ——48dp 图标块 + 两行文本条 + 右侧箭头块，位置/尺寸对齐真实入口，保证加载/刷新骨架阶段
- * 排行榜入口区域不"消失"。纯脉冲灰色，加载中不可点，数据到位后淡入真实 banner。
+ * ——图标底块（圆形，与真实 banner 同形）+ 两行文本条 + 右侧箭头块，
+ * 位置/尺寸对齐真实入口，保证加载/刷新骨架阶段排行榜入口区域不"消失"。
+ * 纯脉冲灰色，加载中不可点，数据到位后淡入真实 banner。
  */
 @Composable
 fun RankingBannerSkeleton(modifier: Modifier = Modifier) {
@@ -76,7 +78,7 @@ fun RankingBannerSkeleton(modifier: Modifier = Modifier) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
-        shape = AppShapes.card,
+        shape = MaterialTheme.shapes.medium,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.mdPlus),
@@ -86,7 +88,7 @@ fun RankingBannerSkeleton(modifier: Modifier = Modifier) {
             SkeletonBlock(
                 modifier = Modifier
                     .size(Sizes.s48)
-                    .clip(AppShapes.large),
+                    .clip(CircleShape),
                 color = color,
             )
             Column(modifier = Modifier.weight(1f)) {

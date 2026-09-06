@@ -11,4 +11,7 @@ object Durations {
 
     /** 页面切换动画时长（RankingList / DiscoverResults / UserRoute 的 AnimatedContent） */
     const val PAGE_SWITCH_ANIM_MS = 700
+
+    /** 骨架呼吸脉冲单程时长（Skeleton.kt；Material 加载节奏，比页面切换更缓） */
+    const val SKELETON_PULSE_MS = 1000
 }

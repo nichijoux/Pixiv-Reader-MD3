@@ -36,6 +36,7 @@ import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.list.RankingDateChipRow
 import com.pixiv.reader.core.ui.component.list.RankingDatePickerButton
+import com.pixiv.reader.core.ui.component.list.RANKING_GRID_MIN_COLUMN_WIDTH
 import com.pixiv.reader.core.ui.component.list.RankingIllustSkeleton
 import com.pixiv.reader.core.ui.component.list.RankingList
 
@@ -140,8 +141,8 @@ fun MangaRankingRoute(
                             onRetry = viewModel::retry,
                             onLoadMore = viewModel::loadMore,
                             emptyText = stringResource(R.string.manga_ranking_empty),
-                            skeleton = { RankingIllustSkeleton() },
-                            gridMinColumnWidth = 200.dp,
+                            skeleton = { RankingIllustSkeleton(gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH) },
+                            gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH,
                             stateKey = currentDate.orEmpty(),
                             listHeader = {
                                 // 日期 chip 行：TabRow 上方、限宽内容块内（pane 让位时随列表移动）
@@ -189,8 +190,8 @@ fun MangaRankingRoute(
                 onLoadMore = viewModel::loadMore,
                 modifier = Modifier.padding(padding),
                 emptyText = stringResource(R.string.manga_ranking_empty),
-                skeleton = { RankingIllustSkeleton() },
-                gridMinColumnWidth = 200.dp,
+                skeleton = { RankingIllustSkeleton(gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH) },
+                gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH,
                 stateKey = currentDate.orEmpty(),
                 listHeader = {
                     // 日期 chip 行：TabRow 上方、限宽内容块内

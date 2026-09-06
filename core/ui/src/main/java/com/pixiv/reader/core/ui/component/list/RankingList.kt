@@ -47,6 +47,9 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
+/** 漫画/插画排行榜瀑布流最小列宽：[RankingList] 与 [RankingIllustSkeleton] 必须同值，保证骨架列数与真实列表一致。 */
+val RANKING_GRID_MIN_COLUMN_WIDTH = 200.dp
+
 /**
  * 通用排行榜容器（数据驱动，供漫画/插画/小说排行榜复用）。
  *

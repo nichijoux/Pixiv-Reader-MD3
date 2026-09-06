@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Leaderboard
@@ -20,10 +21,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -35,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 /**
  * 排行榜入口卡片：奖杯 + 标题/副文案 + 箭头。
  *
- * 图标底采用 Expressive 有机形状（MaterialShapes.Boom），组合入场时做一次弹性缩放。
+ * 图标底为圆形底色（onPrimaryContainer），组合入场时做一次弹性缩放。
  *
  * 此前漫画榜（manga 私有）与小说榜（novel）各实现一份同构组件，统一收口此处；
  * 文案经参数传入（调用方提供本地化字符串）。
@@ -79,7 +78,7 @@ fun RankingBanner(
                     .size(Sizes.s48)
                     .background(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        shape = MaterialShapes.Boom.toShape(),
+                        shape = CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
