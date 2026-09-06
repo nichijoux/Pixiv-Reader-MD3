@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +34,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -868,9 +870,23 @@ private fun OtherPickerContent(
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionTitle(stringResource(R.string.filter_ai))
-            ChoiceRow(stringResource(R.string.filter_all), ai == 0) { ai = 0 }
-            ChoiceRow(stringResource(R.string.filter_ai_human), ai == 1) { ai = 1 }
-            ChoiceRow(stringResource(R.string.filter_ai_only), ai == 2) { ai = 2 }
+            // AI 三选一（Expressive 分段选择，与全 App 设置面板口径一致）
+            val aiOptions = listOf(
+                0 to R.string.filter_all,
+                1 to R.string.filter_ai_human,
+                2 to R.string.filter_ai_only,
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                aiOptions.forEachIndexed { index, (value, labelRes) ->
+                    SegmentedButton(
+                        selected = ai == value,
+                        onClick = { ai = value },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = aiOptions.size),
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
 
             if (!isNovel) {
                 SectionTitle(stringResource(R.string.filter_row_tool))
@@ -907,9 +923,23 @@ private fun OtherPickerContent(
             }
 
             SectionTitle(stringResource(R.string.filter_r18))
-            ChoiceRow(stringResource(R.string.filter_all), r18 == 0) { r18 = 0 }
-            ChoiceRow(stringResource(R.string.filter_r18_safe), r18 == 1) { r18 = 1 }
-            ChoiceRow(stringResource(R.string.filter_r18_only), r18 == 2) { r18 = 2 }
+            // R18 三选一（Expressive 分段选择）
+            val r18Options = listOf(
+                0 to R.string.filter_all,
+                1 to R.string.filter_r18_safe,
+                2 to R.string.filter_r18_only,
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                r18Options.forEachIndexed { index, (value, labelRes) ->
+                    SegmentedButton(
+                        selected = r18 == value,
+                        onClick = { r18 = value },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = r18Options.size),
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
 
             Button(
                 onClick = {
@@ -937,20 +967,6 @@ private fun SectionTitle(text: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = Spacing.lg, bottom = Spacing.xs),
     )
-}
-
-@Composable
-private fun ChoiceRow(label: String, checked: Boolean, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = Spacing.smPlus),
-    ) {
-        Checkbox(checked = checked, onCheckedChange = { onClick() })
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
-    }
 }
 
 @Composable

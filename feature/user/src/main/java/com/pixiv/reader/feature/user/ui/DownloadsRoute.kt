@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,10 +52,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -321,20 +325,12 @@ private fun DeleteOverlay(
     modifier: Modifier = Modifier,
     onDelete: () -> Unit,
 ) {
-    IconButton(
+    OverlayCircleButton(
+        icon = Icons.Filled.Close,
+        contentDescription = stringResource(R.string.cd_delete),
         onClick = onDelete,
-        modifier = modifier
-            .size(Sizes.s28)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.45f)),
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Close,
-            contentDescription = stringResource(R.string.cd_delete),
-            tint = Color.White,
-            modifier = Modifier.size(14.dp),
-        )
-    }
+        modifier = modifier,
+    )
 }
 
 /** 右上角圆形重试按钮（failed 条目点击重新触发下载，断点续传）。 */
@@ -343,16 +339,54 @@ private fun RetryOverlay(
     modifier: Modifier = Modifier,
     onRetry: () -> Unit,
 ) {
-    IconButton(
+    OverlayCircleButton(
+        icon = Icons.Filled.Refresh,
+        contentDescription = stringResource(R.string.downloads_retry),
         onClick = onRetry,
+        modifier = modifier,
+    )
+}
+
+/**
+ * 封面角落圆形浮钮（28dp 半透明黑底白图标，下载卡专用）。
+ * 保持 28dp 小尺寸（FilledTonalIconButton 最小 40dp 会撑破封面角标布局），
+ * 按压时 spring 微缩提供 Expressive 触感。
+ *
+ * @param icon 图标
+ * @param contentDescription 无障碍描述
+ * @param onClick 点击回调
+ * @param modifier 外部传入的 Modifier（定位用）
+ * @return 无返回值
+ */
+@Composable
+private fun OverlayCircleButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.85f else 1f,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "overlayPressScale",
+    )
+    IconButton(
+        onClick = onClick,
+        interactionSource = interaction,
         modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .size(Sizes.s28)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.45f)),
     ) {
         Icon(
-            imageVector = Icons.Filled.Refresh,
-            contentDescription = stringResource(R.string.downloads_retry),
+            imageVector = icon,
+            contentDescription = contentDescription,
             tint = Color.White,
             modifier = Modifier.size(14.dp),
         )

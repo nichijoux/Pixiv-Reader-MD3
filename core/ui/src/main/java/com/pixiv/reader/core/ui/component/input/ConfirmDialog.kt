@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.pixiv.reader.core.ui.R
-import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -56,12 +55,13 @@ enum class ConfirmDialogVariant(
  *
  * ## UI 设计方式
  * 窗口级 [Dialog]（自带 scrim，点外部 / 返回键触发 [onDismiss]）+ 居中卡片：
- * `AppShapes.large` 弹层圆角 + `surfaceContainerHigh` 底 + `tonalElevation` 8dp；
+ * `MaterialTheme.shapes.extraLarge`（28dp，Expressive）弹层圆角 + `surfaceContainerHigh` 底 +
+ * `tonalElevation` 8dp（与 M3 AlertDialog 圆角口径一致）；
  * 首行「40dp 圆底图标 + 标题」同行（图标作为标题引导，`titleMedium SemiBold`），
  * 说明 `bodyMedium onSurfaceVariant`；
  * 底部按钮行右对齐——取消为 [TextButton]（onSurfaceVariant），确认为**强调色实心按钮**。
  * 强调色按 [variant]：删除类用 `error`（危险操作语义），提示类用 `primary`（如退出登录）。
- * 全部尺寸走 `Spacing` / `AppShapes` Token，无散落 magic number。
+ * 全部尺寸走 `Spacing` / `MaterialTheme.shapes` Token，无散落 magic number。
  *
  * @param title 确认标题（如「清空搜索历史？」「退出登录？」）
  * @param message 确认说明（删除类通常含「此操作不可撤销」语义）
@@ -107,7 +107,7 @@ fun ConfirmDialog(
                 modifier = modifier
                     .fillMaxWidth()
                     .widthIn(max = 360.dp),
-                shape = AppShapes.large,
+                shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 tonalElevation = 8.dp,
             ) {

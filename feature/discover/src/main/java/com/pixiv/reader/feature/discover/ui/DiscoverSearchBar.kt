@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import com.pixiv.reader.core.ui.theme.AppShapes
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -63,7 +63,7 @@ internal fun SearchField(
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(24.dp),
+            shape = AppShapes.pill,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
                 imeAction = ImeAction.Search,
@@ -77,7 +77,7 @@ internal fun SearchField(
         IconButton(
             onClick = onOpenFilter,
             modifier = Modifier
-                .clip(RoundedCornerShape(21.dp))
+                .clip(AppShapes.circle)
                 .size(42.dp),
         ) {
             Icon(
