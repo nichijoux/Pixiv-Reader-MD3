@@ -45,6 +45,11 @@
     <string name="me_logout_confirm_title">退出登录？</string>
     <string name="me_logout_confirm_message">退出后需要重新登录才能继续使用。</string>
     <string name="me_section_content">用户内容管理</string>
+    <string name="me_section_ecosystem">pixiv 生态</string>
+    <string name="me_comic_title">pixiv COMIC</string>
+    <string name="me_comic_desc">官方漫画平台</string>
+    <string name="me_pixivision_title">pixivision</string>
+    <string name="me_pixivision_desc">官方特辑与企划</string>
     <string name="me_section_appearance">外观设置</string>
     <string name="me_section_browse">浏览设置</string>
     <string name="me_section_system">系统设置</string>

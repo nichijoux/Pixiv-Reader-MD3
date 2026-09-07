@@ -15,11 +15,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +66,8 @@ fun MeRoute(
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
     onOpenReadLater: () -> Unit,
+    onOpenComic: () -> Unit,
+    onOpenPixivision: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -160,6 +164,40 @@ fun MeRoute(
                         )
                     }
                 }
+
+                // ── pixiv 生态（COMIC / pixivision） ──
+                SectionSpacer()
+                SectionTitle(stringResource(R.string.me_section_ecosystem))
+                val ecoItems = listOf(
+                    SettingsCardItem(
+                        Icons.Filled.AutoStories,
+                        stringResource(R.string.me_comic_title),
+                        stringResource(R.string.me_comic_desc),
+                        onClick = onOpenComic,
+                    ),
+                    SettingsCardItem(
+                        Icons.Filled.TravelExplore,
+                        stringResource(R.string.me_pixivision_title),
+                        stringResource(R.string.me_pixivision_desc),
+                        onClick = onOpenPixivision,
+                    ),
+                )
+                MeGroupCard { ecoItems.forEachIndexed { i, item ->
+                    if (i > 0) MeRowDivider()
+                    MeRow(
+                        icon = item.icon,
+                        title = item.title,
+                        subtitle = item.description.takeIf { it.isNotBlank() },
+                        trailing = {
+                            Icon(
+                                imageVector = item.trailingIcon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        onClick = item.onClick,
+                    )
+                } }
 
                 // ── 外观设置（每项独立卡片：主题模式 / 动态取色 / 语言） ──
                 SectionSpacer()

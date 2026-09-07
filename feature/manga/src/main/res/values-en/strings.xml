@@ -35,6 +35,7 @@
     <string name="manga_ranking_empty">No ranking data</string>
     <string name="manga_cd_back">Back</string>
     <string name="manga_cd_watchlist">Watchlist</string>
+    <string name="manga_cd_comic">pixiv COMIC</string>
     <string name="manga_cd_more">More</string>
     <string name="manga_ranking_preview_placeholder">Select an item on the left to preview</string>
     <string name="manga_ranking_preview_open_detail">Open detail</string>

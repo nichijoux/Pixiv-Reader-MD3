@@ -118,6 +118,9 @@ const val ROUTE_WALLPAPER_RANKING = "wallpaper_ranking"
 /** 通用内嵌 WebView 全屏页（pixivision 文章 / COMIC 等）。 */
 const val ROUTE_WEB_VIEW = "webview?url={url}&title={title}"
 
+/** pixiv COMIC 内嵌页（WebView 加载 comic.pixiv.net，cookie 由 WebView 自持）。 */
+const val ROUTE_COMIC = "comic"
+
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
 
@@ -267,6 +270,9 @@ fun PixivNavGraph(
                 onOpenMangaWatchlist = {
                     // 作品 Tab 顶栏追更入口：直达漫画分段
                     navController.navigate("watchlist?type=manga")
+                },
+                onOpenComic = {
+                    navController.navigate(ROUTE_COMIC)
                 },
                 onOpenPixivision = {
                     navController.navigate(ROUTE_PIXIVISION)
@@ -882,6 +888,14 @@ fun PixivNavGraph(
                         launchSingleTop = true
                     }
                 },
+            )
+        }
+        // pixiv COMIC：WebView 内嵌（cookie 由 WebView 自持，用户在页内登录）
+        composable(ROUTE_COMIC) {
+            WebViewRoute(
+                url = "https://comic.pixiv.net/",
+                title = "pixiv COMIC",
+                onBack = { navController.safeBack() },
             )
         }
         // 通用内嵌 WebView（pixivision 文章原文 / COMIC 等）

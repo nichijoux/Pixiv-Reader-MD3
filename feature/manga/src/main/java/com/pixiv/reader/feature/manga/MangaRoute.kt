@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.Image
@@ -83,6 +84,7 @@ fun MangaRoute(
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenWatchlist: () -> Unit = {},
+    onOpenComic: () -> Unit = {},
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
@@ -152,6 +154,13 @@ fun MangaRoute(
                     // 排行榜入口按内容类型显示对应榜单（漫画榜 / 插画榜；动图无榜单页）
                     when (tab) {
                         MangaContentType.MANGA -> Row {
+                            // COMIC 入口（漫画分段）：WebView 内嵌 comic.pixiv.net
+                            IconButton(onClick = onOpenComic) {
+                                Icon(
+                                    Icons.Filled.AutoStories,
+                                    contentDescription = stringResource(R.string.manga_cd_comic),
+                                )
+                            }
                             // 追更入口（漫画分段）：跳追更页漫画分段
                             IconButton(onClick = onOpenWatchlist) {
                                 Icon(

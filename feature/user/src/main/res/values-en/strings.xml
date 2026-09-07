@@ -45,6 +45,11 @@
     <string name="me_logout_confirm_title">Sign out?</string>
     <string name="me_logout_confirm_message">You\'ll need to log in again to continue using the app.</string>
     <string name="me_section_content">Content</string>
+    <string name="me_section_ecosystem">pixiv ecosystem</string>
+    <string name="me_comic_title">pixiv COMIC</string>
+    <string name="me_comic_desc">Official manga platform</string>
+    <string name="me_pixivision_title">pixivision</string>
+    <string name="me_pixivision_desc">Official features and events</string>
     <string name="me_section_appearance">Appearance</string>
     <string name="me_section_browse">Browsing</string>
     <string name="me_section_system">System</string>
