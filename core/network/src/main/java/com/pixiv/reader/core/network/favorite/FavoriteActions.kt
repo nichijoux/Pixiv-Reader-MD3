@@ -18,15 +18,35 @@ class FavoriteActions @Inject constructor(
     private val pixivRepository: PixivRepository,
 ) {
 
-    /** 收藏 / 取消收藏插画（nowFavorite 为目标状态）。 */
-    suspend fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean): Result<Unit> = runCatching {
-        if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, "public", emptyList())
+    /**
+     * 收藏 / 取消收藏插画（nowFavorite 为目标状态）。
+     *
+     * @param restrict 收藏可见性：public（默认公开）/ private（私密收藏）
+     * @param tags 收藏标签名列表（随收藏一并提交，可空）
+     */
+    suspend fun toggleIllustFavorite(
+        illustId: Long,
+        nowFavorite: Boolean,
+        restrict: String = PixivConstants.RESTRICT_PUBLIC,
+        tags: List<String> = emptyList(),
+    ): Result<Unit> = runCatching {
+        if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, restrict, tags)
         else pixivRepository.api.unbookmarkIllust(illustId)
     }
 
-    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态）。 */
-    suspend fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean): Result<Unit> = runCatching {
-        if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, "public", emptyList())
+    /**
+     * 收藏 / 取消收藏小说（nowFavorite 为目标状态）。
+     *
+     * @param restrict 收藏可见性：public（默认公开）/ private（私密收藏）
+     * @param tags 收藏标签名列表（随收藏一并提交，可空）
+     */
+    suspend fun toggleNovelFavorite(
+        novelId: Long,
+        nowFavorite: Boolean,
+        restrict: String = PixivConstants.RESTRICT_PUBLIC,
+        tags: List<String> = emptyList(),
+    ): Result<Unit> = runCatching {
+        if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, restrict, tags)
         else pixivRepository.api.unbookmarkNovel(novelId)
     }
 
@@ -47,14 +67,26 @@ class FavoriteActions @Inject constructor(
     // ── 静默变体（成功/失败均不提示，失败仅由调用方按需处理）：收敛各 VM 的
     //    `viewModelScope.launch { toggleX(...) }` 五行包装为方法体单行委托。 ──
 
-    /** 收藏 / 取消收藏插画（静默）。 */
-    fun toggleIllustFavoriteSilent(scope: CoroutineScope, illustId: Long, nowFavorite: Boolean) {
-        scope.launch { toggleIllustFavorite(illustId, nowFavorite) }
+    /** 收藏 / 取消收藏插画（静默；[restrict]/[tags] 语义同 [toggleIllustFavorite]）。 */
+    fun toggleIllustFavoriteSilent(
+        scope: CoroutineScope,
+        illustId: Long,
+        nowFavorite: Boolean,
+        restrict: String = PixivConstants.RESTRICT_PUBLIC,
+        tags: List<String> = emptyList(),
+    ) {
+        scope.launch { toggleIllustFavorite(illustId, nowFavorite, restrict, tags) }
     }
 
-    /** 收藏 / 取消收藏小说（静默）。 */
-    fun toggleNovelFavoriteSilent(scope: CoroutineScope, novelId: Long, nowFavorite: Boolean) {
-        scope.launch { toggleNovelFavorite(novelId, nowFavorite) }
+    /** 收藏 / 取消收藏小说（静默；[restrict]/[tags] 语义同 [toggleNovelFavorite]）。 */
+    fun toggleNovelFavoriteSilent(
+        scope: CoroutineScope,
+        novelId: Long,
+        nowFavorite: Boolean,
+        restrict: String = PixivConstants.RESTRICT_PUBLIC,
+        tags: List<String> = emptyList(),
+    ) {
+        scope.launch { toggleNovelFavorite(novelId, nowFavorite, restrict, tags) }
     }
 
     /** 关注 / 取关用户（静默；[restrict] 语义同 [toggleFollowUser]）。 */

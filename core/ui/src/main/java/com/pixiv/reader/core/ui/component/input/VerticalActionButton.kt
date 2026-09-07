@@ -3,10 +3,12 @@ package com.pixiv.reader.core.ui.component.input
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +40,9 @@ import androidx.compose.ui.unit.dp
  * - 按压：Expressive spring 缩放（按下微缩 → 松手弹性回弹，跟随 [MaterialTheme.motionScheme]）
  *
  * @param activeIconTint 激活态图标色（如收藏按钮传 FavoriteRed 红心）；null 用 primary
+ * @param onLongClick 长按回调（如小说收藏按钮长按打开收藏设置）；null 不挂长按手势
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VerticalActionButton(
     icon: ImageVector,
@@ -48,6 +52,7 @@ fun VerticalActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     activeIconTint: Color? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     // 按压态跟踪 + spring 缩放（Expressive 触感：按下微缩，松手弹性回弹）
     val interactionSource = remember { MutableInteractionSource() }
@@ -74,11 +79,24 @@ fun VerticalActionButton(
                 if (active) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceContainerLow,
             )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                enabled = enabled,
-                onClick = onClick,
+            .then(
+                // 长按入口（收藏设置等）非空时挂 combinedClickable，否则保持纯 clickable
+                if (onLongClick != null) {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        enabled = enabled,
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        enabled = enabled,
+                        onClick = onClick,
+                    )
+                }
             )
             .alpha(if (enabled) 1f else 0.45f),
         verticalArrangement = Arrangement.Center,

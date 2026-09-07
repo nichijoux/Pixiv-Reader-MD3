@@ -22,6 +22,14 @@
     <string name="comment_delete_title">刪除這條評論？</string>
     <string name="comment_delete_message">刪除後無法復原。</string>
     <string name="comment_emoji_cd">評論表情</string>
+    <!-- 收藏編輯彈層（BookmarkEditSheet：公開/私密 + 標籤） -->
+    <string name="bookmark_edit_title">收藏設定</string>
+    <string name="bookmark_restrict_public">公開收藏</string>
+    <string name="bookmark_restrict_private">私密收藏</string>
+    <string name="bookmark_new_tag_hint">新建標籤</string>
+    <string name="bookmark_tag_add">新增</string>
+    <string name="bookmark_save">儲存</string>
+    <string name="bookmark_private_cd">私密收藏</string>
     <string name="not_logged_in">未登入</string>
     <string name="follow">關注</string>
     <string name="following">已關注</string>

@@ -16,6 +16,7 @@ import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.download.IllustPageDownloader
+import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -82,6 +83,15 @@ class ViewerViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setViewerOrientation(value) }
     }
 
+    /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
+    val bookmarkEditor = BookmarkEditor(
+        scope = viewModelScope,
+        api = pixivRepository.api,
+        targetType = "illust",
+        targetId = { illustId },
+        uid = { pixivRepository.pixivApi.session.loggedInUid },
+    )
+
     init {
         load()
     }
@@ -94,6 +104,7 @@ class ViewerViewModel @Inject constructor(
                     _illust.value = ill
                     _pages.value = ill.toPages()
                     _isBookmarked.value = ill.is_bookmarked == true
+                    bookmarkEditor.onTargetLoaded(ill.is_bookmarked == true)
                     if (ill.isGif()) {
                         _isGif.value = true
                         loadUgoira()
@@ -138,7 +149,27 @@ class ViewerViewModel @Inject constructor(
         viewModelScope.launch {
             val current = _isBookmarked.value
             favoriteActions.toggleIllustFavorite(illustId, !current)
-                .onSuccess { _isBookmarked.value = !current }
+                .onSuccess {
+                    _isBookmarked.value = !current
+                    // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                    bookmarkEditor.onTargetLoaded(!current)
+                }
+                .onFailure { sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: ""))) }
+        }
+    }
+
+    /**
+     * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
+     * 保存中由弹层确认按钮禁用（[BookmarkEditor.saving] 驱动），无需额外防连点。
+     */
+    fun saveBookmarkEditor() {
+        viewModelScope.launch {
+            bookmarkEditor.save()
+                .onSuccess {
+                    _isBookmarked.value = true
+                    bookmarkEditor.close()
+                    sendMessage(UiMessage(CoreR.string.core_msg_bookmark_updated))
+                }
                 .onFailure { sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: ""))) }
         }
     }

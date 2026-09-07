@@ -12,6 +12,7 @@ import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.model.IllustPageInfo
@@ -89,6 +90,15 @@ class IllustViewModel @Inject constructor(
 
     val relatedPaged = PagedState<Illust>()
 
+    /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
+    val bookmarkEditor = BookmarkEditor(
+        scope = viewModelScope,
+        api = pixivRepository.api,
+        targetType = "illust",
+        targetId = { _illustId.value },
+        uid = { pixivRepository.pixivApi.session.loggedInUid },
+    )
+
     init {
         // 详情路由必有 id；排行右栏（无路由参数）不预载，等 switchTo
         if (illustId > 0L) load()
@@ -108,6 +118,7 @@ class IllustViewModel @Inject constructor(
         _error.value = null
         _isBookmarked.value = false
         _isBookmarking.value = false
+        bookmarkEditor.onTargetLoaded(false)
         _isAuthorFollowed.value = false
         _isAuthorFollowing.value = false
         relatedPaged.reset()
@@ -123,6 +134,7 @@ class IllustViewModel @Inject constructor(
                     val ill = resp.illust ?: return@onSuccess
                     _illust.value = ill
                     _isBookmarked.value = ill.is_bookmarked == true
+                    bookmarkEditor.onTargetLoaded(ill.is_bookmarked == true)
                     // 内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
                     _isAuthorFollowed.value = ill.user?.is_followed == true
                     ill.user?.id?.let { loadAuthorFollowState(it) }
@@ -255,7 +267,35 @@ class IllustViewModel @Inject constructor(
             _isBookmarking.value = true
             val current = _isBookmarked.value
             favoriteActions.toggleIllustFavorite(_illustId.value, !current)
-                .onSuccess { _isBookmarked.value = !current }
+                .onSuccess {
+                    _isBookmarked.value = !current
+                    // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                    bookmarkEditor.onTargetLoaded(!current)
+                }
+                .onFailure {
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
+                }
+            _isBookmarking.value = false
+        }
+    }
+
+    /**
+     * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
+     * 期间复用 [_isBookmarking] 防连点（与一键收藏互斥）。
+     */
+    fun saveBookmarkEditor() {
+        if (_isBookmarking.value) return
+        viewModelScope.launch {
+            _isBookmarking.value = true
+            bookmarkEditor.save()
+                .onSuccess {
+                    _isBookmarked.value = true
+                    bookmarkEditor.close()
+                    sendMessage(UiMessage(CoreR.string.core_msg_bookmark_updated))
+                }
                 .onFailure {
                     sendMessage(UiMessage(
                         CoreR.string.core_msg_action_failed,

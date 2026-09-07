@@ -84,6 +84,8 @@ internal fun NovelActions(
  * @param isWatchlisting 追更请求进行中（进行中禁用追更按钮防连点）
  * @param downloading 下载进行中（进行中禁用下载按钮）
  * @param onBookmark 收藏/取消收藏回调
+ * @param onBookmarkLongClick 收藏按钮长按回调（打开收藏设置弹层）；null 不挂长按
+ * @param isPrivateBookmark 已收藏且为私密（收藏按钮显示「私密收藏」文案）
  * @param onWatchlist 追更/取消追更回调
  * @param onDownload 打开下载格式选择弹窗回调
  * @param onComments 打开评论区回调
@@ -98,6 +100,8 @@ internal fun NovelActionBar(
     isWatchlisting: Boolean,
     downloading: Boolean,
     onBookmark: () -> Unit,
+    onBookmarkLongClick: (() -> Unit)? = null,
+    isPrivateBookmark: Boolean = false,
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
     onComments: () -> Unit,
@@ -120,12 +124,17 @@ internal fun NovelActionBar(
         ) {
             VerticalActionButton(
                 icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                label = if (isBookmarked) stringResource(R.string.novel_bookmarked) else stringResource(
-                    R.string.novel_bookmark
-                ),
+                label = when {
+                    // 私密收藏单独标识（核心文案走 core:ui）
+                    isBookmarked && isPrivateBookmark -> stringResource(com.pixiv.reader.core.ui.R.string.bookmark_private_cd)
+                    isBookmarked -> stringResource(R.string.novel_bookmarked)
+                    else -> stringResource(R.string.novel_bookmark)
+                },
                 active = isBookmarked,
                 enabled = !isBookmarking,
                 onClick = onBookmark,
+                // 长按打开收藏设置（公开/私密 + 标签）
+                onLongClick = onBookmarkLongClick,
                 modifier = Modifier.weight(1f),
                 // 收藏激活用红心（与插画详情页一致）
                 activeIconTint = FavoriteRed,

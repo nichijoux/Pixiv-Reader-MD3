@@ -29,9 +29,11 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.novel.NovelViewModel
+import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
@@ -73,6 +75,15 @@ fun NovelDetailRoute(
     val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    // 收藏编辑器状态（公开/私密 + 标签弹层）
+    val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
+    val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
+    val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
+    val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
+    val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
+    val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
+    // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
+    val isPrivateBookmark = isBookmarked && editorRestrict == PixivConstants.RESTRICT_PRIVATE
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     val notificationHostState = rememberNotificationHostState()
@@ -112,6 +123,8 @@ fun NovelDetailRoute(
                     isWatchlisting = isWatchlisting,
                     downloading = downloading,
                     onBookmark = viewModel::toggleBookmark,
+                    onBookmarkLongClick = viewModel.bookmarkEditor::open,
+                    isPrivateBookmark = isPrivateBookmark,
                     onWatchlist = viewModel::toggleWatchlist,
                     onDownload = { showDownloadDialog = true },
                     onComments = { onOpenComments(actionNovel.id) },
@@ -167,6 +180,21 @@ fun NovelDetailRoute(
             )
         }
     }
+
+    // 收藏编辑弹层：公开/私密 + 标签多选，保存走 viewModel.saveBookmarkEditor
+    BookmarkEditSheet(
+        visible = editorOpen,
+        restrict = editorRestrict,
+        savedTags = editorSavedTags,
+        allTags = editorAllTags,
+        tagsLoading = editorTagsLoading,
+        saving = editorSaving,
+        onDismiss = viewModel.bookmarkEditor::close,
+        onRestrictChange = viewModel.bookmarkEditor::setRestrict,
+        onToggleTag = viewModel.bookmarkEditor::toggleTag,
+        onCreateTag = viewModel.bookmarkEditor::createTag,
+        onConfirm = viewModel::saveBookmarkEditor,
+    )
 }
 
 /** 平板 + 手机双布局分发：平板且有系列走双栏（目录固定），否则单列。

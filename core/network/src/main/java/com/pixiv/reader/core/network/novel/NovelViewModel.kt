@@ -14,6 +14,7 @@ import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -97,6 +98,15 @@ class NovelViewModel @Inject constructor(
      */
     var exportRequest: ((novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
 
+    /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
+    val bookmarkEditor = BookmarkEditor(
+        scope = viewModelScope,
+        api = pixivRepository.api,
+        targetType = "novel",
+        targetId = { _novel.value?.id ?: novelId },
+        uid = { pixivRepository.pixivApi.session.loggedInUid },
+    )
+
     init {
         // 详情路由必有 id；排行右栏（无路由参数）不预载，等 switchTo
         if (novelId > 0L) load()
@@ -113,6 +123,7 @@ class NovelViewModel @Inject constructor(
         _error.value = null
         _isBookmarked.value = false
         _isBookmarking.value = false
+        bookmarkEditor.onTargetLoaded(false)
         _isWatchlisted.value = false
         _isWatchlisting.value = false
         _isAuthorFollowed.value = false
@@ -131,6 +142,7 @@ class NovelViewModel @Inject constructor(
                     val detail = resp.novel ?: return@onSuccess
                     _novel.value = detail
                     _isBookmarked.value = detail.is_bookmarked == true
+                    bookmarkEditor.onTargetLoaded(detail.is_bookmarked == true)
                     // 详情内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
                     _isAuthorFollowed.value = detail.user?.is_followed == true
                     detail.user?.id?.let { loadAuthorFollowState(it) }
@@ -191,9 +203,35 @@ class NovelViewModel @Inject constructor(
             favoriteActions.toggleNovelFavorite(novelId, !current)
                 .onSuccess {
                     _isBookmarked.value = !current
+                    // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                    bookmarkEditor.onTargetLoaded(!current)
                     sendMessage(if (!current) UiMessage(CoreR.string.core_msg_bookmarked) else UiMessage(
                         CoreR.string.core_msg_unbookmarked
                     ))
+                }
+                .onFailure {
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
+                }
+            _isBookmarking.value = false
+        }
+    }
+
+    /**
+     * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
+     * 期间复用 [_isBookmarking] 防连点（与一键收藏互斥）。
+     */
+    fun saveBookmarkEditor() {
+        if (_isBookmarking.value) return
+        viewModelScope.launch {
+            _isBookmarking.value = true
+            bookmarkEditor.save()
+                .onSuccess {
+                    _isBookmarked.value = true
+                    bookmarkEditor.close()
+                    sendMessage(UiMessage(CoreR.string.core_msg_bookmark_updated))
                 }
                 .onFailure {
                     sendMessage(UiMessage(

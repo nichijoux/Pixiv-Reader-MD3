@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Wallpaper
@@ -64,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.image.ZoomableImage
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
@@ -89,6 +91,13 @@ fun ViewerRoute(
     val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
     val isOriginal by viewModel.isOriginal.collectAsStateWithLifecycle()
     val orientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
+    // 收藏编辑器状态（公开/私密 + 标签弹层）
+    val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
+    val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
+    val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
+    val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
+    val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
+    val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
 
     // 初始页在 pages 加载前 pageCount 可能为 1，直接传 initialPage>0 会越界崩溃；
     // 因此从第 0 页开始，待 pages 就绪后再滚动到目标页（钳制在合法范围）。
@@ -264,6 +273,15 @@ fun ViewerRoute(
                             },
                             onClick = { menuExpanded = false; viewModel.toggleBookmark() },
                         )
+                        // 收藏设置：公开/私密 + 标签（弹层保存）
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.pixiv.reader.core.ui.R.string.bookmark_edit_title)) },
+                            leadingIcon = { Icon(Icons.Filled.Label, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                viewModel.bookmarkEditor.open()
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.viewer_menu_download_original)) },
                             leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
@@ -348,6 +366,21 @@ fun ViewerRoute(
                 .padding(start = Spacing.xl, end = Spacing.xl, bottom = 100.dp),
         )
     }
+
+    // 收藏编辑弹层：公开/私密 + 标签多选，保存走 viewModel.saveBookmarkEditor
+    BookmarkEditSheet(
+        visible = editorOpen,
+        restrict = editorRestrict,
+        savedTags = editorSavedTags,
+        allTags = editorAllTags,
+        tagsLoading = editorTagsLoading,
+        saving = editorSaving,
+        onDismiss = viewModel.bookmarkEditor::close,
+        onRestrictChange = viewModel.bookmarkEditor::setRestrict,
+        onToggleTag = viewModel.bookmarkEditor::toggleTag,
+        onCreateTag = viewModel.bookmarkEditor::createTag,
+        onConfirm = viewModel::saveBookmarkEditor,
+    )
 }
 
 // ── 无缝竖向滚动（webtoon 连续堆叠） ───────────────────────────────────────────

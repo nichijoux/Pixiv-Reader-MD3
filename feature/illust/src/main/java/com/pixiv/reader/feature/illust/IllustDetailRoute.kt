@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
@@ -40,9 +41,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
+import com.pixiv.api.PixivConstants
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
@@ -80,6 +83,15 @@ fun IllustDetailRoute(
     val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
     val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
     val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
+    // 收藏编辑器状态（公开/私密 + 标签弹层）
+    val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
+    val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
+    val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
+    val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
+    val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
+    val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
+    // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
+    val isPrivateBookmark = isBookmarked && editorRestrict == PixivConstants.RESTRICT_PRIVATE
 
     var currentPage by remember { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -147,6 +159,17 @@ fun IllustDetailRoute(
                                 },
                                 onClick = { menuExpanded = false; viewModel.toggleBookmark() },
                             )
+                            // 收藏设置：公开/私密 + 标签（弹层保存）
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.pixiv.reader.core.ui.R.string.bookmark_edit_title)) },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Label, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    viewModel.bookmarkEditor.open()
+                                },
+                            )
                         }
                     }
                 },
@@ -172,7 +195,13 @@ fun IllustDetailRoute(
                 )
                 VerticalActionButton(
                     icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    label = stringResource(if (isBookmarked) R.string.illust_bookmarked else R.string.illust_menu_bookmark),
+                    label = stringResource(
+                        when {
+                            isBookmarked && isPrivateBookmark -> com.pixiv.reader.core.ui.R.string.bookmark_private_cd
+                            isBookmarked -> R.string.illust_bookmarked
+                            else -> R.string.illust_menu_bookmark
+                        }
+                    ),
                     active = isBookmarked,
                     enabled = !isBookmarking,
                     onClick = viewModel::toggleBookmark,
@@ -291,6 +320,21 @@ fun IllustDetailRoute(
             }
         }
     }
+
+    // 收藏编辑弹层：公开/私密 + 标签多选，保存走 viewModel.saveBookmarkEditor
+    BookmarkEditSheet(
+        visible = editorOpen,
+        restrict = editorRestrict,
+        savedTags = editorSavedTags,
+        allTags = editorAllTags,
+        tagsLoading = editorTagsLoading,
+        saving = editorSaving,
+        onDismiss = viewModel.bookmarkEditor::close,
+        onRestrictChange = viewModel.bookmarkEditor::setRestrict,
+        onToggleTag = viewModel.bookmarkEditor::toggleTag,
+        onCreateTag = viewModel.bookmarkEditor::createTag,
+        onConfirm = viewModel::saveBookmarkEditor,
+    )
 }
 
 /** 平板布局：主内容单列（图 + 作者 + 相关），评论走通用评论页。 */

@@ -22,6 +22,14 @@
     <string name="comment_delete_title">Delete this comment?</string>
     <string name="comment_delete_message">This action cannot be undone.</string>
     <string name="comment_emoji_cd">Comment emoji</string>
+    <!-- Bookmark editor sheet (BookmarkEditSheet: restrict + tags) -->
+    <string name="bookmark_edit_title">Bookmark settings</string>
+    <string name="bookmark_restrict_public">Public</string>
+    <string name="bookmark_restrict_private">Private</string>
+    <string name="bookmark_new_tag_hint">New tag</string>
+    <string name="bookmark_tag_add">Add</string>
+    <string name="bookmark_save">Save</string>
+    <string name="bookmark_private_cd">Private bookmark</string>
     <string name="not_logged_in">Not logged in</string>
     <string name="follow">Follow</string>
     <string name="following">Following</string>

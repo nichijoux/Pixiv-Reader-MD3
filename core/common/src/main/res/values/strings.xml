@@ -5,6 +5,7 @@
     <string name="core_msg_action_failed">操作失败：%1$s</string>
     <string name="core_msg_bookmarked">已收藏</string>
     <string name="core_msg_unbookmarked">已取消收藏</string>
+    <string name="core_msg_bookmark_updated">收藏设置已更新</string>
     <string name="core_msg_followed">已关注</string>
     <string name="core_msg_followed_private">已私密关注（仅自己可见）</string>
     <string name="core_msg_unfollowed">已取消关注</string>
