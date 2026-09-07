@@ -18,6 +18,9 @@
     <string name="comment_reply">回复</string>
     <string name="comment_reply_expand">查看全部 %1$d 条回复</string>
     <string name="comment_reply_prefix">回复 @%1$s：</string>
+    <!-- 删除自己的评论（长按确认框） -->
+    <string name="comment_delete_title">删除这条评论？</string>
+    <string name="comment_delete_message">删除后无法恢复。</string>
     <string name="comment_emoji_cd">评论表情</string>
     <string name="not_logged_in">未登录</string>
     <string name="follow">关注</string>

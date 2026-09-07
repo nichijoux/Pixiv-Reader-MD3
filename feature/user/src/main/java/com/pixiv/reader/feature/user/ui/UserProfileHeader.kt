@@ -1,8 +1,10 @@
 package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -58,7 +59,8 @@ private const val MAX_COMMENT_LINES = 4
  * @param isFollowing 关注请求进行中（防重复点击）
  * @param isBlocked 是否已拉黑
  * @param isBlocking 拉黑请求进行中
- * @param onToggleFollow 关注/取关回调
+ * @param onToggleFollow 关注/取关回调（公开关注）
+ * @param onFollowPrivately 私密关注回调（关注按钮长按触发）
  * @param onToggleBlock 拉黑/解除拉黑回调
  * @param onOpenAvatar 头像点击（打开全屏大图）
  * @return 无返回值
@@ -71,6 +73,7 @@ internal fun UserHeaderProfileRow(
     isBlocked: Boolean,
     isBlocking: Boolean,
     onToggleFollow: () -> Unit,
+    onFollowPrivately: () -> Unit,
     onToggleBlock: () -> Unit,
     onOpenAvatar: (String) -> Unit,
 ) {
@@ -103,13 +106,13 @@ internal fun UserHeaderProfileRow(
                 )
             }
         }
-        // 关注 / 拉黑 双按钮（移除三点下拉）
-        FilledTonalButton(
-            onClick = onToggleFollow,
-            enabled = !isFollowing,
-        ) {
-            Text(if (isFollowed) stringResource(R.string.user_following) else stringResource(R.string.user_follow))
-        }
+        // 关注 / 拉黑 双按钮（关注按钮自绘以支持长按 = 私密关注）
+        FollowButton(
+            isFollowed = isFollowed,
+            isFollowing = isFollowing,
+            onToggleFollow = onToggleFollow,
+            onFollowPrivately = onFollowPrivately,
+        )
         Spacer(modifier = Modifier.width(8.dp))
         OutlinedButton(
             onClick = onToggleBlock,
@@ -122,6 +125,56 @@ internal fun UserHeaderProfileRow(
         ) {
             Text(if (isBlocked) stringResource(R.string.user_unblock) else stringResource(R.string.user_block))
         }
+    }
+}
+
+/**
+ * 关注按钮（自绘替代 FilledTonalButton 以支持长按手势）：
+ * 视觉对齐 M3 tonal button（secondaryContainer 底 + onSecondaryContainer 字 + 全圆角胶囊）；
+ * 点击 = 公开关注 / 取关，长按 = 私密关注（未关注态生效，进行中禁用）。
+ *
+ * @param isFollowed 是否已关注
+ * @param isFollowing 关注请求进行中（禁用防重复点击）
+ * @param onToggleFollow 点击回调（公开关注/取关）
+ * @param onFollowPrivately 长按回调（私密关注）
+ * @return 无返回值
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FollowButton(
+    isFollowed: Boolean,
+    isFollowing: Boolean,
+    onToggleFollow: () -> Unit,
+    onFollowPrivately: () -> Unit,
+) {
+    // 禁用态配色对齐 M3 disabled tonal button（onSurface 12% 底 + 38% 字）
+    val container = if (isFollowing) {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+    val content = if (isFollowing) {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    } else {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    }
+    Box(
+        modifier = Modifier
+            .clip(AppShapes.pill)
+            .background(container)
+            .combinedClickable(
+                enabled = !isFollowing,
+                onClick = onToggleFollow,
+                onLongClick = onFollowPrivately,
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(if (isFollowed) R.string.user_following else R.string.user_follow),
+            style = MaterialTheme.typography.labelLarge,
+            color = content,
+        )
     }
 }
 

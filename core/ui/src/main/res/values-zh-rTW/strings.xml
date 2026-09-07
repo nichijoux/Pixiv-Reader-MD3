@@ -18,6 +18,9 @@
     <string name="comment_reply">回覆</string>
     <string name="comment_reply_expand">查看全部 %1$d 條回覆</string>
     <string name="comment_reply_prefix">回覆 @%1$s：</string>
+    <!-- 刪除自己的評論（長按確認框） -->
+    <string name="comment_delete_title">刪除這條評論？</string>
+    <string name="comment_delete_message">刪除後無法復原。</string>
     <string name="comment_emoji_cd">評論表情</string>
     <string name="not_logged_in">未登入</string>
     <string name="follow">關注</string>

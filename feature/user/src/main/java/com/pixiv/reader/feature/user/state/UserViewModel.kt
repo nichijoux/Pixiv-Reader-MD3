@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.user.state
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.BlockSaveRequest
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
@@ -223,18 +224,30 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /** 关注 / 取关（即时反馈）。 */
-    fun toggleFollow() {
+    /**
+     * 关注 / 取关（即时反馈）。
+     *
+     * @param restrict 关注可见性：public（默认公开）/ private（私密关注，仅自己可见）
+     */
+    fun toggleFollow(restrict: String = PixivConstants.RESTRICT_PUBLIC) {
         if (_isFollowing.value) return
         viewModelScope.launch {
             _isFollowing.value = true
             val current = _isFollowed.value
-            runCatching {
-                if (current) pixivRepository.api.unfollowUser(userId)
-                else pixivRepository.api.followUser(userId, "public")
-            }.onSuccess {
+            favoriteActions.toggleFollowUser(userId, !current, restrict).onSuccess {
                 _isFollowed.value = !current
-                sendMessage(UiMessage(if (!current) CoreR.string.core_msg_followed else CoreR.string.core_msg_unfollowed))
+                sendMessage(
+                    if (!current) {
+                        // 私密关注单独提示，让用户确认生效路径
+                        if (restrict == PixivConstants.RESTRICT_PRIVATE) {
+                            UiMessage(CoreR.string.core_msg_followed_private)
+                        } else {
+                            UiMessage(CoreR.string.core_msg_followed)
+                        }
+                    } else {
+                        UiMessage(CoreR.string.core_msg_unfollowed)
+                    }
+                )
             }.onFailure {
                 sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }

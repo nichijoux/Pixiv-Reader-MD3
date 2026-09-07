@@ -101,6 +101,8 @@ fun CommentPane(
             onDraftChange = commentVm::onCommentDraftChange,
             onPost = { commentVm.postComment() },
             onStampPick = { stampId -> commentVm.postComment(stampId) },
+            ownUid = commentVm.ownUid,
+            onDeleteComment = commentVm::deleteComment,
         )
     }
 }

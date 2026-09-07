@@ -39,6 +39,7 @@ import com.pixiv.reader.core.ui.component.feedback.LoadingBox
  * @param onOpenViewer 点击图片打开全屏查看器（全屏路由，参数为作品 id + 页码）
  * @param commentVm 评论 ViewModel（调用方注入；进入评论区时按当前作品 switchTo）
  * @param viewModel 插画详情 ViewModel（调用方注入）
+ * @param onSearchTag 标签点击回调（传标签名，通常跳转标签搜索；默认空实现不跳转）
  */
 @Composable
 fun IllustDetailPane(
@@ -49,6 +50,7 @@ fun IllustDetailPane(
     onOpenViewer: (Long, Int) -> Unit,
     commentVm: CommentListViewModel,
     viewModel: IllustViewModel,
+    onSearchTag: (String) -> Unit = {},
 ) {
     val currentId = selectedId
     // 选中项变化时加载详情（幂等：同 id 不重载；排行右栏同款模式）
@@ -112,7 +114,7 @@ fun IllustDetailPane(
                 onOpenViewer = { page -> onOpenViewer(currentId, page) },
                 onOpenUser = onOpenUser,
                 onOpenIllust = viewModel::switchTo,
-                onSearchTag = { /* pane 内暂不跳搜索 */ },
+                onSearchTag = onSearchTag,
                 isAuthorFollowed = isAuthorFollowed,
                 isAuthorFollowing = isAuthorFollowing,
                 onToggleFollowAuthor = viewModel::toggleFollowAuthor,

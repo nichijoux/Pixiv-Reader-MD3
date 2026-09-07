@@ -117,6 +117,8 @@ fun CommentListRoute(
             onDraftChange = viewModel::onCommentDraftChange,
             onPost = { viewModel.postComment() },
             onStampPick = { stampId -> viewModel.postComment(stampId) },
+            ownUid = viewModel.ownUid,
+            onDeleteComment = viewModel::deleteComment,
             modifier = Modifier.fillMaxSize().padding(padding),
         )
     }

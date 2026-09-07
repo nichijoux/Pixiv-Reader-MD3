@@ -10,6 +10,7 @@ import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.network.session.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,12 +32,16 @@ private const val TAG = "CommentList"
 class CommentListViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
+    private val sessionRepository: SessionRepository,
 ) : MessageViewModel() {
 
     private val type: String = savedStateHandle.get<String>("type") ?: "novel"
     private val targetId: Long = savedStateHandle.get<Long>("targetId") ?: 0L
 
     val isIllust: Boolean get() = type == "illust"
+
+    /** 当前登录用户 id（未登录为 0），用于判定「自己的评论」以暴露删除入口。 */
+    val ownUid: Long get() = sessionRepository.session.loggedInUid
 
     /** 当前评论目标（可变：排行右栏随选中项切换；无路由参数时初始为 novel/0 待 [switchTo]）。 */
     private val _type = MutableStateFlow(type)
@@ -217,6 +222,29 @@ class CommentListViewModel @Inject constructor(
                 .onFailure {
                     sendMessage(UiMessage(
                         CoreR.string.core_comment_failed,
+                        listOf(it.message ?: "")
+                    ))
+                }
+        }
+    }
+
+    /**
+     * 删除自己的评论（长按评论确认后调用；按 type 分流走 v1/{type}/comment/delete）。
+     * 成功后全量刷新评论列表；子回复场景由刷新整体覆盖，无需单独处理。
+     *
+     * @param commentId 待删除的评论 id（顶层评论或子回复均可）
+     * @return 无返回值；结果经消息通道提示
+     */
+    fun deleteComment(commentId: Long) {
+        viewModelScope.launch {
+            runCatching { pixivRepository.api.deleteComment(_type.value, commentId) }
+                .onSuccess {
+                    sendMessage(UiMessage(CoreR.string.core_comment_deleted))
+                    loadComments()
+                }
+                .onFailure {
+                    sendMessage(UiMessage(
+                        CoreR.string.core_comment_delete_failed,
                         listOf(it.message ?: "")
                     ))
                 }

@@ -57,6 +57,7 @@ import com.pixiv.reader.core.ui.component.list.RankingList
  * @param onOpenIllust 点击排名行打开插画/漫画详情（小屏单栏路径）
  * @param onOpenUser 点击作者打开用户主页
  * @param onOpenViewer 点击图片打开全屏查看器
+ * @param onSearchTag 标签点击跳转标签搜索（卡片标签与详情 pane 标签共用）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +66,7 @@ fun IllustRankingRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
+    onSearchTag: (String) -> Unit = {},
     viewModel: IllustRankingViewModel = hiltViewModel(),
 ) {
     val notificationHostState = rememberNotificationHostState()
@@ -161,6 +163,7 @@ fun IllustRankingRoute(
                                 onClick = { if (paneEnabled) selected = item else onOpenIllust(item.id) },
                                 onToggleFavorite = { fav -> viewModel.toggleIllustFavorite(item.id, fav) },
                                 onOpenAuthor = { item.user?.id?.let(onOpenUser) },
+                                onTagClick = onSearchTag,
                             )
                         }
                     }
@@ -176,6 +179,7 @@ fun IllustRankingRoute(
                         onOpenViewer = onOpenViewer,
                         commentVm = commentVm,
                         viewModel = detailVm,
+                        onSearchTag = onSearchTag,
                     )
                 },
             )
@@ -209,6 +213,7 @@ fun IllustRankingRoute(
                     onClick = { onOpenIllust(item.id) },
                     onToggleFavorite = { fav -> viewModel.toggleIllustFavorite(item.id, fav) },
                     onOpenAuthor = { item.user?.id?.let(onOpenUser) },
+                    onTagClick = onSearchTag,
                 )
             }
         }

@@ -270,6 +270,7 @@ fun UserRoute(
                                 isBlocked = isBlocked,
                                 isBlocking = isBlocking,
                                 onToggleFollow = viewModel::toggleFollow,
+                                onFollowPrivately = { viewModel.toggleFollow(com.pixiv.api.PixivConstants.RESTRICT_PRIVATE) },
                                 onToggleBlock = viewModel::toggleBlock,
                                 onOpenAvatar = onOpenCover,
                             )

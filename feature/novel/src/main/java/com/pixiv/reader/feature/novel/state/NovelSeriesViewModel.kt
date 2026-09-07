@@ -150,22 +150,21 @@ class NovelSeriesViewModel @Inject constructor(
         }
     }
 
-    /** 关注 / 取关作者（系列页作者行按钮，乐观翻转 + 防连点）。 */
+    /** 关注 / 取关作者（系列页作者行按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
     fun toggleFollowAuthor() {
         if (_isAuthorFollowing.value) return
         val userId = _detail.value?.user?.id ?: return
         viewModelScope.launch {
             _isAuthorFollowing.value = true
             val current = _isAuthorFollowed.value
-            runCatching {
-                if (current) pixivRepository.api.unfollowUser(userId)
-                else pixivRepository.api.followUser(userId, "public")
-            }.onSuccess {
-                _isAuthorFollowed.value = !current
-                sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(CoreR.string.core_msg_unfollowed))
-            }.onFailure {
-                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
-            }
+            favoriteActions.toggleFollowUser(userId, !current)
+                .onSuccess {
+                    _isAuthorFollowed.value = !current
+                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(CoreR.string.core_msg_unfollowed))
+                }
+                .onFailure {
+                    sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
+                }
             _isAuthorFollowing.value = false
         }
     }

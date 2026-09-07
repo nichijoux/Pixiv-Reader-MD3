@@ -1,5 +1,6 @@
 package com.pixiv.reader.core.network.favorite
 
+import com.pixiv.api.PixivConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -29,9 +30,17 @@ class FavoriteActions @Inject constructor(
         else pixivRepository.api.unbookmarkNovel(novelId)
     }
 
-    /** 关注 / 取关用户（nowFollowed 为目标状态）。 */
-    suspend fun toggleFollowUser(userId: Long, nowFollowed: Boolean): Result<Unit> = runCatching {
-        if (nowFollowed) pixivRepository.api.followUser(userId, "public")
+    /**
+     * 关注 / 取关用户（nowFollowed 为目标状态）。
+     *
+     * @param restrict 关注可见性：public（默认公开）/ private（私密关注，仅自己可见）
+     */
+    suspend fun toggleFollowUser(
+        userId: Long,
+        nowFollowed: Boolean,
+        restrict: String = PixivConstants.RESTRICT_PUBLIC,
+    ): Result<Unit> = runCatching {
+        if (nowFollowed) pixivRepository.api.followUser(userId, restrict)
         else pixivRepository.api.unfollowUser(userId)
     }
 
@@ -48,8 +57,13 @@ class FavoriteActions @Inject constructor(
         scope.launch { toggleNovelFavorite(novelId, nowFavorite) }
     }
 
-    /** 关注 / 取关用户（静默）。 */
-    fun toggleFollowUserSilent(scope: CoroutineScope, userId: Long, nowFollowed: Boolean) {
-        scope.launch { toggleFollowUser(userId, nowFollowed) }
+    /** 关注 / 取关用户（静默；[restrict] 语义同 [toggleFollowUser]）。 */
+    fun toggleFollowUserSilent(
+        scope: CoroutineScope,
+        userId: Long,
+        nowFollowed: Boolean,
+        restrict: String = PixivConstants.RESTRICT_PUBLIC,
+    ) {
+        scope.launch { toggleFollowUser(userId, nowFollowed, restrict) }
     }
 }

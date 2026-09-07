@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,7 +59,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * 参考瀑布流 [IllustCard] 的信息组织，但封面左上角叠**排名徽标**（排行榜的灵魂）：
  * - **封面区**（Box）：图片按 `width/height` 完整显示（`aspectRatio`），无宽高回退 [coverHeight]。
  *   左上角浮层 **排名徽标 + AI 标识 + 页码**；右上角收藏切换按钮；右下角收藏数角标。
- * - **信息区**（Column，10dp 内边距）：标题（2 行省略）+ 作者行（20dp 头像 + 名称）。
+ * - **信息区**（Column，10dp 内边距）：标题（2 行省略）+ 标签行（最多 3 个，可点击搜索）+ 作者行（20dp 头像 + 名称）。
  *
  * 与 [IllustCard] 差异：左上角多了排名徽标（1金/2橙/3灰 + 斜体加粗）；封面用 `medium` 保证清晰。
  *
@@ -69,6 +71,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
  * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
  * @param ugoiraLoader 动图加载器；非空且作品为 ugoira 时封面播放动图动画（帧未就绪露出静态封面）；null 恒静态
+ * @param onTagClick 标签 chip 点击回调（传标签名，通常跳转标签搜索）
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -81,6 +84,7 @@ fun RankingIllustCard(
     onToggleFavorite: ((Boolean) -> Unit)? = null,
     onOpenAuthor: () -> Unit = {},
     ugoiraLoader: UgoiraLoader? = null,
+    onTagClick: (String) -> Unit = {},
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
@@ -228,6 +232,33 @@ fun RankingIllustCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            // 标签行（最多 3 个，点击触发标签搜索；与详情页/小说卡同款 chip 风格）
+            val cardTags = illust.tags.orEmpty().take(3)
+            if (cardTags.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.padding(top = Spacing.xsPlus),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+                ) {
+                    cardTags.forEach { tag ->
+                        val tagName = tag.displayName.orEmpty()
+                        if (tagName.isNotBlank()) {
+                            Text(
+                                text = "#$tagName",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .clip(AppShapes.tiny)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                    .clickable { onTagClick(tagName) }
+                                    .padding(horizontal = Spacing.sm, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
+            }
             val user: User? = illust.user
             if (user != null) {
                 Row(

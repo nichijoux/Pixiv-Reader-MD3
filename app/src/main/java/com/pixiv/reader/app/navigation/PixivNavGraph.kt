@@ -704,7 +704,7 @@ fun PixivNavGraph(
                 localTitle = local?.second,
             )
         }
-        // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页
+        // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
         composable(ROUTE_MANGA_RANKING) {
             MangaRankingRoute(
                 onBack = { navController.safeBack() },
@@ -717,9 +717,15 @@ fun PixivNavGraph(
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
                 },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
             )
         }
-        // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页
+        // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
         composable(ROUTE_ILLUST_RANKING) {
             IllustRankingRoute(
                 onBack = { navController.safeBack() },
@@ -731,6 +737,12 @@ fun PixivNavGraph(
                 },
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 },
             )
         }
@@ -744,8 +756,12 @@ fun PixivNavGraph(
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
-                onSearchTag = {
-                    // 排行榜页标签跳转暂不接入（顶层路由无法直达 MainShell 内 Tab，后续再处理）
+                onSearchTag = { tag ->
+                    // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")

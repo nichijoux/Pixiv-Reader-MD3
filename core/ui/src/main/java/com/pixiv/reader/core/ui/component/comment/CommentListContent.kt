@@ -1,7 +1,9 @@
 package com.pixiv.reader.core.ui.component.comment
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +52,7 @@ import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.input.CommentInput
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -82,6 +87,8 @@ fun CommentListContent(
     onDraftChange: (String) -> Unit,
     onPost: () -> Unit,
     onStampPick: (Long) -> Unit,
+    ownUid: Long = 0L,
+    onDeleteComment: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // 触底加载更多：最后可见项接近列表末尾且仍有下一页时触发
@@ -122,8 +129,10 @@ fun CommentListContent(
                 items(comments, key = { it.id }) { comment ->
                     CommentRow(
                         comment = comment,
+                        ownUid = ownUid,
                         onOpenUser = onOpenUser,
                         onReply = { target -> onReply(target, comment.id) },
+                        onDeleteComment = onDeleteComment,
                         replies = replies[comment.id].orEmpty(),
                         repliesLoading = repliesLoading.contains(comment.id),
                         expanded = expandedReplies.contains(comment.id),
@@ -173,21 +182,38 @@ fun CommentListContent(
 }
 
 /** 评论行：头像 + 昵称 + 时间 + 正文 + 树形子回复（最多 3 条，超出可展开）+ 回复入口。 */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CommentRow(
     comment: Comment,
+    ownUid: Long,
     onOpenUser: (Long) -> Unit,
     onReply: (Comment) -> Unit,
+    onDeleteComment: ((Long) -> Unit)?,
     replies: List<Comment>,
     repliesLoading: Boolean,
     expanded: Boolean,
     onLoadReplies: () -> Unit,
     onToggleExpanded: () -> Unit,
 ) {
+    // 是否为自己的评论（判定删除入口 + 长按手势）
+    val isMine = ownUid > 0L && comment.user?.id == ownUid
+    // 删除确认框状态（自己的评论长按触发）
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // 自己的评论：长按弹删除确认（仅 isMine 时挂手势，他人评论保持无手势）
+            .let { base ->
+                if (isMine && onDeleteComment != null) {
+                    base.combinedClickable(
+                        onClick = {},
+                        onLongClick = { showDeleteConfirm = true },
+                    )
+                } else {
+                    base
+                }
+            }
             .padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
         verticalAlignment = Alignment.Top,
     ) {
@@ -273,7 +299,9 @@ private fun CommentRow(
                         visibleReplies.forEachIndexed { index, reply ->
                             ReplyRow(
                                 reply = reply,
+                                isMine = ownUid > 0L && reply.user?.id == ownUid,
                                 onReply = { onReply(reply) },
+                                onDelete = onDeleteComment?.let { cb -> { cb(reply.id) } },
                             )
                             if (index != visibleReplies.lastIndex) {
                                 Spacer(Modifier.height(8.dp))
@@ -301,6 +329,19 @@ private fun CommentRow(
             }
         }
     }
+    // 删除确认框：确认后上抛 onDeleteComment（由调用方调 VM 删除并刷新）
+    if (showDeleteConfirm && onDeleteComment != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.comment_delete_title),
+            message = stringResource(R.string.comment_delete_message),
+            confirmText = stringResource(R.string.common_delete),
+            onConfirm = {
+                showDeleteConfirm = false
+                onDeleteComment(comment.id)
+            },
+            onDismiss = { showDeleteConfirm = false },
+        )
+    }
 }
 
 /** 子回复未展开时的最大显示条数。 */
@@ -326,13 +367,33 @@ private fun ReplyPill(
     )
 }
 
-/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、可回复）。 */
+/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、可回复；自己的评论长按可删除）。 */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReplyRow(
     reply: Comment,
+    isMine: Boolean,
     onReply: () -> Unit,
+    onDelete: (() -> Unit)?,
 ) {
-    Row(verticalAlignment = Alignment.Top) {
+    // 删除确认框状态（自己的子回复长按触发）
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            // 自己的子回复：长按弹删除确认
+            .let { base ->
+                if (isMine && onDelete != null) {
+                    base.combinedClickable(
+                        onClick = {},
+                        onLongClick = { showDeleteConfirm = true },
+                    )
+                } else {
+                    base
+                }
+            },
+        verticalAlignment = Alignment.Top,
+    ) {
         UserAvatar(
             name = reply.user?.name,
             avatarUrl = reply.user?.profile_image_urls?.best(),
@@ -390,6 +451,19 @@ private fun ReplyRow(
                 onClick = onReply,
             )
         }
+    }
+    // 删除确认框：确认后上抛 onDelete（由调用方调 VM 删除并刷新）
+    if (showDeleteConfirm && onDelete != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.comment_delete_title),
+            message = stringResource(R.string.comment_delete_message),
+            confirmText = stringResource(R.string.common_delete),
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
+            },
+            onDismiss = { showDeleteConfirm = false },
+        )
     }
 }
 
