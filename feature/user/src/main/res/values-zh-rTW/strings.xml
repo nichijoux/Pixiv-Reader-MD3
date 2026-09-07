@@ -133,6 +133,9 @@
     <string name="history_empty_novel">暫無小說瀏覽記錄</string>
     <string name="history_empty_user">暫無使用者瀏覽記錄</string>
     <!-- 稍後再看（ReadLaterRoute） -->
+    <string name="user_series_tab_novel">小說系列</string>
+    <string name="user_series_tab_manga">漫畫系列</string>
+    <string name="user_empty_manga_series">暫無漫畫系列</string>
     <string name="read_later_title">稍後再看</string>
     <string name="read_later_clear_title">清空稍後再看？</string>
     <string name="read_later_clear_message">將移除全部稍後再看條目，此操作無法復原。</string>

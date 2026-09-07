@@ -105,6 +105,7 @@ fun UserRoute(
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
     onOpenSeries: (Long) -> Unit,
+    onOpenMangaSeries: (Long) -> Unit,
     onOpenUserBookmarks: () -> Unit,
     onOpenUserFollowing: () -> Unit,
     novelDetailPane: @Composable (
@@ -369,11 +370,15 @@ fun UserRoute(
                                     UserSection.SERIES -> SectionSeries(
                                         paged = viewModel.seriesPaged,
                                         infos = seriesInfos,
+                                        mangaPaged = viewModel.mangaSeriesPaged,
                                         onOpenSeries = { id ->
                                             if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
                                         },
+                                        onOpenMangaSeries = onOpenMangaSeries,
                                         onRetry = viewModel::load,
                                         onLoadMore = viewModel::loadMore,
+                                        onRetryManga = viewModel::retryMangaSeries,
+                                        onLoadMoreManga = viewModel::loadMoreMangaSeries,
                                     )
                                     null -> EmptyBox("")
                                 }

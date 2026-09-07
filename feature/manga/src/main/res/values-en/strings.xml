@@ -19,6 +19,11 @@
     <string name="manga_ranking_banner">Manga ranking</string>
     <string name="manga_ranking_banner_desc">Updated daily · Daily / Weekly / Monthly / Rookie / R18</string>
     <string name="manga_ranking_title">Manga ranking</string>
+    <!-- Manga series detail (MangaSeriesRoute) -->
+    <string name="manga_series_title">Manga series</string>
+    <string name="manga_series_chapters">%1$d chapters</string>
+    <string name="manga_series_watchlist">Watch</string>
+    <string name="manga_series_watchlisted">Watching</string>
     <string name="manga_ranking_day">Daily</string>
     <string name="manga_ranking_week">Weekly</string>
     <string name="manga_ranking_month">Monthly</string>

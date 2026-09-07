@@ -13,11 +13,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -43,23 +47,31 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * 追更：已追更的小说系列列表。
+ * 追更：小说 / 漫画系列追更列表（SegmentedButton 分段切换，各类型独立分页缓存）。
+ * 小说行点击打开最新分册详情；漫画行点击打开最新一话（插画详情）；
+ * 行内按钮取消追更（按当前类型分流端点）。
  *
  * @param onBack 返回
- * @param onOpenNovel 打开系列最新分册小说详情
+ * @param initialType 初始类型（"novel" / "manga"，路由参数）
+ * @param onOpenNovel 打开小说详情（小说追更行点击）
+ * @param onOpenIllust 打开插画/漫画详情（漫画追更行点击）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WatchlistRoute(
     onBack: () -> Unit,
+    initialType: String = WatchlistViewModel.TYPE_NOVEL,
     onOpenNovel: (Long) -> Unit,
+    onOpenIllust: (Long) -> Unit = {},
     viewModel: WatchlistViewModel = hiltViewModel(),
 ) {
-    val items by viewModel.watchlistPaged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.watchlistPaged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.watchlistPaged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.watchlistPaged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.watchlistPaged.error.collectAsStateWithLifecycle()
+    val type by viewModel.type.collectAsStateWithLifecycle()
+    val paged = viewModel.stateFor(type)
+    val items by paged.items.collectAsStateWithLifecycle()
+    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
+    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
+    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
+    val error by paged.error.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -81,30 +93,60 @@ fun WatchlistRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            when {
-                isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(
-                    message = error.orEmpty(),
-                    onRetry = viewModel::load
-                )
-
-                items.isEmpty() -> EmptyBox(stringResource(R.string.watchlist_empty))
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = Spacing.sm),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 类型分段：小说 / 漫画（各类型独立分页缓存，切换不重复请求）
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 ) {
-                    items(items, key = { it.id }) { series ->
-                        WatchlistRow(series = series, onClick = {
-                            series.latest_content_id?.let(onOpenNovel)
-                        })
-                    }
-                    if (hasMore) {
-                        item(key = "load_more") {
-                            LoadMoreItem(
-                                isLoadingMore = isLoadingMore,
-                                onLoadMore = viewModel::loadMore
+                    SegmentedButton(
+                        selected = type == WatchlistViewModel.TYPE_NOVEL,
+                        onClick = { viewModel.selectType(WatchlistViewModel.TYPE_NOVEL) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(R.string.watchlist_type_novel)) },
+                    )
+                    SegmentedButton(
+                        selected = type == WatchlistViewModel.TYPE_MANGA,
+                        onClick = { viewModel.selectType(WatchlistViewModel.TYPE_MANGA) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(R.string.watchlist_type_manga)) },
+                    )
+                }
+                when {
+                    isLoading && items.isEmpty() -> LoadingBox()
+                    error != null && items.isEmpty() -> ErrorBox(
+                        message = error.orEmpty(),
+                        onRetry = { viewModel.retry(type) }
+                    )
+
+                    items.isEmpty() -> EmptyBox(stringResource(R.string.watchlist_empty))
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+                    ) {
+                        items(items, key = { "${type}_${it.id}" }) { series ->
+                            WatchlistRow(
+                                series = series,
+                                onClick = {
+                                    // 小说 → 最新分册详情；漫画 → 最新一话插画详情
+                                    series.latest_content_id?.let { id ->
+                                        if (type == WatchlistViewModel.TYPE_MANGA) onOpenIllust(id) else onOpenNovel(id)
+                                    }
+                                },
+                                onRemove = { viewModel.removeWatchlist(series) },
                             )
+                        }
+                        if (hasMore) {
+                            item(key = "load_more") {
+                                LoadMoreItem(
+                                    isLoadingMore = isLoadingMore,
+                                    onLoadMore = { viewModel.loadMore(type) }
+                                )
+                            }
                         }
                     }
                 }
@@ -113,10 +155,18 @@ fun WatchlistRoute(
     }
 }
 
+/**
+ * 追更列表行：作者头像 + 标题/作者/章节数 + 取消追更按钮 +「查看」入口。
+ *
+ * @param series 追更系列
+ * @param onClick 行点击（打开最新内容）
+ * @param onRemove 行内取消追更
+ */
 @Composable
 private fun WatchlistRow(
     series: WatchlistSeries,
     onClick: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -163,6 +213,15 @@ private fun WatchlistRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        // 行内取消追更（铃铛关闭图标，不占文案位）
+        IconButton(onClick = onRemove) {
+            Icon(
+                imageVector = Icons.Filled.NotificationsOff,
+                contentDescription = stringResource(R.string.watchlist_unwatch),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(Sizes.s20),
+            )
         }
         Text(
             text = stringResource(R.string.watchlist_view),

@@ -19,6 +19,11 @@
     <string name="manga_ranking_banner">漫畫排行榜</string>
     <string name="manga_ranking_banner_desc">每日更新 · 日榜 / 周榜 / 月榜 / 新人 / R18</string>
     <string name="manga_ranking_title">漫畫排行榜</string>
+    <!-- 漫畫系列詳情（MangaSeriesRoute） -->
+    <string name="manga_series_title">漫畫系列</string>
+    <string name="manga_series_chapters">%1$d 話</string>
+    <string name="manga_series_watchlist">追更</string>
+    <string name="manga_series_watchlisted">已追更</string>
     <string name="manga_ranking_day">日榜</string>
     <string name="manga_ranking_week">周榜</string>
     <string name="manga_ranking_month">月榜</string>

@@ -31,6 +31,7 @@ import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
+import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
 import com.pixiv.reader.feature.notification.NotificationRoute
 import com.pixiv.reader.feature.novel.ui.NovelDetailPane
@@ -90,13 +91,16 @@ const val ROUTE_USER_FOLLOWING = "user_following/{userId}"
 /** 小说系列详情（系列信息 + 分册列表）。 */
 const val ROUTE_NOVEL_SERIES = "novel_series/{seriesId}"
 
+/** 漫画系列详情（v1/illust/series）。 */
+const val ROUTE_MANGA_SERIES = "illust_series/{seriesId}"
+
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
 
 /** 收藏列表（插画 / 小说），可带 type + tag 过滤。 */
 const val ROUTE_BOOKMARKS = "bookmarks"
 
-/** 追更小说列表。 */
+/** 追更列表（小说 / 漫画分段；type 可选参数，导航用基路由即可）。 */
 const val ROUTE_WATCHLIST = "watchlist"
 
 /** 稍后再看（本地暂存，卡片长按加入）。 */
@@ -455,6 +459,9 @@ fun PixivNavGraph(
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
+                onOpenMangaSeries = { seriesId ->
+                    navController.navigate("illust_series/$seriesId")
+                },
                 onOpenUserBookmarks = {
                     navController.navigate("user_bookmarks/$userId")
                 },
@@ -563,6 +570,21 @@ fun PixivNavGraph(
                 },
             )
         }
+        // 漫画系列详情：系列头部（追更）+ 系列内作品瀑布流
+        composable(
+            route = ROUTE_MANGA_SERIES,
+            arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
+        ) {
+            MangaSeriesRoute(
+                onBack = { navController.safeBack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+            )
+        }
         // 浏览历史：三类（插画/小说/作者），点击对应卡片跳详情
         composable(ROUTE_HISTORY) {
             HistoryRoute(
@@ -615,12 +637,24 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 追更小说列表
-        composable(ROUTE_WATCHLIST) {
+        // 追更列表（小说 / 漫画分段；行点击按类型跳最新分册 / 最新一话）
+        composable(
+            route = "watchlist?type={type}",
+            arguments = listOf(
+                navArgument("type") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
             WatchlistRoute(
+                // VM 侧对非法值回退 novel，这里原样透传
+                initialType = backStackEntry.arguments?.getString("type").orEmpty(),
                 onBack = { navController.safeBack() },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
+                },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
                 },
             )
         }

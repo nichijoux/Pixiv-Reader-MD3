@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.BlockSaveRequest
 import com.pixiv.api.model.Illust
+import com.pixiv.api.model.MangaSeriesItem
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesItem
 import com.pixiv.api.model.Profile
@@ -82,6 +83,9 @@ class UserViewModel @Inject constructor(
     val mangaPaged = PagedState<Illust>()
     val novelPaged = PagedState<Novel>()
     val seriesPaged = PagedState<NovelSeriesItem>()
+
+    /** 漫画系列列表（系列分区漫画段用；随系列分区首载一起拉取，单页 + 翻页）。 */
+    val mangaSeriesPaged = PagedState<MangaSeriesItem>()
 
     /** 系列详情缓存（seriesId → 封面/简介/连载状态/字数/更新时间）；列表项无这些字段，逐个经 SeriesDetailCache 取。 */
     private val _seriesInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
@@ -174,9 +178,38 @@ class UserViewModel @Inject constructor(
                         fetchNext = { pixivRepository.api.getNextNovelSeries(it) },
                     )
                     loadSeriesInfos(seriesPaged.items.value.map { it.id })
+                    // 漫画系列随系列分区首载一起拉取（漫画段切换零等待）
+                    loadMangaSeries()
                 }
             }
         }
+    }
+
+    /** 漫画系列首载（幂等：已加载/加载中跳过；单页 + next_url 翻页）。 */
+    private fun loadMangaSeries() {
+        if (mangaSeriesPaged.items.value.isNotEmpty() || mangaSeriesPaged.isLoading.value) return
+        viewModelScope.launch {
+            mangaSeriesPaged.loadInitial(
+                fetch = { pixivRepository.api.getUserIllustSeries(userId) },
+                fetchNext = { pixivRepository.api.getNextMangaSeries(it) },
+            )
+        }
+    }
+
+    /** 漫画系列失败重试（重置分页状态后重拉）。 */
+    fun retryMangaSeries() {
+        viewModelScope.launch {
+            mangaSeriesPaged.reset()
+            mangaSeriesPaged.loadInitial(
+                fetch = { pixivRepository.api.getUserIllustSeries(userId) },
+                fetchNext = { pixivRepository.api.getNextMangaSeries(it) },
+            )
+        }
+    }
+
+    /** 漫画系列触底加载更多。 */
+    fun loadMoreMangaSeries() {
+        viewModelScope.launch { mangaSeriesPaged.loadMore() }
     }
 
     fun loadMore() {

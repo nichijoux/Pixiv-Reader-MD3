@@ -5,4 +5,7 @@
     <string name="watchlist_masked_series">Hidden series</string>
     <string name="watchlist_chapters">%1$d chapters</string>
     <string name="watchlist_view">View</string>
+    <string name="watchlist_type_novel">Novels</string>
+    <string name="watchlist_type_manga">Manga</string>
+    <string name="watchlist_unwatch">Unwatch</string>
 </resources>

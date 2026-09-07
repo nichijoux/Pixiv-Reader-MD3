@@ -135,6 +135,9 @@
     <string name="history_empty_novel">No novel history yet</string>
     <string name="history_empty_user">No user history yet</string>
     <!-- Read later (ReadLaterRoute) -->
+    <string name="user_series_tab_novel">Novel series</string>
+    <string name="user_series_tab_manga">Manga series</string>
+    <string name="user_empty_manga_series">No manga series</string>
     <string name="read_later_title">Read later</string>
     <string name="read_later_clear_title">Clear read later?</string>
     <string name="read_later_clear_message">All read later items will be removed. This cannot be undone.</string>
