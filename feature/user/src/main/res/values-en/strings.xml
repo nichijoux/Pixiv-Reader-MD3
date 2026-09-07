@@ -50,6 +50,8 @@
     <string name="me_section_ecosystem">pixiv ecosystem</string>
     <string name="me_comic_title">pixiv COMIC</string>
     <string name="me_comic_desc">Official manga platform</string>
+    <string name="me_talk_title">Messages</string>
+    <string name="me_talk_desc">Chat with creators and my pixiv friends</string>
     <string name="me_pixivision_title">pixivision</string>
     <string name="me_pixivision_desc">Official features and events</string>
     <string name="me_section_appearance">Appearance</string>

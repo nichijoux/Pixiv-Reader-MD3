@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="talk_title">私信</string>
+    <string name="talk_cd_back">返回</string>
+    <string name="talk_empty">暫無私信</string>
+    <string name="talk_room_empty">暫無訊息</string>
+    <string name="talk_read_only_hint">唯讀模式 · 回覆功能後續版本開放</string>
+</resources>

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
@@ -69,6 +70,7 @@ fun MeRoute(
     onOpenReadLater: () -> Unit,
     onOpenComic: () -> Unit,
     onOpenFanbox: () -> Unit,
+    onOpenTalk: () -> Unit,
     onOpenPixivision: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -182,6 +184,12 @@ fun MeRoute(
                         stringResource(R.string.me_comic_title),
                         stringResource(R.string.me_comic_desc),
                         onClick = onOpenComic,
+                    ),
+                    SettingsCardItem(
+                        Icons.Filled.Email,
+                        stringResource(R.string.me_talk_title),
+                        stringResource(R.string.me_talk_desc),
+                        onClick = onOpenTalk,
                     ),
                     SettingsCardItem(
                         Icons.Filled.TravelExplore,

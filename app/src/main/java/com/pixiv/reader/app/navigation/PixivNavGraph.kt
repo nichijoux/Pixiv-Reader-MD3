@@ -40,6 +40,8 @@ import com.pixiv.reader.feature.fanbox.ui.FanboxCreatorListRoute
 import com.pixiv.reader.feature.fanbox.ui.FanboxCreatorRoute
 import com.pixiv.reader.feature.fanbox.ui.FanboxHomeRoute
 import com.pixiv.reader.feature.fanbox.ui.FanboxPostRoute
+import com.pixiv.reader.feature.talk.ui.TalkListRoute
+import com.pixiv.reader.feature.talk.ui.TalkRoomRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
@@ -136,6 +138,12 @@ const val ROUTE_FANBOX_CREATOR = "fanbox_creator/{creatorId}"
 
 /** FANBOX 帖子详情（postId 为字符串 id）。 */
 const val ROUTE_FANBOX_POST = "fanbox_post/{postId}"
+
+/** 私信会话列表（只读）。 */
+const val ROUTE_TALK = "talk"
+
+/** 私信消息历史（只读；partnerName 可选顶栏展示）。 */
+const val ROUTE_TALK_ROOM = "talk_room/{roomId}?partnerName={partnerName}"
 
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
@@ -292,6 +300,9 @@ fun PixivNavGraph(
                 },
                 onOpenFanbox = {
                     navController.navigate(ROUTE_FANBOX)
+                },
+                onOpenTalk = {
+                    navController.navigate(ROUTE_TALK)
                 },
                 onOpenPixivision = {
                     navController.navigate(ROUTE_PIXIVISION)
@@ -948,6 +959,41 @@ fun PixivNavGraph(
                 onOpenPost = { postId ->
                     navController.navigate("fanbox_post/$postId")
                 },
+            )
+        }
+        // FANBOX 帖子详情
+        composable(
+            route = ROUTE_FANBOX_POST,
+            arguments = listOf(navArgument("postId") { type = NavType.StringType }),
+        ) {
+            FanboxPostRoute(
+                onBack = { navController.safeBack() },
+                onOpenCreator = { creatorId ->
+                    navController.navigate("fanbox_creator/$creatorId")
+                },
+            )
+        }
+        // 私信会话列表（只读）
+        composable(ROUTE_TALK) {
+            TalkListRoute(
+                onBack = { navController.safeBack() },
+                onOpenRoom = { roomId ->
+                    navController.navigate("talk_room/$roomId")
+                },
+            )
+        }
+        // 私信消息历史（只读）
+        composable(
+            route = ROUTE_TALK_ROOM,
+            arguments = listOf(
+                navArgument("roomId") { type = NavType.LongType },
+                navArgument("partnerName") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { backStackEntry ->
+            TalkRoomRoute(
+                roomId = backStackEntry.arguments?.getLong("roomId") ?: 0L,
+                partnerName = backStackEntry.arguments?.getString("partnerName"),
+                onBack = { navController.safeBack() },
             )
         }
         // FANBOX 帖子详情

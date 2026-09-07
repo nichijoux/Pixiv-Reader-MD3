@@ -99,6 +99,7 @@ dependencies {
     implementation(project(":feature:manga"))
     implementation(project(":feature:follow"))
     implementation(project(":feature:fanbox"))
+    implementation(project(":feature:talk"))
     implementation(project(":feature:onboarding"))
 
     // 基础设施
