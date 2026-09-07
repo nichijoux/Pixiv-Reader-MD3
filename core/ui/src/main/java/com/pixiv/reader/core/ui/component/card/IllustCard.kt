@@ -113,12 +113,16 @@ fun IllustCard(
         onClick = onClick,
     )
     // 卡片根容器：圆角 + 卡片底色 + 整卡点击（含屏蔽手势包装）
-    Column(
+    Box(
         modifier = modifier
             .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .combinedClickable(onClick = block.onClick, onLongClick = block.onLongClick),
     ) {
+        // 内容层：屏蔽时整体模糊（标题/作者随封面一并打码；点击临时显示）
+        Column(
+            modifier = Modifier.then(if (block.isBlocked) Modifier.blur(16.dp) else Modifier),
+        ) {
         // ── 封面区（Box 内浮层用 align 定位） ──
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             // 封面宽度（px）：动图帧采样解码上限（避免解码 zip 原图尺寸浪费内存）
@@ -138,15 +142,9 @@ fun IllustCard(
                     .then(
                         if (ratio != null) Modifier.aspectRatio(ratio)
                         else Modifier.height(coverHeight),
-                    )
-                    // 就地屏蔽：封面模糊（点击临时显示）
-                    .then(if (block.isBlocked) Modifier.blur(16.dp) else Modifier),
+                    ),
                 contentScale = ContentScale.Crop,
             )
-            // 屏蔽遮罩：盖在封面（含动图帧）上层
-            if (block.isBlocked) {
-                BlockedOverlay(modifier = Modifier.matchParentSize())
-            }
             // 动图：ugoira 卡片播放（zip 帧动画覆盖静态封面；帧未就绪透明露出封面）
             if (ugoiraLoader != null && illust.isGif()) {
                 UgoiraCardPlayer(
@@ -252,7 +250,7 @@ fun IllustCard(
                     )
                     Text(
                         text = if (failed) {
-                            stringResource(R.string.download_failed)
+                            stringResource(R.string.download_failed_short)
                         } else {
                             stringResource(R.string.download_progress, (progress * 100).roundToInt())
                         },
@@ -294,6 +292,15 @@ fun IllustCard(
                     )
                 }
             }
+        }
+        }
+        // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层作者行/收藏不可点
+        if (block.isBlocked) {
+            BlockedOverlay(
+                modifier = Modifier.matchParentSize(),
+                onClick = block.onClick,
+                onLongClick = block.onLongClick,
+            )
         }
     }
 }

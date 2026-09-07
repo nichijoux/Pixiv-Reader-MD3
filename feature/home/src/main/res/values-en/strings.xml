@@ -20,4 +20,5 @@
     <string name="home_illust_bookmarked">Bookmarked</string>
     <string name="home_illust_download">Download</string>
     <string name="home_illust_comments">Comments</string>
+    <string name="home_cd_notifications">Notifications</string>
 </resources>

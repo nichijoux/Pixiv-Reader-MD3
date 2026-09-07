@@ -67,19 +67,27 @@ class SeriesDetailCache @Inject constructor() {
      * 取详情（带缓存）：已缓存直接返回；未缓存时同一 seriesId 并发只发一次 [fetcher]，
      * 成功后写入缓存供后续零请求复用。
      *
+     * 结果在缓存自身作用域内写回内存层（与调用方生命周期无关）：调用方提前退出时，
+     * 已完成的网络结果仍驻留缓存，供同会话后续访问命中。
+     *
      * @param seriesId 系列 id
-     * @param fetcher 未命中时执行的网络取详情函数（返回 [SeriesDetailInfo]，null 表示无可用数据）
+     * @param fetcher 未命中时执行的网络取详情函数（返回 [SeriesDetailInfo]，null 表示无可用数据且不落缓存）
      */
     suspend fun getOrFetch(seriesId: Long, fetcher: suspend () -> SeriesDetailInfo?): SeriesDetailInfo? {
         infos[seriesId]?.let { return it }
         inFlight[seriesId]?.let { return it.await() }
 
         val deferred = scope.async {
-            try {
+            val result = try {
                 fetcher()
             } finally {
                 inFlight.remove(seriesId)
             }
+            // 结果在缓存自身作用域内写回内存层（与调用方生命周期无关）
+            if (result != null) {
+                infos[seriesId] = result
+            }
+            result
         }
         val winner = inFlight.putIfAbsent(seriesId, deferred)
         if (winner != null) {
@@ -87,10 +95,6 @@ class SeriesDetailCache @Inject constructor() {
             deferred.cancel()
             return winner.await()
         }
-        val info = deferred.await()
-        if (info != null) {
-            infos[seriesId] = info
-        }
-        return info
+        return deferred.await()
     }
 }

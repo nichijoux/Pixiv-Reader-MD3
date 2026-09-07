@@ -85,6 +85,8 @@
     <string name="me_blocked_title">Mute management</string>
     <string name="me_read_later_title">Read later</string>
     <string name="me_read_later_desc">Works saved for later</string>
+    <string name="me_watchlist_title">Watchlist</string>
+    <string name="me_watchlist_desc">Novel and manga series you follow</string>
     <string name="me_blocked_desc">Muted users and tags</string>
     <string name="me_theme_mode">Theme mode</string>
     <string name="me_theme_follow_system">Follow system</string>
@@ -141,10 +143,9 @@
     <string name="read_later_title">Read later</string>
     <string name="read_later_clear_title">Clear read later?</string>
     <string name="read_later_clear_message">All read later items will be removed. This cannot be undone.</string>
-    <string name="read_later_empty_illust">No illustrations saved for later
-Long-press a card to add one</string>
-    <string name="read_later_empty_novel">No novels saved for later
-Long-press a card to add one</string>
+    <string name="read_later_empty_illust_title">No illustrations saved for later</string>
+    <string name="read_later_empty_novel_title">No novels saved for later</string>
+    <string name="read_later_empty_hint">Long-press a card anywhere to add one</string>
 
     <!-- Downloads -->
     <string name="downloads_title">Downloads</string>

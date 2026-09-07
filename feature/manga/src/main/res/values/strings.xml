@@ -34,6 +34,7 @@
     <string name="manga_ugoira_empty">暂无动图内容</string>
     <string name="manga_ranking_empty">暂无榜单数据</string>
     <string name="manga_cd_back">返回</string>
+    <string name="manga_cd_watchlist">追更</string>
     <string name="manga_cd_more">更多</string>
     <string name="manga_ranking_preview_placeholder">选择左侧任意作品查看预览</string>
     <string name="manga_ranking_preview_open_detail">查看详情</string>

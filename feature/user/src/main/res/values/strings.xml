@@ -84,6 +84,8 @@
     <string name="me_downloads_desc">已下载的内容</string>
     <string name="me_read_later_title">稍后再看</string>
     <string name="me_read_later_desc">稍后阅读的作品</string>
+    <string name="me_watchlist_title">追更</string>
+    <string name="me_watchlist_desc">已追更的小说与漫画系列</string>
     <string name="me_blocked_title">屏蔽管理</string>
     <string name="me_blocked_desc">已屏蔽的用户与标签</string>
     <string name="me_theme_mode">主题模式</string>
@@ -141,10 +143,9 @@
     <string name="read_later_title">稍后再看</string>
     <string name="read_later_clear_title">清空稍后再看？</string>
     <string name="read_later_clear_message">将移除全部稍后再看条目，此操作不可撤销。</string>
-    <string name="read_later_empty_illust">暂无稍后再看的插画
-长按卡片即可加入</string>
-    <string name="read_later_empty_novel">暂无稍后再看的小说
-长按卡片即可加入</string>
+    <string name="read_later_empty_illust_title">暂无稍后再看的插画</string>
+    <string name="read_later_empty_novel_title">暂无稍后再看的小说</string>
+    <string name="read_later_empty_hint">长按列表中的卡片即可加入</string>
 
     <!-- DownloadsRoute -->
     <string name="downloads_title">下载管理</string>

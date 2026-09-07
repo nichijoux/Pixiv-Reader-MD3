@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -26,10 +27,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.NotificationType
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.flow.StateFlow
@@ -122,6 +127,9 @@ fun CardActionsHost(
 ) {
     // 当前菜单目标（全局唯一：长按另一卡片时顶替前序菜单）
     var menuTarget by remember { mutableStateOf<CardActionTarget?>(null) }
+    // 动作成功提示（稍后再看/屏蔽 的加入与移除均有反馈）
+    val notificationHostState = rememberNotificationHostState()
+    val context = LocalContext.current
     val controller = remember(actions) {
         actions?.let { CardActionsController(it) { menuTarget = it } }
     }
@@ -154,6 +162,14 @@ fun CardActionsHost(
                             ),
                             onClick = {
                                 controller.toggleReadLater(target)
+                                // 成功提示（菜单关闭后浮出）
+                                notificationHostState.show(
+                                    context.getString(
+                                        if (inReadLater) R.string.card_msg_read_later_removed
+                                        else R.string.card_msg_read_later_added
+                                    ),
+                                    type = NotificationType.Success,
+                                )
                                 menuTarget = null
                             },
                         )
@@ -165,12 +181,27 @@ fun CardActionsHost(
                             ),
                             onClick = {
                                 controller.toggleBlock(target.targetType, target.targetId)
+                                notificationHostState.show(
+                                    context.getString(
+                                        if (isBlocked) R.string.card_msg_unblocked
+                                        else R.string.card_msg_blocked
+                                    ),
+                                    type = NotificationType.Success,
+                                )
                                 menuTarget = null
                             },
                         )
                     }
                 }
             }
+            // 动作结果通知：浮在宿主内容之上（底部滑入）
+            NotificationHost(
+                state = notificationHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = Spacing.lg),
+            )
         }
     }
 }

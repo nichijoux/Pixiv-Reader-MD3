@@ -1,26 +1,32 @@
 package com.pixiv.reader.feature.user.ui
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -28,9 +34,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.gson.Gson
@@ -39,12 +51,11 @@ import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.NovelCardData
-import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.ReadLaterViewModel
 
@@ -84,19 +95,12 @@ fun ReadLaterRoute(
                 },
                 actions = {
                     if (items.isNotEmpty()) {
-                        // 清空：图标 + 文字（删除色），点击弹确认框
-                        TextButton(onClick = { showClearConfirm = true }) {
+                        // 清空：Expressive 圆形 tonal 图标按钮（删除色），点击弹确认框
+                        FilledTonalIconButton(onClick = { showClearConfirm = true }) {
                             Icon(
                                 imageVector = Icons.Filled.DeleteOutline,
-                                contentDescription = null,
-                                modifier = Modifier.size(Sizes.s18),
+                                contentDescription = stringResource(R.string.history_clear),
                                 tint = MaterialTheme.colorScheme.error,
-                            )
-                            Text(
-                                text = stringResource(R.string.history_clear),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(start = Spacing.xs),
                             )
                         }
                     }
@@ -110,20 +114,25 @@ fun ReadLaterRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 二段 Tab：插画 / 小说（复用浏览历史的分段文案）
-                SecondaryTabRow(
-                    selectedTabIndex = if (filter == "illust") 0 else 1,
-                    containerColor = MaterialTheme.colorScheme.surface,
+                // 类型分段：插画 / 小说（Expressive 三选一段控件，与追更页同语汇）
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 ) {
-                    Tab(
+                    SegmentedButton(
                         selected = filter == "illust",
                         onClick = { viewModel.setFilter("illust") },
-                        text = { Text(stringResource(R.string.history_filter_illust)) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(R.string.history_filter_illust)) },
                     )
-                    Tab(
+                    SegmentedButton(
                         selected = filter == "novel",
                         onClick = { viewModel.setFilter("novel") },
-                        text = { Text(stringResource(R.string.history_filter_novel)) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(R.string.history_filter_novel)) },
                     )
                 }
                 when (filter) {
@@ -170,7 +179,11 @@ private fun ReadLaterIllustList(
 ) {
     val illusts = entries.map { it.toIllust(gson) }
     if (illusts.isEmpty()) {
-        EmptyBox(stringResource(R.string.read_later_empty_illust))
+        ReadLaterEmpty(
+            icon = Icons.Filled.Image,
+            title = stringResource(R.string.read_later_empty_illust_title),
+            hint = stringResource(R.string.read_later_empty_hint),
+        )
         return
     }
     IllustWaterfallGrid(
@@ -193,7 +206,11 @@ private fun ReadLaterNovelList(
     onOpenUser: (Long) -> Unit,
 ) {
     if (entries.isEmpty()) {
-        EmptyBox(stringResource(R.string.read_later_empty_novel))
+        ReadLaterEmpty(
+            icon = Icons.AutoMirrored.Filled.MenuBook,
+            title = stringResource(R.string.read_later_empty_novel_title),
+            hint = stringResource(R.string.read_later_empty_hint),
+        )
         return
     }
     LazyColumn(
@@ -215,6 +232,58 @@ private fun ReadLaterNovelList(
 }
 
 // ── 快照还原（与浏览历史同范式） ─────────────────────────────────────────────
+
+/**
+ * Expressive 空态：圆形图标底 + 标题 + 操作提示（稍后再看页专用）。
+ *
+ * @param icon 空态图标（插画=图片 / 小说=书本）
+ * @param title 空态主文案
+ * @param hint 操作提示副文案
+ * @return 无返回值
+ */
+@Composable
+private fun ReadLaterEmpty(
+    icon: ImageVector,
+    title: String,
+    hint: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(Spacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        // 图标：primary 8% 圆底 + primary 图标（与 ConfirmDialog 图标底同语汇）
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(AppShapes.circle)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = Spacing.md),
+        )
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
+    }
+}
 
 /**
  * 快照还原插画：直解完整 `Illust`（Gson 往返安全：字段全为可空/基本类型，缺失落 JVM 默认值）；

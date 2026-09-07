@@ -16,8 +16,9 @@ import javax.inject.Singleton
 /**
  * 卡片本地动作实现（进程单例，app 层组装）：
  * 稍后再看走 Room（read_later 表）、就地屏蔽走 DataStore（blocked_targets 键）。
- * 两组集合缓存为进程级 StateFlow 供卡片同步读取（模糊判断无异步等待）；
- * 写操作乐观更新 StateFlow（UI 即时反馈），落库结果经数据流回灌纠正。
+ *
+ * 集合状态为**单一数据源**：由 Room / DataStore 的数据流回灌驱动（本地写毫秒级，无可感知延迟），
+ * 写操作只负责落库，不做内存乐观更新——消除乐观值与回灌值双源互踩。
  */
 @Singleton
 class AppCardActions @Inject constructor(
@@ -55,15 +56,13 @@ class AppCardActions @Inject constructor(
     }
 
     /**
-     * 加入 / 移出稍后再看（按目标当前状态取反；乐观更新 + 落库）。
+     * 加入 / 移出稍后再看：按数据流回灌的当前状态取反，仅落库（幂等）。
      * 加入时先删旧再插（target 唯一），payloadJson 快照随行落库供离线还原卡片。
      */
     override fun toggleReadLater(target: CardActionTarget) {
         val key = keyOf(target)
-        val removing = key in _readLaterIds.value
-        _readLaterIds.value = if (removing) _readLaterIds.value - key else _readLaterIds.value + key
         appScope.launch {
-            if (removing) {
+            if (key in _readLaterIds.value) {
                 readLaterDao.deleteByTarget(target.targetType, target.targetId)
             } else {
                 readLaterDao.deleteByTarget(target.targetType, target.targetId)
@@ -79,14 +78,15 @@ class AppCardActions @Inject constructor(
         }
     }
 
-    /** 屏蔽 / 取消屏蔽（按目标当前状态取反；乐观更新 + 落 DataStore）。 */
+    /** 屏蔽 / 取消屏蔽：按数据流回灌的当前状态取反，仅落 DataStore（幂等）。 */
     override fun toggleBlock(targetType: String, targetId: Long) {
         val key = "$targetType:$targetId"
-        val removing = key in _blockedIds.value
-        _blockedIds.value = if (removing) _blockedIds.value - key else _blockedIds.value + key
         appScope.launch {
-            if (removing) userPreferences.removeBlockedTarget(targetType, targetId)
-            else userPreferences.addBlockedTarget(targetType, targetId)
+            if (key in _blockedIds.value) {
+                userPreferences.removeBlockedTarget(targetType, targetId)
+            } else {
+                userPreferences.addBlockedTarget(targetType, targetId)
+            }
         }
     }
 

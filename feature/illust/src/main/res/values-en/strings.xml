@@ -28,4 +28,8 @@
     <!-- Download worker errors (IllustDownloadWorker) -->
     <string name="illust_error_work_not_found">Work not found</string>
     <string name="illust_error_page_no_image">No image URL for this page</string>
+
+    <!-- Manga series watchlist (detail bottom bar, shown when work belongs to a series) -->
+    <string name="illust_watchlist">Watch</string>
+    <string name="illust_watchlisted">Watching</string>
 </resources>

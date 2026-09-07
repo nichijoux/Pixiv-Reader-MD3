@@ -80,6 +80,7 @@ fun MainShell(
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
     onOpenReadLater: () -> Unit,
+    onOpenMangaWatchlist: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -241,6 +242,7 @@ fun MainShell(
                         onOpenIllust = onOpenIllust,
                         onOpenMangaRanking = onOpenMangaRanking,
                         onOpenIllustRanking = onOpenIllustRanking,
+                        onOpenWatchlist = onOpenMangaWatchlist,
                         onOpenUser = onOpenUser,
                         onOpenViewer = onOpenViewer,
                     )

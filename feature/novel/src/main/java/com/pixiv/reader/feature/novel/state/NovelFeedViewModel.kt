@@ -16,6 +16,7 @@ import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -242,6 +243,8 @@ class NovelFeedViewModel @Inject constructor(
                 id to runCatching {
                     seriesDetailCache.getOrFetch(id) { fetchSeriesDetail(id) }
                 }.getOrElse { e ->
+                    // 取消是调用方生命周期信号，向上重抛；隐藏系列等请求失败视为无详情（卡片兜底展示）
+                    if (e is CancellationException) throw e
                     Log.e(TAG, "getOrFetch(series=$id) 异常: ${e.message}", e)
                     null
                 }

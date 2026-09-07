@@ -3,8 +3,7 @@
     <string name="watchlist_title">追更</string>
     <string name="watchlist_empty">暂无追更</string>
     <string name="watchlist_masked_series">已隐藏的系列</string>
-    <string name="watchlist_chapters">%1$d 章</string>
-    <string name="watchlist_view">查看</string>
+    <string name="watchlist_manga_chapters">%1$d 话</string>
     <string name="watchlist_type_novel">小说</string>
     <string name="watchlist_type_manga">漫画</string>
     <string name="watchlist_unwatch">取消追更</string>

@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.ModeComment
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -92,6 +94,10 @@ fun IllustDetailRoute(
     val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
     // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
     val isPrivateBookmark = isBookmarked && editorRestrict == PixivConstants.RESTRICT_PRIVATE
+    // 所属漫画系列追更态（illust.series 非空才显示追更按钮）
+    val seriesId = illust?.series?.id?.takeIf { it > 0L }
+    val isSeriesWatchlisted by viewModel.isSeriesWatchlisted.collectAsStateWithLifecycle()
+    val isSeriesWatchlisting by viewModel.isSeriesWatchlisting.collectAsStateWithLifecycle()
 
     var currentPage by remember { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -209,6 +215,19 @@ fun IllustDetailRoute(
                     // 收藏激活用红心（保留 App 收藏色习惯）
                     activeIconTint = FavoriteRed,
                 )
+                // 漫画系列追更按钮（作品属于漫画系列时显示，与小说详情页追更同语义）
+                if (seriesId != null) {
+                    VerticalActionButton(
+                        icon = if (isSeriesWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
+                        label = stringResource(
+                            if (isSeriesWatchlisted) R.string.illust_watchlisted else R.string.illust_watchlist
+                        ),
+                        active = isSeriesWatchlisted,
+                        enabled = !isSeriesWatchlisting,
+                        onClick = viewModel::toggleSeriesWatchlist,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 VerticalActionButton(
                     icon = Icons.Filled.Download,
                     label = stringResource(R.string.illust_cd_download),

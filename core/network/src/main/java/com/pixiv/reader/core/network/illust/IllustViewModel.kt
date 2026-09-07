@@ -88,6 +88,14 @@ class IllustViewModel @Inject constructor(
     private val _isAuthorFollowing = MutableStateFlow(false)
     val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
 
+    /** 所属漫画系列是否已追更（illust.series 非空时经系列详情加载；详情页追更按钮）。 */
+    private val _isSeriesWatchlisted = MutableStateFlow(false)
+    val isSeriesWatchlisted: StateFlow<Boolean> = _isSeriesWatchlisted.asStateFlow()
+
+    /** 系列追更操作进行中（防连点）。 */
+    private val _isSeriesWatchlisting = MutableStateFlow(false)
+    val isSeriesWatchlisting: StateFlow<Boolean> = _isSeriesWatchlisting.asStateFlow()
+
     val relatedPaged = PagedState<Illust>()
 
     /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
@@ -121,6 +129,8 @@ class IllustViewModel @Inject constructor(
         bookmarkEditor.onTargetLoaded(false)
         _isAuthorFollowed.value = false
         _isAuthorFollowing.value = false
+        _isSeriesWatchlisted.value = false
+        _isSeriesWatchlisting.value = false
         relatedPaged.reset()
         load()
     }
@@ -138,6 +148,8 @@ class IllustViewModel @Inject constructor(
                     // 内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
                     _isAuthorFollowed.value = ill.user?.is_followed == true
                     ill.user?.id?.let { loadAuthorFollowState(it) }
+                    // 漫画系列作品：拉系列详情回填追更态（详情页追更按钮）
+                    ill.series?.id?.takeIf { it > 0L }?.let { loadSeriesWatchlistState(it) }
                     _pages.value = ill.toPages()
                     recordHistory(ill)
                     loadRelated()
@@ -214,6 +226,44 @@ class IllustViewModel @Inject constructor(
                     ))
                 }
             _isAuthorFollowing.value = false
+        }
+    }
+
+    /** 加载所属漫画系列的追更态（v1/illust/series 的 detail.watchlist_added；失败保留默认未追更）。 */
+    private fun loadSeriesWatchlistState(seriesId: Long) {
+        viewModelScope.launch {
+            runCatching { pixivRepository.api.getIllustSeries(seriesId) }
+                .onSuccess { resp ->
+                    resp.illust_series_detail?.watchlist_added?.let { _isSeriesWatchlisted.value = it }
+                }
+        }
+    }
+
+    /** 追更 / 取消追更所属漫画系列（详情页追更按钮，乐观翻转 + 防连点）。 */
+    fun toggleSeriesWatchlist() {
+        if (_isSeriesWatchlisting.value) return
+        val seriesId = _illust.value?.series?.id ?: return
+        viewModelScope.launch {
+            _isSeriesWatchlisting.value = true
+            val current = _isSeriesWatchlisted.value
+            runCatching {
+                if (current) pixivRepository.api.removeWatchlistManga(seriesId)
+                else pixivRepository.api.addWatchlistManga(seriesId)
+            }
+                .onSuccess {
+                    _isSeriesWatchlisted.value = !current
+                    sendMessage(
+                        if (!current) UiMessage(CoreR.string.core_msg_watching_added)
+                        else UiMessage(CoreR.string.core_msg_watching_removed)
+                    )
+                }
+                .onFailure {
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
+                }
+            _isSeriesWatchlisting.value = false
         }
     }
 

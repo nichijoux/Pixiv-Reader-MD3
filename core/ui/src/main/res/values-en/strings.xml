@@ -37,6 +37,11 @@
     <string name="card_action_unblock">Unblock</string>
     <string name="card_blocked_badge">Blocked</string>
     <string name="card_blocked_reveal_hint">Tap to reveal</string>
+    <!-- Long-press action success messages -->
+    <string name="card_msg_read_later_added">Added to read later</string>
+    <string name="card_msg_read_later_removed">Removed from read later</string>
+    <string name="card_msg_blocked">Work blocked; its cover will be blurred</string>
+    <string name="card_msg_unblocked">Block removed</string>
     <string name="not_logged_in">Not logged in</string>
     <string name="follow">Follow</string>
     <string name="following">Following</string>
@@ -46,7 +51,7 @@
     <string name="common_cancel">Cancel</string>
     <string name="common_delete">Delete</string>
     <string name="download_progress">%1$d%%</string>
-    <string name="download_failed">Download failed</string>
+    <string name="download_failed_short">Download failed</string>
     <string name="ugoira_cd">Animated</string>
     <!-- 系列卡片（SeriesCard） -->
     <string name="series_parts">%1$d parts</string>

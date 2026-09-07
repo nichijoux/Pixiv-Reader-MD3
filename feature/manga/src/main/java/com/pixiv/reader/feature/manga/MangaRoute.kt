@@ -2,6 +2,7 @@ package com.pixiv.reader.feature.manga
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -70,6 +72,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * @param onOpenIllust 点击作品卡打开详情
  * @param onOpenMangaRanking 点击漫画排行榜 banner / 顶栏奖杯打开漫画排行榜全屏页
  * @param onOpenIllustRanking 点击插画排行榜 banner / 顶栏奖杯打开插画排行榜全屏页
+ * @param onOpenWatchlist 顶栏追更入口（铃铛，仅漫画分段显示；跳追更页漫画分段）
  * @param onOpenUser 点击作者行打开用户主页
  * @param onOpenViewer 打开全屏查看器（平板详情 pane 图片点击）
  */
@@ -79,6 +82,7 @@ fun MangaRoute(
     onOpenIllust: (Long) -> Unit,
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
+    onOpenWatchlist: () -> Unit = {},
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
@@ -147,11 +151,20 @@ fun MangaRoute(
                 actions = {
                     // 排行榜入口按内容类型显示对应榜单（漫画榜 / 插画榜；动图无榜单页）
                     when (tab) {
-                        MangaContentType.MANGA -> IconButton(onClick = onOpenMangaRanking) {
-                            Icon(
-                                Icons.Filled.Leaderboard,
-                                contentDescription = stringResource(R.string.manga_cd_ranking),
-                            )
+                        MangaContentType.MANGA -> Row {
+                            // 追更入口（漫画分段）：跳追更页漫画分段
+                            IconButton(onClick = onOpenWatchlist) {
+                                Icon(
+                                    Icons.Filled.NotificationsActive,
+                                    contentDescription = stringResource(R.string.manga_cd_watchlist),
+                                )
+                            }
+                            IconButton(onClick = onOpenMangaRanking) {
+                                Icon(
+                                    Icons.Filled.Leaderboard,
+                                    contentDescription = stringResource(R.string.manga_cd_ranking),
+                                )
+                            }
                         }
                         MangaContentType.ILLUST -> IconButton(onClick = onOpenIllustRanking) {
                             Icon(

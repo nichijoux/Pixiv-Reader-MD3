@@ -37,6 +37,11 @@
     <string name="card_action_unblock">取消屏蔽</string>
     <string name="card_blocked_badge">已屏蔽</string>
     <string name="card_blocked_reveal_hint">轻点显示</string>
+    <!-- 长按动作成功提示 -->
+    <string name="card_msg_read_later_added">已加入稍后再看</string>
+    <string name="card_msg_read_later_removed">已移出稍后再看</string>
+    <string name="card_msg_blocked">已屏蔽该作品，封面将打码显示</string>
+    <string name="card_msg_unblocked">已取消屏蔽</string>
     <string name="not_logged_in">未登录</string>
     <string name="follow">关注</string>
     <string name="following">已关注</string>
@@ -46,7 +51,7 @@
     <string name="common_cancel">取消</string>
     <string name="common_delete">删除</string>
     <string name="download_progress">%1$d%%</string>
-    <string name="download_failed">下载失败</string>
+    <string name="download_failed_short">下载失败</string>
     <string name="ugoira_cd">动图</string>
     <!-- 系列卡片（SeriesCard，用户页系列列表 / 追更列表共用） -->
     <string name="series_parts">%1$d 篇</string>

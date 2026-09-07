@@ -1,6 +1,8 @@
 package com.pixiv.reader.core.ui.component.actions
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -11,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +71,11 @@ internal fun rememberCardBlockGesture(
     // 本卡「已临时显示」标记：屏蔽态点击一次后解除模糊（remember(id) 切卡重置）
     var revealed by remember(targetId) { mutableStateOf(false) }
     val rawBlocked = controller != null && controller.keyOf(targetType, targetId) in blockedIds
+    // 取消屏蔽后再次屏蔽：重置临时显示标记——否则上一次点开留下的 revealed=true
+    // 会让 isBlocked 恒为 false，重新屏蔽的遮罩永不恢复
+    LaunchedEffect(rawBlocked) {
+        if (rawBlocked) revealed = false
+    }
     return CardBlockGesture(
         isBlocked = rawBlocked && !revealed,
         onClick = {
@@ -82,15 +90,38 @@ internal fun rememberCardBlockGesture(
 
 /**
  * 屏蔽遮罩（三卡共用）：半透明黑底 + 禁止图标 +「已屏蔽 · 轻点显示」文案。
- * 叠在模糊封面上层；点击行为由整卡手势（[rememberCardBlockGesture]）处理，遮罩本身不可点。
+ *
+ * ## 手势拦截（关键）
+ * 遮罩绘制在最上层并**持有全部点击手势**——Compose 命中测试最上层优先，
+ * 模糊内容层里的标签 chip / 作者行 / 收藏按钮等 clickable 在屏蔽期间全部收不到事件，
+ * 防止「透过遮罩点标签跳搜索 / 进作者主页」。点击 = 临时显示，长按 = 动作菜单。
  *
  * @param modifier 遮罩范围（调用方传 `matchParentSize()` / `fillMaxSize()`）
+ * @param onClick 点击回调（通常传 [CardBlockGesture.onClick]，即临时显示路径）；null 纯展示无手势
+ * @param onLongClick 长按回调（传 [CardBlockGesture.onLongClick] 弹动作菜单）
  * @return 无返回值
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun BlockedOverlay(modifier: Modifier = Modifier) {
+internal fun BlockedOverlay(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+) {
     Column(
-        modifier = modifier.background(Color.Black.copy(alpha = 0.5f)),
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.5f))
+            // 手势挂遮罩（最上层）而非内容层：屏蔽期间下层所有 clickable 一并失效
+            .let { base ->
+                if (onClick != null) {
+                    base.combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    base
+                }
+            },
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

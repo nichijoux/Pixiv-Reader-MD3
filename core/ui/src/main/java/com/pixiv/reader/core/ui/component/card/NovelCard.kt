@@ -162,7 +162,13 @@ fun NovelCard(
         ),
         shape = AppShapes.large,
     ) {
-        Column(modifier = Modifier.padding(Spacing.mdPlus)) {
+        Box {
+            // 整卡模糊（屏蔽语义：标题/作者/标签随封面一并打码；点击临时显示由整卡手势处理）
+            Column(
+                modifier = Modifier
+                    .padding(Spacing.mdPlus)
+                    .then(if (block.isBlocked) Modifier.blur(12.dp) else Modifier),
+            ) {
             // ── 上部分：左右布局（左封面 | 右信息） ──
             // height(IntrinsicSize.Min)：Row 高度取封面固有高度（104×4/3），
             // 使右信息 Column 的 fillMaxHeight 有确定高度可撑满，作者行才能抵底与封面齐平。
@@ -179,15 +185,8 @@ fun NovelCard(
                         model = novel.coverUrl,
                         contentDescription = novel.title,
                         contentScale = ContentScale.Crop,
-                        // 就地屏蔽：封面模糊（点击临时显示）
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (block.isBlocked) Modifier.blur(14.dp) else Modifier),
+                        modifier = Modifier.fillMaxSize(),
                     )
-                    // 屏蔽遮罩：盖在封面上层（Box 已按 AppShapes.card 裁剪）
-                    if (block.isBlocked) {
-                        BlockedOverlay(modifier = Modifier.fillMaxSize())
-                    }
                     // 排名徽标（排行榜用，左上角）：1金/2橙/3灰，其余白色；
                     // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
                     if (rank != null) {
@@ -357,6 +356,15 @@ fun NovelCard(
                         NovelTagChip(text = "+${novel.tags.size - 5}", onClick = {})
                     }
                 }
+            }
+            }
+            // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层标签/作者不可点
+            if (block.isBlocked) {
+                BlockedOverlay(
+                    modifier = Modifier.matchParentSize(),
+                    onClick = block.onClick,
+                    onLongClick = block.onLongClick,
+                )
             }
         }
     }

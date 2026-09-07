@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.user.state
 
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -24,10 +25,13 @@ import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+private const val TAG = "UserSeries"
 
 /** 用户主页作品分区。 */
 enum class UserSection(@param:StringRes val labelRes: Int) {
@@ -238,16 +242,23 @@ class UserViewModel @Inject constructor(
         viewModelScope.launch {
             missing.chunked(6).forEach { batch ->
                 val results = batch.map { id ->
-                    id to seriesDetailCache.getOrFetch(id) {
-                        pixivRepository.api.getNovelSeries(id).let { resp ->
-                            SeriesDetailInfo(
-                                coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
-                                caption = resp.novel_series_detail?.caption,
-                                isConcluded = resp.novel_series_detail?.is_concluded,
-                                totalChars = resp.novel_series_detail?.total_character_count ?: 0,
-                                updatedAt = resp.novel_series_latest_novel?.create_date,
-                            )
+                    id to runCatching {
+                        seriesDetailCache.getOrFetch(id) {
+                            pixivRepository.api.getNovelSeries(id).let { resp ->
+                                SeriesDetailInfo(
+                                    coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
+                                    caption = resp.novel_series_detail?.caption,
+                                    isConcluded = resp.novel_series_detail?.is_concluded,
+                                    totalChars = resp.novel_series_detail?.total_character_count ?: 0,
+                                    updatedAt = resp.novel_series_latest_novel?.create_date,
+                                )
+                            }
                         }
+                    }.getOrElse { e ->
+                        // 取消是调用方生命周期信号，向上重抛；隐藏系列等请求失败视为无详情（卡片兜底展示）
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "loadSeriesInfos: series=$id 详情获取失败: ${e.message}")
+                        null
                     }
                 }
                 val newMap = _seriesInfos.value.toMutableMap()

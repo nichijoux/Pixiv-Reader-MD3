@@ -240,6 +240,10 @@ fun PixivNavGraph(
                 onOpenReadLater = {
                     navController.navigate(ROUTE_READ_LATER)
                 },
+                onOpenMangaWatchlist = {
+                    // 作品 Tab 顶栏追更入口：直达漫画分段
+                    navController.navigate("watchlist?type=manga")
+                },
                 onOpenNotifications = {
                     navController.navigate(ROUTE_NOTIFICATION)
                 },
@@ -637,7 +641,7 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 追更列表（小说 / 漫画分段；行点击按类型跳最新分册 / 最新一话）
+        // 追更列表（小说 / 漫画分段；小说卡开系列详情页，漫画卡开最新一话）
         composable(
             route = "watchlist?type={type}",
             arguments = listOf(
@@ -650,8 +654,8 @@ fun PixivNavGraph(
                 // VM 侧对非法值回退 novel，这里原样透传
                 initialType = backStackEntry.arguments?.getString("type").orEmpty(),
                 onBack = { navController.safeBack() },
-                onOpenNovel = { novelId ->
-                    navController.navigate("novel/$novelId")
+                onOpenSeries = { seriesId ->
+                    navController.navigate("novel_series/$seriesId")
                 },
                 onOpenIllust = { illustId ->
                     navController.navigate("illust/$illustId")

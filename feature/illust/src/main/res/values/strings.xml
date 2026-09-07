@@ -28,4 +28,8 @@
     <!-- 下载 worker 错误（IllustDownloadWorker） -->
     <string name="illust_error_work_not_found">作品不存在</string>
     <string name="illust_error_page_no_image">该页无图片地址</string>
+
+    <!-- 漫画系列追更（详情页底部栏，作品属于漫画系列时显示） -->
+    <string name="illust_watchlist">追更</string>
+    <string name="illust_watchlisted">已追更</string>
 </resources>
