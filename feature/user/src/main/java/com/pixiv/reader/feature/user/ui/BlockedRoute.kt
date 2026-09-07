@@ -77,6 +77,7 @@ fun BlockedRoute(
     val mutedUsers by viewModel.mutedUsers.collectAsStateWithLifecycle()
     val mutedTags by viewModel.mutedTags.collectAsStateWithLifecycle()
     val localTags by viewModel.localTags.collectAsStateWithLifecycle()
+    val localBlockedWorks by viewModel.localBlockedWorks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf("") }
     // 本地过滤标签清空 / 单条删除确认
@@ -179,6 +180,73 @@ fun BlockedRoute(
                                         localTags.forEach { tag ->
                                             TagPill(text = tag, onRemove = { pendingDeleteTag = tag })
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── 本地屏蔽作品卡片（卡片长按就地屏蔽的作品，可解除） ──
+                    item(key = "local_works_card") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            ),
+                        ) {
+                            Column(modifier = Modifier.padding(Spacing.lg)) {
+                                Text(
+                                    text = stringResource(R.string.blocked_local_works_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = stringResource(R.string.blocked_local_works_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = Spacing.xxs),
+                                )
+                                if (localBlockedWorks.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.blocked_local_works_empty),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = Spacing.md),
+                                    )
+                                } else {
+                                    Spacer(Modifier.height(12.dp))
+                                    // 键格式 "illust:123" / "novel:456"：类型徽标 + id + 解除按钮
+                                    localBlockedWorks.sorted().forEach { key ->
+                                        val parts = key.split(':')
+                                        val type = parts.getOrNull(0).orEmpty()
+                                        val id = parts.getOrNull(1).orEmpty()
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = Spacing.xs),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = type,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier
+                                                    .clip(AppShapes.small)
+                                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                                    .padding(horizontal = Spacing.sm, vertical = 3.dp),
+                                            )
+                                            Text(
+                                                text = "ID $id",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier
+                                                    .padding(start = Spacing.md)
+                                                    .weight(1f),
+                                            )
+                                            TextButton(onClick = { viewModel.removeLocalBlockedWork(key) }) {
+                                                Text(stringResource(R.string.blocked_unblock), color = MaterialTheme.colorScheme.error)
+                                            }
+                                        }
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                     }
                                 }
                             }

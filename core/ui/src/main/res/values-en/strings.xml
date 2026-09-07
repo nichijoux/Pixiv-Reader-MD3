@@ -30,6 +30,13 @@
     <string name="bookmark_tag_add">Add</string>
     <string name="bookmark_save">Save</string>
     <string name="bookmark_private_cd">Private bookmark</string>
+    <!-- Card long-press action menu (CardActionsHost: read later / local block) and block overlay -->
+    <string name="card_action_read_later">Read later</string>
+    <string name="card_action_read_later_remove">Remove from read later</string>
+    <string name="card_action_block">Block this work</string>
+    <string name="card_action_unblock">Unblock</string>
+    <string name="card_blocked_badge">Blocked</string>
+    <string name="card_blocked_reveal_hint">Tap to reveal</string>
     <string name="not_logged_in">Not logged in</string>
     <string name="follow">Follow</string>
     <string name="following">Following</string>

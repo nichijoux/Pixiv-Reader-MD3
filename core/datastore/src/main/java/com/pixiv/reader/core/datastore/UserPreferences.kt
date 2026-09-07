@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pixiv.reader.core.common.config.AppLanguage
 import com.pixiv.reader.core.common.config.FollowSortMode
@@ -124,6 +125,11 @@ class UserPreferences @Inject constructor(
         prefs[KEY_MUTED_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
 
+    // ── 就地屏蔽（单作品，纯本地不上报；卡片封面模糊 + 点击临时显示）──
+    /** 本地屏蔽作品集合，条目格式 `illust:123` / `novel:456`。 */
+    val blockedTargets: Flow<Set<String>> =
+        context.dataStore.data.map { prefs -> prefs[KEY_BLOCKED_TARGETS] ?: emptySet() }
+
     // ── 发现页搜索筛选（记住上次应用的条件，对齐 Pixiv-Shaft 全局默认语义）──
     /** 搜索排序（date_desc / date_asc / popular_desc；默认按热度） */
     val searchFilterSort: Flow<String> =
@@ -186,6 +192,18 @@ class UserPreferences @Inject constructor(
     suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
+
+    /** 加入本地屏蔽（幂等：同目标重复添加不产生重复条目）。 */
+    suspend fun addBlockedTarget(type: String, id: Long) =
+        context.dataStore.edit { prefs ->
+            prefs[KEY_BLOCKED_TARGETS] = (prefs[KEY_BLOCKED_TARGETS] ?: emptySet()) + "$type:$id"
+        }
+
+    /** 解除本地屏蔽（目标不在集合中时静默忽略）。 */
+    suspend fun removeBlockedTarget(type: String, id: Long) =
+        context.dataStore.edit { prefs ->
+            prefs[KEY_BLOCKED_TARGETS] = (prefs[KEY_BLOCKED_TARGETS] ?: emptySet()) - "$type:$id"
+        }
     suspend fun setSearchFilterSort(value: String) =
         context.dataStore.edit { it[KEY_SEARCH_SORT] = value }
     suspend fun setSearchFilterTarget(value: String) =
@@ -229,6 +247,7 @@ class UserPreferences @Inject constructor(
         val KEY_HOT_TAGS = stringPreferencesKey("hot_tags")
         val KEY_HOT_TAGS_AT = longPreferencesKey("hot_tags_updated_at")
         val KEY_MUTED_TAGS = stringPreferencesKey("muted_tags")
+        val KEY_BLOCKED_TARGETS = stringSetPreferencesKey("blocked_targets")
         val KEY_NOVEL_EXPORT_DIR = stringPreferencesKey("novel_export_dir")
         val KEY_NOVEL_FILE_NAME_TEMPLATE = stringPreferencesKey("novel_file_name_template")
         val KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES = stringPreferencesKey("novel_file_name_template_series")

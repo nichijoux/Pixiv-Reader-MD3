@@ -3,8 +3,10 @@ import android.annotation.SuppressLint
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraCardPlayer
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -40,11 +43,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
+import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -82,6 +88,7 @@ import kotlin.math.roundToInt
  */
 // scope 实际用到了（maxWidth 作为 ugoira 解码上限），IDE 误报"scope 未使用"
 @SuppressLint("UnusedBoxWithConstraintsScope")
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun IllustCard(
     illust: Illust,
@@ -96,12 +103,21 @@ fun IllustCard(
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
-    // 卡片根容器：圆角 + 卡片底色 + 整卡点击
+    // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
+    val gson = remember { Gson() }
+    val block = rememberCardBlockGesture(
+        targetType = "illust",
+        targetId = illust.id,
+        title = { illust.title },
+        payload = { gson.toJson(illust) },
+        onClick = onClick,
+    )
+    // 卡片根容器：圆角 + 卡片底色 + 整卡点击（含屏蔽手势包装）
     Column(
         modifier = modifier
             .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = block.onClick, onLongClick = block.onLongClick),
     ) {
         // ── 封面区（Box 内浮层用 align 定位） ──
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -122,9 +138,15 @@ fun IllustCard(
                     .then(
                         if (ratio != null) Modifier.aspectRatio(ratio)
                         else Modifier.height(coverHeight),
-                    ),
+                    )
+                    // 就地屏蔽：封面模糊（点击临时显示）
+                    .then(if (block.isBlocked) Modifier.blur(16.dp) else Modifier),
                 contentScale = ContentScale.Crop,
             )
+            // 屏蔽遮罩：盖在封面（含动图帧）上层
+            if (block.isBlocked) {
+                BlockedOverlay(modifier = Modifier.matchParentSize())
+            }
             // 动图：ugoira 卡片播放（zip 帧动画覆盖静态封面；帧未就绪透明露出封面）
             if (ugoiraLoader != null && illust.isGif()) {
                 UgoiraCardPlayer(

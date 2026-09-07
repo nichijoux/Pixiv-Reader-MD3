@@ -30,6 +30,13 @@
     <string name="bookmark_tag_add">添加</string>
     <string name="bookmark_save">保存</string>
     <string name="bookmark_private_cd">私密收藏</string>
+    <!-- 卡片长按动作菜单（CardActionsHost：稍后再看 / 就地屏蔽）与屏蔽遮罩 -->
+    <string name="card_action_read_later">稍后再看</string>
+    <string name="card_action_read_later_remove">移出稍后再看</string>
+    <string name="card_action_block">屏蔽此作品</string>
+    <string name="card_action_unblock">取消屏蔽</string>
+    <string name="card_blocked_badge">已屏蔽</string>
+    <string name="card_blocked_reveal_hint">轻点显示</string>
     <string name="not_logged_in">未登录</string>
     <string name="follow">关注</string>
     <string name="following">已关注</string>

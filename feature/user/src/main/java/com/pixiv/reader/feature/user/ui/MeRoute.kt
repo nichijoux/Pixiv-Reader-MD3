@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +62,7 @@ fun MeRoute(
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
+    onOpenReadLater: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -134,6 +136,7 @@ fun MeRoute(
                 val contentItems = listOf(
                     SettingsCardItem(Icons.Filled.Favorite, stringResource(R.string.me_bookmarks_title), stringResource(R.string.me_bookmarks_desc), onClick = onOpenBookmarks),
                     SettingsCardItem(Icons.Filled.History, stringResource(R.string.me_history_title), stringResource(R.string.me_history_desc), onClick = onOpenHistory),
+                    SettingsCardItem(Icons.Filled.Schedule, stringResource(R.string.me_read_later_title), stringResource(R.string.me_read_later_desc), onClick = onOpenReadLater),
                     SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), onClick = onOpenDownloads),
                     SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), onClick = onOpenBlocked),
                 )

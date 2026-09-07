@@ -82,6 +82,8 @@
     <string name="me_history_desc">浏览过的作品</string>
     <string name="me_downloads_title">下载管理</string>
     <string name="me_downloads_desc">已下载的内容</string>
+    <string name="me_read_later_title">稍后再看</string>
+    <string name="me_read_later_desc">稍后阅读的作品</string>
     <string name="me_blocked_title">屏蔽管理</string>
     <string name="me_blocked_desc">已屏蔽的用户与标签</string>
     <string name="me_theme_mode">主题模式</string>
@@ -132,6 +134,14 @@
     <string name="history_empty_illust">暂无插画浏览记录</string>
     <string name="history_empty_novel">暂无小说浏览记录</string>
     <string name="history_empty_user">暂无用户浏览记录</string>
+    <!-- 稍后再看（ReadLaterRoute） -->
+    <string name="read_later_title">稍后再看</string>
+    <string name="read_later_clear_title">清空稍后再看？</string>
+    <string name="read_later_clear_message">将移除全部稍后再看条目，此操作不可撤销。</string>
+    <string name="read_later_empty_illust">暂无稍后再看的插画
+长按卡片即可加入</string>
+    <string name="read_later_empty_novel">暂无稍后再看的小说
+长按卡片即可加入</string>
 
     <!-- DownloadsRoute -->
     <string name="downloads_title">下载管理</string>
@@ -160,6 +170,9 @@
     <string name="blocked_local_tags_desc">在推荐与搜索中过滤的标签</string>
     <string name="blocked_local_tags_input_hint">输入标签后添加</string>
     <string name="blocked_local_tags_empty">暂无本地过滤标签，可在上方添加</string>
+    <string name="blocked_local_works_title">本地屏蔽作品</string>
+    <string name="blocked_local_works_desc">长按卡片屏蔽的作品在此解除</string>
+    <string name="blocked_local_works_empty">暂无本地屏蔽的作品</string>
     <string name="blocked_server_title">服务端屏蔽</string>
     <string name="blocked_server_desc">pixiv 账号级屏蔽</string>
     <string name="blocked_server_empty">暂无服务端屏蔽</string>

@@ -44,6 +44,7 @@ import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.ui.BlockedRoute
 import com.pixiv.reader.feature.user.ui.DownloadsRoute
 import com.pixiv.reader.feature.user.ui.HistoryRoute
+import com.pixiv.reader.feature.user.ui.ReadLaterRoute
 import com.pixiv.reader.feature.user.ui.UserBookmarksRoute
 import com.pixiv.reader.feature.user.ui.UserFollowingRoute
 import com.pixiv.reader.feature.user.ui.UserRoute
@@ -97,6 +98,9 @@ const val ROUTE_BOOKMARKS = "bookmarks"
 
 /** 追更小说列表。 */
 const val ROUTE_WATCHLIST = "watchlist"
+
+/** 稍后再看（本地暂存，卡片长按加入）。 */
+const val ROUTE_READ_LATER = "read_later"
 
 /** 通知中心（收藏 / 关注 / 评论等消息流）。 */
 const val ROUTE_NOTIFICATION = "notifications"
@@ -228,6 +232,9 @@ fun PixivNavGraph(
                 },
                 onOpenWatchlist = {
                     navController.navigate(ROUTE_WATCHLIST)
+                },
+                onOpenReadLater = {
+                    navController.navigate(ROUTE_READ_LATER)
                 },
                 onOpenNotifications = {
                     navController.navigate(ROUTE_NOTIFICATION)
@@ -614,6 +621,21 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
                 onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
+                },
+            )
+        }
+        // 稍后再看（本地暂存）：插画/小说二段，卡片点击跳详情
+        composable(ROUTE_READ_LATER) {
+            ReadLaterRoute(
+                onBack = { navController.safeBack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenNovel = { novelId ->
+                    navController.navigate("novel/$novelId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
                 },
             )
         }

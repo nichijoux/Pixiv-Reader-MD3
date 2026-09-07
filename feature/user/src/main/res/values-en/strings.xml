@@ -83,6 +83,8 @@
     <string name="me_downloads_title">Downloads</string>
     <string name="me_downloads_desc">Downloaded content</string>
     <string name="me_blocked_title">Mute management</string>
+    <string name="me_read_later_title">Read later</string>
+    <string name="me_read_later_desc">Works saved for later</string>
     <string name="me_blocked_desc">Muted users and tags</string>
     <string name="me_theme_mode">Theme mode</string>
     <string name="me_theme_follow_system">Follow system</string>
@@ -132,6 +134,14 @@
     <string name="history_empty_illust">No illustration history yet</string>
     <string name="history_empty_novel">No novel history yet</string>
     <string name="history_empty_user">No user history yet</string>
+    <!-- Read later (ReadLaterRoute) -->
+    <string name="read_later_title">Read later</string>
+    <string name="read_later_clear_title">Clear read later?</string>
+    <string name="read_later_clear_message">All read later items will be removed. This cannot be undone.</string>
+    <string name="read_later_empty_illust">No illustrations saved for later
+Long-press a card to add one</string>
+    <string name="read_later_empty_novel">No novels saved for later
+Long-press a card to add one</string>
 
     <!-- Downloads -->
     <string name="downloads_title">Downloads</string>
@@ -160,6 +170,9 @@
     <string name="blocked_local_tags_desc">Tags filtered from recommendations and search</string>
     <string name="blocked_local_tags_input_hint">Enter a tag to add</string>
     <string name="blocked_local_tags_empty">No local filter tags yet, add some above</string>
+    <string name="blocked_local_works_title">Locally blocked works</string>
+    <string name="blocked_local_works_desc">Works blocked via card long-press can be unblocked here</string>
+    <string name="blocked_local_works_empty">No locally blocked works</string>
     <string name="blocked_server_title">Server-side mutes</string>
     <string name="blocked_server_desc">pixiv account-level mutes</string>
     <string name="blocked_server_empty">No server-side mutes</string>

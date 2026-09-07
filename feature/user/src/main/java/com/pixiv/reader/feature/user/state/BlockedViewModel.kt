@@ -40,6 +40,10 @@ class BlockedViewModel @Inject constructor(
     val localTags: StateFlow<List<String>> =
         userPreferences.mutedTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** 本地屏蔽作品（卡片长按屏蔽的 `illust:123` / `novel:456` 键集合）。 */
+    val localBlockedWorks: StateFlow<Set<String>> =
+        userPreferences.blockedTargets.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -81,6 +85,36 @@ class BlockedViewModel @Inject constructor(
     fun clearLocalTags() {
         viewModelScope.launch {
             runCatching { userPreferences.setMutedTags(emptyList()) }
+        }
+    }
+
+    // ── 本地屏蔽作品（就地屏蔽） ──
+
+    /**
+     * 解除本地屏蔽的单个作品（"illust:123" / "novel:456" 键 → 拆分后写 DataStore）。
+     *
+     * @param key 屏蔽键（type:id 形式）；格式非法时静默忽略
+     */
+    fun removeLocalBlockedWork(key: String) {
+        val parts = key.split(':')
+        if (parts.size != 2) return
+        val type = parts[0]
+        val id = parts[1].toLongOrNull() ?: return
+        viewModelScope.launch {
+            runCatching { userPreferences.removeBlockedTarget(type, id) }
+        }
+    }
+
+    /** 清空全部本地屏蔽作品。 */
+    fun clearLocalBlockedWorks() {
+        viewModelScope.launch {
+            runCatching {
+                localBlockedWorks.value.forEach { key ->
+                    val parts = key.split(':')
+                    val id = parts.getOrNull(1)?.toLongOrNull() ?: return@forEach
+                    userPreferences.removeBlockedTarget(parts[0], id)
+                }
+            }
         }
     }
 

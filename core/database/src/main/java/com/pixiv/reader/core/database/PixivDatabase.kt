@@ -4,15 +4,17 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.dao.ReadLaterDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.dao.SearchHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 
 /**
- * 数据库结构（version = 3）。
+ * 数据库结构（version = 4）。
  *
  * 历史迁移（原 v1→v7 六条，含 download_entry 字段演进与主键重构）已全部清理，
  * 新装用户直接按此 schema 建库；旧版本（v7）数据经 `fallbackToDestructiveMigration` 重建。
@@ -21,6 +23,7 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
  * v2：download_entry 新增 payloadJson（完整卡片快照 JSON，下载管理页完整展示用）。
  * v3：download_entry 主键扩为 (targetType, targetId, format, scopeKey)，区分同一小说的
  *     单本/整系列/部分分册下载，修复系列下载顶替单本下载条目的问题。
+ * v4：新增 read_later（稍后再看，本地暂存表；target 唯一索引，payloadJson 快照）。
  */
 @Database(
     entities = [
@@ -28,8 +31,9 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
         BrowseHistoryEntity::class,
         DownloadEntryEntity::class,
         SearchHistoryEntity::class,
+        ReadLaterEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {
@@ -37,6 +41,7 @@ abstract class PixivDatabase : RoomDatabase() {
     abstract fun browseHistoryDao(): BrowseHistoryDao
     abstract fun downloadEntryDao(): DownloadEntryDao
     abstract fun searchHistoryDao(): SearchHistoryDao
+    abstract fun readLaterDao(): ReadLaterDao
 
     companion object {
         /** v1 → v2：download_entry 增加 payloadJson 列（旧数据回退结构字段展示，零丢失）。 */
@@ -99,6 +104,32 @@ abstract class PixivDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE download_entry")
                 db.execSQL("ALTER TABLE download_entry_new RENAME TO download_entry")
+            }
+        }
+
+        /**
+         * v3 → v4：新增 read_later（稍后再看，本地暂存）。
+         * 纯新增表零搬数据；列定义须与 [com.pixiv.reader.core.database.entity.ReadLaterEntity]
+         * 完全一致（含 autoGenerate 主键与 target 唯一索引，Room 启动时校验 schema）。
+         */
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE read_later (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        targetType TEXT NOT NULL,
+                        targetId INTEGER NOT NULL,
+                        title TEXT,
+                        coverUrl TEXT,
+                        payloadJson TEXT,
+                        addedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX index_read_later_targetType_targetId ON read_later (targetType, targetId)",
+                )
             }
         }
     }

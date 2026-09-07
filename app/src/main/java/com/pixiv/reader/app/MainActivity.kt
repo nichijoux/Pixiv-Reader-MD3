@@ -58,6 +58,8 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.feature.user.R as UserR
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
+import com.pixiv.reader.app.actions.AppCardActions
+import com.pixiv.reader.core.ui.component.actions.CardActionsHost
 import com.pixiv.reader.core.ui.theme.Spacing
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -90,6 +92,10 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var updateChecker: AppUpdateChecker
+
+    /** 卡片本地动作（稍后再看 / 就地屏蔽）：经 [CardActionsHost] 下发给所有卡片。 */
+    @Inject
+    lateinit var appCardActions: AppCardActions
 
     /**
      * 应用 i18n：在 Hilt 装配前同步读取应用语言设置，按需用 createConfigurationContext 覆盖资源配置；
@@ -261,18 +267,21 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                        PixivNavGraph(
-                            isLoggedIn = isLoggedIn,
-                            // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
-                            onboardingComplete = readOnboardingCompleteSync(context),
-                            onCompleteOnboarding = {
-                                lifecycleScope.launch {
-                                    runCatching { userPreferences.setOnboardingComplete(true) }
-                                }
-                            },
-                            onLogout = { sessionRepository.logout() },
-                            navController = navController,
-                        )
+                        // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
+                        CardActionsHost(actions = appCardActions) {
+                            PixivNavGraph(
+                                isLoggedIn = isLoggedIn,
+                                // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
+                                onboardingComplete = readOnboardingCompleteSync(context),
+                                onCompleteOnboarding = {
+                                    lifecycleScope.launch {
+                                        runCatching { userPreferences.setOnboardingComplete(true) }
+                                    }
+                                },
+                                onLogout = { sessionRepository.logout() },
+                                navController = navController,
+                            )
+                        }
                     }
                 }
             }

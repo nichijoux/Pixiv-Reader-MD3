@@ -1,7 +1,9 @@
 package com.pixiv.reader.core.ui.component.card
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -47,8 +50,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.google.gson.Gson
 import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
+import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -108,7 +114,7 @@ typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
  * @param coverWidth 封面宽度（默认 104dp，3:4 比例；紧凑场景可传更小值）
  * @param modifier 外部传入的 Modifier
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun NovelCard(
     novel: NovelCardData,
@@ -137,10 +143,20 @@ fun NovelCard(
         ),
     )
 
+    // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
+    val gson = remember { Gson() }
+    val block = rememberCardBlockGesture(
+        targetType = "novel",
+        targetId = novel.id,
+        title = { novel.title },
+        payload = { gson.toJson(novel) },
+        onClick = onClick,
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = block.onClick, onLongClick = block.onLongClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -163,8 +179,15 @@ fun NovelCard(
                         model = novel.coverUrl,
                         contentDescription = novel.title,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
+                        // 就地屏蔽：封面模糊（点击临时显示）
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (block.isBlocked) Modifier.blur(14.dp) else Modifier),
                     )
+                    // 屏蔽遮罩：盖在封面上层（Box 已按 AppShapes.card 裁剪）
+                    if (block.isBlocked) {
+                        BlockedOverlay(modifier = Modifier.fillMaxSize())
+                    }
                     // 排名徽标（排行榜用，左上角）：1金/2橙/3灰，其余白色；
                     // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
                     if (rank != null) {
