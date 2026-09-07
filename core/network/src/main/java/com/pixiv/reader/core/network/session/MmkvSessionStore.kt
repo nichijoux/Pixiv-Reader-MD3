@@ -24,13 +24,21 @@ class MmkvSessionStore(private val mmkv: MMKV) : SessionStore {
 
     override fun getCookie(): String = mmkv.decodeString(KEY_COOKIE).orEmpty()
 
+    override fun getFanboxCookie(): String = mmkv.decodeString(KEY_FANBOX_COOKIE).orEmpty()
+
+    override fun setFanboxCookie(value: String) {
+        mmkv.encode(KEY_FANBOX_COOKIE, value)
+    }
+
     override fun clear() {
         mmkv.removeValueForKey(KEY_ACCOUNT)
         mmkv.removeValueForKey(KEY_COOKIE)
+        mmkv.removeValueForKey(KEY_FANBOX_COOKIE)
     }
 
     companion object {
         private const val KEY_ACCOUNT = "session_account"
         private const val KEY_COOKIE = "web_cookie"
+        private const val KEY_FANBOX_COOKIE = "fanbox_cookie"
     }
 }

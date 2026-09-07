@@ -98,6 +98,7 @@ dependencies {
     implementation(project(":feature:notification"))
     implementation(project(":feature:manga"))
     implementation(project(":feature:follow"))
+    implementation(project(":feature:fanbox"))
     implementation(project(":feature:onboarding"))
 
     // 基础设施

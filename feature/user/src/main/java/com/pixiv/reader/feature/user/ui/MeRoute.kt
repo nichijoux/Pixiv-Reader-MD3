@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
@@ -67,6 +68,7 @@ fun MeRoute(
     onOpenWatchlist: () -> Unit,
     onOpenReadLater: () -> Unit,
     onOpenComic: () -> Unit,
+    onOpenFanbox: () -> Unit,
     onOpenPixivision: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -169,6 +171,12 @@ fun MeRoute(
                 SectionSpacer()
                 SectionTitle(stringResource(R.string.me_section_ecosystem))
                 val ecoItems = listOf(
+                    SettingsCardItem(
+                        Icons.Filled.FavoriteBorder,
+                        stringResource(R.string.me_fanbox_title),
+                        stringResource(R.string.me_fanbox_desc),
+                        onClick = onOpenFanbox,
+                    ),
                     SettingsCardItem(
                         Icons.Filled.AutoStories,
                         stringResource(R.string.me_comic_title),

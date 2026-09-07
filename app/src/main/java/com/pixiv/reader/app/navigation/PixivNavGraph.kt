@@ -36,6 +36,10 @@ import com.pixiv.reader.feature.discover.ui.PixivisionRoute
 import com.pixiv.reader.feature.discover.ui.UserRankingRoute
 import com.pixiv.reader.feature.discover.ui.WallpaperRankingRoute
 import com.pixiv.reader.app.webview.WebViewRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxCreatorListRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxCreatorRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxHomeRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxPostRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
@@ -120,6 +124,18 @@ const val ROUTE_WEB_VIEW = "webview?url={url}&title={title}"
 
 /** pixiv COMIC 内嵌页（WebView 加载 comic.pixiv.net，cookie 由 WebView 自持）。 */
 const val ROUTE_COMIC = "comic"
+
+/** FANBOX 关注新帖流（内嵌登录门 + 帖子列表）。 */
+const val ROUTE_FANBOX = "fanbox"
+
+/** FANBOX 关注创作者列表。 */
+const val ROUTE_FANBOX_CREATORS = "fanbox_creators"
+
+/** FANBOX 创作者帖子流（creatorId 为字符串 id）。 */
+const val ROUTE_FANBOX_CREATOR = "fanbox_creator/{creatorId}"
+
+/** FANBOX 帖子详情（postId 为字符串 id）。 */
+const val ROUTE_FANBOX_POST = "fanbox_post/{postId}"
 
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
@@ -273,6 +289,9 @@ fun PixivNavGraph(
                 },
                 onOpenComic = {
                     navController.navigate(ROUTE_COMIC)
+                },
+                onOpenFanbox = {
+                    navController.navigate(ROUTE_FANBOX)
                 },
                 onOpenPixivision = {
                     navController.navigate(ROUTE_PIXIVISION)
@@ -887,6 +906,59 @@ fun PixivNavGraph(
                         popUpTo(ROUTE_MAIN) { inclusive = true }
                         launchSingleTop = true
                     }
+                },
+            )
+        }
+        // pixiv COMIC：WebView 内嵌（cookie 由 WebView 自持，用户在页内登录）
+        composable(ROUTE_COMIC) {
+            WebViewRoute(
+                url = "https://comic.pixiv.net/",
+                title = "pixiv COMIC",
+                onBack = { navController.safeBack() },
+            )
+        }
+        // FANBOX 首页：关注创作者新帖流（未登录渲染内嵌登录门）
+        composable(ROUTE_FANBOX) {
+            FanboxHomeRoute(
+                onBack = { navController.safeBack() },
+                onOpenPost = { postId ->
+                    navController.navigate("fanbox_post/$postId")
+                },
+                onOpenCreators = {
+                    navController.navigate(ROUTE_FANBOX_CREATORS)
+                },
+            )
+        }
+        // FANBOX 关注创作者列表
+        composable(ROUTE_FANBOX_CREATORS) {
+            FanboxCreatorListRoute(
+                onBack = { navController.safeBack() },
+                onOpenCreator = { creatorId ->
+                    navController.navigate("fanbox_creator/$creatorId")
+                },
+            )
+        }
+        // FANBOX 创作者帖子流
+        composable(
+            route = ROUTE_FANBOX_CREATOR,
+            arguments = listOf(navArgument("creatorId") { type = NavType.StringType }),
+        ) {
+            FanboxCreatorRoute(
+                onBack = { navController.safeBack() },
+                onOpenPost = { postId ->
+                    navController.navigate("fanbox_post/$postId")
+                },
+            )
+        }
+        // FANBOX 帖子详情
+        composable(
+            route = ROUTE_FANBOX_POST,
+            arguments = listOf(navArgument("postId") { type = NavType.StringType }),
+        ) {
+            FanboxPostRoute(
+                onBack = { navController.safeBack() },
+                onOpenCreator = { creatorId ->
+                    navController.navigate("fanbox_creator/$creatorId")
                 },
             )
         }

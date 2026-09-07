@@ -14,6 +14,9 @@ object PixivConstants {
     const val ACCOUNT_HOST = "https://accounts.pixiv.net/"
     const val IMAGE_CDN_HOST = "https://i.pximg.net/"
 
+    /** FANBOX API 域（post.listFollowing / post.info 等，Cookie 鉴权） */
+    const val FANBOX_HOST = "https://api.fanbox.cc/"
+
     // ── 客户端身份（对齐 Shaft 新版，iOS 官方客户端抓包值）──────────────────
     const val APP_VERSION = "8.6.10"
     const val APP_OS_VERSION = "26.5"

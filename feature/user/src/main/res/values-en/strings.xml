@@ -45,6 +45,8 @@
     <string name="me_logout_confirm_title">Sign out?</string>
     <string name="me_logout_confirm_message">You\'ll need to log in again to continue using the app.</string>
     <string name="me_section_content">Content</string>
+    <string name="me_fanbox_title">FANBOX</string>
+    <string name="me_fanbox_desc">Posts from creators you support</string>
     <string name="me_section_ecosystem">pixiv ecosystem</string>
     <string name="me_comic_title">pixiv COMIC</string>
     <string name="me_comic_desc">Official manga platform</string>

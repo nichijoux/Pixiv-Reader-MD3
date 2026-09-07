@@ -65,7 +65,14 @@ object PixivClient {
             .apply { if (debug) addLogging() }
             .build()
 
-        // 5. 图片专用 client（i.pximg.net 需 Referer）。
+        // 5. FANBOX API（api.fanbox.cc，Cookie + Origin + CSRF 鉴权）
+        val fanboxOkHttp = baseClient()
+            .protocols(listOf(Protocol.HTTP_1_1))
+            .addInterceptor(FanboxHeaderInterceptor(session::fanboxCookie))
+            .apply { if (debug) addLogging() }
+            .build()
+
+        // 6. 图片专用 client（i.pximg.net 需 Referer）。
         // Dispatcher 单主机并发默认 5：详情页主图与相关作品缩略图同队排队，
         // 弱网下队首停滞会阻塞后续请求（转圈），放宽到 8 缓解
         val imageClient = OkHttpClient.Builder()
@@ -79,6 +86,7 @@ object PixivClient {
         return PixivClientBundle(
             appApi = retrofit(PixivConstants.APP_API_HOST, appOkHttp).create(AppApi::class.java),
             webApi = retrofit(PixivConstants.WEB_API_HOST, webOkHttp).create(PixivWebApi::class.java),
+            fanboxApi = retrofit(PixivConstants.FANBOX_HOST, fanboxOkHttp).create(FanboxApi::class.java),
             oauthClient = oauthClient,
             refresher = refresher,
             imageClient = imageClient,
@@ -108,6 +116,7 @@ object PixivClient {
 data class PixivClientBundle(
     val appApi: AppApi,
     val webApi: PixivWebApi,
+    val fanboxApi: FanboxApi,
     val oauthClient: PixivOAuthClient,
     val refresher: AuthRefresher,
     val imageClient: OkHttpClient,

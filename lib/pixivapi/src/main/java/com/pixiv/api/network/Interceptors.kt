@@ -102,3 +102,34 @@ internal fun md5(plainText: String): String {
     md.update(plainText.toByteArray())
     return md.digest().joinToString("") { "%02x".format(it) }
 }
+
+
+/**
+ * FANBOX API 拦截器（api.fanbox.cc）：Cookie 鉴权 + 同源头 + CSRF。
+ *
+ * - Cookie 用 FANBOX 域登录态（FANBOX_SESSIONID、ct 等，内嵌 WebView 登录后抓取）
+ * - `Origin` / `Referer` 指向 `https://www.fanbox.cc`（跨域 POST 必需）
+ * - `x-csrf-token` 取 cookie 中的 `ct` 字段（FANBOX 写请求必需）
+ * - UA 与网络层网页 UA 保持一致（cf_clearance 绑定）
+ */
+class FanboxHeaderInterceptor(
+    private val fanboxCookieProvider: () -> String,
+) : Interceptor {
+
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val cookie = fanboxCookieProvider()
+        val csrf = cookie.split(';')
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("ct=") }
+            ?.substringAfter('=')
+            .orEmpty()
+        val request = chain.request().newBuilder()
+            .header("Cookie", cookie)
+            .header("Origin", "https://www.fanbox.cc")
+            .header("Referer", "https://www.fanbox.cc/")
+            .header("User-Agent", PixivConstants.WEB_USER_AGENT)
+            .apply { if (csrf.isNotBlank()) header("x-csrf-token", csrf) }
+            .build()
+        return chain.proceed(request)
+    }
+}

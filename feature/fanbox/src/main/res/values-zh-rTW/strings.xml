@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fanbox_title">FANBOX</string>
+    <string name="fanbox_home_title">FANBOX</string>
+    <string name="fanbox_login_title">登入 pixiv 帳號</string>
+    <string name="fanbox_login_desc">登入 pixiv 網頁帳號後即可瀏覽 FANBOX 動態</string>
+    <string name="fanbox_creator_list_title">關注的創作者</string>
+    <string name="fanbox_creator_title">創作者帖子</string>
+    <string name="fanbox_post_title">帖子</string>
+    <string name="fanbox_cd_back">返回</string>
+    <string name="fanbox_empty">暫無新帖</string>
+    <string name="fanbox_creator_empty">暫無關注的創作者</string>
+    <string name="fanbox_fee_required">需支持 ¥%1$d 方案解鎖全文</string>
+</resources>
