@@ -118,4 +118,40 @@
     <string name="filter_r18_safe">仅全年龄</string>
     <string name="filter_r18_only">仅 R-18</string>
     <string name="filter_other_none">未设置</string>
+
+    <!-- 发现入口区 + 新榜单页（pixivision / 画师榜 / AI榜 / 年代榜 / 壁纸榜） -->
+    <string name="cd_back">返回</string>
+    <string name="discover_entries_title">发现</string>
+    <string name="discover_entry_pixivision">pixivision</string>
+    <string name="discover_entry_user_ranking">画师榜</string>
+    <string name="discover_entry_ai_ranking">AI 榜</string>
+    <string name="discover_entry_era_ranking">年代榜</string>
+    <string name="discover_entry_wallpaper_ranking">壁纸榜</string>
+    <string name="ranking_generic_day">日榜</string>
+    <string name="ranking_generic_week">周榜</string>
+    <string name="ranking_generic_month">月榜</string>
+    <string name="ranking_ai_title">AI 榜</string>
+    <string name="ranking_ai_empty">该时段暂无 AI 作品</string>
+    <string name="ranking_wallpaper_title">壁纸榜</string>
+    <string name="ranking_wallpaper_empty">暂无横屏高分辨率作品</string>
+    <string name="ranking_era_title">年代榜</string>
+    <string name="ranking_era_empty">该时段暂无作品</string>
+    <string name="ranking_user_title">画师榜</string>
+    <string name="ranking_user_empty">暂无推荐创作者</string>
+    <string name="pixivision_title">pixivision</string>
+    <string name="pixivision_empty">暂无特辑文章</string>
+    <string name="ranking_preview_placeholder">从列表选择作品查看详情</string>
+    <string name="ranking_detail_fullscreen">全屏</string>
+    <string name="ranking_detail_stat_view">查看</string>
+    <string name="ranking_detail_stat_bookmark">收藏</string>
+    <string name="ranking_detail_stat_pages">页</string>
+    <string name="ranking_detail_expand">展开</string>
+    <string name="ranking_detail_collapse">收起</string>
+    <string name="ranking_detail_follow">关注</string>
+    <string name="ranking_detail_followed">已关注</string>
+    <string name="ranking_detail_related">相关作品</string>
+    <string name="ranking_detail_bookmark">收藏</string>
+    <string name="ranking_detail_bookmarked">已收藏</string>
+    <string name="ranking_detail_download">下载</string>
+    <string name="ranking_detail_comments">评论</string>
 </resources>

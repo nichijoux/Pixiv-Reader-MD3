@@ -118,4 +118,40 @@
     <string name="filter_r18_safe">All-ages only</string>
     <string name="filter_r18_only">R-18 only</string>
     <string name="filter_other_none">Not set</string>
+
+    <!-- Discover entries + new ranking pages (pixivision / creators / AI / era / wallpapers) -->
+    <string name="cd_back">Back</string>
+    <string name="discover_entries_title">Discover</string>
+    <string name="discover_entry_pixivision">pixivision</string>
+    <string name="discover_entry_user_ranking">Creators</string>
+    <string name="discover_entry_ai_ranking">AI ranking</string>
+    <string name="discover_entry_era_ranking">Era ranking</string>
+    <string name="discover_entry_wallpaper_ranking">Wallpapers</string>
+    <string name="ranking_generic_day">Daily</string>
+    <string name="ranking_generic_week">Weekly</string>
+    <string name="ranking_generic_month">Monthly</string>
+    <string name="ranking_ai_title">AI Ranking</string>
+    <string name="ranking_ai_empty">No AI works in this period</string>
+    <string name="ranking_wallpaper_title">Wallpaper Ranking</string>
+    <string name="ranking_wallpaper_empty">No landscape high-res works</string>
+    <string name="ranking_era_title">Era Ranking</string>
+    <string name="ranking_era_empty">No works in this period</string>
+    <string name="ranking_user_title">Creator Ranking</string>
+    <string name="ranking_user_empty">No recommended creators</string>
+    <string name="pixivision_title">pixivision</string>
+    <string name="pixivision_empty">No articles yet</string>
+    <string name="ranking_preview_placeholder">Select a work to view details</string>
+    <string name="ranking_detail_fullscreen">Fullscreen</string>
+    <string name="ranking_detail_stat_view">views</string>
+    <string name="ranking_detail_stat_bookmark">bookmarks</string>
+    <string name="ranking_detail_stat_pages">pages</string>
+    <string name="ranking_detail_expand">Expand</string>
+    <string name="ranking_detail_collapse">Collapse</string>
+    <string name="ranking_detail_follow">Follow</string>
+    <string name="ranking_detail_followed">Following</string>
+    <string name="ranking_detail_related">Related works</string>
+    <string name="ranking_detail_bookmark">Bookmark</string>
+    <string name="ranking_detail_bookmarked">Bookmarked</string>
+    <string name="ranking_detail_download">Download</string>
+    <string name="ranking_detail_comments">Comments</string>
 </resources>

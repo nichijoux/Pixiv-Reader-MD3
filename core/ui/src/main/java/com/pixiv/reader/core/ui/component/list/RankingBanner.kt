@@ -29,15 +29,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 
 /**
- * 排行榜入口卡片：奖杯 + 标题/副文案 + 箭头。
+ * 排行榜入口卡片：图标 + 标题/副文案 + 箭头。
  *
  * 图标底为圆形底色（onPrimaryContainer），组合入场时做一次弹性缩放。
  *
  * 此前漫画榜（manga 私有）与小说榜（novel）各实现一份同构组件，统一收口此处；
  * 文案经参数传入（调用方提供本地化字符串）。
+ *
+ * @param icon 入口图标（默认排行榜奖杯；pixivision/画师榜等入口传各自图标）
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -46,6 +49,7 @@ fun RankingBanner(
     desc: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Filled.Leaderboard,
 ) {
     // 图标底首次组合的弹性入场（0.6 → 1，spring 回弹；滚回可视区会重放）
     val iconScale = remember { Animatable(0.6f) }
@@ -83,7 +87,7 @@ fun RankingBanner(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Leaderboard,
+                    imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(Sizes.s24),

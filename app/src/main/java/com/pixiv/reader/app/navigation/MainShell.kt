@@ -81,6 +81,11 @@ fun MainShell(
     onOpenWatchlist: () -> Unit,
     onOpenReadLater: () -> Unit,
     onOpenMangaWatchlist: () -> Unit,
+    onOpenPixivision: () -> Unit,
+    onOpenUserRanking: () -> Unit,
+    onOpenAiRanking: () -> Unit,
+    onOpenEraRanking: () -> Unit,
+    onOpenWallpaperRanking: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -227,6 +232,11 @@ fun MainShell(
                         onOpenNovel = onOpenNovel,
                         onOpenUser = onOpenUser,
                         onOpenSeries = onOpenSeries,
+                        onOpenPixivision = onOpenPixivision,
+                        onOpenUserRanking = onOpenUserRanking,
+                        onOpenAiRanking = onOpenAiRanking,
+                        onOpenEraRanking = onOpenEraRanking,
+                        onOpenWallpaperRanking = onOpenWallpaperRanking,
                         initialQuery = pendingSearch?.also { pendingSearch = null },
                         // hero：发现页搜索栏共享元素修饰（与首页搜索框同 key）
                         modifier = with(this@SharedTransitionLayout) {

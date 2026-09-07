@@ -35,6 +35,11 @@ fun DiscoverRoute(
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
+    onOpenPixivision: () -> Unit = {},
+    onOpenUserRanking: () -> Unit = {},
+    onOpenAiRanking: () -> Unit = {},
+    onOpenEraRanking: () -> Unit = {},
+    onOpenWallpaperRanking: () -> Unit = {},
     modifier: Modifier = Modifier,
     initialQuery: String? = null,
     viewModel: DiscoverViewModel = hiltViewModel(),
@@ -116,6 +121,11 @@ fun DiscoverRoute(
                     hotTags = hotTags,
                     history = history,
                     viewModel = viewModel,
+                    onOpenPixivision = onOpenPixivision,
+                    onOpenUserRanking = onOpenUserRanking,
+                    onOpenAiRanking = onOpenAiRanking,
+                    onOpenEraRanking = onOpenEraRanking,
+                    onOpenWallpaperRanking = onOpenWallpaperRanking,
                 )
             }
         }

@@ -30,6 +30,12 @@ import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.comments.ui.CommentListRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.manga.IllustRankingRoute
+import com.pixiv.reader.feature.discover.ui.AiRankingRoute
+import com.pixiv.reader.feature.discover.ui.EraRankingRoute
+import com.pixiv.reader.feature.discover.ui.PixivisionRoute
+import com.pixiv.reader.feature.discover.ui.UserRankingRoute
+import com.pixiv.reader.feature.discover.ui.WallpaperRankingRoute
+import com.pixiv.reader.app.webview.WebViewRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
@@ -93,6 +99,24 @@ const val ROUTE_NOVEL_SERIES = "novel_series/{seriesId}"
 
 /** 漫画系列详情（v1/illust/series）。 */
 const val ROUTE_MANGA_SERIES = "illust_series/{seriesId}"
+
+/** pixivision 特辑列表。 */
+const val ROUTE_PIXIVISION = "pixivision"
+
+/** 画师榜（官方推荐创作者）。 */
+const val ROUTE_USER_RANKING = "user_ranking"
+
+/** AI 榜（排行数据过滤 AI 作品）。 */
+const val ROUTE_AI_RANKING = "ai_ranking"
+
+/** 年代榜（历史某天榜单 + 年代快捷入口）。 */
+const val ROUTE_ERA_RANKING = "era_ranking"
+
+/** 壁纸榜（排行数据过滤横屏高分辨率）。 */
+const val ROUTE_WALLPAPER_RANKING = "wallpaper_ranking"
+
+/** 通用内嵌 WebView 全屏页（pixivision 文章 / COMIC 等）。 */
+const val ROUTE_WEB_VIEW = "webview?url={url}&title={title}"
 
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
@@ -243,6 +267,21 @@ fun PixivNavGraph(
                 onOpenMangaWatchlist = {
                     // 作品 Tab 顶栏追更入口：直达漫画分段
                     navController.navigate("watchlist?type=manga")
+                },
+                onOpenPixivision = {
+                    navController.navigate(ROUTE_PIXIVISION)
+                },
+                onOpenUserRanking = {
+                    navController.navigate(ROUTE_USER_RANKING)
+                },
+                onOpenAiRanking = {
+                    navController.navigate(ROUTE_AI_RANKING)
+                },
+                onOpenEraRanking = {
+                    navController.navigate(ROUTE_ERA_RANKING)
+                },
+                onOpenWallpaperRanking = {
+                    navController.navigate(ROUTE_WALLPAPER_RANKING)
                 },
                 onOpenNotifications = {
                     navController.navigate(ROUTE_NOTIFICATION)
@@ -762,6 +801,101 @@ fun PixivNavGraph(
                 },
                 localDocument = local?.first,
                 localTitle = local?.second,
+            )
+        }
+        // pixivision 特辑列表：点击文章经 WebView 打开原文
+        composable(ROUTE_PIXIVISION) {
+            PixivisionRoute(
+                onBack = { navController.safeBack() },
+                onOpenArticle = { url, title ->
+                    navController.navigate("webview?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                },
+            )
+        }
+        // 画师榜：官方推荐创作者列表
+        composable(ROUTE_USER_RANKING) {
+            UserRankingRoute(
+                onBack = { navController.safeBack() },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+            )
+        }
+        // AI 榜：排行数据过滤 AI 生成作品
+        composable(ROUTE_AI_RANKING) {
+            AiRankingRoute(
+                onBack = { navController.safeBack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+                onOpenViewer = { illustId, page ->
+                    navController.navigate("viewer/$illustId?page=$page")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        // 年代榜：历史某天榜单 + 年代快捷入口
+        composable(ROUTE_ERA_RANKING) {
+            EraRankingRoute(
+                onBack = { navController.safeBack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+                onOpenViewer = { illustId, page ->
+                    navController.navigate("viewer/$illustId?page=$page")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        // 壁纸榜：排行数据过滤横屏高分辨率作品
+        composable(ROUTE_WALLPAPER_RANKING) {
+            WallpaperRankingRoute(
+                onBack = { navController.safeBack() },
+                onOpenIllust = { illustId ->
+                    navController.navigate("illust/$illustId")
+                },
+                onOpenUser = { userId ->
+                    navController.navigate("user/$userId")
+                },
+                onOpenViewer = { illustId, page ->
+                    navController.navigate("viewer/$illustId?page=$page")
+                },
+                onSearchTag = { tag ->
+                    navController.navigate("main?search=${Uri.encode(tag)}") {
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        // 通用内嵌 WebView（pixivision 文章原文 / COMIC 等）
+        composable(
+            route = ROUTE_WEB_VIEW,
+            arguments = listOf(
+                navArgument("url") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { backStackEntry ->
+            WebViewRoute(
+                url = backStackEntry.arguments?.getString("url").orEmpty(),
+                title = backStackEntry.arguments?.getString("title"),
+                onBack = { navController.safeBack() },
             )
         }
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
