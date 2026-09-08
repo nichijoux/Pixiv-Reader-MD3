@@ -174,43 +174,19 @@ fun MeRoute(
                         Icons.Filled.FavoriteBorder,
                         stringResource(R.string.me_fanbox_title),
                         stringResource(R.string.me_fanbox_desc),
-                        onClick = {
-                            // FANBOX 走系统浏览器（网页菜单/登录体验完整，内嵌 WebView 交互受限）
-                            context.startActivity(
-                                android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://www.fanbox.cc/"),
-                                ),
-                            )
-                        },
+                        onClick = { viewModel.openEcosystemPage("https://www.fanbox.cc/") },
                     ),
                     SettingsCardItem(
                         Icons.Filled.AutoStories,
                         stringResource(R.string.me_comic_title),
                         stringResource(R.string.me_comic_desc),
-                        onClick = {
-                            // COMIC 走系统浏览器（网页交互完整，内嵌 WebView 受限）
-                            context.startActivity(
-                                android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://comic.pixiv.net/"),
-                                ),
-                            )
-                        },
+                        onClick = { viewModel.openEcosystemPage("https://comic.pixiv.net/") },
                     ),
                     SettingsCardItem(
                         Icons.Filled.Email,
                         stringResource(R.string.me_talk_title),
                         stringResource(R.string.me_talk_desc),
-                        onClick = {
-                            // pixiv 私信走系统浏览器消息页（官方无公开 app 端点，内嵌受限）
-                            context.startActivity(
-                                android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://www.pixiv.net/message.php"),
-                                ),
-                            )
-                        },
+                        onClick = { viewModel.openEcosystemPage("https://www.pixiv.net/message.php") },
                     ),
                     SettingsCardItem(
                         Icons.Filled.TravelExplore,

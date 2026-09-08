@@ -47,6 +47,8 @@
     <string name="me_section_content">使用者內容管理</string>
     <string name="me_fanbox_title">FANBOX</string>
     <string name="me_fanbox_desc">關注創作者的贊助動態</string>
+    <string name="me_web_sso_hint">正在瀏覽器完成 pixiv 登入，完成後將自動返回本應用，再次點擊即可開啟</string>
+    <string name="me_web_open_failed">開啟瀏覽器失敗：%1$s</string>
     <string name="me_section_ecosystem">pixiv 生態</string>
     <string name="me_comic_title">pixiv COMIC</string>
     <string name="me_comic_desc">官方漫畫平台</string>

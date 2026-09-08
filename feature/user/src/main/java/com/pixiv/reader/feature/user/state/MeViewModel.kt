@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class MeViewModel @Inject constructor(
     @ApplicationContext context: Context,
-    sessionRepository: SessionRepository,
+    private val sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
     private val updateChecker: AppUpdateChecker,
 ) : MessageViewModel() {
@@ -47,6 +47,41 @@ class MeViewModel @Inject constructor(
 
     /** 当前登录用户 UID（进个人主页用）。 */
     val ownUid: Long? get() = _user.value?.id
+
+    /**
+     * 打开 pixiv 生态网页（FANBOX / COMIC / 私信消息页）。
+     *
+     * 首次点击（本会话未完成浏览器 SSO）时先在系统浏览器打开 pixiv 授权登录页：
+     * 登录/SSO 完成后 pixiv 302 到 `pixiv://account/login` 自动唤起本 app，
+     * 同时浏览器已获得网页登录态——再次点击同一入口即以登录态直达目标网页。
+     * SSO 完成后的后续点击直接打开目标网页。
+     *
+     * @param targetUrl 目标网页地址（fanbox.cc / comic.pixiv.net / message.php）
+     * @return 无返回值；SSO 提示经消息通道展示
+     */
+    fun openEcosystemPage(targetUrl: String) {
+        if (sessionRepository.webSsoCompleted) {
+            openBrowser(targetUrl)
+            return
+        }
+        viewModelScope.launch {
+            sendMessage(UiMessage(R.string.me_web_sso_hint))
+            openBrowser(sessionRepository.webLoginUrl())
+        }
+    }
+
+    /** 用系统浏览器打开 URL（app 级 context，需 NEW_TASK 标记；失败经消息通道提示）。 */
+    private fun openBrowser(url: String) {
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { appContext.startActivity(intent) }
+            .onFailure { e ->
+                viewModelScope.launch {
+                    sendMessage(UiMessage(R.string.me_web_open_failed, listOf(e.message ?: "")))
+                }
+            }
+    }
 
     val versionName: String = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()

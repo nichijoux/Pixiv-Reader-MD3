@@ -47,6 +47,8 @@
     <string name="me_section_content">Content</string>
     <string name="me_fanbox_title">FANBOX</string>
     <string name="me_fanbox_desc">Posts from creators you support</string>
+    <string name="me_web_sso_hint">Finishing pixiv login in the browser… you will be returned to the app automatically; tap again to open</string>
+    <string name="me_web_open_failed">Failed to open browser: %1$s</string>
     <string name="me_section_ecosystem">pixiv ecosystem</string>
     <string name="me_comic_title">pixiv COMIC</string>
     <string name="me_comic_desc">Official manga platform</string>
