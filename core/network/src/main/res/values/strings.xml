@@ -2,4 +2,9 @@
 <resources>
     <!-- 下载错误（ProgressDownloader） -->
     <string name="download_error_empty_body">空响应体</string>
+
+    <!-- 动图导出（UgoiraExporter） -->
+    <string name="ugoira_error_no_metadata">动图元数据缺失</string>
+    <string name="ugoira_error_no_zip">动图帧包地址缺失</string>
+    <string name="ugoira_error_no_frames">动图帧数据为空</string>
 </resources>

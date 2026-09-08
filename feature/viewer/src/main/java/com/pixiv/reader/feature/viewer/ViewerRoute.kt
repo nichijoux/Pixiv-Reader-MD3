@@ -8,10 +8,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,10 +34,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -44,6 +49,7 @@ import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.config.ViewerOrientation
+import com.pixiv.reader.core.network.download.UgoiraExportFormat
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
@@ -79,6 +86,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * 平板/横屏：图片自适应居中，底部操作条宽度受限。
  */
 @SuppressLint("StateFlowValueCalledInComposition")
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ViewerRoute(
     onBack: () -> Unit,
@@ -121,6 +129,8 @@ fun ViewerRoute(
     }
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // 动图导出格式选择弹层（MP4 / ZIP）
+    var showGifExportSheet by remember { mutableStateOf(false) }
     // 图库式工具栏显隐：仅单击图片区切换，滑动翻页不影响其显隐
     var barsVisible by remember { mutableStateOf(true) }
     val barsShown = barsVisible
@@ -288,7 +298,7 @@ fun ViewerRoute(
                             onClick = {
                                 menuExpanded = false
                                 if (isGif) {
-                                    viewModel.downloadGifStub()
+                                    showGifExportSheet = true
                                 } else {
                                     pages.getOrNull(currentIndex)?.let(viewModel::download)
                                 }
@@ -346,7 +356,7 @@ fun ViewerRoute(
                 onBookmark = viewModel::toggleBookmark,
                 onDownload = {
                     if (isGif) {
-                        viewModel.downloadGifStub()
+                        showGifExportSheet = true
                     } else {
                         pages.getOrNull(currentIndex)?.let(viewModel::download)
                     }
@@ -381,6 +391,58 @@ fun ViewerRoute(
         onCreateTag = viewModel.bookmarkEditor::createTag,
         onConfirm = viewModel::saveBookmarkEditor,
     )
+
+    // 动图导出格式选择：MP4 视频（通用播放）/ ZIP 帧包（原始帧 + 延时表）
+    if (showGifExportSheet) {
+        ModalBottomSheet(onDismissRequest = { showGifExportSheet = false }) {
+            GifExportOption(
+                icon = Icons.Filled.Videocam,
+                title = stringResource(R.string.viewer_gif_export_mp4),
+                subtitle = stringResource(R.string.viewer_gif_export_mp4_desc),
+            ) {
+                showGifExportSheet = false
+                viewModel.downloadGif(UgoiraExportFormat.MP4)
+            }
+            GifExportOption(
+                icon = Icons.Filled.FolderZip,
+                title = stringResource(R.string.viewer_gif_export_zip),
+                subtitle = stringResource(R.string.viewer_gif_export_zip_desc),
+            ) {
+                showGifExportSheet = false
+                viewModel.downloadGif(UgoiraExportFormat.ZIP)
+            }
+            // 底部安全间距
+            Spacer(modifier = Modifier.navigationBarsPadding())
+        }
+    }
+}
+
+/** 动图导出选项行（图标 + 标题 + 说明，整行点击选择）。 */
+@Composable
+private fun GifExportOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.xl, vertical = Spacing.smPlus),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Column {
+            Text(text = title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 // ── 无缝竖向滚动（webtoon 连续堆叠） ───────────────────────────────────────────

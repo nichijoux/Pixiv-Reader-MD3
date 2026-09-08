@@ -2,4 +2,9 @@
 <resources>
     <!-- Download errors (ProgressDownloader) -->
     <string name="download_error_empty_body">Empty response body</string>
+
+    <!-- Ugoira export (UgoiraExporter) -->
+    <string name="ugoira_error_no_metadata">Animation metadata missing</string>
+    <string name="ugoira_error_no_zip">Animation frame pack URL missing</string>
+    <string name="ugoira_error_no_frames">Animation frame list empty</string>
 </resources>

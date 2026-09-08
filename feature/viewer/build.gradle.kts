@@ -27,4 +27,6 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
+    // 动图导出走 UgoiraExportWorker（WorkManager 后台执行）
+    implementation(libs.androidx.work.runtime.ktx)
 }

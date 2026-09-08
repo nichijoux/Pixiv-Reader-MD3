@@ -21,6 +21,10 @@
     <string name="viewer_msg_download_failed">下载失败：%1$s</string>
     <string name="viewer_msg_switched_preview">已切换预览</string>
     <string name="viewer_msg_loaded_original">已加载原图</string>
-    <string name="viewer_msg_ugoira_download_wip">动图下载开发中（P6）</string>
+    <string name="viewer_msg_ugoira_export_started">动图导出已开始，进度见下载管理页</string>
+    <string name="viewer_gif_export_mp4">保存为 MP4 视频</string>
+    <string name="viewer_gif_export_mp4_desc">通用视频格式，相册 / 播放器直接观看</string>
+    <string name="viewer_gif_export_zip">保存为 ZIP 帧包</string>
+    <string name="viewer_gif_export_zip_desc">保留原始帧与延时数据，可再加工</string>
     <string name="viewer_msg_report_wip">举报功能开发中</string>
 </resources>

@@ -14,6 +14,8 @@ import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.download.UgoiraExportFormat
+import com.pixiv.reader.core.network.download.UgoiraExportWorker
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
@@ -356,11 +358,25 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /** 下载整个作品（全部页）到 filesDir/Downloads/pixiv_{id}/，由 WorkManager 后台执行。 */
+    /**
+     * 下载整个作品到 filesDir/Downloads/，由 WorkManager 后台执行：
+     * 静态插画走 [IllustDownloadWorker]（全部页），动图（ugoira）走 [UgoiraExportWorker]（默认 MP4）。
+     */
     fun download() {
-        val request = OneTimeWorkRequestBuilder<IllustDownloadWorker>()
-            .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to _illustId.value))
-            .build()
+        val request = if (_illust.value?.isGif() == true) {
+            OneTimeWorkRequestBuilder<UgoiraExportWorker>()
+                .setInputData(
+                    workDataOf(
+                        UgoiraExportWorker.KEY_ILLUST_ID to _illustId.value,
+                        UgoiraExportWorker.KEY_FORMAT to UgoiraExportFormat.MP4.format,
+                    )
+                )
+                .build()
+        } else {
+            OneTimeWorkRequestBuilder<IllustDownloadWorker>()
+                .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to _illustId.value))
+                .build()
+        }
         WorkManager.getInstance(context).enqueue(request)
         trySendMessage(UiMessage(CoreR.string.core_illust_download_started))
     }

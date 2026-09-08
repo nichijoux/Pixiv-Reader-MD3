@@ -319,6 +319,8 @@ data class UgoiraMetadata(
 
 data class ZipUrls(
     val medium: String? = null,
+    /** 高清帧包（导出优先使用；部分响应不携带则回退 medium）。 */
+    val large: String? = null,
 ) : Serializable
 
 data class GifFrame(

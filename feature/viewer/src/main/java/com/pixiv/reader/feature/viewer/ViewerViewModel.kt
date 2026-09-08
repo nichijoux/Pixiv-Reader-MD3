@@ -16,12 +16,17 @@ import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.download.IllustPageDownloader
+import com.pixiv.reader.core.network.download.UgoiraExportFormat
+import com.pixiv.reader.core.network.download.UgoiraExportWorker
 import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -281,9 +286,18 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** 动图下载（zip）占位：P6 下载管理中实现 */
-    fun downloadGifStub() {
-        viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_ugoira_download_wip)) }
+    /** 导出动图（MP4 视频 / ZIP 帧包）：后台 Worker 执行，进度见下载管理页（Range 断点续传 + 有限重试）。 */
+    fun downloadGif(format: UgoiraExportFormat) {
+        val request = OneTimeWorkRequestBuilder<UgoiraExportWorker>()
+            .setInputData(
+                workDataOf(
+                    UgoiraExportWorker.KEY_ILLUST_ID to illustId,
+                    UgoiraExportWorker.KEY_FORMAT to format.format,
+                )
+            )
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+        viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_ugoira_export_started)) }
     }
 
     /** 举报占位：P7 接入 /v2/illust/report */

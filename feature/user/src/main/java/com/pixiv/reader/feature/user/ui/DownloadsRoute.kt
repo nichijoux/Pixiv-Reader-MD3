@@ -32,8 +32,10 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -153,8 +155,11 @@ fun DownloadsRoute(
                 HorizontalPager(state = pagerState) { page ->
                     when (DownloadFilter.entries.getOrNull(page)) {
                         DownloadFilter.ILLUST -> IllustDownloadList(
-                            entries = entries.filter { it.targetType == "illust" },
+                            // 插画 + 动图（ugoira MP4/ZIP 导出）共用瀑布流卡片
+                            entries = entries.filter { it.targetType == "illust" || it.targetType == "ugoira" },
+                            context = context,
                             onOpenIllust = onOpenIllust,
+                            onOpenFile = { entry -> openWithSystemApp(context, entry) },
                             onRetry = onRetry,
                             onDelete = { pendingDelete = it },
                         )
@@ -196,10 +201,17 @@ fun DownloadsRoute(
 
 // ── 插画：IllustCard 瀑布流 ─────────────────────────────────────────────────
 
+/**
+ * 插画 / 动图下载瀑布流（[IllustCard]）。
+ * 动图（targetType=ugoira）已完成条目点击直接用系统应用打开产物（MP4 播放 / ZIP 解压分享），
+ * 未完成 / 插画条目点击进入作品详情。
+ */
 @Composable
 private fun IllustDownloadList(
     entries: List<DownloadEntryEntity>,
+    context: Context,
     onOpenIllust: (Long) -> Unit,
+    onOpenFile: (DownloadEntryEntity) -> Unit,
     onRetry: (DownloadEntryEntity) -> Unit,
     onDelete: (DownloadEntryEntity) -> Unit,
 ) {
@@ -218,7 +230,10 @@ private fun IllustDownloadList(
             Box {
                 IllustCard(
                     illust = entry.toDownloadIllust(),
-                    onClick = { onOpenIllust(entry.targetId) },
+                    onClick = {
+                        if (entry.targetType == "ugoira" && entry.status == "done") onOpenFile(entry)
+                        else onOpenIllust(entry.targetId)
+                    },
                     // 下载中/失败：标题栏显示进度条（failed 停住最后进度 + 红色标记）；done 恢复标题
                     progress = if (entry.status == "done") null else entry.progress.coerceIn(0, 100) / 100f,
                     failed = entry.status == "failed",
@@ -500,6 +515,8 @@ private fun formatInfo(format: String): FormatInfo? = when (format) {
     DownloadEntryEntity.FORMAT_PDF -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
     DownloadEntryEntity.FORMAT_MARKDOWN -> FormatInfo(Icons.AutoMirrored.Filled.Notes, R.string.downloads_format_markdown)
     DownloadEntryEntity.FORMAT_DOCX -> FormatInfo(Icons.AutoMirrored.Filled.Article, R.string.downloads_format_docx)
+    DownloadEntryEntity.FORMAT_MP4 -> FormatInfo(Icons.Filled.Videocam, R.string.downloads_format_mp4)
+    DownloadEntryEntity.FORMAT_ZIP -> FormatInfo(Icons.Filled.FolderZip, R.string.downloads_format_zip)
     else -> null
 }
 
@@ -514,13 +531,15 @@ private fun isSystemOpenFile(entry: DownloadEntryEntity): Boolean {
     return entry.format == DownloadEntryEntity.FORMAT_PDF || entry.format == DownloadEntryEntity.FORMAT_DOCX
 }
 
-/** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx（SAF/MediaStore content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
+/** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx/MP4/ZIP（SAF/MediaStore content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
 private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity) {
     val path = entry.localPath ?: return
     // MediaStore uri（content://media/...）不含文件名，mime 用索引 format 字段推断
     val mime = when (entry.format) {
         DownloadEntryEntity.FORMAT_PDF -> "application/pdf"
         DownloadEntryEntity.FORMAT_DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        DownloadEntryEntity.FORMAT_MP4 -> "video/mp4"
+        DownloadEntryEntity.FORMAT_ZIP -> "application/zip"
         else -> MimeTypeMap.getSingleton()
             .getMimeTypeFromExtension(path.substringAfterLast('.', "").lowercase()) ?: "*/*"
     }

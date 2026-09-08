@@ -21,6 +21,10 @@
     <string name="viewer_msg_download_failed">Download failed: %1$s</string>
     <string name="viewer_msg_switched_preview">Switched to preview</string>
     <string name="viewer_msg_loaded_original">Loaded original</string>
-    <string name="viewer_msg_ugoira_download_wip">Animation download is under development (P6)</string>
+    <string name="viewer_msg_ugoira_export_started">Animation export started — see progress in Downloads</string>
+    <string name="viewer_gif_export_mp4">Save as MP4 video</string>
+    <string name="viewer_gif_export_mp4_desc">Universal video format, plays in gallery / players</string>
+    <string name="viewer_gif_export_zip">Save as ZIP frames</string>
+    <string name="viewer_gif_export_zip_desc">Keeps original frames and timing data for further editing</string>
     <string name="viewer_msg_report_wip">Report feature is under development</string>
 </resources>

@@ -57,12 +57,16 @@ data class DownloadEntryEntity(
 ) {
 
     companion object {
-        /** 导出格式取值（[format] 列的规范常量；写入方 NovelExportWorker/NovelExporter 与
+        /** 导出格式取值（[format] 列的规范常量；写入方 NovelExportWorker/NovelExporter/UgoiraExporter 与
          *  消费方下载管理页共用，避免跨模块魔法字符串漂移。插画等非小说条目为空串）。 */
         const val FORMAT_TXT = "TXT"
         const val FORMAT_EPUB = "EPUB"
         const val FORMAT_PDF = "PDF"
         const val FORMAT_MARKDOWN = "MARKDOWN"
         const val FORMAT_DOCX = "DOCX"
+
+        /** 动图导出格式（UgoiraExporter 写入；下载管理页徽标与系统打开共用）。 */
+        const val FORMAT_MP4 = "MP4"
+        const val FORMAT_ZIP = "ZIP"
     }
 }

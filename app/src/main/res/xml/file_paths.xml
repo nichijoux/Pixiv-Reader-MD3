@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FileProvider 共享路径：仅暴露应用内小说导出目录 -->
+<!-- FileProvider 共享路径：小说导出目录 + 全部下载目录（插画原图 / 动图 MP4·ZIP，系统应用打开用） -->
 <paths>
     <files-path name="novels" path="Downloads/novels/" />
+    <files-path name="downloads" path="Downloads/" />
 </paths>

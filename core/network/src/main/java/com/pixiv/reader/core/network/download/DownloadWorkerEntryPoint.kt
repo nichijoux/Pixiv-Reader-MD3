@@ -17,4 +17,5 @@ interface DownloadWorkerEntryPoint {
     fun pixivRepository(): PixivRepository
     fun illustPageDownloader(): IllustPageDownloader
     fun downloadEntryDao(): DownloadEntryDao
+    fun ugoiraExporter(): UgoiraExporter
 }

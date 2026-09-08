@@ -173,6 +173,8 @@
     <string name="downloads_format_pdf">PDF</string>
     <string name="downloads_format_markdown">Markdown</string>
     <string name="downloads_format_docx">Word</string>
+    <string name="downloads_format_mp4">MP4</string>
+    <string name="downloads_format_zip">ZIP</string>
 
     <!-- Blocked -->
     <string name="blocked_title">Blocked</string>
