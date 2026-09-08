@@ -139,6 +139,7 @@
     <string name="ranking_user_title">畫師榜</string>
     <string name="ranking_user_empty">暫無推薦創作者</string>
     <string name="pixivision_title">pixivision</string>
+    <string name="pixivision_subtitle">官方特輯與企劃</string>
     <string name="pixivision_empty">暫無特輯文章</string>
     <string name="ranking_preview_placeholder">從列表選擇作品查看詳情</string>
     <string name="ranking_detail_fullscreen">全螢幕</string>

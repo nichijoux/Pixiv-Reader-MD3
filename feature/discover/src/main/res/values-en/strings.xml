@@ -139,6 +139,7 @@
     <string name="ranking_user_title">Creator Ranking</string>
     <string name="ranking_user_empty">No recommended creators</string>
     <string name="pixivision_title">pixivision</string>
+    <string name="pixivision_subtitle">Official features and events</string>
     <string name="pixivision_empty">No articles yet</string>
     <string name="ranking_preview_placeholder">Select a work to view details</string>
     <string name="ranking_detail_fullscreen">Fullscreen</string>

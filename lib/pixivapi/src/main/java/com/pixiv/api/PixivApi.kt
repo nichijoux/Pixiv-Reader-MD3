@@ -4,7 +4,6 @@ import ceui.pixiv.login.PixivOAuthClient
 import ceui.pixiv.login.PixivOAuthConfig
 import ceui.pixiv.login.VerifierStore
 import com.pixiv.api.network.AppApi
-import com.pixiv.api.network.FanboxApi
 import com.pixiv.api.network.PixivWebApi
 import com.pixiv.api.auth.AuthRefresher
 import com.pixiv.api.auth.PixivOAuth
@@ -42,7 +41,6 @@ class PixivApi(
     val session: SessionManager,
     val api: AppApi,
     val webApi: PixivWebApi,
-    val fanboxApi: FanboxApi,
     val oauth: PixivOAuth,
     /** pixiv-login 库的原始 OAuth 客户端（高级用，通常不需要） */
     val oauthClient: PixivOAuthClient,
@@ -83,7 +81,6 @@ class PixivApi(
                 session = session,
                 api = bundle.appApi,
                 webApi = bundle.webApi,
-                fanboxApi = bundle.fanboxApi,
                 oauth = PixivOAuth(bundle.oauthClient),
                 oauthClient = bundle.oauthClient,
                 refresher = bundle.refresher,

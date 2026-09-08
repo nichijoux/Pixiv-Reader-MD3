@@ -34,12 +34,6 @@ interface SessionManager {
     /** 网页 Cookie（PHPSESSID 等，用于 Web API） */
     fun cookie(): String
 
-    /** FANBOX 域 Cookie（FANBOX_SESSIONID / ct 等，用于 FANBOX API；未登录空串） */
-    fun fanboxCookie(): String
-
-    /** 保存 FANBOX 域 Cookie（内嵌 WebView 登录后抓取调用） */
-    fun setFanboxCookie(value: String)
-
     /** 保存登录结果 */
     fun saveSession(account: AccountResponse)
 
@@ -77,12 +71,6 @@ open class SimpleSessionManager(
 
     override fun cookie(): String = store.getCookie()
 
-    override fun fanboxCookie(): String = store.getFanboxCookie()
-
-    override fun setFanboxCookie(value: String) {
-        store.setFanboxCookie(value)
-    }
-
     override fun saveSession(account: AccountResponse) {
         this.account = account
         store.saveAccount(account)
@@ -114,7 +102,5 @@ interface SessionStore {
     fun loadAccount(): AccountResponse?
     fun saveAccount(account: AccountResponse)
     fun getCookie(): String
-    fun getFanboxCookie(): String
-    fun setFanboxCookie(value: String)
     fun clear()
 }

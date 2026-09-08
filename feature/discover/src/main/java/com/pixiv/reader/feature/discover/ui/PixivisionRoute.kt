@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.discover.ui
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,12 +8,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,16 +27,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,10 +54,13 @@ import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.PixivisionViewModel
 
 /**
- * pixivision 特辑列表（路由 `pixivision`）：官方特辑文章封面卡列表，点击跳系统浏览器打开原文。
+ * pixivision 特辑列表（路由 `pixivision`）：沉浸式布局——无独立顶栏，状态栏区域与
+ * 页面同色延伸，自绘顶行（返回钮 + 大标题 + 副标语），文章封面卡列表。
+ *
+ * pixivision 无正文 app API：文章卡点击跳系统浏览器打开原文，
+ * 触底分页（`getArticles` + `getNextArticles`）。
  *
  * @param onBack 返回
- * @param onOpenArticle 打开文章原文（WebView 全屏页，参数为文章 URL 与标题）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,33 +68,57 @@ fun PixivisionRoute(
     onBack: () -> Unit,
     viewModel: PixivisionViewModel = hiltViewModel(),
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val items by viewModel.paged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.paged.error.collectAsStateWithLifecycle()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.pixivision_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+    ) {
+        // 沉浸式顶行：状态栏同色延伸，返回钮 + 大标题 + 副标语
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.background(
+                    MaterialTheme.colorScheme.surfaceContainer,
+                    AppShapes.circle,
                 ),
-            )
-        },
-        modifier = Modifier.fillMaxSize(),
-    ) { padding ->
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back),
+                )
+            }
+            Column {
+                Text(
+                    text = "pixivision",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.pixivision_subtitle),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        AdaptiveContentBox(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
             when {
                 isLoading && items.isEmpty() -> LoadingBox()
                 error != null && items.isEmpty() -> ErrorBox(
@@ -99,20 +128,24 @@ fun PixivisionRoute(
                 items.isEmpty() -> EmptyBox(stringResource(R.string.pixivision_empty))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(Spacing.lg),
+                    contentPadding = PaddingValues(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        top = Spacing.sm,
+                        bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                    ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     items(items, key = { it.id }) { article ->
                         PixivisionArticleCard(
                             article = article,
                             onClick = {
-                                // 文章原文跳系统浏览器打开
-                                context.startActivity(
-                                    android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse(article.article_url),
-                                    ),
-                                )
+                                // pixivision 无正文 app API：文章原文跳系统浏览器
+                                article.article_url?.let { url ->
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)),
+                                    )
+                                }
                             },
                         )
                     }
@@ -127,7 +160,7 @@ fun PixivisionRoute(
     }
 }
 
-/** 特辑文章卡：左侧封面（横幅比例裁剪）+ 右侧标题/分类标签。 */
+/** 特辑文章卡：左侧封面（横幅比例裁剪）+ 右侧标题/分类标签/日期。 */
 @Composable
 private fun PixivisionArticleCard(
     article: Article,
