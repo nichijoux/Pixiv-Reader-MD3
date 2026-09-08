@@ -107,30 +107,7 @@ fun WebViewRoute(
                                 progress = 100
                             }
                         }
-                        // 新窗口接管：目标网页的外链（target=_blank / window.open）加载回当前
-                        // WebView；未处理时点击会被静默丢弃
                         setWebChromeClient(object : android.webkit.WebChromeClient() {
-                            override fun onCreateWindow(
-                                view: WebView,
-                                isDialog: Boolean,
-                                isUserGesture: Boolean,
-                                resultMsg: android.os.Message,
-                            ): Boolean {
-                                val transient = WebView(view.context)
-                                transient.webViewClient = object : WebViewClient() {
-                                    override fun shouldOverrideUrlLoading(
-                                        view: WebView,
-                                        request: android.webkit.WebResourceRequest,
-                                    ): Boolean {
-                                        webView.view?.loadUrl(request.url.toString())
-                                        return true
-                                    }
-                                }
-                                (resultMsg.obj as WebView.WebViewTransport).webView = transient
-                                resultMsg.sendToTarget()
-                                return true
-                            }
-
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                 progress = newProgress
                             }
