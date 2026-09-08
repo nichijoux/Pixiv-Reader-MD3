@@ -102,6 +102,31 @@ fun FanboxLoginRoute(
                             canGoBack = view?.canGoBack() == true
                         }
                     }
+                    // 新窗口接管：fanbox 网页的菜单/链接多为 target=_blank / window.open，
+                    // 未处理时点击会被静默丢弃（表现为毫无反应）
+                    webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onCreateWindow(
+                            view: WebView,
+                            isDialog: Boolean,
+                            isUserGesture: Boolean,
+                            resultMsg: android.os.Message,
+                        ): Boolean {
+                            val transient = WebView(view.context)
+                            transient.webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView,
+                                    request: android.webkit.WebResourceRequest,
+                                ): Boolean {
+                                    // 把新窗口的目标 URL 加载回当前 WebView
+                                    webView?.loadUrl(request.url.toString())
+                                    return true
+                                }
+                            }
+                            (resultMsg.obj as WebView.WebViewTransport).webView = transient
+                            resultMsg.sendToTarget()
+                            return true
+                        }
+                    }
                     loadUrl("https://www.fanbox.cc/")
                 }
             },
