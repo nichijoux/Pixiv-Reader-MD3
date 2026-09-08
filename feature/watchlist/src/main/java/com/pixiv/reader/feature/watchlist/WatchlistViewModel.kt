@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.WatchlistSeries
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesDetailCache
@@ -34,6 +35,7 @@ class WatchlistViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
     private val seriesDetailCache: SeriesDetailCache,
+    private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
     companion object {
@@ -99,17 +101,16 @@ class WatchlistViewModel @Inject constructor(
     }
 
     /**
-     * 行内取消追更（按当前类型分流端点；成功后重载当前类型列表）。
+     * 行内取消追更（经 FavoriteActions 统一收口，断网自动入队；成功后重载当前类型列表）。
      *
      * @param series 待取消追更的系列
      */
     fun removeWatchlist(series: WatchlistSeries) {
         val type = _type.value
         viewModelScope.launch {
-            runCatching {
-                if (type == TYPE_MANGA) pixivRepository.api.removeWatchlistManga(series.id)
-                else pixivRepository.api.removeWatchlistNovel(series.id)
-            }.onSuccess {
+            val toggle = if (type == TYPE_MANGA) favoriteActions::toggleMangaWatchlist
+            else favoriteActions::toggleNovelWatchlist
+            toggle(series.id, false).onSuccess {
                 // 重载当前类型（简单可靠：服务端已删除，重拉即为最新列表）
                 retry(type)
             }

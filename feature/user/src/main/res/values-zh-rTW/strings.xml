@@ -99,6 +99,26 @@
     <string name="me_watchlist_title">追更</string>
     <string name="me_watchlist_desc">已追更的小說與漫畫系列</string>
     <string name="me_blocked_desc">已遮蔽的使用者與標籤</string>
+    <string name="me_pending_title">待同步操作</string>
+    <string name="me_pending_desc_none">斷網時的收藏 / 關注 / 追更暫存處</string>
+    <string name="me_pending_desc_count">%1$d 條等待同步</string>
+
+    <!-- 待同步操作頁（PendingActionsRoute） -->
+    <string name="pending_title">待同步操作</string>
+    <string name="pending_empty">暫無待同步操作\n斷網時的收藏、關注、追更會出現在這裡，連網後自動同步</string>
+    <string name="pending_retry">重試</string>
+    <string name="pending_clear">清空</string>
+    <string name="pending_clear_title">清空待同步操作？</string>
+    <string name="pending_clear_message">將刪除全部 %1$d 條待同步記錄，連網後不再補發這些操作</string>
+    <string name="pending_status_pending">等待同步</string>
+    <string name="pending_status_failed">同步失敗</string>
+    <string name="pending_state_add">加入</string>
+    <string name="pending_state_remove">移除</string>
+    <string name="pending_family_illust_bookmark">收藏插畫</string>
+    <string name="pending_family_novel_bookmark">收藏小說</string>
+    <string name="pending_family_follow_user">關注使用者</string>
+    <string name="pending_family_manga_watchlist">追更漫畫系列</string>
+    <string name="pending_family_novel_watchlist">追更小說系列</string>
     <string name="me_theme_mode">主題模式</string>
     <string name="me_theme_follow_system">跟隨系統</string>
     <string name="me_theme_light">淺色</string>

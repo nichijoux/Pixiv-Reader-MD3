@@ -33,4 +33,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // QueuePolicyTest：HttpException / Response 构造
+    testImplementation(libs.retrofit)
+    testImplementation(libs.okhttp)
 }

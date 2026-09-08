@@ -38,6 +38,7 @@ class MeViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
     private val updateChecker: AppUpdateChecker,
+    pendingActionDao: com.pixiv.reader.core.database.dao.PendingActionDao,
 ) : MessageViewModel() {
 
     private val appContext: Context = context.applicationContext
@@ -47,6 +48,10 @@ class MeViewModel @Inject constructor(
 
     /** 当前登录用户 UID（进个人主页用）。 */
     val ownUid: Long? get() = _user.value?.id
+
+    /** 离线待同步操作条数（Me 页「待同步操作」入口描述；Room 数据流回灌）。 */
+    val pendingActionCount: StateFlow<Int> = pendingActionDao.observeCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /**
      * 打开 pixiv 生态网页（FANBOX / COMIC / 私信消息页）。

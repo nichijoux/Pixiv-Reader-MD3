@@ -47,6 +47,7 @@ import com.pixiv.reader.core.common.config.pixivLanguageCode
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.datastore.readAppLanguageSync
 import com.pixiv.reader.core.datastore.readOnboardingCompleteSync
+import com.pixiv.reader.core.network.action.OfflineActionQueue
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.network.update.AppUpdateChecker
@@ -89,6 +90,10 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var downloadCompletionNotifier: DownloadCompletionNotifier
+
+    /** 离线操作队列（断网收藏/关注/追更补发结果全局提示）。 */
+    @Inject
+    lateinit var offlineActionQueue: OfflineActionQueue
 
     @Inject
     lateinit var updateChecker: AppUpdateChecker
@@ -150,6 +155,15 @@ class MainActivity : ComponentActivity() {
             }
             LaunchedEffect(Unit) {
                 downloadCompletionNotifier.events.collect { msg ->
+                    notificationHostState.show(
+                        context.getString(msg.res, *msg.args.toTypedArray()),
+                        type = msg.type.toNotificationType(),
+                    )
+                }
+            }
+            // 离线操作补发结果提示（同步成功 N 条 / 失败引导到待同步页）
+            LaunchedEffect(Unit) {
+                offlineActionQueue.events.collect { msg ->
                     notificationHostState.show(
                         context.getString(msg.res, *msg.args.toTypedArray()),
                         type = msg.type.toNotificationType(),

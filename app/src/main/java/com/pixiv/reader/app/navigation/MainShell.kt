@@ -89,6 +89,7 @@ fun MainShell(
     onOpenNotifications: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
+    onOpenPendingActions: () -> Unit,
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenNovelRanking: () -> Unit,
@@ -281,6 +282,7 @@ fun MainShell(
                         onOpenPixivision = onOpenPixivision,
                         onOpenBlocked = onOpenBlocked,
                         onOpenDownloads = onOpenDownloads,
+                        onOpenPendingActions = onOpenPendingActions,
                         onOpenUser = onOpenUser,
                     )
                 }

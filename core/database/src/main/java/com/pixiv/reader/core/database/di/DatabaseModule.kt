@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.pixiv.reader.core.database.PixivDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.dao.PendingActionDao
 import com.pixiv.reader.core.database.dao.ReadLaterDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.dao.SearchHistoryDao
@@ -24,7 +25,12 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): PixivDatabase =
         Room.databaseBuilder(context, PixivDatabase::class.java, "pixiv_reader.db")
             .fallbackToDestructiveMigration(false)
-            .addMigrations(PixivDatabase.MIGRATION_1_2, PixivDatabase.MIGRATION_2_3, PixivDatabase.MIGRATION_3_4)
+            .addMigrations(
+                PixivDatabase.MIGRATION_1_2,
+                PixivDatabase.MIGRATION_2_3,
+                PixivDatabase.MIGRATION_3_4,
+                PixivDatabase.MIGRATION_4_5,
+            )
             .build()
 
     @Provides
@@ -41,4 +47,7 @@ object DatabaseModule {
 
     @Provides
     fun provideReadLaterDao(db: PixivDatabase): ReadLaterDao = db.readLaterDao()
+
+    @Provides
+    fun providePendingActionDao(db: PixivDatabase): PendingActionDao = db.pendingActionDao()
 }

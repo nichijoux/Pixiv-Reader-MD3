@@ -791,6 +791,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /** 追更 / 取消追更（经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: run {
             trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
@@ -798,10 +799,8 @@ class ReaderViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val current = _isWatchlisted.value
-            runCatching {
-                if (current) pixivRepository.api.removeWatchlistNovel(seriesId)
-                else pixivRepository.api.addWatchlistNovel(seriesId)
-            }.onSuccess {
+            favoriteActions.toggleNovelWatchlist(seriesId, !current)
+            .onSuccess {
                 _isWatchlisted.value = !current
                 sendMessage(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
                     R.string.reader_msg_watching_removed

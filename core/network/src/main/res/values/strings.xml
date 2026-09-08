@@ -7,4 +7,8 @@
     <string name="ugoira_error_no_metadata">动图元数据缺失</string>
     <string name="ugoira_error_no_zip">动图帧包地址缺失</string>
     <string name="ugoira_error_no_frames">动图帧数据为空</string>
+
+    <!-- 离线操作队列（OfflineActionQueue） -->
+    <string name="queue_msg_synced">已自动同步 %1$d 条离线操作</string>
+    <string name="queue_msg_sync_failed">%1$d 条离线操作同步失败，可在「我的 → 待同步操作」中处理</string>
 </resources>

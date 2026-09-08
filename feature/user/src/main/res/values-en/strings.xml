@@ -99,6 +99,26 @@
     <string name="me_watchlist_title">Watchlist</string>
     <string name="me_watchlist_desc">Novel and manga series you follow</string>
     <string name="me_blocked_desc">Muted users and tags</string>
+    <string name="me_pending_title">Pending actions</string>
+    <string name="me_pending_desc_none">Bookmarks / follows / watchlists made offline</string>
+    <string name="me_pending_desc_count">%1$d waiting to sync</string>
+
+    <!-- Pending actions page (PendingActionsRoute) -->
+    <string name="pending_title">Pending actions</string>
+    <string name="pending_empty">Nothing to sync\nBookmarks, follows and watchlists made offline appear here and sync automatically</string>
+    <string name="pending_retry">Retry</string>
+    <string name="pending_clear">Clear</string>
+    <string name="pending_clear_title">Clear pending actions?</string>
+    <string name="pending_clear_message">Deletes all %1$d pending records; they will not be synced later</string>
+    <string name="pending_status_pending">Waiting to sync</string>
+    <string name="pending_status_failed">Sync failed</string>
+    <string name="pending_state_add">Add</string>
+    <string name="pending_state_remove">Remove</string>
+    <string name="pending_family_illust_bookmark">Bookmark illust</string>
+    <string name="pending_family_novel_bookmark">Bookmark novel</string>
+    <string name="pending_family_follow_user">Follow user</string>
+    <string name="pending_family_manga_watchlist">Follow manga series</string>
+    <string name="pending_family_novel_watchlist">Follow novel series</string>
     <string name="me_theme_mode">Theme mode</string>
     <string name="me_theme_follow_system">Follow system</string>
     <string name="me_theme_light">Light</string>

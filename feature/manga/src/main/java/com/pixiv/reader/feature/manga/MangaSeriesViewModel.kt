@@ -6,6 +6,7 @@ import com.pixiv.api.model.Illust
 import com.pixiv.api.model.NovelSeriesDetail
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -19,12 +20,13 @@ import kotlinx.coroutines.launch
 /**
  * 漫画系列详情 ViewModel（`v1/illust/series`）：
  * 系列详情（复用 NovelSeriesDetail 类型，含 `watchlist_added` 追更态）+ 系列内作品分页。
- * 追更 toggle 走 v1/watchlist/manga add/remove（与追更页漫画分段同一端点）。
+ * 追更 toggle 走 FavoriteActions 统一收口（断网自动入队待同步）。
  */
 @HiltViewModel
 class MangaSeriesViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
+    private val favoriteActions: FavoriteActions,
 ) : MessageViewModel() {
 
     /** 系列路由参数 id（固定）。 */
@@ -70,16 +72,14 @@ class MangaSeriesViewModel @Inject constructor(
         viewModelScope.launch { paged.loadMore() }
     }
 
-    /** 追更 / 取消追更（乐观翻转 + 防连点；成功经消息通道提示）。 */
+    /** 追更 / 取消追更（乐观翻转 + 防连点；成功经消息通道提示；断网自动入队待同步）。 */
     fun toggleWatchlist() {
         if (_isWatchlisting.value) return
         viewModelScope.launch {
             _isWatchlisting.value = true
             val current = _isWatchlisted.value
-            runCatching {
-                if (current) pixivRepository.api.removeWatchlistManga(seriesId)
-                else pixivRepository.api.addWatchlistManga(seriesId)
-            }.onSuccess {
+            favoriteActions.toggleMangaWatchlist(seriesId, !current)
+            .onSuccess {
                 _isWatchlisted.value = !current
                 sendMessage(
                     if (!current) UiMessage(CoreR.string.core_msg_watching_added)

@@ -50,6 +50,7 @@ import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.ui.BlockedRoute
 import com.pixiv.reader.feature.user.ui.DownloadsRoute
 import com.pixiv.reader.feature.user.ui.HistoryRoute
+import com.pixiv.reader.feature.user.ui.PendingActionsRoute
 import com.pixiv.reader.feature.user.ui.ReadLaterRoute
 import com.pixiv.reader.feature.user.ui.UserBookmarksRoute
 import com.pixiv.reader.feature.user.ui.UserFollowingRoute
@@ -144,6 +145,9 @@ const val ROUTE_BLOCKED = "blocked"
 
 /** 下载管理（图片 / 小说 / 本地文件三类，支持删除）。 */
 const val ROUTE_DOWNLOADS = "downloads"
+
+/** 待同步操作（离线收藏 / 关注 / 追更暂存队列管理页）。 */
+const val ROUTE_PENDING_ACTIONS = "pending_actions"
 
 /** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
@@ -294,6 +298,9 @@ fun PixivNavGraph(
                 },
                 onOpenDownloads = {
                     navController.navigate(ROUTE_DOWNLOADS)
+                },
+                onOpenPendingActions = {
+                    navController.navigate(ROUTE_PENDING_ACTIONS)
                 },
                 onOpenMangaRanking = {
                     navController.navigate(ROUTE_MANGA_RANKING)
@@ -765,6 +772,12 @@ fun PixivNavGraph(
         // 屏蔽名单
         composable(ROUTE_BLOCKED) {
             BlockedRoute(
+                onBack = { navController.safeBack() },
+            )
+        }
+        // 待同步操作（离线操作队列管理页）
+        composable(ROUTE_PENDING_ACTIONS) {
+            PendingActionsRoute(
                 onBack = { navController.safeBack() },
             )
         }

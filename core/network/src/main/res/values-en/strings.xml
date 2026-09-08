@@ -7,4 +7,8 @@
     <string name="ugoira_error_no_metadata">Animation metadata missing</string>
     <string name="ugoira_error_no_zip">Animation frame pack URL missing</string>
     <string name="ugoira_error_no_frames">Animation frame list empty</string>
+
+    <!-- Offline action queue (OfflineActionQueue) -->
+    <string name="queue_msg_synced">Synced %1$d offline actions automatically</string>
+    <string name="queue_msg_sync_failed">%1$d offline actions failed to sync — manage them in Me → Pending actions</string>
 </resources>

@@ -241,17 +241,14 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /** 追更 / 取消追更所属漫画系列（详情页追更按钮，乐观翻转 + 防连点）。 */
+    /** 追更 / 取消追更所属漫画系列（详情页追更按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleSeriesWatchlist() {
         if (_isSeriesWatchlisting.value) return
         val seriesId = _illust.value?.series?.id ?: return
         viewModelScope.launch {
             _isSeriesWatchlisting.value = true
             val current = _isSeriesWatchlisted.value
-            runCatching {
-                if (current) pixivRepository.api.removeWatchlistManga(seriesId)
-                else pixivRepository.api.addWatchlistManga(seriesId)
-            }
+            favoriteActions.toggleMangaWatchlist(seriesId, !current)
                 .onSuccess {
                     _isSeriesWatchlisted.value = !current
                     sendMessage(
