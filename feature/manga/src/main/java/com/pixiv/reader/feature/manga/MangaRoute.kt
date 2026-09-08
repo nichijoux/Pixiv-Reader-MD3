@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -84,11 +85,11 @@ fun MangaRoute(
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenWatchlist: () -> Unit = {},
-    onOpenComic: () -> Unit = {},
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
@@ -154,8 +155,17 @@ fun MangaRoute(
                     // 排行榜入口按内容类型显示对应榜单（漫画榜 / 插画榜；动图无榜单页）
                     when (tab) {
                         MangaContentType.MANGA -> Row {
-                            // COMIC 入口（漫画分段）：WebView 内嵌 comic.pixiv.net
-                            IconButton(onClick = onOpenComic) {
+                            // COMIC 入口（漫画分段）：跳系统浏览器打开 comic.pixiv.net
+                            IconButton(
+                                onClick = {
+                                    context.startActivity(
+                                        android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse("https://comic.pixiv.net/"),
+                                        ),
+                                    )
+                                },
+                            ) {
                                 Icon(
                                     Icons.Filled.AutoStories,
                                     contentDescription = stringResource(R.string.manga_cd_comic),

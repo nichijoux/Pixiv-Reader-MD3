@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 /**
  * pixivision 特辑 ViewModel：官方特辑文章列表（`v1/spotlight/articles`，category=all）。
- * 文章详情为外部网页（article_url），由调用方经 WebView 打开。
+ * 文章详情为外部网页（article_url），由调用方跳系统浏览器打开。
  */
 @HiltViewModel
 class PixivisionViewModel @Inject constructor(

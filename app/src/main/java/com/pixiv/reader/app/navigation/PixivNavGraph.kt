@@ -35,11 +35,6 @@ import com.pixiv.reader.feature.discover.ui.EraRankingRoute
 import com.pixiv.reader.feature.discover.ui.PixivisionRoute
 import com.pixiv.reader.feature.discover.ui.UserRankingRoute
 import com.pixiv.reader.feature.discover.ui.WallpaperRankingRoute
-import com.pixiv.reader.app.webview.WebViewRoute
-import com.pixiv.reader.feature.fanbox.ui.FanboxCreatorListRoute
-import com.pixiv.reader.feature.fanbox.ui.FanboxCreatorRoute
-import com.pixiv.reader.feature.fanbox.ui.FanboxHomeRoute
-import com.pixiv.reader.feature.fanbox.ui.FanboxPostRoute
 import com.pixiv.reader.feature.talk.ui.TalkListRoute
 import com.pixiv.reader.feature.talk.ui.TalkRoomRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
@@ -121,23 +116,11 @@ const val ROUTE_ERA_RANKING = "era_ranking"
 /** 壁纸榜（排行数据过滤横屏高分辨率）。 */
 const val ROUTE_WALLPAPER_RANKING = "wallpaper_ranking"
 
-/** 通用内嵌 WebView 全屏页（pixivision 文章 / COMIC 等）。 */
-const val ROUTE_WEB_VIEW = "webview?url={url}&title={title}"
 
-/** pixiv COMIC 内嵌页（WebView 加载 comic.pixiv.net，cookie 由 WebView 自持）。 */
-const val ROUTE_COMIC = "comic"
 
-/** FANBOX 关注新帖流（内嵌登录门 + 帖子列表）。 */
-const val ROUTE_FANBOX = "fanbox"
 
-/** FANBOX 关注创作者列表。 */
-const val ROUTE_FANBOX_CREATORS = "fanbox_creators"
 
-/** FANBOX 创作者帖子流（creatorId 为字符串 id）。 */
-const val ROUTE_FANBOX_CREATOR = "fanbox_creator/{creatorId}"
 
-/** FANBOX 帖子详情（postId 为字符串 id）。 */
-const val ROUTE_FANBOX_POST = "fanbox_post/{postId}"
 
 /** 私信会话列表（只读）。 */
 const val ROUTE_TALK = "talk"
@@ -294,12 +277,6 @@ fun PixivNavGraph(
                 onOpenMangaWatchlist = {
                     // 作品 Tab 顶栏追更入口：直达漫画分段
                     navController.navigate("watchlist?type=manga")
-                },
-                onOpenComic = {
-                    navController.navigate(ROUTE_COMIC)
-                },
-                onOpenFanbox = {
-                    navController.navigate(ROUTE_FANBOX)
                 },
                 onOpenTalk = {
                     navController.navigate(ROUTE_TALK)
@@ -839,13 +816,10 @@ fun PixivNavGraph(
                 localTitle = local?.second,
             )
         }
-        // pixivision 特辑列表：点击文章经 WebView 打开原文
+        // pixivision 特辑列表：点击文章跳系统浏览器打开原文
         composable(ROUTE_PIXIVISION) {
             PixivisionRoute(
                 onBack = { navController.safeBack() },
-                onOpenArticle = { url, title ->
-                    navController.navigate("webview?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
-                },
             )
         }
         // 画师榜：官方推荐创作者列表
@@ -920,59 +894,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // pixiv COMIC：WebView 内嵌（cookie 由 WebView 自持，用户在页内登录）
-        composable(ROUTE_COMIC) {
-            WebViewRoute(
-                url = "https://comic.pixiv.net/",
-                title = "pixiv COMIC",
-                onBack = { navController.safeBack() },
-            )
-        }
-        // FANBOX 首页：关注创作者新帖流（未登录渲染内嵌登录门）
-        composable(ROUTE_FANBOX) {
-            FanboxHomeRoute(
-                onBack = { navController.safeBack() },
-                onOpenPost = { postId ->
-                    navController.navigate("fanbox_post/$postId")
-                },
-                onOpenCreators = {
-                    navController.navigate(ROUTE_FANBOX_CREATORS)
-                },
-            )
-        }
-        // FANBOX 关注创作者列表
-        composable(ROUTE_FANBOX_CREATORS) {
-            FanboxCreatorListRoute(
-                onBack = { navController.safeBack() },
-                onOpenCreator = { creatorId ->
-                    navController.navigate("fanbox_creator/$creatorId")
-                },
-            )
-        }
-        // FANBOX 创作者帖子流
-        composable(
-            route = ROUTE_FANBOX_CREATOR,
-            arguments = listOf(navArgument("creatorId") { type = NavType.StringType }),
-        ) {
-            FanboxCreatorRoute(
-                onBack = { navController.safeBack() },
-                onOpenPost = { postId ->
-                    navController.navigate("fanbox_post/$postId")
-                },
-            )
-        }
-        // FANBOX 帖子详情
-        composable(
-            route = ROUTE_FANBOX_POST,
-            arguments = listOf(navArgument("postId") { type = NavType.StringType }),
-        ) {
-            FanboxPostRoute(
-                onBack = { navController.safeBack() },
-                onOpenCreator = { creatorId ->
-                    navController.navigate("fanbox_creator/$creatorId")
-                },
-            )
-        }
         // 私信会话列表（只读）
         composable(ROUTE_TALK) {
             TalkListRoute(
@@ -993,40 +914,6 @@ fun PixivNavGraph(
             TalkRoomRoute(
                 roomId = backStackEntry.arguments?.getLong("roomId") ?: 0L,
                 partnerName = backStackEntry.arguments?.getString("partnerName"),
-                onBack = { navController.safeBack() },
-            )
-        }
-        // FANBOX 帖子详情
-        composable(
-            route = ROUTE_FANBOX_POST,
-            arguments = listOf(navArgument("postId") { type = NavType.StringType }),
-        ) {
-            FanboxPostRoute(
-                onBack = { navController.safeBack() },
-                onOpenCreator = { creatorId ->
-                    navController.navigate("fanbox_creator/$creatorId")
-                },
-            )
-        }
-        // pixiv COMIC：WebView 内嵌（cookie 由 WebView 自持，用户在页内登录）
-        composable(ROUTE_COMIC) {
-            WebViewRoute(
-                url = "https://comic.pixiv.net/",
-                title = "pixiv COMIC",
-                onBack = { navController.safeBack() },
-            )
-        }
-        // 通用内嵌 WebView（pixivision 文章原文 / COMIC 等）
-        composable(
-            route = ROUTE_WEB_VIEW,
-            arguments = listOf(
-                navArgument("url") { type = NavType.StringType },
-                navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null },
-            ),
-        ) { backStackEntry ->
-            WebViewRoute(
-                url = backStackEntry.arguments?.getString("url").orEmpty(),
-                title = backStackEntry.arguments?.getString("title"),
                 onBack = { navController.safeBack() },
             )
         }

@@ -52,7 +52,7 @@ import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.PixivisionViewModel
 
 /**
- * pixivision 特辑列表（路由 `pixivision`）：官方特辑文章封面卡列表，点击经 WebView 打开原文。
+ * pixivision 特辑列表（路由 `pixivision`）：官方特辑文章封面卡列表，点击跳系统浏览器打开原文。
  *
  * @param onBack 返回
  * @param onOpenArticle 打开文章原文（WebView 全屏页，参数为文章 URL 与标题）
@@ -61,9 +61,9 @@ import com.pixiv.reader.feature.discover.state.PixivisionViewModel
 @Composable
 fun PixivisionRoute(
     onBack: () -> Unit,
-    onOpenArticle: (String, String) -> Unit,
     viewModel: PixivisionViewModel = hiltViewModel(),
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val items by viewModel.paged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
@@ -106,9 +106,13 @@ fun PixivisionRoute(
                         PixivisionArticleCard(
                             article = article,
                             onClick = {
-                                article.article_url?.let { url ->
-                                    onOpenArticle(url, article.pure_title ?: article.title.orEmpty())
-                                }
+                                // 文章原文跳系统浏览器打开
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(article.article_url),
+                                    ),
+                                )
                             },
                         )
                     }
