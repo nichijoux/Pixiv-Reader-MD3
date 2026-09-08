@@ -155,15 +155,17 @@ fun MangaRoute(
                     // 排行榜入口按内容类型显示对应榜单（漫画榜 / 插画榜；动图无榜单页）
                     when (tab) {
                         MangaContentType.MANGA -> Row {
-                            // COMIC 入口（漫画分段）：跳系统浏览器打开 comic.pixiv.net
+                            // COMIC 入口（漫画分段）：跳系统浏览器打开 comic.pixiv.net（无可用浏览器时静默）
                             IconButton(
                                 onClick = {
-                                    context.startActivity(
-                                        android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse("https://comic.pixiv.net/"),
-                                        ),
-                                    )
+                                    runCatching {
+                                        context.startActivity(
+                                            android.content.Intent(
+                                                android.content.Intent.ACTION_VIEW,
+                                                android.net.Uri.parse("https://comic.pixiv.net/"),
+                                            ),
+                                        )
+                                    }
                                 },
                             ) {
                                 Icon(

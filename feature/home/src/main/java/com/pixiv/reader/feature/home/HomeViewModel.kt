@@ -128,7 +128,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 下拉刷新：重拉当前 Tab 第一页（清空旧列表），结束后复位指示（防重入）。 */
+    /** 下拉刷新：重拉当前 Tab 第一页（清空旧列表），结束后复位指示（防重入）。
+     *  复用 [loadRecommend]/[loadFollowing]（fetch 内含快照回写），刷新后的数据即下次冷启动的秒开内容。 */
     fun pullRefresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
@@ -137,17 +138,12 @@ class HomeViewModel @Inject constructor(
                 when (_tab.value) {
                     HomeTab.RECOMMEND -> {
                         recommendPaged.reset()
-                        recommendPaged.loadInitial(
-                            fetch = { pixivRepository.api.getRecommendedIllusts(includeRanking = true) },
-                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                        )
+                        loadRecommend()
                     }
+
                     HomeTab.FOLLOW -> {
                         followingPaged.reset()
-                        followingPaged.loadInitial(
-                            fetch = { pixivRepository.api.getFollowingIllusts("all") },
-                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                        )
+                        loadFollowing()
                     }
                 }
             } finally {
@@ -156,7 +152,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 加载热门标签（横滑区，取前 10 个；失败静默；快照命中时不请求）。 */
+    /** 加载热门标签（横滑区，取前 10 个；失败静默；成功后写快照供下次冷启动预填）。 */
     private fun loadTrendingTags() {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getTrendingTags("illust") }

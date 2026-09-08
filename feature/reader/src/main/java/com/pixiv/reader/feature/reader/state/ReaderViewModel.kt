@@ -791,26 +791,33 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    /** 追更 / 取消追更（经 FavoriteActions 统一收口，断网自动入队）。 */
+    /** 追更请求进行中（防连点：双击重复提交追更接口）。 */
+    private val _isWatchlisting = MutableStateFlow(false)
+    val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
+
+    /** 追更 / 取消追更（成功后翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: run {
             trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
             return
         }
+        if (_isWatchlisting.value) return
         viewModelScope.launch {
+            _isWatchlisting.value = true
             val current = _isWatchlisted.value
             favoriteActions.toggleNovelWatchlist(seriesId, !current)
-            .onSuccess {
-                _isWatchlisted.value = !current
-                sendMessage(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
-                    R.string.reader_msg_watching_removed
-                ))
-            }.onFailure {
-                sendMessage(UiMessage(
-                    CoreR.string.core_msg_action_failed,
-                    listOf(it.message ?: "")
-                ))
-            }
+                .onSuccess {
+                    _isWatchlisted.value = !current
+                    sendMessage(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
+                        R.string.reader_msg_watching_removed
+                    ))
+                }.onFailure {
+                    sendMessage(UiMessage(
+                        CoreR.string.core_msg_action_failed,
+                        listOf(it.message ?: "")
+                    ))
+                }
+            _isWatchlisting.value = false
         }
     }
 

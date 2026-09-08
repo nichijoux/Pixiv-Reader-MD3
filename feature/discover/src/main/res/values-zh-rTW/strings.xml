@@ -142,6 +142,7 @@
     <string name="pixivision_subtitle">官方特輯與企劃</string>
     <string name="pixivision_empty">暫無特輯文章</string>
     <string name="ranking_preview_placeholder">從列表選擇作品查看詳情</string>
+    <string name="ranking_illust_load_retry">重試</string>
     <string name="ranking_detail_fullscreen">全螢幕</string>
     <string name="ranking_detail_stat_view">查看</string>
     <string name="ranking_detail_stat_bookmark">收藏</string>

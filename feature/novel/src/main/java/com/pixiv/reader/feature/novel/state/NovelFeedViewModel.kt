@@ -115,17 +115,13 @@ class NovelFeedViewModel @Inject constructor(
         viewModelScope.launch { feed.loadMore() }
     }
 
-    /** 推荐流下拉刷新：重拉第一页，结束后复位指示（防重入）。 */
+    /** 推荐流下拉刷新：重拉第一页（fetch 内含快照回写），结束后复位指示（防重入）。 */
     fun pullRefresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                feed.reset()
-                feed.loadInitial(
-                    fetch = { pixivRepository.api.getRecommendedNovels() },
-                    fetchNext = { pixivRepository.api.getNextNovels(it) },
-                )
+                refresh()
             } finally {
                 _isRefreshing.value = false
             }

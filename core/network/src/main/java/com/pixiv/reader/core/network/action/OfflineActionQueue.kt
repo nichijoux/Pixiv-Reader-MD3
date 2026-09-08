@@ -91,22 +91,25 @@ class OfflineActionQueue @Inject constructor(
             enqueue(family, targetId, targetState, params, payload)
             return Result.success(Unit)
         }
-        return runCatching { block() }.fold(
-            onSuccess = {
-                // 直连成功：本操作即最新状态，丢弃同目标的过期队列项（防旧状态补发回滚）
-                runCatching { dao.deleteByTarget(family, targetId) }
-                Result.success(Unit)
-            },
-            onFailure = { e ->
-                when (QueuePolicy.onDirectFailure(e)) {
-                    QueuePolicy.Direct.ENQUEUE -> {
-                        enqueue(family, targetId, targetState, params, payload)
-                        Result.success(Unit)
+        return runCatching { block() }
+            .onFailure { if (it is CancellationException) throw it }
+            .fold(
+                onSuccess = {
+                    // 直连成功：本操作即最新状态，丢弃同目标的过期队列项（防旧状态补发回滚）
+                    runCatching { dao.deleteByTarget(family, targetId) }
+                    Result.success(Unit)
+                },
+                onFailure = { e ->
+                    when (QueuePolicy.onDirectFailure(e)) {
+                        QueuePolicy.Direct.ENQUEUE -> {
+                            enqueue(family, targetId, targetState, params, payload)
+                            Result.success(Unit)
+                        }
+
+                        QueuePolicy.Direct.FAIL -> Result.failure(e)
                     }
-                    QueuePolicy.Direct.FAIL -> Result.failure(e)
-                }
-            },
-        )
+                },
+            )
     }
 
     /** 入队（写库失败静默——队列仅是优化，不阻塞调用方）。 */

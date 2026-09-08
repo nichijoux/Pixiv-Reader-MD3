@@ -118,7 +118,9 @@ fun CommentListContent(
 ) {
     // 触底加载更多：最后可见项接近列表末尾且仍有下一页时触发
     val listState = rememberLazyListState()
-    val shouldLoadMore by remember {
+    // derivedStateOf 捕获的 lambda 须随 comments 重建：分页追加产生新列表实例，
+    // 无 key 的 remember 会一直读首次组合的旧列表（lastIndex 恒旧，触底判定失效）
+    val shouldLoadMore by remember(comments) {
         derivedStateOf {
             val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
             last >= comments.lastIndex - 3

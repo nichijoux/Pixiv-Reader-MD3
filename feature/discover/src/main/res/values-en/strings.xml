@@ -142,6 +142,7 @@
     <string name="pixivision_subtitle">Official features and events</string>
     <string name="pixivision_empty">No articles yet</string>
     <string name="ranking_preview_placeholder">Select a work to view details</string>
+    <string name="ranking_illust_load_retry">Retry</string>
     <string name="ranking_detail_fullscreen">Fullscreen</string>
     <string name="ranking_detail_stat_view">views</string>
     <string name="ranking_detail_stat_bookmark">bookmarks</string>

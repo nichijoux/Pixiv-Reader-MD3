@@ -104,6 +104,8 @@ class UgoiraExporter @Inject constructor(
             }
             resultPath
         }.onFailure { e ->
+            // 协程取消（Worker 被系统停止）不落 failed 状态——保留断点现场待重试续传
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.w(TAG, "ugoira 导出失败 illustId=$illustId format=$format", e)
             // 失败仍带作品快照（保留卡片展示信息）；REPLACE 覆写会把进度重置为 0
             // （与插画下载 Worker 失败路径行为一致），重试从断点续传继续

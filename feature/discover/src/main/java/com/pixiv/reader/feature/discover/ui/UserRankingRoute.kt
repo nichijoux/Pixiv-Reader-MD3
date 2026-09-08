@@ -93,14 +93,15 @@ fun UserRankingRoute(
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
                 ) {
-                    items(items, key = { it.user?.id ?: -it.hashCode() }) { preview ->
+                    // key 需全列表唯一：user id 优先，缺失回退条目哈希（防推荐接口重复 id 触发 duplicate key 崩溃）
+                    items(items, key = { "user_${it.user?.id ?: it.hashCode()}" }) { preview ->
                         val profile = preview.toCreatorProfile()
                         CreatorProfileCard(
                             profile = profile,
                             onToggleFollow = { nowFollowed ->
                                 profile.id.takeIf { it != 0L }?.let { viewModel.toggleFollow(it, nowFollowed) }
                             },
-                            onClick = { onOpenUser(profile.id) },
+                            onClick = { profile.id.takeIf { it != 0L }?.let(onOpenUser) },
                         )
                     }
                     if (hasMore) {

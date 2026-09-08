@@ -3,6 +3,7 @@ package com.pixiv.reader.core.network.favorite
 import com.pixiv.api.network.AppApi
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.BookmarkTag
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,6 +110,7 @@ class BookmarkEditor(
     /**
      * 详情加载完成后回填编辑器状态（幂等：每次详情加载 / 切换作品都调用）。
      * 已收藏时拉 v2 bookmark/detail 得当前 restrict 与已选标签；失败静默（编辑器仍可用，仅无回显）。
+     * 发起前捕获目标 id，写回前校验仍是当前目标——排行右栏快速切换作品时丢弃过期响应。
      *
      * @param isBookmarked 目标作品当前收藏态
      */
@@ -118,11 +120,14 @@ class BookmarkEditor(
         _restrict.value = PixivConstants.RESTRICT_PUBLIC
         _allTags.value = emptyList()
         if (!isBookmarked) return
+        val requestedId = targetId()
         scope.launch {
             runCatching {
                 if (targetType == "illust") api.getIllustBookmarkDetail(targetId())
                 else api.getNovelBookmarkDetail(targetId())
             }.onSuccess { resp ->
+                // 响应到达时已切到其他作品：丢弃（旧目标的 restrict/tags 不回填新目标）
+                if (targetId() != requestedId) return@onSuccess
                 val detail = resp.bookmark_detail ?: return@onSuccess
                 _restrict.value = detail.restrict ?: PixivConstants.RESTRICT_PUBLIC
                 _savedTags.value = detail.tags.mapNotNull { it.name }
@@ -144,6 +149,8 @@ class BookmarkEditor(
                 api.bookmarkNovel(targetId(), _restrict.value, _savedTags.value)
             }
         }
+        // 协程取消向上传播（不误报为保存失败）
+        result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
         // 仅成功后置收藏态（失败交由 VM 提示，弹层保持打开可重试）
         if (result.isSuccess) _bookmarked.value = true
         return result

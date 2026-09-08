@@ -39,7 +39,7 @@ class MangaSeriesViewModel @Inject constructor(
     /** 系列内作品分页（PagedState 累积，触底加载）。 */
     val paged = PagedState<Illust>()
 
-    /** 是否已追更（detail.watchlist_added / 乐观翻转）。 */
+    /** 是否已追更（detail.watchlist_added 初始化；toggle 成功后翻转）。 */
     private val _isWatchlisted = MutableStateFlow(false)
     val isWatchlisted: StateFlow<Boolean> = _isWatchlisted.asStateFlow()
 
@@ -72,7 +72,7 @@ class MangaSeriesViewModel @Inject constructor(
         viewModelScope.launch { paged.loadMore() }
     }
 
-    /** 追更 / 取消追更（乐观翻转 + 防连点；成功经消息通道提示；断网自动入队待同步）。 */
+    /** 追更 / 取消追更（成功后翻转 + 防连点；成功经消息通道提示；断网自动入队待同步）。 */
     fun toggleWatchlist() {
         if (_isWatchlisting.value) return
         viewModelScope.launch {

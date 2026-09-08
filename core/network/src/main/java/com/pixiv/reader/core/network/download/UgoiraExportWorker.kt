@@ -35,6 +35,9 @@ class UgoiraExportWorker(
             val illust = runCatching { pixivRepository.api.getIllust(illustId).illust }.getOrNull()
             exporter.export(illustId, format, illust).getOrThrow()
             Result.success()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Worker 被停止（约束丢失/用户取消）：向上传播，状态与断点现场保持原样
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "ugoira 导出失败 illustId=$illustId format=$format", e)
             // 有限重试：临时网络/编码失败自动重跑（zip 与已解压帧断点复用，成本低）

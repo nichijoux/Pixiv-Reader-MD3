@@ -58,6 +58,9 @@ import com.pixiv.reader.core.ui.component.card.SeriesCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
@@ -99,6 +102,10 @@ fun WatchlistRoute(
     val error by paged.error.collectAsStateWithLifecycle()
     // 作品页入口（type=manga）：单分段纯漫画形态
     val mangaOnly = initialType == WatchlistViewModel.TYPE_MANGA
+    val notificationHostState = rememberNotificationHostState()
+
+    // 行内取消追更失败等消息提示
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     // 列表就绪后补齐系列信息：小说段 → 系列详情（封面/简介），漫画段 → 首话封面
     LaunchedEffect(items, type) {
@@ -109,6 +116,7 @@ fun WatchlistRoute(
     }
 
     Scaffold(
+        snackbarHost = { NotificationHost(notificationHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.watchlist_title)) },

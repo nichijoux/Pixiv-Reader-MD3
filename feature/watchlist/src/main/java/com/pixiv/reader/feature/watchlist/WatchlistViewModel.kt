@@ -1,10 +1,12 @@
 package com.pixiv.reader.feature.watchlist
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.WatchlistSeries
+import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesDetailCache
@@ -36,7 +38,7 @@ class WatchlistViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val seriesDetailCache: SeriesDetailCache,
     private val favoriteActions: FavoriteActions,
-) : ViewModel() {
+) : MessageViewModel() {
 
     companion object {
         /** 类型常量（路由参数 watchlist?type=）。 */
@@ -101,7 +103,8 @@ class WatchlistViewModel @Inject constructor(
     }
 
     /**
-     * 行内取消追更（经 FavoriteActions 统一收口，断网自动入队；成功后重载当前类型列表）。
+     * 行内取消追更（经 FavoriteActions 统一收口，断网自动入队；成功后重载当前类型列表，
+     * 失败经消息通道提示）。
      *
      * @param series 待取消追更的系列
      */
@@ -110,10 +113,14 @@ class WatchlistViewModel @Inject constructor(
         viewModelScope.launch {
             val toggle = if (type == TYPE_MANGA) favoriteActions::toggleMangaWatchlist
             else favoriteActions::toggleNovelWatchlist
-            toggle(series.id, false).onSuccess {
-                // 重载当前类型（简单可靠：服务端已删除，重拉即为最新列表）
-                retry(type)
-            }
+            toggle(series.id, false)
+                .onSuccess {
+                    // 重载当前类型（简单可靠：服务端已删除，重拉即为最新列表）
+                    retry(type)
+                }
+                .onFailure {
+                    sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
+                }
         }
     }
 

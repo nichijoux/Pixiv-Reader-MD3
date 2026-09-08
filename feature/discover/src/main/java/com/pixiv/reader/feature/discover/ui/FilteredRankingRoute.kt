@@ -88,7 +88,7 @@ private fun FilteredRankingScreen(
     val detailVm: IllustViewModel = hiltViewModel()
     val commentVm: CommentListViewModel = hiltViewModel()
     val detailStrings = IllustDetailStrings(
-        loadRetry = stringResource(R.string.cd_back),
+        loadRetry = stringResource(R.string.ranking_illust_load_retry),
         fullscreen = stringResource(R.string.ranking_detail_fullscreen),
         statView = stringResource(R.string.ranking_detail_stat_view),
         statBookmark = stringResource(R.string.ranking_detail_stat_bookmark),
@@ -141,6 +141,8 @@ private fun FilteredRankingScreen(
                             modes = viewModel.modes,
                             onModeSelect = viewModel::onPageSelected,
                             stateFor = viewModel::stateFor,
+                            // 日期维度变更时按新复合键取新 PagedState 并重新加载（与漫画/插画/小说排行页同款）
+                            stateKey = selectedDate.orEmpty(),
                             onRetry = viewModel::retry,
                             onLoadMore = viewModel::loadMore,
                             emptyText = filteredEmptyText,
@@ -180,6 +182,8 @@ private fun FilteredRankingScreen(
                 modes = viewModel.modes,
                 onModeSelect = viewModel::onPageSelected,
                 stateFor = viewModel::stateFor,
+                // 日期维度变更时按新复合键取新 PagedState 并重新加载（与漫画/插画/小说排行页同款）
+                stateKey = selectedDate.orEmpty(),
                 onRetry = viewModel::retry,
                 onLoadMore = viewModel::loadMore,
                 modifier = Modifier.padding(padding),

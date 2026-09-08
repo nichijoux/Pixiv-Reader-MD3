@@ -123,12 +123,15 @@ fun NotificationRoute(
                             desc = stringResource(R.string.notification_talk_desc),
                             icon = Icons.Filled.Email,
                             onClick = {
-                                context.startActivity(
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://www.pixiv.net/message.php"),
-                                    ),
-                                )
+                                // 私信跳系统浏览器消息页（无可用浏览器时静默）
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            android.net.Uri.parse("https://www.pixiv.net/message.php"),
+                                        ),
+                                    )
+                                }
                             },
                         )
                     }

@@ -117,7 +117,9 @@ class NovelViewModel @Inject constructor(
      * 清空旧作品全部状态后重新加载；加载期间旧内容先清空避免错位。
      */
     fun switchTo(id: Long) {
-        if (id == novelId || id <= 0L) return
+        // 与当前展示中的小说比较去重（内嵌场景 novelId=0，比较展示 id 而非路由参数）
+        val currentShown = _novel.value?.id ?: novelId
+        if (id == currentShown || id <= 0L) return
         _novel.value = null
         _seriesNovels.value = emptyList()
         _error.value = null
@@ -133,12 +135,18 @@ class NovelViewModel @Inject constructor(
         load(id)
     }
 
+    /** 当前请求中的小说 id（响应竞态守卫：右栏快速切换后旧响应直接丢弃）。 */
+    private var requestedId: Long = novelId
+
     fun load(id: Long = novelId) {
+        requestedId = id
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             runCatching { pixivRepository.api.getNovel(id) }
                 .onSuccess { resp ->
+                    // 响应到达时已切到其他小说：丢弃（旧数据不覆盖新目标状态）
+                    if (requestedId != id) return@onSuccess
                     val detail = resp.novel ?: return@onSuccess
                     _novel.value = detail
                     _isBookmarked.value = detail.is_bookmarked == true
@@ -151,13 +159,14 @@ class NovelViewModel @Inject constructor(
                     loadSeries(detail)
                 }
                 .onFailure {
+                    if (requestedId != id) return@onFailure
                     _error.value = loadFailureMessage(
                         it,
                         CoreR.string.core_novel_load_failed_reason,
                         CoreR.string.core_novel_load_failed,
                     )
                 }
-            _isLoading.value = false
+            if (requestedId == id) _isLoading.value = false
         }
     }
 

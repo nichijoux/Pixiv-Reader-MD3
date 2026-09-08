@@ -75,6 +75,10 @@ class ViewerViewModel @Inject constructor(
     private val _isBookmarked = MutableStateFlow(false)
     val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
 
+    /** 收藏请求进行中（防连点：在线双击重复提交收藏接口）。 */
+    private val _isBookmarking = MutableStateFlow(false)
+    val isBookmarking: StateFlow<Boolean> = _isBookmarking.asStateFlow()
+
     /** 是否显示原图（false 显示预览图 displayUrl，true 显示原图 originalUrl）。 */
     private val _isOriginal = MutableStateFlow(false)
     val isOriginal: StateFlow<Boolean> = _isOriginal.asStateFlow()
@@ -150,8 +154,11 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    /** 收藏 / 取消收藏（乐观翻转 + 防连点；断网自动入队待同步）。 */
     fun toggleBookmark() {
+        if (_isBookmarking.value) return
         viewModelScope.launch {
+            _isBookmarking.value = true
             val current = _isBookmarked.value
             favoriteActions.toggleIllustFavorite(illustId, !current)
                 .onSuccess {
@@ -160,6 +167,7 @@ class ViewerViewModel @Inject constructor(
                     bookmarkEditor.onTargetLoaded(!current)
                 }
                 .onFailure { sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: ""))) }
+            _isBookmarking.value = false
         }
     }
 

@@ -138,11 +138,14 @@ class IllustViewModel @Inject constructor(
     }
 
     fun load() {
+        // 发起前捕获目标 id：右栏快速切换时旧响应到达但目标已变，直接丢弃（防旧数据覆盖新作品）
+        val requestedId = _illustId.value
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            runCatching { pixivRepository.api.getIllust(_illustId.value) }
+            runCatching { pixivRepository.api.getIllust(requestedId) }
                 .onSuccess { resp ->
+                    if (_illustId.value != requestedId) return@onSuccess
                     val ill = resp.illust ?: return@onSuccess
                     _illust.value = ill
                     _isBookmarked.value = ill.is_bookmarked == true
@@ -159,13 +162,14 @@ class IllustViewModel @Inject constructor(
                     if (ill.isGif()) loadUgoira()
                 }
                 .onFailure {
+                    if (_illustId.value != requestedId) return@onFailure
                     _error.value = loadFailureMessage(
                         it,
                         CoreR.string.core_illust_load_failed_reason,
                         CoreR.string.core_illust_load_failed,
                     )
                 }
-            _isLoading.value = false
+            if (_illustId.value == requestedId) _isLoading.value = false
         }
     }
 

@@ -102,7 +102,7 @@ fun PixivisionRoute(
             }
             Column {
                 Text(
-                    text = "pixivision",
+                    text = stringResource(R.string.pixivision_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
@@ -139,11 +139,13 @@ fun PixivisionRoute(
                         PixivisionArticleCard(
                             article = article,
                             onClick = {
-                                // pixivision 无正文 app API：文章原文跳系统浏览器
+                                // pixivision 无正文 app API：文章原文跳系统浏览器（无可用浏览器时静默）
                                 article.article_url?.let { url ->
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)),
-                                    )
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)),
+                                        )
+                                    }
                                 }
                             },
                         )
