@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="talk_title">Messages</string>
-    <string name="talk_cd_back">Back</string>
-    <string name="talk_empty">No messages</string>
-    <string name="talk_room_empty">No messages yet</string>
-    <string name="talk_read_only_hint">Read-only · replying coming in a future version</string>
-</resources>

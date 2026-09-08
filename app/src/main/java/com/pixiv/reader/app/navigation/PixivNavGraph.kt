@@ -35,8 +35,6 @@ import com.pixiv.reader.feature.discover.ui.EraRankingRoute
 import com.pixiv.reader.feature.discover.ui.PixivisionRoute
 import com.pixiv.reader.feature.discover.ui.UserRankingRoute
 import com.pixiv.reader.feature.discover.ui.WallpaperRankingRoute
-import com.pixiv.reader.feature.talk.ui.TalkListRoute
-import com.pixiv.reader.feature.talk.ui.TalkRoomRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
@@ -122,11 +120,6 @@ const val ROUTE_WALLPAPER_RANKING = "wallpaper_ranking"
 
 
 
-/** 私信会话列表（只读）。 */
-const val ROUTE_TALK = "talk"
-
-/** 私信消息历史（只读；partnerName 可选顶栏展示）。 */
-const val ROUTE_TALK_ROOM = "talk_room/{roomId}?partnerName={partnerName}"
 
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
@@ -277,9 +270,6 @@ fun PixivNavGraph(
                 onOpenMangaWatchlist = {
                     // 作品 Tab 顶栏追更入口：直达漫画分段
                     navController.navigate("watchlist?type=manga")
-                },
-                onOpenTalk = {
-                    navController.navigate(ROUTE_TALK)
                 },
                 onOpenPixivision = {
                     navController.navigate(ROUTE_PIXIVISION)
@@ -892,29 +882,6 @@ fun PixivNavGraph(
                         launchSingleTop = true
                     }
                 },
-            )
-        }
-        // 私信会话列表（只读）
-        composable(ROUTE_TALK) {
-            TalkListRoute(
-                onBack = { navController.safeBack() },
-                onOpenRoom = { roomId ->
-                    navController.navigate("talk_room/$roomId")
-                },
-            )
-        }
-        // 私信消息历史（只读）
-        composable(
-            route = ROUTE_TALK_ROOM,
-            arguments = listOf(
-                navArgument("roomId") { type = NavType.LongType },
-                navArgument("partnerName") { type = NavType.StringType; nullable = true; defaultValue = null },
-            ),
-        ) { backStackEntry ->
-            TalkRoomRoute(
-                roomId = backStackEntry.arguments?.getLong("roomId") ?: 0L,
-                partnerName = backStackEntry.arguments?.getString("partnerName"),
-                onBack = { navController.safeBack() },
             )
         }
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索

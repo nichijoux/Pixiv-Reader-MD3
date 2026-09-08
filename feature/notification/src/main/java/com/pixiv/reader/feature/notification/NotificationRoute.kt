@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
+import android.content.Intent
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,6 +33,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
@@ -46,6 +49,7 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.list.RankingBanner
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -111,6 +115,23 @@ fun NotificationRoute(
 
                 items.isEmpty() -> EmptyBox(stringResource(R.string.notification_empty))
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    // 顶部快捷入口：私信（跳系统浏览器消息页，与 Me 页生态分区一致）
+                    item(key = "talk_entry") {
+                        val context = LocalContext.current
+                        RankingBanner(
+                            title = stringResource(R.string.notification_talk_entry),
+                            desc = stringResource(R.string.notification_talk_desc),
+                            icon = Icons.Filled.Email,
+                            onClick = {
+                                context.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://www.pixiv.net/message.php"),
+                                    ),
+                                )
+                            },
+                        )
+                    }
                     itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                         if (item.view_more != null) {
                             NotificationGroupCard(

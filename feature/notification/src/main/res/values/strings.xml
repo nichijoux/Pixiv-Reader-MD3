@@ -7,4 +7,6 @@
     <string name="notification_time_minutes_ago">%1$d 分钟前</string>
     <string name="notification_time_hours_ago">%1$d 小时前</string>
     <string name="notification_time_days_ago">%1$d 天前</string>
+    <string name="notification_talk_entry">私信</string>
+    <string name="notification_talk_desc">与关注的创作者和好P友对话</string>
 </resources>

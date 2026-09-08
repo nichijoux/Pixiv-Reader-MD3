@@ -553,17 +553,4 @@ interface AppApi {
     @GET
     suspend fun getNextSimpleUsers(@Url nextUrl: String): SimpleUserResponse
 
-    // ── 私信（talk，只读） ──────────────────────────────────────────────────────
-
-    /** 私信会话列表 */
-    @GET("v1/talk/rooms")
-    suspend fun getTalkRooms(
-        @Query("include_meta") includeMeta: Boolean = true,
-    ): TalkRoomsResponse
-
-    /** 某会话的消息历史 */
-    @GET("v1/talk/room/{room_id}/messages")
-    suspend fun getTalkMessages(
-        @Path("room_id") roomId: Long,
-    ): TalkMessagesResponse
 }

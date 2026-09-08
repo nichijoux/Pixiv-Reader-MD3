@@ -68,7 +68,6 @@ fun MeRoute(
     onOpenBookmarks: () -> Unit,
     onOpenWatchlist: () -> Unit,
     onOpenReadLater: () -> Unit,
-    onOpenTalk: () -> Unit,
     onOpenPixivision: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -203,7 +202,15 @@ fun MeRoute(
                         Icons.Filled.Email,
                         stringResource(R.string.me_talk_title),
                         stringResource(R.string.me_talk_desc),
-                        onClick = onOpenTalk,
+                        onClick = {
+                            // pixiv 私信走系统浏览器消息页（官方无公开 app 端点，内嵌受限）
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://www.pixiv.net/message.php"),
+                                ),
+                            )
+                        },
                     ),
                     SettingsCardItem(
                         Icons.Filled.TravelExplore,

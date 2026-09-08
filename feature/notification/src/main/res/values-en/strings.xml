@@ -7,4 +7,6 @@
     <string name="notification_time_minutes_ago">%1$d min ago</string>
     <string name="notification_time_hours_ago">%1$d h ago</string>
     <string name="notification_time_days_ago">%1$d d ago</string>
+    <string name="notification_talk_entry">Messages</string>
+    <string name="notification_talk_desc">Chat with creators and my pixiv friends</string>
 </resources>
