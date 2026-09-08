@@ -39,6 +39,7 @@ class MeViewModel @Inject constructor(
     private val userPreferences: UserPreferences,
     private val updateChecker: AppUpdateChecker,
     pendingActionDao: com.pixiv.reader.core.database.dao.PendingActionDao,
+    private val feedSnapshotStore: com.pixiv.reader.core.network.feed.FeedSnapshotStore,
 ) : MessageViewModel() {
 
     private val appContext: Context = context.applicationContext
@@ -288,7 +289,7 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 清除缓存：整个 cacheDir（Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）。 */
+    /** 清除缓存：整个 cacheDir（Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）+ 信息流快照。 */
     fun clearCache() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -298,6 +299,8 @@ class MeViewModel @Inject constructor(
                 runCatching { appContext.imageLoader.memoryCache?.clear() }
                 runCatching { appContext.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
             }
+            // 信息流首屏快照（首页秒开）一并清除，下次启动重新联网拉取
+            feedSnapshotStore.clearAll()
             refreshCacheSize()
             sendMessage(UiMessage(R.string.me_cache_cleared))
         }

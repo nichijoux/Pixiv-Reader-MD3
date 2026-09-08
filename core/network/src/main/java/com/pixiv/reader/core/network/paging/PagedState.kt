@@ -30,12 +30,16 @@ class PagedState<T> {
     private val _isLoadingMore = MutableStateFlow(false)
     private val _hasMore = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
+    private val _isStale = MutableStateFlow(false)
 
     val items: StateFlow<List<T>> = _items.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** 当前内容是否来自快照预填（秒开场景；后台刷新成功后自动清除）。 */
+    val isStale: StateFlow<Boolean> = _isStale.asStateFlow()
 
     /** 记录分页 fetch 函数（供 loadMore 复用 next_url 游标）。 */
     private var next: String? = null
@@ -68,6 +72,8 @@ class PagedState<T> {
             _items.value = page.items
             next = page.nextPageUrl
             _hasMore.value = page.nextPageUrl != null
+            // 首页加载成功 = 快照内容已被服务端数据替换
+            _isStale.value = false
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             if (gen != generation) return
@@ -118,7 +124,25 @@ class PagedState<T> {
         _error.value = null
         _hasMore.value = true
         _isLoading.value = false
+        _isStale.value = false
         // 在途 loadMore 属于旧代次：清标志让新查询的 loadMore 不被旧请求阻塞
         _isLoadingMore.value = false
+    }
+
+    /**
+     * 快照预填（首页秒开）：冷启动时用上次保存的第一页内容立即填充列表，
+     * 后续 loadInitial 成功后无缝替换并清除 stale 标记；失败时快照内容保留可继续浏览
+     * （loadInitial 失败不清空 items）。已有内容时忽略（避免覆盖活动中的分页）。
+     *
+     * @param items 快照内容（上次成功加载的第一页）
+     * @param nextUrl 快照保存的分页游标（触底加载续传位置）
+     * @return 无返回值
+     */
+    fun restoreSnapshot(items: List<T>, nextUrl: String?) {
+        if (_items.value.isNotEmpty()) return
+        _items.value = items
+        next = nextUrl
+        _hasMore.value = nextUrl != null
+        _isStale.value = items.isNotEmpty()
     }
 }

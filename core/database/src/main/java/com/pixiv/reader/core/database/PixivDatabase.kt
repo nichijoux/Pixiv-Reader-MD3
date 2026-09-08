@@ -4,19 +4,21 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.dao.FeedSnapshotDao
 import com.pixiv.reader.core.database.dao.PendingActionDao
 import com.pixiv.reader.core.database.dao.ReadLaterDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.dao.SearchHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.database.entity.FeedSnapshotEntity
 import com.pixiv.reader.core.database.entity.PendingActionEntity
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 
 /**
- * 数据库结构（version = 5）。
+ * 数据库结构（version = 6）。
  *
  * 历史迁移（原 v1→v7 六条，含 download_entry 字段演进与主键重构）已全部清理，
  * 新装用户直接按此 schema 建库；旧版本（v7）数据经 `fallbackToDestructiveMigration` 重建。
@@ -28,6 +30,7 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
  * v4：新增 read_later（稍后再看，本地暂存表；target 唯一索引，payloadJson 快照）。
  * v5：新增 pending_action（离线操作队列；family+targetId 唯一索引，断网收藏/关注/追更
  *     暂存联网补发）。
+ * v6：新增 feed_snapshot（信息流首屏快照，首页秒开）。
  */
 @Database(
     entities = [
@@ -37,8 +40,9 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
         SearchHistoryEntity::class,
         ReadLaterEntity::class,
         PendingActionEntity::class,
+        FeedSnapshotEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {
@@ -48,6 +52,7 @@ abstract class PixivDatabase : RoomDatabase() {
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun readLaterDao(): ReadLaterDao
     abstract fun pendingActionDao(): PendingActionDao
+    abstract fun feedSnapshotDao(): FeedSnapshotDao
 
     companion object {
         /** v1 → v2：download_entry 增加 payloadJson 列（旧数据回退结构字段展示，零丢失）。 */
@@ -163,6 +168,26 @@ abstract class PixivDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE UNIQUE INDEX index_pending_action_family_targetId ON pending_action (family, targetId)",
+                )
+            }
+        }
+
+        /**
+         * v5 → v6：新增 feed_snapshot（信息流首屏快照，首页秒开）。
+         * 纯新增表零搬数据；列定义须与 [com.pixiv.reader.core.database.entity.FeedSnapshotEntity]
+         * 完全一致（feedKey 主键，Room 启动时校验 schema）。
+         */
+        val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE feed_snapshot (
+                        feedKey TEXT NOT NULL PRIMARY KEY,
+                        payloadJson TEXT NOT NULL,
+                        nextUrl TEXT,
+                        savedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
                 )
             }
         }

@@ -2,6 +2,7 @@ package com.pixiv.reader.feature.novel.state
 
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.google.gson.reflect.TypeToken
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.WatchlistSeries
 import com.pixiv.reader.core.common.config.NovelDefaultTab
@@ -11,6 +12,7 @@ import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.feed.FeedSnapshotStore
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
@@ -28,6 +30,7 @@ import kotlinx.coroutines.launch
 /**
  * 小说 Tab 推荐流（P4）+ 关注流 + 默认页偏好（第五十三/五十四轮）。
  * 推荐接口：v1/novel/recommended（带 next_url 游标分页）；关注接口：v1/novel/follow（公开关注）。
+ * 首页秒开：冷启动先恢复推荐流快照，后台刷新成功后无感替换。
  */
 @HiltViewModel
 class NovelFeedViewModel @Inject constructor(
@@ -35,12 +38,16 @@ class NovelFeedViewModel @Inject constructor(
     private val userPreferences: UserPreferences,
     private val seriesDetailCache: SeriesDetailCache,
     private val favoriteActions: FavoriteActions,
+    private val snapshotStore: FeedSnapshotStore,
 ) : MessageViewModel() {
 
     /** 追更 Tab 调试日志 tag（排查隐藏系列闪退用：`adb logcat -s NovelWatchlist`）。 */
     private companion object {
         const val TAG = "NovelWatchlist"
     }
+
+    /** Gson 列表元素类型（推荐流快照序列化用）。 */
+    private val novelListType = object : TypeToken<List<Novel>>() {}.type
 
     /** 推荐 Tab：v1/novel/recommended 游标分页。 */
     val feed = PagedState<Novel>()
@@ -78,14 +85,27 @@ class NovelFeedViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, NovelDefaultTab.RECOMMEND)
 
     init {
+        restoreFeedSnapshot()
         refresh()
+    }
+
+    /** 快照预填：推荐流第一页（秒开内容；init 后续 refresh() 联网替换，失败时快照内容保留）。 */
+    private fun restoreFeedSnapshot() {
+        viewModelScope.launch {
+            snapshotStore.restore<Novel>(FeedSnapshotStore.KEY_NOVEL_FEED, novelListType)
+                ?.let { (items, nextUrl) -> feed.restoreSnapshot(items, nextUrl) }
+        }
     }
 
     fun refresh() {
         viewModelScope.launch {
             feed.reset()
             feed.loadInitial(
-                fetch = { pixivRepository.api.getRecommendedNovels() },
+                fetch = {
+                    pixivRepository.api.getRecommendedNovels().also { page ->
+                        snapshotStore.save(FeedSnapshotStore.KEY_NOVEL_FEED, page.items, novelListType, page.nextPageUrl)
+                    }
+                },
                 fetchNext = { pixivRepository.api.getNextNovels(it) },
             )
         }

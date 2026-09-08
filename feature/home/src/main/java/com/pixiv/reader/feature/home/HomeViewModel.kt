@@ -2,9 +2,11 @@ package com.pixiv.reader.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.reflect.TypeToken
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.feed.FeedSnapshotStore
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,11 +22,13 @@ enum class HomeTab { RECOMMEND, FOLLOW }
 /**
  * 首页 ViewModel：推荐流 / 关注流（PagedState 分页，切 Tab 懒加载）+ 热门标签横滑。
  * 收藏操作即时回调（nowFavorite 为目标状态），失败静默。
+ * 首页秒开：冷启动先恢复上次快照（推荐 / 关注 / 热门标签），后台刷新成功后无感替换。
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val favoriteActions: FavoriteActions,
+    private val snapshotStore: FeedSnapshotStore,
 ) : ViewModel() {
 
     val recommendPaged = PagedState<Illust>()
@@ -40,12 +44,29 @@ class HomeViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    /** Gson 列表元素类型（快照序列化用）。 */
+    private val illustListType = object : TypeToken<List<Illust>>() {}.type
+    private val tagListType = object : TypeToken<List<TrendingTag>>() {}.type
+
     init {
+        restoreSnapshots()
         loadTrendingTags()
         loadRecommend()
     }
 
-    /** 切换 Tab：对应列表为空时懒加载（避免每次切 Tab 都重新请求）。 */
+    /** 快照预填：推荐 / 关注 / 热门标签（秒开内容；后台刷新成功后自动替换）。 */
+    private fun restoreSnapshots() {
+        viewModelScope.launch {
+            snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_RECOMMEND, illustListType)
+                ?.let { (items, nextUrl) -> recommendPaged.restoreSnapshot(items, nextUrl) }
+            snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_FOLLOW, illustListType)
+                ?.let { (items, nextUrl) -> followingPaged.restoreSnapshot(items, nextUrl) }
+            snapshotStore.restore<TrendingTag>(FeedSnapshotStore.KEY_HOME_TAGS, tagListType)
+                ?.let { (tags, _) -> _trendingTags.value = tags }
+        }
+    }
+
+    /** 切换 Tab：对应列表为空时懒加载；快照预填（stale）时静默后台刷新（内容先展示、成功后替换）。 */
     fun selectTab(tab: HomeTab) {
         _tab.value = tab
         when (tab) {
@@ -55,7 +76,8 @@ class HomeViewModel @Inject constructor(
                 }
             }
             HomeTab.FOLLOW -> {
-                if (followingPaged.items.value.isEmpty() && !followingPaged.isLoading.value) {
+                val shouldLoad = followingPaged.items.value.isEmpty() || followingPaged.isStale.value
+                if (shouldLoad && !followingPaged.isLoading.value) {
                     loadFollowing()
                 }
             }
@@ -83,7 +105,11 @@ class HomeViewModel @Inject constructor(
     private fun loadRecommend() {
         viewModelScope.launch {
             recommendPaged.loadInitial(
-                fetch = { pixivRepository.api.getRecommendedIllusts(includeRanking = true) },
+                fetch = {
+                    pixivRepository.api.getRecommendedIllusts(includeRanking = true).also { page ->
+                        snapshotStore.save(FeedSnapshotStore.KEY_HOME_RECOMMEND, page.items, illustListType, page.nextPageUrl)
+                    }
+                },
                 fetchNext = { pixivRepository.api.getNextIllusts(it) },
             )
         }
@@ -92,7 +118,11 @@ class HomeViewModel @Inject constructor(
     private fun loadFollowing() {
         viewModelScope.launch {
             followingPaged.loadInitial(
-                fetch = { pixivRepository.api.getFollowingIllusts("all") },
+                fetch = {
+                    pixivRepository.api.getFollowingIllusts("all").also { page ->
+                        snapshotStore.save(FeedSnapshotStore.KEY_HOME_FOLLOW, page.items, illustListType, page.nextPageUrl)
+                    }
+                },
                 fetchNext = { pixivRepository.api.getNextIllusts(it) },
             )
         }
@@ -126,11 +156,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 加载热门标签（横滑区，取前 10 个；失败静默）。 */
+    /** 加载热门标签（横滑区，取前 10 个；失败静默；快照命中时不请求）。 */
     private fun loadTrendingTags() {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getTrendingTags("illust") }
-                .onSuccess { _trendingTags.value = it.trend_tags.take(10) }
+                .onSuccess { tags ->
+                    val top = tags.trend_tags.take(10)
+                    _trendingTags.value = top
+                    snapshotStore.save(FeedSnapshotStore.KEY_HOME_TAGS, top, tagListType)
+                }
         }
     }
 
