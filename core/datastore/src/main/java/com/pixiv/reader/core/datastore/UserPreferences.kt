@@ -204,6 +204,7 @@ class UserPreferences @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[KEY_BLOCKED_TARGETS] = (prefs[KEY_BLOCKED_TARGETS] ?: emptySet()) - "$type:$id"
         }
+
     suspend fun setSearchFilterSort(value: String) =
         context.dataStore.edit { it[KEY_SEARCH_SORT] = value }
     suspend fun setSearchFilterTarget(value: String) =

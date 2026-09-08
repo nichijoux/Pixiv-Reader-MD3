@@ -28,13 +28,13 @@ import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.feature.comments.ui.CommentListRoute
-import com.pixiv.reader.feature.illust.IllustDetailRoute
-import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.discover.ui.AiRankingRoute
 import com.pixiv.reader.feature.discover.ui.EraRankingRoute
 import com.pixiv.reader.feature.discover.ui.PixivisionRoute
 import com.pixiv.reader.feature.discover.ui.UserRankingRoute
 import com.pixiv.reader.feature.discover.ui.WallpaperRankingRoute
+import com.pixiv.reader.feature.illust.IllustDetailRoute
+import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
@@ -114,13 +114,6 @@ const val ROUTE_ERA_RANKING = "era_ranking"
 
 /** 壁纸榜（排行数据过滤横屏高分辨率）。 */
 const val ROUTE_WALLPAPER_RANKING = "wallpaper_ranking"
-
-
-
-
-
-
-
 
 /** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
@@ -350,7 +343,7 @@ fun PixivNavGraph(
                     navController.navigate("comments/illust/$id")
                 },
                 onSearchTag = { tag ->
-                    // 标签搜索：切到发现页并搜索（main?search= 顶层通道）
+                    // 标签搜索：切到发现页并搜索（裸 navigate 压栈新 main，区别于排行页的清栈复用通道）
                     navController.navigate("main?search=${Uri.encode(tag)}")
                 },
             )
@@ -503,12 +496,7 @@ fun PixivNavGraph(
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
@@ -558,12 +546,7 @@ fun PixivNavGraph(
                         onOpenCover = { url ->
                             navController.navigate("image_preview?url=${Uri.encode(url)}")
                         },
-                        onSearchTag = { tag ->
-                            navController.navigate("main?search=${Uri.encode(tag)}") {
-                                popUpTo(ROUTE_MAIN) { inclusive = true }
-                                launchSingleTop = true
-                            }
-                        },
+                        onSearchTag = { tag -> navController.navigateTagSearch(tag) },
                         viewModel = seriesVm,
                     )
                 },
@@ -612,12 +595,7 @@ fun PixivNavGraph(
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
@@ -682,12 +660,7 @@ fun PixivNavGraph(
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
             )
         }
         // 追更列表（小说 / 漫画分段；小说卡开系列详情页，漫画卡开最新一话）
@@ -847,12 +820,7 @@ fun PixivNavGraph(
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
             )
         }
         // 年代榜：历史某天榜单 + 年代快捷入口
@@ -868,12 +836,7 @@ fun PixivNavGraph(
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
             )
         }
         // 壁纸榜：排行数据过滤横屏高分辨率作品
@@ -889,12 +852,7 @@ fun PixivNavGraph(
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
             )
         }
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
@@ -910,12 +868,7 @@ fun PixivNavGraph(
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
             )
         }
         // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
@@ -931,12 +884,7 @@ fun PixivNavGraph(
                 onOpenViewer = { illustId, page ->
                     navController.navigate("viewer/$illustId?page=$page")
                 },
-                onSearchTag = { tag ->
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
             )
         }
         // 小说排行榜（全屏页）：条目用 NovelCard（整卡→详情、作者→主页、收藏、标签）
@@ -949,13 +897,8 @@ fun PixivNavGraph(
                 onOpenUser = { userId ->
                     navController.navigate("user/$userId")
                 },
-                onSearchTag = { tag ->
-                    // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
-                    navController.navigate("main?search=${Uri.encode(tag)}") {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
+                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
@@ -980,5 +923,19 @@ private fun NavHostController.safeBack() {
         navigateUp()
     } else {
         Log.d("PixivNavGraph", "safeBack: 栈底忽略（穿透/误触/越界返回），避免空栈")
+    }
+}
+
+/**
+ * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词重建 main 壳，
+ * 清栈到旧 main（inclusive）+ launchSingleTop，避免旧 main 残留在栈底。
+ *
+ * @param tag 搜索标签词（内部 Uri 编码）
+ * @return 无返回值
+ */
+private fun NavHostController.navigateTagSearch(tag: String) {
+    navigate("main?search=${Uri.encode(tag)}") {
+        popUpTo(ROUTE_MAIN) { inclusive = true }
+        launchSingleTop = true
     }
 }

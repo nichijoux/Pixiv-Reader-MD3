@@ -72,9 +72,11 @@ import kotlin.math.roundToInt
  * - **信息区**（Column，10dp 内边距）：标题（最多 2 行省略号）+ 作者行（20dp 小头像 + 名称）。
  *
  * ## 交互
- * 整卡 [onClick] 打开详情；收藏按钮点击**先翻转本地状态再回调**外部执行 API
- * （成功与否由外部负责，组件仅维护 UI 态 [favorite]）；作者行（头像+名称）点击
- * [onOpenAuthor] 打开作者主页（user 为 null 时不可点）。
+ * 整卡经 [rememberCardBlockGesture] 包装：未屏蔽时点击直接回调 [onClick] 打开详情、
+ * 长按弹出全局动作菜单（稍后再看 / 屏蔽）；已屏蔽时整卡模糊遮罩，首次点击临时显示、
+ * 再次点击恢复遮罩（恢复打开详情需先经菜单取消屏蔽）。收藏按钮点击**先翻转本地状态
+ * 再回调**外部执行 API（成功与否由外部负责，组件仅维护 UI 态 [favorite]）；
+ * 作者行（头像+名称）点击 [onOpenAuthor] 打开作者主页（user 为 null 时不可点）。
  *
  * @param illust 作品数据（`width/height` 用于完整显示、`is_bookmarked` 初始化收藏态）
  * @param onClick 整卡点击回调（通常打开作品详情）
@@ -104,7 +106,7 @@ fun IllustCard(
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
     // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
-    val gson = remember { Gson() }
+    val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "illust",
         targetId = illust.id,
@@ -304,3 +306,6 @@ fun IllustCard(
         }
     }
 }
+
+/** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */
+private val PAYLOAD_GSON = Gson()

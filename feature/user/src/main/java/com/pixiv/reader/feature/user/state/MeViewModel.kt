@@ -11,6 +11,8 @@ import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
+import com.pixiv.reader.core.database.dao.PendingActionDao
+import com.pixiv.reader.core.network.feed.FeedSnapshotStore
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.network.update.AppRelease
@@ -38,8 +40,8 @@ class MeViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val userPreferences: UserPreferences,
     private val updateChecker: AppUpdateChecker,
-    pendingActionDao: com.pixiv.reader.core.database.dao.PendingActionDao,
-    private val feedSnapshotStore: com.pixiv.reader.core.network.feed.FeedSnapshotStore,
+    pendingActionDao: PendingActionDao,
+    private val feedSnapshotStore: FeedSnapshotStore,
 ) : MessageViewModel() {
 
     private val appContext: Context = context.applicationContext

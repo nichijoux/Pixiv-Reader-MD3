@@ -55,6 +55,10 @@ class PagedState<T> {
     /**
      * 首次加载：拉取第一页并缓存 fetch 函数。
      * 加载中重复调用直接忽略；失败时置 error 并停用加载更多（hasMore=false）。
+     *
+     * @param fetch 首页请求（返回第一页数据 + next_url 游标）
+     * @param fetchNext 后续页请求（入参为上一页返回的游标 URL）
+     * @return 无返回值（结果经 [items]/[isLoading]/[error] 等状态流暴露）
      */
     suspend fun loadInitial(
         fetch: suspend () -> Pageable<T>,
@@ -88,6 +92,8 @@ class PagedState<T> {
     /**
      * 加载下一页：使用上次返回的 next_url 游标追加数据。
      * 无游标 / 加载中直接忽略；失败仅报错不清空已有数据。
+     *
+     * @return 无返回值（结果经 [items]/[isLoadingMore]/[error] 等状态流暴露）
      */
     suspend fun loadMore() {
         val url = next ?: return

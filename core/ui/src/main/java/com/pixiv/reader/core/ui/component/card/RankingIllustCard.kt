@@ -96,7 +96,7 @@ fun RankingIllustCard(
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
     // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
-    val gson = remember { Gson() }
+    val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "illust",
         targetId = illust.id,
@@ -316,3 +316,6 @@ fun RankingIllustCard(
         }
     }
 }
+
+/** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */
+private val PAYLOAD_GSON = Gson()

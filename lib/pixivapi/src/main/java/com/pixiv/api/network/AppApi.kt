@@ -552,5 +552,4 @@ interface AppApi {
 
     @GET
     suspend fun getNextSimpleUsers(@Url nextUrl: String): SimpleUserResponse
-
 }

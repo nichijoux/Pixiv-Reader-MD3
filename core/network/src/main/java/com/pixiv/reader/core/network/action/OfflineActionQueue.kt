@@ -11,6 +11,7 @@ import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SessionRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -158,7 +159,7 @@ class OfflineActionQueue @Inject constructor(
         for (item in items) {
             // 协程取消正常向上传播（作用域销毁时不写任何状态）
             val result = runCatching { execute(item) }
-                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                .onFailure { if (it is CancellationException) throw it }
             if (result.isSuccess) {
                 dao.delete(item)
                 synced++
@@ -212,6 +213,8 @@ class OfflineActionQueue @Inject constructor(
             PendingActionEntity.FAMILY_NOVEL_WATCHLIST ->
                 if (action.targetState) api.addWatchlistNovel(action.targetId)
                 else api.removeWatchlistNovel(action.targetId)
+
+            else -> error("unknown pending action family: ${action.family}")
         }
     }
 

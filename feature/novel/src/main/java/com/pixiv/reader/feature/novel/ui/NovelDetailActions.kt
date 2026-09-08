@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
+import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -126,7 +127,7 @@ internal fun NovelActionBar(
                 icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 label = when {
                     // 私密收藏单独标识（核心文案走 core:ui）
-                    isBookmarked && isPrivateBookmark -> stringResource(com.pixiv.reader.core.ui.R.string.bookmark_private_cd)
+                    isBookmarked && isPrivateBookmark -> stringResource(CoreUiR.string.bookmark_private_cd)
                     isBookmarked -> stringResource(R.string.novel_bookmarked)
                     else -> stringResource(R.string.novel_bookmark)
                 },

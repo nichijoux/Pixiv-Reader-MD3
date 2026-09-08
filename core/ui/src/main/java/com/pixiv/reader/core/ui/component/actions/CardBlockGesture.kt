@@ -69,7 +69,7 @@ internal fun rememberCardBlockGesture(
         emptySet()
     }
     // 本卡「已临时显示」标记：屏蔽态点击一次后解除模糊（remember(id) 切卡重置）
-    var revealed by remember(targetId) { mutableStateOf(false) }
+    var revealed by remember(targetType, targetId) { mutableStateOf(false) }
     val rawBlocked = controller != null && controller.keyOf(targetType, targetId) in blockedIds
     // 取消屏蔽后再次屏蔽：重置临时显示标记——否则上一次点开留下的 revealed=true
     // 会让 isBlocked 恒为 false，重新屏蔽的遮罩永不恢复

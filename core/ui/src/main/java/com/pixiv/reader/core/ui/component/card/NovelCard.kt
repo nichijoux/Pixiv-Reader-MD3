@@ -144,7 +144,7 @@ fun NovelCard(
     )
 
     // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
-    val gson = remember { Gson() }
+    val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "novel",
         targetId = novel.id,
@@ -389,3 +389,6 @@ private fun NovelTagChip(
             .padding(horizontal = Spacing.sm, vertical = 3.dp),
     )
 }
+
+/** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */
+private val PAYLOAD_GSON = Gson()

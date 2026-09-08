@@ -89,7 +89,7 @@ fun MangaRoute(
     onOpenViewer: (Long, Int) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）

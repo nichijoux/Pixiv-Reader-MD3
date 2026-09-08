@@ -62,7 +62,6 @@ import com.pixiv.reader.feature.discover.state.PixivisionViewModel
  *
  * @param onBack 返回
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PixivisionRoute(
     onBack: () -> Unit,

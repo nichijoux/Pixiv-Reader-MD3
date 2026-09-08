@@ -47,7 +47,7 @@ class SessionRepository @Inject constructor(
     fun onOAuthCallback(uri: Uri) {
         _pendingOAuthUri.value = uri
         // 回调到达 = 浏览器侧 pixiv 登录态已确立（生态入口 SSO 完成）
-        webSsoCompleted = true
+        markWebSsoCompleted()
     }
 
     /** 丢弃待处理回调（code 去重场景） */
@@ -59,8 +59,11 @@ class SessionRepository @Inject constructor(
      * 浏览器 SSO 完成标记（会话级）：生态入口（FANBOX/COMIC/私信）首次点击时先在
      * 系统浏览器打开 OAuth 授权页完成 pixiv 网页登录，回调唤起本 app 时置位——
      * 此后同一浏览器的 pixiv 网页访问均为登录态，入口点击可直接打开目标网页。
+     * 单例跨线程读写，用 @Volatile 保证可见性。
      */
+    @Volatile
     var webSsoCompleted: Boolean = false
+        private set
 
     /** pixiv 网页登录授权 URL（系统浏览器打开；登录/SSO 后 302 回 pixiv:// 唤起本 app） */
     fun webLoginUrl(): String = pixivApi.oauth.startLoginUrl()

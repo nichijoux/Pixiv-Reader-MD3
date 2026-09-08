@@ -73,7 +73,9 @@ interface CardActions {
 
     /**
      * 屏蔽 / 取消屏蔽（按目标当前状态取反）。
-     * @param targetType 目标类型；@param targetId 目标 id
+     *
+     * @param targetType 目标类型
+     * @param targetId 目标 id
      */
     fun toggleBlock(targetType: String, targetId: Long)
 }
@@ -139,21 +141,26 @@ fun CardActionsHost(
             content()
             // 长按动作菜单：稍后再看 / 屏蔽（按当前状态动态文案）
             val target = menuTarget
-            if (target != null && actions != null) {
-                val readLaterIds by actions.readLaterIds.collectAsStateWithLifecycle()
-                val blockedIds by actions.blockedIds.collectAsStateWithLifecycle()
-                val inReadLater = controller!!.keyOf(target.targetType, target.targetId) in readLaterIds
-                val isBlocked = controller.keyOf(target.targetType, target.targetId) in blockedIds
+            if (target != null) {
+                // controller 非空 ⇔ actions 非空（controller 由 actions 构造），取局部非空引用
+                val c = controller ?: return@Box
+                val impl = actions ?: return@Box
+                val readLaterIds by impl.readLaterIds.collectAsStateWithLifecycle()
+                val blockedIds by impl.blockedIds.collectAsStateWithLifecycle()
+                val inReadLater = c.keyOf(target.targetType, target.targetId) in readLaterIds
+                val isBlocked = c.keyOf(target.targetType, target.targetId) in blockedIds
                 ModalBottomSheet(onDismissRequest = { menuTarget = null }) {
                     Column(modifier = Modifier.padding(bottom = Spacing.lg)) {
-                        Text(
-                            text = target.title.orEmpty(),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            maxLines = 1,
-                            modifier = Modifier
-                                .padding(horizontal = Spacing.lg)
-                                .padding(bottom = Spacing.sm),
-                        )
+                        if (!target.title.isNullOrBlank()) {
+                            Text(
+                                text = target.title,
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .padding(horizontal = Spacing.lg)
+                                    .padding(bottom = Spacing.sm),
+                            )
+                        }
                         // 稍后再看：加入（时钟）/ 移出（取消圆）
                         MenuActionRow(
                             icon = if (inReadLater) Icons.Filled.Cancel else Icons.Filled.Schedule,
@@ -161,7 +168,7 @@ fun CardActionsHost(
                                 if (inReadLater) R.string.card_action_read_later_remove else R.string.card_action_read_later,
                             ),
                             onClick = {
-                                controller.toggleReadLater(target)
+                                c.toggleReadLater(target)
                                 // 成功提示（菜单关闭后浮出）
                                 notificationHostState.show(
                                     context.getString(
@@ -180,7 +187,7 @@ fun CardActionsHost(
                                 if (isBlocked) R.string.card_action_unblock else R.string.card_action_block,
                             ),
                             onClick = {
-                                controller.toggleBlock(target.targetType, target.targetId)
+                                c.toggleBlock(target.targetType, target.targetId)
                                 notificationHostState.show(
                                     context.getString(
                                         if (isBlocked) R.string.card_msg_unblocked

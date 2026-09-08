@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.api.PixivConstants
 import com.pixiv.reader.core.network.comment.CommentListViewModel
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.novel.NovelViewModel
@@ -271,7 +272,7 @@ fun UserRoute(
                                 isBlocked = isBlocked,
                                 isBlocking = isBlocking,
                                 onToggleFollow = viewModel::toggleFollow,
-                                onFollowPrivately = { viewModel.toggleFollow(com.pixiv.api.PixivConstants.RESTRICT_PRIVATE) },
+                                onFollowPrivately = { viewModel.toggleFollow(PixivConstants.RESTRICT_PRIVATE) },
                                 onToggleBlock = viewModel::toggleBlock,
                                 onOpenAvatar = onOpenCover,
                             )

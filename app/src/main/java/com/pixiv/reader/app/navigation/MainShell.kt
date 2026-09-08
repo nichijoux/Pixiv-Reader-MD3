@@ -67,7 +67,33 @@ private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
  * 切到 discover_tab 后 DiscoverRoute 以 initialQuery 消费（一次性）。
  * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道。
  *
+ * @param onLogout 退出登录（外层清栈回登录页）
  * @param onOpenIllust 打开作品详情（由外层导航处理，底部导航自动隐藏）
+ * @param onOpenNovel 打开小说详情
+ * @param onOpenUser 打开用户主页
+ * @param onOpenSeries 打开小说系列详情
+ * @param onOpenHistory 打开浏览历史
+ * @param onOpenBookmarks 打开我的收藏
+ * @param onOpenWatchlist 打开追更列表（小说 Tab / Me 页入口）
+ * @param onOpenReadLater 打开稍后再看
+ * @param onOpenMangaWatchlist 打开追更列表并定位漫画分段（作品 Tab 顶栏入口；与
+ *   [onOpenWatchlist] 指向同一路由，仅 query 参数不同，命名区分语义）
+ * @param onOpenPixivision 打开 pixivision 特辑列表
+ * @param onOpenUserRanking 打开画师榜
+ * @param onOpenAiRanking 打开 AI 榜
+ * @param onOpenEraRanking 打开年代榜
+ * @param onOpenWallpaperRanking 打开壁纸榜
+ * @param onOpenNotifications 打开通知中心
+ * @param onOpenBlocked 打开屏蔽管理
+ * @param onOpenDownloads 打开下载管理
+ * @param onOpenPendingActions 打开待同步操作（离线操作队列管理页）
+ * @param onOpenMangaRanking 打开漫画排行榜
+ * @param onOpenIllustRanking 打开插画排行榜
+ * @param onOpenNovelRanking 打开小说排行榜
+ * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
+ * @param onOpenReader 打开小说阅读器（小说 pane「开始阅读」入口）
+ * @param onOpenCover 打开封面/头像全屏大图（系列 pane 封面点击）
+ * @param initialSearch 初始搜索词（顶层路由 `main?search=` 单次消费；null 无搜索）
  */
 @Composable
 fun MainShell(

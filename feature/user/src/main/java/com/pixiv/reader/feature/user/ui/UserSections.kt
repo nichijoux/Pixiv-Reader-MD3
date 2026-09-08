@@ -301,5 +301,3 @@ private fun MangaSeriesList(
     }
 }
 
-/** 系列卡片已上移至 core:ui（SeriesCard + SeriesCardData），用户页 / 追更列表共用。 */
-

@@ -15,8 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 稍后再看 ViewModel：观察本地 read_later 表（类型筛选），支持移除单条 / 清空。
- * 加入 / 移出的主路径在卡片长按菜单（全局动作宿主），本页另提供列表内移除与清空。
+ * 稍后再看 ViewModel：观察本地 read_later 表（类型筛选），支持清空。
+ * 加入 / 移出的唯一入口在卡片长按菜单（全局动作宿主），本页仅提供类型筛选与清空。
  */
 @HiltViewModel
 class ReadLaterViewModel @Inject constructor(
@@ -34,15 +34,12 @@ class ReadLaterViewModel @Inject constructor(
 
     /**
      * 切换类型筛选。
+     *
      * @param type "illust" / "novel"
+     * @return 无返回值
      */
     fun setFilter(type: String) {
         _filter.value = type
-    }
-
-    /** 移除单条（列表行操作；与长按菜单「移出」同一 DAO 通路，数据流自动同步全局状态）。 */
-    fun remove(entity: ReadLaterEntity) {
-        viewModelScope.launch { readLaterDao.delete(entity) }
     }
 
     /** 清空全部稍后再看（两种类型一并清空）。 */

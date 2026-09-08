@@ -153,7 +153,8 @@ private fun FilteredRankingScreen(
                             RankingIllustCard(
                                 rank = rank,
                                 illust = item,
-                                onClick = { if (paneEnabled) selected = item else onOpenIllust(item.id) },
+                                // 双栏 pane 内点击仅选中右侧详情（paneEnabled 恒真分支）
+                                onClick = { selected = item },
                                 onToggleFavorite = { fav -> viewModel.toggleIllustFavorite(item.id, fav) },
                                 onOpenAuthor = { item.user?.id?.let(onOpenUser) },
                                 onTagClick = onSearchTag,
@@ -257,7 +258,6 @@ private fun EraHeader(
 }
 
 /** AI 榜：常规排行数据中过滤 AI 生成作品（illust_ai_type == 2），保留真实名次。 */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiRankingRoute(
     onBack: () -> Unit,
@@ -282,7 +282,6 @@ fun AiRankingRoute(
 }
 
 /** 壁纸榜：常规排行数据中过滤横屏高分辨率作品（width > height 且 ≥1920px）。 */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WallpaperRankingRoute(
     onBack: () -> Unit,
@@ -307,7 +306,6 @@ fun WallpaperRankingRoute(
 }
 
 /** 年代榜：带年代快捷 chips 的历史榜单（回到当年某天看榜单）。 */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EraRankingRoute(
     onBack: () -> Unit,

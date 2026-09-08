@@ -52,7 +52,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * @param onDismiss 关闭弹层（点外部 / 返回 / 手动关闭）
  * @param onRestrictChange 可见性切换回调（传目标 restrict，联动重拉目录）
  * @param onToggleTag 标签勾选切换回调（传标签名）
- * @param onCreateTag 新建标签回调（传输入框内容；成功后由调用方清空输入由本组件内部处理）
+ * @param onCreateTag 新建标签回调（传输入框内容；本组件点击后即清空草稿并即时追加选中，保存时才提交服务端）
  * @param onConfirm 保存回调
  * @return 无返回值
  */

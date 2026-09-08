@@ -56,7 +56,6 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * @param onBack 返回
  * @param onOpenIllust 点击系列内作品打开插画/漫画详情
  * @param onOpenUser 点击作者打开用户主页
- * @param onOpenViewer 点击图片打开全屏查看器
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +63,6 @@ fun MangaSeriesRoute(
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
-    onOpenViewer: (Long, Int) -> Unit = { _, _ -> },
     viewModel: MangaSeriesViewModel = hiltViewModel(),
 ) {
     val detail by viewModel.detail.collectAsStateWithLifecycle()
@@ -230,7 +228,6 @@ private fun SeriesHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = Spacing.xs),
                 )
-                Spacer(Modifier.width(Spacing.xs))
                 FilledTonalButton(
                     onClick = onToggleWatchlist,
                     enabled = !isWatchlisting,

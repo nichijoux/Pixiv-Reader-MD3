@@ -41,7 +41,6 @@ fun retryDownload(context: Context, entry: DownloadEntryEntity) {
                     .build(),
             )
         }
-        // Other types have no retry path for now
         "ugoira" -> {
             // 动图导出重试：按索引 format 重建导出任务（zip / 已解压帧断点复用）
             val format = UgoiraExportFormat.from(entry.format)
@@ -56,5 +55,6 @@ fun retryDownload(context: Context, entry: DownloadEntryEntity) {
                     .build(),
             )
         }
+        // 其他类型（本地文件等）无重试通道
     }
 }

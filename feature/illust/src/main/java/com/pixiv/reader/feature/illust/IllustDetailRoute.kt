@@ -47,6 +47,7 @@ import com.pixiv.api.PixivConstants
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
@@ -167,7 +168,7 @@ fun IllustDetailRoute(
                             )
                             // 收藏设置：公开/私密 + 标签（弹层保存）
                             DropdownMenuItem(
-                                text = { Text(stringResource(com.pixiv.reader.core.ui.R.string.bookmark_edit_title)) },
+                                text = { Text(stringResource(CoreUiR.string.bookmark_edit_title)) },
                                 leadingIcon = {
                                     Icon(Icons.Filled.Label, contentDescription = null)
                                 },
@@ -203,7 +204,7 @@ fun IllustDetailRoute(
                     icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     label = stringResource(
                         when {
-                            isBookmarked && isPrivateBookmark -> com.pixiv.reader.core.ui.R.string.bookmark_private_cd
+                            isBookmarked && isPrivateBookmark -> CoreUiR.string.bookmark_private_cd
                             isBookmarked -> R.string.illust_bookmarked
                             else -> R.string.illust_menu_bookmark
                         }

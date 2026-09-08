@@ -21,16 +21,25 @@ import kotlin.coroutines.coroutineContext
  * @param pixel ARGB 打包的像素值（Bitmap.getPixels 产物，高 8 位 alpha 忽略）
  * @return `[y, u, v]` 三分量（均已 clamp 到 0..255）
  */
-internal fun rgbIntToYuv(pixel: Int): IntArray {
+internal fun rgbIntToYuv(pixel: Int): IntArray = IntArray(3).also { rgbIntToYuvInto(pixel, it) }
+
+/**
+ * [rgbIntToYuv] 的零分配变体：结果写入调用方提供的复用数组（编码循环逐像素调用，
+ * 避免每像素分配）。
+ *
+ * @param pixel ARGB 打包的像素值
+ * @param out 长度 ≥3 的复用数组，写入 `[y, u, v]`
+ * @return 无返回值（结果在 [out] 中）
+ */
+internal fun rgbIntToYuvInto(pixel: Int, out: IntArray) {
     // 提取 R/G/B（getPixels 产出 ARGB 序，alpha 在最高字节）
     val r = (pixel shr 16) and 0xFF
     val g = (pixel shr 8) and 0xFF
     val b = pixel and 0xFF
     // BT.601 limited range 整数近似（libyuv 同款系数，+128 四舍五入）
-    val y = ((66 * r + 129 * g + 25 * b + 128) shr 8) + 16
-    val u = ((-38 * r - 74 * g + 112 * b + 128) shr 8) + 128
-    val v = ((112 * r - 94 * g - 18 * b + 128) shr 8) + 128
-    return intArrayOf(y.coerceIn(0, 255), u.coerceIn(0, 255), v.coerceIn(0, 255))
+    out[0] = (((66 * r + 129 * g + 25 * b + 128) shr 8) + 16).coerceIn(0, 255)
+    out[1] = (((-38 * r - 74 * g + 112 * b + 128) shr 8) + 128).coerceIn(0, 255)
+    out[2] = (((112 * r - 94 * g - 18 * b + 128) shr 8) + 128).coerceIn(0, 255)
 }
 
 /**
@@ -64,11 +73,11 @@ internal fun buildFramePresentationTimesUs(delaysMs: IntArray): LongArray {
  */
 class Mp4FrameEncoder {
 
-    /** muxer 轨道下标（编码器输出格式就绪后注册）。 */
-    private var trackIndex = -1
-
-    /** muxer 是否已启动（决定 finally 中是否需要 stop）。 */
-    private var muxerStarted = false
+    /** muxer 会话：轨道下标与启动标记（[run] 内创建，[drainOutputs] 就绪回调写入）。 */
+    private class MuxerSession(val muxer: MediaMuxer) {
+        var trackIndex = -1
+        var started = false
+    }
 
     /**
      * 编码帧序列为 MP4。
@@ -114,11 +123,9 @@ class Mp4FrameEncoder {
         val encW = (width + 1) / 2 * 2
         val encH = (height + 1) / 2 * 2
         val pts = buildFramePresentationTimesUs(delaysMs)
-        trackIndex = -1
-        muxerStarted = false
         val bufferInfo = MediaCodec.BufferInfo()
         var codec: MediaCodec? = null
-        var muxer: MediaMuxer? = null
+        var muxerSession: MuxerSession? = null
         try {
             codec = MediaCodec.createEncoderByType(MIME_AVC).also { c ->
                 val format = MediaFormat.createVideoFormat(MIME_AVC, encW, encH).apply {
@@ -130,9 +137,12 @@ class Mp4FrameEncoder {
                 c.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 c.start()
             }
-            muxer = MediaMuxer(out.path, OutputFormat.MUXER_OUTPUT_MPEG_4)
+            muxerSession = MuxerSession(MediaMuxer(out.path, OutputFormat.MUXER_OUTPUT_MPEG_4))
 
             val total = delaysMs.size
+            // 复用的转换缓冲（整个编码过程一次分配，避免逐帧/逐像素分配造成 GC 压力）
+            val yuv = IntArray(3)
+            val fillBuf = ByteArray(encW * encH * 2)
             for (i in 0 until total) {
                 // 逐帧检查协程活性：任务取消时立即释放编码器并向上传播
                 coroutineContext.ensureActive()
@@ -142,43 +152,47 @@ class Mp4FrameEncoder {
                     check(inputIndex >= 0) { "no input buffer for frame $i" }
                     val image = codec.getInputImage(inputIndex)
                         ?: error("encoder input image unavailable (frame $i)")
-                    fillYuvImage(image, bitmap, encW, encH)
+                    fillYuvImage(image, bitmap, yuv, fillBuf)
                     val size = encW * encH * 3 / 2
                     codec.queueInputBuffer(inputIndex, 0, size, pts[i], 0)
                 } finally {
                     bitmap.recycle()
                 }
                 // 每帧后抽干就绪输出（非阻塞），避免输出缓冲区耗尽阻塞后续输入
-                drainOutputs(codec, muxer, bufferInfo, endOfStream = false)
+                drainOutputs(codec, muxerSession, bufferInfo, endOfStream = false)
                 onProgress(i + 1, total)
             }
             // 收尾：入队 EOS 并抽干全部剩余输出
             val eosIndex = codec.dequeueInputBuffer(INPUT_TIMEOUT_US)
             check(eosIndex >= 0) { "no input buffer for EOS" }
             codec.queueInputBuffer(eosIndex, 0, 0, pts.last() + EOS_TAIL_US, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-            drainOutputs(codec, muxer, bufferInfo, endOfStream = true)
-            check(muxerStarted) { "muxer never started (no encoder output)" }
+            drainOutputs(codec, muxerSession, bufferInfo, endOfStream = true)
+            check(muxerSession.started) { "muxer never started (no encoder output)" }
             return out
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
-            if (muxerStarted) runCatching { muxer?.stop() }
-            runCatching { muxer?.release() }
+            val m = muxerSession
+            if (m != null) {
+                if (m.started) runCatching { m.muxer.stop() }
+                runCatching { m.muxer.release() }
+            }
         }
     }
 
     /**
      * 把位图像素写入 YUV_420_888 Image 的三个平面（含 row/pixel stride 适配与补偶黑边）。
      * UV 按 2×2 子采样（取偶行列像素值），补边区域为黑色（Y=16、UV=128）。
+     * [yuv]/[fillBuf] 为调用方复用缓冲（零分配热路径）。
      */
-    private fun fillYuvImage(image: Image, bitmap: Bitmap, encW: Int, encH: Int) {
+    private fun fillYuvImage(image: Image, bitmap: Bitmap, yuv: IntArray, fillBuf: ByteArray) {
         val yPlane = image.planes[0]
         val uPlane = image.planes[1]
         val vPlane = image.planes[2]
         // 先整体铺黑（覆盖奇数补偶边 + 子采样未覆盖的角落），再叠加位图像素
-        fillPlane(yPlane.buffer, BLACK_Y)
-        fillPlane(uPlane.buffer, NEUTRAL_UV)
-        fillPlane(vPlane.buffer, NEUTRAL_UV)
+        fillPlane(yPlane.buffer, BLACK_Y, fillBuf)
+        fillPlane(uPlane.buffer, NEUTRAL_UV, fillBuf)
+        fillPlane(vPlane.buffer, NEUTRAL_UV, fillBuf)
 
         val srcW = bitmap.width
         val srcH = bitmap.height
@@ -186,7 +200,7 @@ class Mp4FrameEncoder {
         for (y in 0 until srcH) {
             bitmap.getPixels(row, 0, srcW, 0, y, srcW, 1)
             for (x in 0 until srcW) {
-                val yuv = rgbIntToYuv(row[x])
+                rgbIntToYuvInto(row[x], yuv)
                 putSample(yPlane, x, y, yuv[0])
                 // UV 子采样：仅偶数行列写入（半分辨率平面）
                 if (x % 2 == 0 && y % 2 == 0) {
@@ -204,11 +218,13 @@ class Mp4FrameEncoder {
     }
 
     /** 整平面铺满同一字节值（黑色底；个别只读平面跳过——由位图像素覆盖主要区域）。 */
-    private fun fillPlane(buffer: ByteBuffer, value: Int) {
+    private fun fillPlane(buffer: ByteBuffer, value: Int, fillBuf: ByteArray) {
         runCatching {
             buffer.position(0)
-            val fill = ByteArray(buffer.remaining()) { value.toByte() }
-            buffer.put(fill)
+            val n = buffer.remaining()
+            if (n > fillBuf.size) return
+            java.util.Arrays.fill(fillBuf, 0, n, value.toByte())
+            buffer.put(fillBuf, 0, n)
         }
     }
 
@@ -219,10 +235,11 @@ class Mp4FrameEncoder {
      */
     private fun drainOutputs(
         codec: MediaCodec,
-        muxer: MediaMuxer,
+        session: MuxerSession?,
         bufferInfo: MediaCodec.BufferInfo,
         endOfStream: Boolean,
     ) {
+        if (session == null) return
         var spin = 0
         while (true) {
             val index = codec.dequeueOutputBuffer(bufferInfo, OUTPUT_TIMEOUT_US)
@@ -235,19 +252,19 @@ class Mp4FrameEncoder {
 
                 index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     // 编码器输出格式就绪（首帧输出前到达）——注册轨道并启动 muxer
-                    trackIndex = muxer.addTrack(codec.outputFormat)
-                    muxer.start()
-                    muxerStarted = true
+                    session.trackIndex = session.muxer.addTrack(codec.outputFormat)
+                    session.muxer.start()
+                    session.started = true
                 }
 
                 index >= 0 -> {
                     val data: ByteBuffer? = codec.getOutputBuffer(index)
                     if (data != null && bufferInfo.size > 0 &&
-                        bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && trackIndex >= 0
+                        bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && session.trackIndex >= 0
                     ) {
                         data.position(bufferInfo.offset)
                         data.limit(bufferInfo.offset + bufferInfo.size)
-                        muxer.writeSampleData(trackIndex, data, bufferInfo)
+                        session.muxer.writeSampleData(session.trackIndex, data, bufferInfo)
                     }
                     codec.releaseOutputBuffer(index, false)
                     if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
@@ -256,7 +273,7 @@ class Mp4FrameEncoder {
         }
     }
 
-    /** 编码码率：按像素量推算（约 4 bit/像素/帧），clamp 到 2..40 Mbps。 */
+    /** 编码码率：按像素量推算（≈4 bit/像素/秒，30fps 下约 0.13 bpp/帧），clamp 到 2..40 Mbps。 */
     private fun computeBitRate(width: Int, height: Int): Int =
         (width * height * 4).coerceIn(MIN_BIT_RATE, MAX_BIT_RATE)
 

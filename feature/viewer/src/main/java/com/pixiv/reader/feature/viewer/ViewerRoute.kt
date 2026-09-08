@@ -71,6 +71,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.network.download.UgoiraExportFormat
 import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
@@ -285,7 +286,7 @@ fun ViewerRoute(
                         )
                         // 收藏设置：公开/私密 + 标签（弹层保存）
                         DropdownMenuItem(
-                            text = { Text(stringResource(com.pixiv.reader.core.ui.R.string.bookmark_edit_title)) },
+                            text = { Text(stringResource(CoreUiR.string.bookmark_edit_title)) },
                             leadingIcon = { Icon(Icons.Filled.Label, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false

@@ -114,7 +114,7 @@ fun ReadLaterRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：插画 / 小说（Expressive 三选一段控件，与追更页同语汇）
+                // 类型分段：插画 / 小说（Expressive 二选一段控件，与追更页同语汇）
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -177,7 +177,9 @@ private fun ReadLaterIllustList(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
 ) {
-    val illusts = entries.map { it.toIllust(gson) }
+    // payloadJson 解析一次并随 entries 记忆（List<ReadLaterEntity> 不稳定，无 remember 时父级
+    // 任何重组都会触发全量 Gson 反序列化）
+    val illusts = remember(entries) { entries.map { it.toIllust(gson) } }
     if (illusts.isEmpty()) {
         ReadLaterEmpty(
             icon = Icons.Filled.Image,

@@ -32,7 +32,7 @@ class FeedSnapshotStore @Inject constructor(
      * @param items 第一页内容列表
      * @param elementType 列表元素类型（Gson 序列化用，如 `object : TypeToken<List<Illust>>() {}.type`）
      * @param nextUrl 分页游标（触底加载续传位置）
-     * @return 无返回值
+     * @return 无返回值（保存失败静默，快照仅是优化）
      */
     suspend fun <T> save(feedKey: String, items: List<T>, elementType: Type, nextUrl: String? = null) {
         if (items.isEmpty()) return

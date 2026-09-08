@@ -157,7 +157,6 @@ fun DownloadsRoute(
                         DownloadFilter.ILLUST -> IllustDownloadList(
                             // 插画 + 动图（ugoira MP4/ZIP 导出）共用瀑布流卡片
                             entries = entries.filter { it.targetType == "illust" || it.targetType == "ugoira" },
-                            context = context,
                             onOpenIllust = onOpenIllust,
                             onOpenFile = { entry -> openWithSystemApp(context, entry) },
                             onRetry = onRetry,
@@ -209,7 +208,6 @@ fun DownloadsRoute(
 @Composable
 private fun IllustDownloadList(
     entries: List<DownloadEntryEntity>,
-    context: Context,
     onOpenIllust: (Long) -> Unit,
     onOpenFile: (DownloadEntryEntity) -> Unit,
     onRetry: (DownloadEntryEntity) -> Unit,

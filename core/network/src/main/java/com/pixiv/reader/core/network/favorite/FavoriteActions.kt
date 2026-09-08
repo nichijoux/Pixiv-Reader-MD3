@@ -129,8 +129,9 @@ class FavoriteActions @Inject constructor(
         else pixivRepository.api.removeWatchlistNovel(seriesId)
     }
 
-    // ── 静默变体（成功/失败均不提示，失败仅由调用方按需处理）：收敛各 VM 的
-    //    `viewModelScope.launch { toggleX(...) }` 五行包装为方法体单行委托。 ──
+    // ── 静默变体（fire-and-forget：结果不回传，服务端明确拒绝时调用方不可感知——
+    //    仅适合卡片快速收藏等低风险场景；需感知失败请直接调用挂起变体）。
+    //    收敛各 VM 的 `viewModelScope.launch { toggleX(...) }` 五行包装为方法体单行委托。 ──
 
     /** 收藏 / 取消收藏插画（静默；[restrict]/[tags] 语义同 [toggleIllustFavorite]）。 */
     fun toggleIllustFavoriteSilent(

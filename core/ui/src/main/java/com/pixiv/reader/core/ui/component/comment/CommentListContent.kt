@@ -60,8 +60,33 @@ import com.pixiv.reader.core.ui.theme.Sizes
 /**
  * 评论列表内容块（core:ui 下沉，供 feature:comments 评论页与排行右栏评论区共用）。
  * 不含 Scaffold/TopAppBar——由调用方决定外壳（全屏页 / 右栏面板）。
+ * 参数均为调用方 collect 后的纯数据/回调（评论 VM 不进本组件）。
  *
- * @param viewModelState 评论 VM 的公开状态（列表/回复/草稿/贴纸等），由调用方 collect 后传入
+ * @param comments 评论列表（一级评论，按分页累积）
+ * @param isLoading 首屏加载中
+ * @param isLoadingMore 触底加载更多中
+ * @param hasMore 是否还有下一页
+ * @param error 首屏错误信息（null=无错误）
+ * @param replies 回复树（评论 id → 该评论的回复列表）
+ * @param repliesLoading 加载回复中的评论 id 集合
+ * @param expandedReplies 已展开回复的评论 id 集合
+ * @param draft 评论输入框草稿文本
+ * @param replyTarget 当前回复目标（null=直接评论作品）
+ * @param stamps 可选贴纸列表
+ * @param emptyText 空态文案
+ * @param onLoadComments 首次加载 / 失败重试回调
+ * @param onLoadMoreComments 触底加载更多回调
+ * @param onOpenUser 点击头像/用户名打开用户主页
+ * @param onReply 点击回复（参数：目标评论 + 作品 id）
+ * @param onLoadReplies 加载某评论的回复列表
+ * @param onToggleRepliesExpanded 展开 / 收起某评论的回复
+ * @param onDraftChange 草稿文本变化
+ * @param onPost 发表评论 / 回复
+ * @param onStampPick 选择贴纸（参数为贴纸 id）
+ * @param ownUid 当前登录用户 id（>0 时自己的评论显示删除按钮；0=不显示）
+ * @param onDeleteComment 删除自己的评论回调（null=不提供删除；参数为评论 id）
+ * @param modifier 外部传入的 Modifier
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

@@ -105,7 +105,8 @@ class UgoiraExporter @Inject constructor(
             resultPath
         }.onFailure { e ->
             Log.w(TAG, "ugoira 导出失败 illustId=$illustId format=$format", e)
-            // 失败仍带作品快照（保留卡片展示信息；进度停在最后写入值）
+            // 失败仍带作品快照（保留卡片展示信息）；REPLACE 覆写会把进度重置为 0
+            // （与插画下载 Worker 失败路径行为一致），重试从断点续传继续
             runCatching { upsert(illustId, format, status = "failed", illust = illust) }
         }
     }
@@ -120,10 +121,7 @@ class UgoiraExporter @Inject constructor(
     ): String {
         val out = File(dir, "ugoira_$illustId.mp4")
         // 解析首帧尺寸（帧序列尺寸一致；仅用于编码器配置与卡片宽高显示）
-        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(entries.first().file.path, opts)
-        val width = opts.outWidth
-        val height = opts.outHeight
+        val (width, height) = decodeBounds(entries.first().file)
         val delays = IntArray(entries.size) { entries[it].delayMs }
         val last = intArrayOf(49)
         Mp4FrameEncoder().encode(
@@ -143,7 +141,7 @@ class UgoiraExporter @Inject constructor(
         return out.path
     }
 
-    /** 解压 zip 内各帧（已存在跳过）；zip 损坏时删除 zip 抛错（下次重下）。 */
+    /** 解压 zip 内各帧（已存在跳过）；缺 entry / zip 损坏时删除 zip 抛错（下次重新下载）。 */
     private fun unzipFrames(zipFile: File, frameDir: File, frames: List<GifFrame>): List<FrameEntry> {
         return try {
             java.util.zip.ZipFile(zipFile).use { zf ->
@@ -151,7 +149,10 @@ class UgoiraExporter @Inject constructor(
                     val entryName = frame.file ?: return@mapNotNull null
                     val out = File(frameDir, entryName.substringAfterLast('/'))
                     if (!out.exists()) {
-                        zf.getInputStream(zf.getEntry(entryName)).use { it.copyTo(out.outputStream()) }
+                        // 缺 entry 与损坏 zip 同等对待（抛错 → 外层删 zip 重下），避免静默跳过导致后续缺帧
+                        val entry = zf.getEntry(entryName)
+                            ?: throw IllegalStateException("missing zip entry: $entryName")
+                        zf.getInputStream(entry).use { it.copyTo(out.outputStream()) }
                     }
                     FrameEntry(file = out, delayMs = (frame.delay ?: 80).coerceAtLeast(10))
                 }
@@ -176,9 +177,12 @@ class UgoiraExporter @Inject constructor(
     }
 
     /** 首帧尺寸（卡片按真实比例显示；解码失败回退 0 走结构字段）。 */
-    private fun widthHeightOf(entries: List<FrameEntry>): Pair<Int, Int> {
+    private fun widthHeightOf(entries: List<FrameEntry>): Pair<Int, Int> = decodeBounds(entries.first().file)
+
+    /** 只解析图片尺寸不加载像素（inJustDecodeBounds）。 */
+    private fun decodeBounds(file: File): Pair<Int, Int> {
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(entries.first().file.path, opts)
+        BitmapFactory.decodeFile(file.path, opts)
         return opts.outWidth to opts.outHeight
     }
 
