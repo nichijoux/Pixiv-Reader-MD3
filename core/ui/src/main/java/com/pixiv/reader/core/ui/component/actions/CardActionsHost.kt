@@ -82,11 +82,17 @@ interface CardActions {
 
 /**
  * 卡片长按动作控制器（[CardActionsHost] 经 CompositionLocal 下发；卡片侧唯一入口）。
- * [show] 打开全局唯一长按菜单；`readLaterIds` / `blockedIds` 供菜单动态文案与卡片模糊收集。
+ * [show] 打开全局唯一长按菜单；`readLaterIds` / `blockedIds` 供菜单动态文案与卡片模糊收集；
+ * [showMessage] 弹卡片侧轻提示（走同一通知宿主）。
+ *
+ * @param impl 本地动作实现
+ * @param openMenu 打开长按菜单回调（宿主置 menuTarget 状态）
+ * @param showNotice 轻提示回调（宿主转发到通知宿主；默认空操作，预览/测试环境安全）
  */
 class CardActionsController internal constructor(
     private val impl: CardActions,
     private val openMenu: (CardActionTarget) -> Unit,
+    private val showNotice: (String) -> Unit = {},
 ) {
     /** 已加入稍后再看的目标集合。 */
     val readLaterIds: StateFlow<Set<String>> get() = impl.readLaterIds
@@ -102,6 +108,14 @@ class CardActionsController internal constructor(
 
     /** 屏蔽 / 取消屏蔽（菜单行调用）。 */
     fun toggleBlock(targetType: String, targetId: Long) = impl.toggleBlock(targetType, targetId)
+
+    /**
+     * 弹卡片侧轻提示（如临时显示态点击「已屏蔽，无法查看详情」）。
+     *
+     * @param text 已解析的本地化提示文案
+     * @return 无返回值
+     */
+    fun showMessage(text: String) = showNotice(text)
 
     /** 目标键（`"illust:1"` 形式）。 */
     fun keyOf(type: String, id: Long): String = "$type:$id"
@@ -133,7 +147,16 @@ fun CardActionsHost(
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     val controller = remember(actions) {
-        actions?.let { CardActionsController(it) { menuTarget = it } }
+        actions?.let {
+            CardActionsController(
+                impl = it,
+                openMenu = { menuTarget = it },
+                // 卡片侧轻提示（临时显示态点击等）转发到同一通知宿主
+                showNotice = { text ->
+                    notificationHostState.show(text, type = NotificationType.Info)
+                },
+            )
+        }
     }
 
     CompositionLocalProvider(LocalCardActionsHost provides controller) {

@@ -50,6 +50,7 @@ import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
+import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
@@ -74,7 +75,8 @@ import kotlin.math.roundToInt
  * ## 交互
  * 整卡经 [rememberCardBlockGesture] 包装：未屏蔽时点击直接回调 [onClick] 打开详情、
  * 长按弹出全局动作菜单（稍后再看 / 屏蔽）；已屏蔽时整卡模糊遮罩，首次点击临时显示、
- * 再次点击恢复遮罩（恢复打开详情需先经菜单取消屏蔽）。收藏按钮点击**先翻转本地状态
+ * 再次点击提示已屏蔽无法打开详情（临时显示态左上角出现「已屏蔽」角标持续提醒；
+ * 恢复打开详情需先经菜单取消屏蔽）。收藏按钮点击**先翻转本地状态
  * 再回调**外部执行 API（成功与否由外部负责，组件仅维护 UI 态 [favorite]）；
  * 作者行（头像+名称）点击 [onOpenAuthor] 打开作者主页（user 为 null 时不可点）。
  *
@@ -105,7 +107,7 @@ fun IllustCard(
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
-    // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
+    // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
     val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "illust",
@@ -187,6 +189,10 @@ fun IllustCard(
                             color = Color.White,
                         )
                     }
+                }
+                // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
+                if (block.isRevealed) {
+                    BlockedRevealBadge()
                 }
             }
             // 收藏切换按钮：右上角自绘浮层（28dp 圆，避免 IconButton 强制 40dp 溢出边界）

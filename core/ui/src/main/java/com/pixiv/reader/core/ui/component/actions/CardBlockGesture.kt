@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,9 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -31,11 +35,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * 卡片就地屏蔽手势包装结果（[rememberCardBlockGesture] 产物，三卡共用）。
  *
  * @param isBlocked 是否处于「屏蔽且未临时显示」态（true 时封面模糊 + 遮罩）
+ * @param isRevealed 是否处于「已临时显示但仍被屏蔽」态（true 时卡片可见，调用方应显示已屏蔽角标提醒）
  * @param onClick 包装后的点击回调（屏蔽态首次点击改为临时显示，不透传原点击）
  * @param onLongClick 包装后的长按回调（弹全局动作菜单；无宿主环境为 null）
  */
 class CardBlockGesture(
     val isBlocked: Boolean,
+    val isRevealed: Boolean,
     val onClick: () -> Unit,
     val onLongClick: (() -> Unit)?,
 )
@@ -43,14 +49,16 @@ class CardBlockGesture(
 /**
  * 卡片就地屏蔽手势助手（IllustCard / RankingIllustCard / NovelCard 共用）：
  * 收集全局屏蔽集合（[LocalCardActionsHost]）判断本卡是否被屏蔽，并包装点击/长按行为——
- * 屏蔽态下首次点击改为「临时显示」（不透传原点击），长按弹全局动作菜单（稍后再看/屏蔽）。
+ * 屏蔽态下首次点击改为「临时显示」（不透传原点击），已临时显示后再点击弹
+ * 「已屏蔽，无法查看详情」提示（卡片仍在屏蔽名单内，直接打开详情会被拦下），
+ * 长按弹全局动作菜单（稍后再看/屏蔽）。
  *
  * @param targetType 目标类型（"illust" / "novel"）
  * @param targetId 目标 id
  * @param title 卡片标题供给函数（长按菜单副标题；惰性求值避免组合期取值）
  * @param payload 卡片快照 JSON 供给函数（加入稍后再看时落库；惰性求值避免组合期序列化）
  * @param onClick 原点击回调（非屏蔽态透传）
- * @return [CardBlockGesture]（含 isBlocked 与包装后的点击/长按）
+ * @return [CardBlockGesture]（含 isBlocked/isRevealed 与包装后的点击/长按）
  */
 @Composable
 internal fun rememberCardBlockGesture(
@@ -61,6 +69,7 @@ internal fun rememberCardBlockGesture(
     onClick: () -> Unit,
 ): CardBlockGesture {
     val controller = LocalCardActionsHost.current
+    val context = LocalContext.current
     // 收集全局屏蔽集合（无宿主环境恒空集）
     val blockedIds: Set<String> = if (controller != null) {
         val ids by controller.blockedIds.collectAsStateWithLifecycle()
@@ -78,9 +87,18 @@ internal fun rememberCardBlockGesture(
     }
     return CardBlockGesture(
         isBlocked = rawBlocked && !revealed,
+        isRevealed = rawBlocked && revealed,
         onClick = {
-            // 屏蔽态首次点击 = 临时显示；非屏蔽态透传原点击
-            if (rawBlocked) revealed = true else onClick()
+            // 非屏蔽态透传原点击；屏蔽态首次点击 = 临时显示；
+            // 已临时显示（仍在屏蔽名单）→ 提示无法打开详情，避免卡片静默无响应
+            when {
+                !rawBlocked -> onClick()
+                // rawBlocked 为真已蕴含 controller 非空（见其定义），直接弹提示
+                revealed -> controller.showMessage(
+                    context.getString(R.string.card_msg_blocked_no_detail),
+                )
+                else -> revealed = true
+            }
         },
         onLongClick = controller?.let { c ->
             { c.show(CardActionTarget(targetType, targetId, title(), payload())) }
@@ -141,6 +159,28 @@ internal fun BlockedOverlay(
             text = stringResource(R.string.card_blocked_reveal_hint),
             style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = 0.8f),
+        )
+    }
+}
+
+/**
+ * 已屏蔽角标（临时显示态专用，三卡共用）：黑底半透明胶囊「已屏蔽」，
+ * 与 AI / 页码角标同风格——遮罩消失后持续提示该卡片仍在屏蔽名单内，
+ * 点击不会打开详情（打开详情需先经长按菜单取消屏蔽）。
+ *
+ * @return 无返回值（纯展示组件）
+ */
+@Composable
+internal fun BlockedRevealBadge() {
+    Surface(
+        color = Color.Black.copy(alpha = 0.45f),
+        shape = AppShapes.small,
+    ) {
+        Text(
+            text = stringResource(R.string.card_blocked_badge),
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White,
         )
     }
 }

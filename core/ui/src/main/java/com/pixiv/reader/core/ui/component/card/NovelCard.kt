@@ -54,6 +54,7 @@ import com.google.gson.Gson
 import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
+import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -143,7 +144,7 @@ fun NovelCard(
         ),
     )
 
-    // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
+    // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
     val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "novel",
@@ -187,24 +188,36 @@ fun NovelCard(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    // 排名徽标（排行榜用，左上角）：1金/2橙/3灰，其余白色；
-                    // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
-                    if (rank != null) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(Spacing.xsPlus)
-                                .clip(rankBadgeShape(rank))
-                                .background(Color.Black.copy(alpha = 0.45f))
-                                .padding(horizontal = Spacing.sm, vertical = 3.dp),
-                        ) {
-                            Text(
-                                text = "$rank",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                fontStyle = FontStyle.Italic,
-                                color = rankColor(rank) ?: Color.White,
-                            )
+                    // 左上角浮层列：排名徽标 + 已屏蔽角标（临时显示态提示）纵向堆叠——
+                    // 封面仅 104dp 宽，横排放不下两枚徽标，纵列互不重叠也不会被裁剪
+                    Column(
+                        modifier = Modifier.align(Alignment.TopStart),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                    ) {
+                        // 排名徽标（排行榜用）：1金/2橙/3灰，其余白色；
+                        // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
+                        if (rank != null) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(Spacing.xsPlus)
+                                    .clip(rankBadgeShape(rank))
+                                    .background(Color.Black.copy(alpha = 0.45f))
+                                    .padding(horizontal = Spacing.sm, vertical = 3.dp),
+                            ) {
+                                Text(
+                                    text = "$rank",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    fontStyle = FontStyle.Italic,
+                                    color = rankColor(rank) ?: Color.White,
+                                )
+                            }
+                        }
+                        // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
+                        if (block.isRevealed) {
+                            Box(modifier = Modifier.padding(horizontal = Spacing.xsPlus)) {
+                                BlockedRevealBadge()
+                            }
                         }
                     }
                     // 封面右上角浮层：如下载管理页的格式类型胶囊（不占行，与左上角 rank 徽标对称）

@@ -42,6 +42,8 @@
     <string name="card_msg_read_later_removed">已移出稍後再看</string>
     <string name="card_msg_blocked">已屏蔽該作品，封面將打碼顯示</string>
     <string name="card_msg_unblocked">已取消屏蔽</string>
+    <!-- 臨時顯示態的屏蔽卡片再次點擊提示（仍在屏蔽名單，不開啟詳情） -->
+    <string name="card_msg_blocked_no_detail">該作品已被屏蔽，無法查看詳情</string>
     <string name="not_logged_in">未登入</string>
     <string name="follow">關注</string>
     <string name="following">已關注</string>

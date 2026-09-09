@@ -42,6 +42,8 @@
     <string name="card_msg_read_later_removed">Removed from read later</string>
     <string name="card_msg_blocked">Work blocked; its cover will be blurred</string>
     <string name="card_msg_unblocked">Block removed</string>
+    <!-- Tapping a temporarily revealed blocked card again: still on the block list, no detail view -->
+    <string name="card_msg_blocked_no_detail">This work is blocked, details are unavailable</string>
     <string name="not_logged_in">Not logged in</string>
     <string name="follow">Follow</string>
     <string name="following">Following</string>

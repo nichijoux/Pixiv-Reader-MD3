@@ -52,6 +52,7 @@ import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
+import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
@@ -95,7 +96,7 @@ fun RankingIllustCard(
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
-    // 就地屏蔽手势：屏蔽态首次点击=临时显示，长按=动作菜单（稍后再看/屏蔽）
+    // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
     val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "illust",
@@ -191,6 +192,10 @@ fun RankingIllustCard(
                             color = Color.White,
                         )
                     }
+                }
+                // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
+                if (block.isRevealed) {
+                    BlockedRevealBadge()
                 }
             }
             // 收藏切换按钮：右上角自绘浮层（28dp 圆，避免 IconButton 强制 40dp 溢出边界）
