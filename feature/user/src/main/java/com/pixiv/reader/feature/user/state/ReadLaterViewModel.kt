@@ -9,7 +9,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,9 +22,11 @@ class ReadLaterViewModel @Inject constructor(
     private val readLaterDao: ReadLaterDao,
 ) : ViewModel() {
 
-    /** 类型筛选（"illust" / "novel"）。 */
+    /**
+     * 类型筛选（"illust" / "novel"）：由页面 Pager 落页经 [setFilter] 回写；
+     * 选中态由 UI 侧 Pager 状态持有，不对外暴露。
+     */
     private val _filter = MutableStateFlow("illust")
-    val filter: StateFlow<String> = _filter.asStateFlow()
 
     /** 当前筛选类型下的稍后再看列表（按加入时间倒序；切筛选自动重订阅）。 */
     val items: StateFlow<List<ReadLaterEntity>> =

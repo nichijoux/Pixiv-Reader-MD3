@@ -34,8 +34,9 @@ import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -226,7 +227,7 @@ private val FieldMinHeight = 48.dp
 private val ButtonSide = 40.dp
 
 /**
- * 评论表情选择面板：`HorizontalPager` 左右滑动切换「文本表情 / 贴纸」两个 Tab（配 [TabRow]）。
+ * 评论表情选择面板：`HorizontalPager` 左右滑动切换「文本表情 / 贴纸」两段（配 Expressive 分段控件）。
  * 文本表情点击回调 [onEmojiPick]（光标处插入草稿）；贴纸点击回调 [onStampPick]（直接发送）。
  * 高度由调用方给定（对齐上次键盘高度），不再自带导航栏 padding（外层列统一处理）。
  * @OptIn 试验 API FlowRow。
@@ -242,19 +243,25 @@ private fun CommentEmojiPanel(
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     Column(modifier = modifier) {
-            SecondaryTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = MaterialTheme.colorScheme.surface,
+            // 类型分段：文本表情 / 贴纸（选中态跟 Pager 落页，点击反向滚页）
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
             ) {
-                Tab(
+                SegmentedButton(
                     selected = pagerState.currentPage == 0,
                     onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                    text = { Text(stringResource(R.string.comment_emoji_title)) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(R.string.comment_emoji_title)) },
                 )
-                Tab(
+                SegmentedButton(
                     selected = pagerState.currentPage == 1,
                     onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                    text = { Text(stringResource(R.string.comment_stamp_title)) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(R.string.comment_stamp_title)) },
                 )
             }
             HorizontalPager(

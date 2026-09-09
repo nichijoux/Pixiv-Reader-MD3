@@ -11,7 +11,10 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
+import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.download.UgoiraExportFormat
@@ -45,6 +48,7 @@ class IllustViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val ugoiraLoader: UgoiraLoader,
     private val browseHistoryDao: BrowseHistoryDao,
+    private val downloadEntryDao: DownloadEntryDao,
     private val favoriteActions: FavoriteActions,
     @param:ApplicationContext private val context: Context,
 ) : MessageViewModel() {
@@ -362,9 +366,15 @@ class IllustViewModel @Inject constructor(
     /**
      * 下载整个作品到 filesDir/Downloads/，由 WorkManager 后台执行：
      * 静态插画走 [IllustDownloadWorker]（全部页），动图（ugoira）走 [UgoiraExportWorker]（默认 MP4）。
+     * 入队即建「待同步」索引条目（断网时停留待同步，联网后 Worker 网络约束自动开始）。
      */
     fun download() {
-        val request = if (_illust.value?.isGif() == true) {
+        val illust = _illust.value
+        val isGif = illust?.isGif() == true
+        val targetType = if (isGif) "ugoira" else "illust"
+        val format = if (isGif) UgoiraExportFormat.MP4.format else ""
+        // 网络约束：断网时 Worker 挂起（条目停留待同步），联网自动开始；tag 供删除时精确取消
+        val request = (if (isGif) {
             OneTimeWorkRequestBuilder<UgoiraExportWorker>()
                 .setInputData(
                     workDataOf(
@@ -372,11 +382,30 @@ class IllustViewModel @Inject constructor(
                         UgoiraExportWorker.KEY_FORMAT to UgoiraExportFormat.MP4.format,
                     )
                 )
-                .build()
         } else {
             OneTimeWorkRequestBuilder<IllustDownloadWorker>()
                 .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to _illustId.value))
-                .build()
+        })
+            .setConstraints(DownloadQueue.networkConstraints())
+            .addTag(DownloadQueue.workTag(targetType, _illustId.value, format, ""))
+            .build()
+        // 入队即建「待同步」条目：卡片立即出现在下载管理页（断网也不丢），Worker 起跑覆写为下载中
+        viewModelScope.launch {
+            runCatching {
+                DownloadQueue.markPending(
+                    downloadEntryDao,
+                    DownloadEntryEntity(
+                        targetId = _illustId.value,
+                        targetType = targetType,
+                        title = illust?.title,
+                        coverUrl = illust?.image_urls?.medium ?: illust?.image_urls?.square_medium,
+                        format = format,
+                        pageCount = illust?.page_count ?: 0,
+                        width = illust?.width ?: 0,
+                        height = illust?.height ?: 0,
+                    ),
+                )
+            }
         }
         WorkManager.getInstance(context).enqueue(request)
         trySendMessage(UiMessage(CoreR.string.core_illust_download_started))

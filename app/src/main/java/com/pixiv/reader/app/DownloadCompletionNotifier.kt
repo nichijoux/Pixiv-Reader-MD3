@@ -40,9 +40,9 @@ class DownloadCompletionNotifier @Inject constructor(
                 val key = Key(e)
                 val before = prev[key]
                 // 仅在"非终态 → 终态"迁移时通知；未在上一快照中的条目不通知（历史完成/新增中）
-                if (before != null && before != "done" && before != "failed") {
+                if (before != null && before != DownloadEntryEntity.STATUS_DONE && before != DownloadEntryEntity.STATUS_FAILED) {
                     when (e.status) {
-                        "done" -> _events.tryEmit(
+                        DownloadEntryEntity.STATUS_DONE -> _events.tryEmit(
                             UiMessage(
                                 R.string.download_complete,
                                 listOf(e.title.orEmpty()),
@@ -50,7 +50,7 @@ class DownloadCompletionNotifier @Inject constructor(
                             ),
                         )
 
-                        "failed" -> _events.tryEmit(
+                        DownloadEntryEntity.STATUS_FAILED -> _events.tryEmit(
                             UiMessage(
                                 R.string.download_failed,
                                 listOf(e.title.orEmpty()),

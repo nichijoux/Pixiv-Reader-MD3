@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
@@ -28,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.PixivBlue
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -100,7 +100,7 @@ fun LoginScreen(
             onClick = onLogin,
             enabled = !uiState.isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(26.dp),
+            shape = AppShapes.pill,
         ) {
             Text(stringResource(R.string.auth_login_button), fontWeight = FontWeight.SemiBold)
         }
@@ -111,7 +111,7 @@ fun LoginScreen(
             onClick = onRegister,
             enabled = !uiState.isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(26.dp),
+            shape = AppShapes.pill,
         ) {
             Text(stringResource(R.string.auth_register_button))
         }

@@ -1,7 +1,6 @@
 package com.pixiv.reader.feature.discover.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -51,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
 import com.pixiv.api.model.SearchLangOption
@@ -101,33 +101,32 @@ internal fun FilterBottomSheet(
     val isNovel = type == SearchType.NOVEL
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        // 主面板 ↔ 二级 picker 切换动画：前进（进 picker）右滑入、返回（回主面板）左滑入，无跳变
-        AnimatedContent(
-            targetState = picker,
-            transitionSpec = {
-                val forward = targetState != null && initialState == null
-                if (forward) {
-                    (slideInHorizontally(animationSpec = tween(280)) { it } + fadeIn(
-                        animationSpec = tween(
-                            280
-                        )
-                    ))
-                        .togetherWith(slideOutHorizontally(animationSpec = tween(280)) { -it / 3 } + fadeOut(
-                            animationSpec = tween(280)
-                        ))
-                } else {
-                    (slideInHorizontally(animationSpec = tween(280)) { -it } + fadeIn(
-                        animationSpec = tween(
-                            280
-                        )
-                    ))
-                        .togetherWith(slideOutHorizontally(animationSpec = tween(280)) { it / 3 } + fadeOut(
-                            animationSpec = tween(280)
-                        ))
-                }
-            },
-            label = "filterPicker",
-        ) { p ->
+    // 主面板 ↔ 二级 picker 切换动画：前进（进 picker）右滑入、返回（回主面板）左滑入，无跳变。
+    // Expressive 弹簧：位移走 spatial 档（进入带弹性 / 退出快吸附）、透明度走 effects 快档；
+    // transitionSpec 非组合上下文，规格在组合期先取好再闭包捕获
+    val slideInSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val slideOutSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+    val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+    AnimatedContent(
+        targetState = picker,
+        transitionSpec = {
+            val forward = targetState != null && initialState == null
+            if (forward) {
+                (slideInHorizontally(animationSpec = slideInSpec) { it } + fadeIn(animationSpec = fadeSpec))
+                    .togetherWith(
+                        slideOutHorizontally(animationSpec = slideOutSpec) { -it / 3 } +
+                            fadeOut(animationSpec = fadeSpec)
+                    )
+            } else {
+                (slideInHorizontally(animationSpec = slideInSpec) { -it } + fadeIn(animationSpec = fadeSpec))
+                    .togetherWith(
+                        slideOutHorizontally(animationSpec = slideOutSpec) { it / 3 } +
+                            fadeOut(animationSpec = fadeSpec)
+                    )
+            }
+        },
+        label = "filterPicker",
+    ) { p ->
             when (p) {
                 null -> MainFilterContent(
                     draft = draft,

@@ -29,6 +29,9 @@ object AppShapes {
     /** 16dp：大卡片 / 弹层角 */
     val large: Shape = RoundedCornerShape(16.dp)
 
+    /** 14dp 仅上圆角：信息流卡片顶部（封面与卡片顶缘同角，底缘直通） */
+    val cardLargeTop: Shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
+
     /** 全圆（药丸 / 圆形按钮） */
     val pill: Shape = RoundedCornerShape(percent = 50)
 

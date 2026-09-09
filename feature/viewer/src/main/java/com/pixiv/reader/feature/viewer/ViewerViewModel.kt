@@ -15,9 +15,10 @@ import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.model.toPages
-import com.pixiv.reader.core.network.download.IllustPageDownloader
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.download.UgoiraExportFormat
 import com.pixiv.reader.core.network.download.UgoiraExportWorker
+import com.pixiv.reader.core.network.illust.IllustDownloadWorker
 import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
@@ -42,7 +43,7 @@ import okhttp3.Request
 
 /**
  * 全屏查看器 ViewModel：多图横滑 / 动图（UgoiraLoader）/ 预览·原图切换 /
- * 壁纸设置 / 收藏 / 当前页下载（前台分块下载，写下载索引含字节进度）。
+ * 壁纸设置 / 收藏 / 当前页与动图导出下载（Worker 后台执行，断网自动排队）。
  * illustId 与初始 page 从 SavedStateHandle 读取（路由参数）。
  */
 @HiltViewModel
@@ -50,7 +51,6 @@ class ViewerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val pixivRepository: PixivRepository,
-    private val illustPageDownloader: IllustPageDownloader,
     private val downloadEntryDao: DownloadEntryDao,
     private val ugoiraLoader: UgoiraLoader,
     private val userPreferences: UserPreferences,
@@ -218,93 +218,93 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** 下载当前页原图（前台分块下载，写索引含字节进度；单页快，切走页面会中断）。
-     * `.part` + rename 语义与整本下载 Worker 一致（共享 [IllustPageDownloader]）：
-     * 中断只残留 `.part`，不会被整本任务断点判定误认为完整页。 */
+    /**
+     * 下载当前页原图：走 [IllustDownloadWorker] 单页任务（后台执行，切走页面不中断）。
+     * 入队即建「待同步」索引条目：断网自动排队，联网自动开始（`.part` 断点语义与整本一致）。
+     */
     fun download(page: IllustPageInfo) {
-        val url = page.originalUrl ?: page.displayUrl ?: return
         val index = _pages.value.indexOf(page).takeIf { it >= 0 } ?: 0
         viewModelScope.launch {
             trySendMessage(UiMessage(R.string.viewer_msg_download_started))
-            recordDownload(null, "downloading", progress = 0)
-            var lastWritten = -1
-            illustPageDownloader.downloadPage(illustId, index, url) { done, total ->
-                // 字节进度 → 百分比，节流（≥2% 才写数据库）
-                val pct = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 99) else 0
-                if (pct - lastWritten >= 2) {
-                    lastWritten = pct
-                    downloadEntryDao.updateProgress("illust", illustId, "", pct)
-                }
-            }
-                .onSuccess { file ->
-                    recordDownload(file.path, "done", progress = 100)
-                    trySendMessage(UiMessage(R.string.viewer_msg_saved_to_downloads, type = MessageType.SUCCESS))
-                }
-                .onFailure {
-                    recordDownload(null, "failed")
-                    trySendMessage(UiMessage(R.string.viewer_msg_download_failed, listOf(it.message ?: ""), type = MessageType.ERROR))
-                }
-        }
-    }
-
-    /** 写入下载索引（targetType=illust；解析本地文件真实宽高）。 */
-    private fun recordDownload(localPath: String?, status: String, progress: Int = 0) {
-        viewModelScope.launch {
+            // 入队即建「待同步」条目（卡片立即可见；Worker 起跑覆写为下载中）
             runCatching {
-                var w = 0
-                var h = 0
-                if (localPath != null) {
-                    val file = java.io.File(localPath)
-                    if (file.exists()) {
-                        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        BitmapFactory.decodeFile(file.path, opts)
-                        w = opts.outWidth
-                        h = opts.outHeight
-                    }
-                }
-                downloadEntryDao.upsert(
+                DownloadQueue.markPending(
+                    downloadEntryDao,
                     DownloadEntryEntity(
                         targetId = illustId,
                         targetType = "illust",
                         title = _illust.value?.title,
                         coverUrl = _illust.value?.image_urls?.medium
                             ?: _illust.value?.image_urls?.square_medium,
-                        localPath = localPath,
-                        status = status,
-                        progress = progress,
                         pageCount = _pages.value.size,
-                        width = if (w > 0) w else (_illust.value?.width ?: 0),
-                        height = if (h > 0) h else (_illust.value?.height ?: 0),
-                        // 完整卡片快照（与浏览历史同格式，下载管理页完整显示用）
-                        payloadJson = _illust.value?.let { ill ->
-                            org.json.JSONObject().apply {
-                                put("id", ill.id)
-                                put("title", ill.title.orEmpty())
-                                put("coverUrl", ill.image_urls?.medium ?: ill.image_urls?.square_medium)
-                                put("width", ill.width)
-                                put("height", ill.height)
-                                put("bookmarks", ill.total_bookmarks ?: 0)
-                                put("pageCount", ill.page_count ?: 0)
-                                put("isBookmarked", ill.is_bookmarked == true)
-                            }.toString()
-                        },
+                        width = _illust.value?.width ?: 0,
+                        height = _illust.value?.height ?: 0,
+                        payloadJson = illustPayloadJson(),
+                    ),
+                )
+            }
+            WorkManager.getInstance(context).enqueue(
+                OneTimeWorkRequestBuilder<IllustDownloadWorker>()
+                    .setInputData(
+                        workDataOf(
+                            IllustDownloadWorker.KEY_ILLUST_ID to illustId,
+                            IllustDownloadWorker.KEY_PAGE_INDEX to index.toLong(),
+                        ),
+                    )
+                    .setConstraints(DownloadQueue.networkConstraints())
+                    .addTag(DownloadQueue.workTag("illust", illustId, "", ""))
+                    .build(),
+            )
+        }
+    }
+
+    /** 作品卡片快照 JSON（与浏览历史同格式，下载管理页完整显示用；无详情时 null 走结构字段回退）。 */
+    private fun illustPayloadJson(): String? = _illust.value?.let { ill ->
+        org.json.JSONObject().apply {
+            put("id", ill.id)
+            put("title", ill.title.orEmpty())
+            put("coverUrl", ill.image_urls?.medium ?: ill.image_urls?.square_medium)
+            put("width", ill.width)
+            put("height", ill.height)
+            put("bookmarks", ill.total_bookmarks ?: 0)
+            put("pageCount", ill.page_count ?: 0)
+            put("isBookmarked", ill.is_bookmarked == true)
+        }.toString()
+    }
+
+    /** 导出动图（MP4 视频 / ZIP 帧包）：后台 Worker 执行，进度见下载管理页（Range 断点续传 + 有限重试）。
+     * 入队即建「待同步」索引条目：断网自动排队，联网后自动开始。 */
+    fun downloadGif(format: UgoiraExportFormat) {
+        viewModelScope.launch {
+            runCatching {
+                DownloadQueue.markPending(
+                    downloadEntryDao,
+                    DownloadEntryEntity(
+                        targetId = illustId,
+                        targetType = "ugoira",
+                        title = _illust.value?.title,
+                        coverUrl = _illust.value?.image_urls?.medium
+                            ?: _illust.value?.image_urls?.square_medium,
+                        format = format.format,
+                        width = _illust.value?.width ?: 0,
+                        height = _illust.value?.height ?: 0,
+                        payloadJson = illustPayloadJson(),
                     ),
                 )
             }
         }
-    }
-
-    /** 导出动图（MP4 视频 / ZIP 帧包）：后台 Worker 执行，进度见下载管理页（Range 断点续传 + 有限重试）。 */
-    fun downloadGif(format: UgoiraExportFormat) {
-        val request = OneTimeWorkRequestBuilder<UgoiraExportWorker>()
-            .setInputData(
-                workDataOf(
-                    UgoiraExportWorker.KEY_ILLUST_ID to illustId,
-                    UgoiraExportWorker.KEY_FORMAT to format.format,
+        WorkManager.getInstance(context).enqueue(
+            OneTimeWorkRequestBuilder<UgoiraExportWorker>()
+                .setInputData(
+                    workDataOf(
+                        UgoiraExportWorker.KEY_ILLUST_ID to illustId,
+                        UgoiraExportWorker.KEY_FORMAT to format.format,
+                    )
                 )
-            )
-            .build()
-        WorkManager.getInstance(context).enqueue(request)
+                .setConstraints(DownloadQueue.networkConstraints())
+                .addTag(DownloadQueue.workTag("ugoira", illustId, format.format, ""))
+                .build(),
+        )
         viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_ugoira_export_started)) }
     }
 

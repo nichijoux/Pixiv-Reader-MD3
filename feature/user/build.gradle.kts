@@ -29,6 +29,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     // SAF 目录访问（下载位置 DocumentFile）
     implementation(libs.androidx.documentfile)
+    // WorkManager（删除未完成下载时取消在途后台任务）
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
 }

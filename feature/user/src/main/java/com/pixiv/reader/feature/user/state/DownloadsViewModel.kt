@@ -5,8 +5,10 @@ import androidx.annotation.StringRes
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.novel.parser.EpubNovelParser
 import com.pixiv.reader.core.novel.parser.MarkdownNovelParser
 import com.pixiv.reader.core.novel.parser.TxtNovelParser
@@ -24,7 +26,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
-/** 下载管理分类（插画 / 小说）。 */
+/** 下载管理分类（作品 / 小说；作品段涵盖插画/漫画/动图）。 */
 enum class DownloadFilter(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.downloads_filter_illust),
     NOVEL(R.string.downloads_filter_novel),
@@ -46,16 +48,27 @@ class DownloadsViewModel @Inject constructor(
         downloadEntryDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** 类型筛选：由页面 Pager 落页经 [selectFilter] 回写；选中态由 UI 侧 Pager 状态持有，不对外暴露。 */
     private val filter = MutableStateFlow(DownloadFilter.ILLUST)
-    val filterFlow: StateFlow<DownloadFilter> = filter
 
     fun selectFilter(f: DownloadFilter) {
         if (filter.value != f) filter.value = f
     }
 
-    /** 删除索引，并清理对应本地文件（私有文件路径 / SAF / MediaStore content uri）。 */
+    /**
+     * 删除索引，并清理对应本地文件（私有文件路径 / SAF / MediaStore content uri）。
+     * 未完成条目同时取消后台任务（防删除后联网 Worker 复活重建条目）。
+     */
     fun delete(entry: DownloadEntryEntity) {
         viewModelScope.launch {
+            // 取消在途后台任务（待同步/下载中；done 无任务在跑，跳过）
+            if (entry.status != DownloadEntryEntity.STATUS_DONE) {
+                runCatching {
+                    WorkManager.getInstance(context).cancelAllWorkByTag(
+                        DownloadQueue.workTag(entry.targetType, entry.targetId, entry.format, entry.scopeKey),
+                    )
+                }
+            }
             entry.localPath?.let { path ->
                 runCatching {
                     if (path.startsWith("content://")) {

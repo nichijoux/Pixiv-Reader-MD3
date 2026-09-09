@@ -33,7 +33,7 @@ import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
- * 我的页「浏览设置」：小说默认页 / 插画查看方向 / 关注页排序 / 剪贴板链接提示 / 小说下载命名。
+ * 我的页「浏览设置」：小说默认页 / 作品查看方向 / 关注页排序 / 剪贴板链接提示 / 小说下载命名。
  * Expressive 分组面板：五项聚入单张 28dp 圆角卡，组内行用分隔线区隔。
  *
  * @param novelDefaultTab 小说 Tab 默认页（推荐/关注）
@@ -84,7 +84,7 @@ internal fun MeBrowseSection(
             }
         }
         MeRowDivider()
-        // 插画查看方向：宽控件行
+        // 作品查看方向：宽控件行
         MeRow(icon = Icons.Filled.ScreenRotation, title = stringResource(R.string.me_viewer_orientation))
         val orientationOptions = listOf(
             ViewerOrientation.HORIZONTAL to R.string.me_viewer_orientation_horizontal,

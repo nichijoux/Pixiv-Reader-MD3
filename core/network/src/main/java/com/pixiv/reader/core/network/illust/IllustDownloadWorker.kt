@@ -68,7 +68,7 @@ class IllustDownloadWorker(
                 upsert(
                     downloadEntryDao,
                     illustId,
-                    status = "failed",
+                    status = DownloadEntryEntity.STATUS_FAILED,
                     progress = 0,
                     localPath = null,
                     pageCount = 0
@@ -104,7 +104,7 @@ class IllustDownloadWorker(
         upsert(
             dao,
             illust.id,
-            status = "downloading",
+            status = DownloadEntryEntity.STATUS_DOWNLOADING,
             progress = base,
             localPath = dir.path,
             pageCount = total,
@@ -139,7 +139,7 @@ class IllustDownloadWorker(
         val isLast = single || index == total - 1
         upsert(
             dao, illust.id,
-            status = if (isLast) "done" else "downloading",
+            status = if (isLast) DownloadEntryEntity.STATUS_DONE else DownloadEntryEntity.STATUS_DOWNLOADING,
             progress = (base + span).coerceIn(0, 100),
             localPath = dir.path,
             pageCount = total,

@@ -62,7 +62,7 @@ class UgoiraExporter @Inject constructor(
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val dir = File(context.filesDir, "Downloads/ugoira_$illustId").apply { mkdirs() }
-            upsert(illustId, format, status = "downloading", progress = 0, localPath = dir.path, illust = illust)
+            upsert(illustId, format, status = DownloadEntryEntity.STATUS_DOWNLOADING, progress = 0, localPath = dir.path, illust = illust)
 
             // 元数据：高清 zip 优先，缺失回退 medium（与在线播放同源）
             val meta = pixivRepository.api.getUgoiraMetadata(illustId).ugoira_metadata
@@ -94,7 +94,7 @@ class UgoiraExporter @Inject constructor(
             }
 
             upsert(
-                illustId, format, status = "done", progress = 100,
+                illustId, format, status = DownloadEntryEntity.STATUS_DONE, progress = 100,
                 localPath = resultPath, illust = illust, widthHeightOf(entries),
             )
             // MP4 成功后清理中间产物（zip + 解压帧），释放私有目录空间
@@ -109,7 +109,7 @@ class UgoiraExporter @Inject constructor(
             Log.w(TAG, "ugoira 导出失败 illustId=$illustId format=$format", e)
             // 失败仍带作品快照（保留卡片展示信息）；REPLACE 覆写会把进度重置为 0
             // （与插画下载 Worker 失败路径行为一致），重试从断点续传继续
-            runCatching { upsert(illustId, format, status = "failed", illust = illust) }
+            runCatching { upsert(illustId, format, status = DownloadEntryEntity.STATUS_FAILED, illust = illust) }
         }
     }
 

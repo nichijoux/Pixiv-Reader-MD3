@@ -298,7 +298,7 @@ class NovelExporter @Inject constructor(
             seriesId = seriesId,
             coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium,
             localPath = localPath,
-            status = "done",
+            status = DownloadEntryEntity.STATUS_DONE,
             progress = 100,
             chapterCount = chapterCount,
             // 下载管理卡片元数据快照（作者/字数/收藏/发布/系列标题）
@@ -322,7 +322,7 @@ class NovelExporter @Inject constructor(
     ) {
         upsertIndex(
             novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
-            localPath = null, status = "downloading", progress = 0, chapterCount = 0,
+            localPath = null, status = DownloadEntryEntity.STATUS_DOWNLOADING, progress = 0, chapterCount = 0,
             scopeKey = scopeKey,
         )
     }
@@ -337,7 +337,7 @@ class NovelExporter @Inject constructor(
     ) {
         upsertIndex(
             novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
-            localPath = null, status = "downloading", progress = progress, chapterCount = 0,
+            localPath = null, status = DownloadEntryEntity.STATUS_DOWNLOADING, progress = progress, chapterCount = 0,
             scopeKey = scopeKey,
         )
     }
@@ -351,7 +351,7 @@ class NovelExporter @Inject constructor(
     ) {
         upsertIndex(
             novelId = novelId, title = null, format = format, seriesId = seriesId, coverUrl = null,
-            localPath = null, status = "failed", progress = 0, chapterCount = 0,
+            localPath = null, status = DownloadEntryEntity.STATUS_FAILED, progress = 0, chapterCount = 0,
             scopeKey = scopeKey,
         )
     }
@@ -376,26 +376,30 @@ class NovelExporter @Inject constructor(
         scopeKey: String = "",
     ) {
         runCatching {
+            // 中间态（markDownloading/updateProgress/markFailed）传入的展示字段为 null：
+            // 与现有行合并防 REPLACE 抹掉卡片快照（待同步→下载中卡片不闪空）；终态字段齐全，合并不生效
+            val existing = downloadEntryDao.get("novel", novelId, format.name, scopeKey)
             downloadEntryDao.upsert(
                 DownloadEntryEntity(
                     targetId = novelId,
                     targetType = "novel",
-                    title = title?.let { "$it（${format.name}）" },
-                    coverUrl = coverUrl,
+                    // 新标题（无后缀基底）加格式后缀；中间态回退现有标题（已含后缀，不再重复拼接）
+                    title = if (title != null) "$title（${format.name}）" else existing?.title,
+                    coverUrl = coverUrl ?: existing?.coverUrl,
                     localPath = localPath,
                     status = status,
                     progress = progress,
                     pageCount = chapterCount,
-                    seriesId = seriesId,
+                    seriesId = seriesId ?: existing?.seriesId,
                     format = format.name,
                     scopeKey = scopeKey,
-                    authorName = authorName,
-                    authorAvatarUrl = authorAvatarUrl,
-                    wordCount = wordCount,
-                    favoriteCount = favoriteCount,
-                    publishDate = publishDate,
-                    seriesTitle = seriesTitle,
-                    payloadJson = payloadJson,
+                    authorName = authorName ?: existing?.authorName,
+                    authorAvatarUrl = authorAvatarUrl ?: existing?.authorAvatarUrl,
+                    wordCount = if (wordCount > 0) wordCount else existing?.wordCount ?: 0,
+                    favoriteCount = if (favoriteCount > 0) favoriteCount else existing?.favoriteCount ?: 0,
+                    publishDate = publishDate ?: existing?.publishDate,
+                    seriesTitle = seriesTitle ?: existing?.seriesTitle,
+                    payloadJson = payloadJson ?: existing?.payloadJson,
                 ),
             )
         }

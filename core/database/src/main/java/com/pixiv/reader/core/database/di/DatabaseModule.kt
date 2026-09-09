@@ -6,7 +6,6 @@ import com.pixiv.reader.core.database.PixivDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.FeedSnapshotDao
-import com.pixiv.reader.core.database.dao.PendingActionDao
 import com.pixiv.reader.core.database.dao.ReadLaterDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.dao.SearchHistoryDao
@@ -32,6 +31,7 @@ object DatabaseModule {
                 PixivDatabase.MIGRATION_3_4,
                 PixivDatabase.MIGRATION_4_5,
                 PixivDatabase.MIGRATION_5_6,
+                PixivDatabase.MIGRATION_6_7,
             )
             .build()
 
@@ -49,9 +49,6 @@ object DatabaseModule {
 
     @Provides
     fun provideReadLaterDao(db: PixivDatabase): ReadLaterDao = db.readLaterDao()
-
-    @Provides
-    fun providePendingActionDao(db: PixivDatabase): PendingActionDao = db.pendingActionDao()
 
     @Provides
     fun provideFeedSnapshotDao(db: PixivDatabase): FeedSnapshotDao = db.feedSnapshotDao()

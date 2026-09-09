@@ -1,14 +1,11 @@
 package com.pixiv.reader.core.ui.component.list
 
-import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,8 +20,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +34,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.ui.RankingModeInfo
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -50,11 +46,15 @@ import kotlinx.coroutines.launch
 /** 漫画/插画排行榜瀑布流最小列宽：[RankingList] 与 [RankingIllustSkeleton] 必须同值，保证骨架列数与真实列表一致。 */
 val RANKING_GRID_MIN_COLUMN_WIDTH = 200.dp
 
+/** 段选择行居中阈值：段数 ≤ 此值用 PrimaryTabRow 均分占满（页签居中），超过改用可滑动页签。 */
+private const val CENTERED_TAB_MAX = 4
+
 /**
  * 通用排行榜容器（数据驱动，供漫画/插画/小说排行榜复用）。
  *
  * ## 交互
- * 顶部 `SecondaryScrollableTabRow` 分段（[modes] 任意数量）+ `HorizontalPager` 左右滑动切换；
+ * 顶部段选择行按段数自适应（≤[CENTERED_TAB_MAX] 段 `PrimaryTabRow` 均分占满、页签居中；
+ * 更多段 `PrimaryScrollableTabRow` 内容宽度可滑动）+ `HorizontalPager` 左右滑动切换；
  * 点 Tab `animateScrollToPage` 平滑滑动，滑动切页后回调 [onModeSelect]（触发调用方加载该段）。
  *
  * ## 每段独立分页（消除滑动突兀与状态错配）
@@ -96,7 +96,6 @@ val RANKING_GRID_MIN_COLUMN_WIDTH = 200.dp
  *                   平板 pane 让位时随列表整体移动，与 TabRow/列表左缘对齐
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `RankingIllustCard`
  */
-@SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> RankingList(
@@ -139,41 +138,39 @@ fun <T> RankingList(
         }
     }
 
-    // 平板限宽居中：TabRow + 列表整体不超过 MAX_CONTENT_WIDTH_DP（手机 <760 自然占满）
+    // 平板限宽居中：段选择行 + 列表整体经 AdaptiveContentBox 不超过 MAX_CONTENT_WIDTH_DP（手机自然占满）
     AdaptiveContentBox(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 列表头（如日期筛选 chip 行）：位于 TabRow 上方、限宽内容块内，随 pane 让位整体移动
             listHeader?.invoke()
-            // 限宽生效（平板）→ PrimaryTabRow 均分占满居中；手机 → SecondaryScrollableTabRow 内容宽度可滑动
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val isWide = maxWidth >= MAX_CONTENT_WIDTH_DP.dp
-                val selectedIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0))
-                if (isWide) {
-                    PrimaryTabRow(
-                        selectedTabIndex = selectedIndex,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ) {
-                        for (index in modes.indices) {
-                            Tab(
-                                selected = pagerState.currentPage == index,
-                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                text = { Text(stringResource(modes[index].labelRes)) },
-                            )
-                        }
+            // 段选择按段数自适应：段少（≤4，如发现页 AI/年代/壁纸榜）用 PrimaryTabRow 均分
+            // 占满整行（页签视觉居中，不出现左侧拥挤）；段多（主榜单 5-7 段）用
+            // PrimaryScrollableTabRow（内容宽度可横向滑动）
+            if (modes.size <= CENTERED_TAB_MAX) {
+                PrimaryTabRow(
+                    selectedTabIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0)),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ) {
+                    for (index in modes.indices) {
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(stringResource(modes[index].labelRes)) },
+                        )
                     }
-                } else {
-                    SecondaryScrollableTabRow(
-                        selectedTabIndex = selectedIndex,
-                        edgePadding = Spacing.sm,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ) {
-                        for (index in modes.indices) {
-                            Tab(
-                                selected = pagerState.currentPage == index,
-                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                text = { Text(stringResource(modes[index].labelRes)) },
-                            )
-                        }
+                }
+            } else {
+                PrimaryScrollableTabRow(
+                    selectedTabIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0)),
+                    edgePadding = Spacing.sm,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ) {
+                    for (index in modes.indices) {
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(stringResource(modes[index].labelRes)) },
+                        )
                     }
                 }
             }
@@ -198,13 +195,16 @@ fun <T> RankingList(
                         items.isNotEmpty() -> RankContentState.Content
                         else -> RankContentState.Loading
                     }
+                    // 三态切换淡入淡出：Expressive effects 弹簧（transitionSpec 非组合上下文，
+                    // 规格在组合期先取好再闭包捕获）
+                    val rankFade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
                     AnimatedContent(
                         // 用"该页自身内容状态"：已就绪页切回时状态不变 → 不重播过渡；
                         // 首次数据到位（Loading→Content）只淡入（骨架占位淡出 + 内容淡入），无跳动位移
                         targetState = contentState,
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(240))
-                                .togetherWith(fadeOut(animationSpec = tween(160)))
+                            fadeIn(animationSpec = rankFade)
+                                .togetherWith(fadeOut(animationSpec = rankFade))
                         },
                         label = "rankPage",
                         // Compose 1.7 AnimatedContent 内部 SharedTransitionScope 要求 content 应用传入

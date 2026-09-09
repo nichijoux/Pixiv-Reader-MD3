@@ -2,7 +2,6 @@ package com.pixiv.reader.core.ui.component.layout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,6 +16,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 
 /** 主列表限宽上限（与 `MAX_CONTENT_WIDTH_DP` 一致；pane 不可用时列表按此值限宽）。 */
 private const val LIST_MAX_WIDTH_DP = 760
@@ -62,7 +62,7 @@ fun detailPaneWidth(contentWidth: Float, minListWidth: Float = LIST_MIN_DP.toFlo
  *   唯一无突变的做法是让开合动画不改变宽度）。代价：空闲态列表即以让位宽度居中显示
  *   （两侧留白），不再 3 列满宽
  * - 选中后：整块列表左移 `(内容区−列表宽)/2` 从居中平移到贴左，pane 从右侧滑入
- *   `内容区×34%`（夹在 280~460dp）；平移动画 `tween(250)` 纯 GPU（graphicsLayer 内读
+ *   `内容区×34%`（夹在 280~460dp）；平移动画走 Expressive spatial 弹簧，纯 GPU（graphicsLayer 内读
  *   progress，动画帧不重组）
  * - 返回键 / [onClose] 反向恢复；快速连点开-关时动画中途反向，纯位移自然衔接
  *
@@ -104,7 +104,8 @@ fun ListDetailOverlay(
         else minOf(LIST_MAX_WIDTH_DP.dp, contentWidth)
         val progress by animateFloatAsState(
             targetValue = if (enabled && selected != null) 1f else 0f,
-            animationSpec = tween(durationMillis = 250),
+            // Expressive spatial 弹簧：pane 开合带轻微弹性（MotionScheme 随主题动效方案）
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
             label = "listDetailProgress",
         )
 

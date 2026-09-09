@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -18,8 +19,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -91,7 +93,7 @@ fun BookmarkRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型 TabBar + 滑动分页（HorizontalPager）：点击 Tab / 左右滑动均可切换
+                // 类型分段（Expressive 分段控件）+ 滑动分页（HorizontalPager）：点击分段 / 左右滑动均可切换
                 val pagerState = rememberPagerState(
                     initialPage = BookmarkType.entries.indexOf(type).coerceAtLeast(0),
                     pageCount = { BookmarkType.entries.size },
@@ -104,15 +106,18 @@ fun BookmarkRoute(
                         viewModel.selectType(BookmarkType.entries[page])
                     }
                 }
-                SecondaryTabRow(
-                    selectedTabIndex = pagerState.currentPage.coerceIn(0, BookmarkType.entries.size - 1),
-                    containerColor = MaterialTheme.colorScheme.surface,
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 ) {
                     BookmarkType.entries.forEachIndexed { index, t ->
-                        Tab(
+                        SegmentedButton(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(stringResource(t.labelRes)) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = BookmarkType.entries.size),
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(t.labelRes)) },
                         )
                     }
                 }

@@ -31,7 +31,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -44,6 +46,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
+import com.pixiv.reader.feature.novel.data.novelScopeKey
 
 /**
  * 小说详情（第六十四轮完全重写，对齐 design/novel-detail-ui.html）：
@@ -95,12 +98,34 @@ fun NovelDetailRoute(
             val format = runCatching {
                 NovelExportFormat.valueOf(formatName)
             }.getOrDefault(NovelExportFormat.TXT)
+            val scopeKey = novelScopeKey(seriesId, null)
+            // 入队即建「待同步」索引条目：断网停留待同步（Worker 网络约束），联网自动开始
+            val novel = viewModel.novel.value
+            viewModel.markDownloadPending(
+                DownloadEntryEntity(
+                    targetId = novelId,
+                    targetType = "novel",
+                    title = novel?.title?.let { "$it（${format.name}）" },
+                    coverUrl = novel?.image_urls?.medium,
+                    format = format.name,
+                    scopeKey = scopeKey,
+                    seriesId = seriesId?.takeIf { it > 0L },
+                    authorName = novel?.user?.name,
+                    authorAvatarUrl = novel?.user?.profile_image_urls?.best(),
+                    wordCount = novel?.text_length ?: 0,
+                    favoriteCount = novel?.total_bookmarks ?: 0,
+                    publishDate = novel?.create_date,
+                    seriesTitle = novel?.series?.title,
+                ),
+            )
             val data = mutableListOf<Pair<String, Any?>>()
             data += NovelExportWorker.KEY_NOVEL_ID to novelId
             data += NovelExportWorker.KEY_FORMAT to format.name
             seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
             val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
                 .setInputData(workDataOf(*data.toTypedArray()))
+                .setConstraints(DownloadQueue.networkConstraints())
+                .addTag(DownloadQueue.workTag("novel", novelId, format.name, scopeKey))
                 .build()
             WorkManager.getInstance(context).enqueue(request)
         }

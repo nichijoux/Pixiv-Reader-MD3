@@ -12,7 +12,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -48,7 +48,7 @@ import kotlinx.coroutines.launch
 private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLUST)
 
 /**
- * 关注页：左列关注用户（固定侧栏）+ 右列混合动态流（全部 / 小说 / 插画三段的滑动 Tab）。
+ * 关注页：左列关注用户（固定侧栏）+ 右列混合动态流（全部 / 小说 / 插画三段 PrimaryTabRow 页签，均分占满）。
  *
  * ## 布局（手机 / 平板统一左右结构）
  * - 左列 [FollowUserColumn]：手机窄版 60dp（头像 + 小字名），平板宽版 168dp（头像 + 完整名），
@@ -214,8 +214,9 @@ fun FollowRoute(
                                     // 沉浸式：背景 surface 延伸到状态栏后面（状态栏透明），色彩统一
                                     .background(MaterialTheme.colorScheme.surface),
                             ) {
-                                // TabRow 仅内容让开状态栏文字区；背景与 Column 同色无缝延伸
-                                SecondaryTabRow(
+                                // 类型页签：全部 / 小说 / 作品（PrimaryTabRow 均分占满；仅内容
+                                // 让开状态栏文字区，沉浸式背景与 Column 同色无缝延伸）
+                                PrimaryTabRow(
                                     selectedTabIndex = selectedIndex,
                                     modifier = Modifier.statusBarsPadding(),
                                     containerColor = MaterialTheme.colorScheme.surface,

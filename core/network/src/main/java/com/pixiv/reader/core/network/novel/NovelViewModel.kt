@@ -13,7 +13,9 @@ import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
@@ -97,6 +99,17 @@ class NovelViewModel @Inject constructor(
      * @param novelId 目标小说 id；@param seriesId 非空时导出整个系列；@param formatName NovelExportFormat.name
      */
     var exportRequest: ((novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
+
+    /**
+     * 下载入队即建「待同步」索引条目（feature 层 Worker 入队前调用；feature:user 下载管理页复用）。
+     * 断网停留待同步，联网后 Worker 网络约束自动开始。
+     *
+     * @param entry 待入队的索引条目（status 强制置 pending）
+     * @return 无返回值
+     */
+    fun markDownloadPending(entry: DownloadEntryEntity) {
+        viewModelScope.launch { runCatching { DownloadQueue.markPending(downloadEntryDao, entry) } }
+    }
 
     /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
     val bookmarkEditor = BookmarkEditor(

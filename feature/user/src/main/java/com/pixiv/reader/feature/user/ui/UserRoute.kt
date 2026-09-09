@@ -16,9 +16,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -60,15 +61,16 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
 import com.pixiv.reader.feature.user.state.UserViewModel
+import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
  * 用户主页（P5 重设计）：详情统计 + 关注/取关/拉黑 + 4 分区（插画/漫画/小说/系列）。
- * 顶部 Tab 支持左右滑动切换（HorizontalPager），每段独立分页（PagedState 驻留 VM）。
+ * 顶部分区分段控件支持左右滑动切换（HorizontalPager），每段独立分页（PagedState 驻留 VM）。
  * 统计格可点击：插画/小说 → 滑动切段；收藏/关注 → 进入该用户的公开收藏/关注列表页。
  * 头部可折叠：列表上滑时简介与统计行收起（NestedScrollConnection 接管），
- * 头像/名称/关注·拉黑行与分区 Tab 常驻；列表到顶下滑时折叠区先展开再滚动内容。
+ * 头像/名称/关注·拉黑行与分区分段常驻；列表到顶下滑时折叠区先展开再滚动内容。
  *
  * ## 平板 Master-Detail
  * 点作品/小说/系列卡 → 右侧详情 pane 滑入（[ListDetailOverlay]，Scaffold 内容区内、
@@ -313,16 +315,20 @@ fun UserRoute(
                                     )
                                 }
                             }
-                            // 分区 Tab：PrimaryTabRow 均分占满（手机/平板一致，4 个短标签均放得下）
-                            PrimaryTabRow(
-                                selectedTabIndex = pagerState.currentPage.coerceIn(0, (sections.size - 1).coerceAtLeast(0)),
-                                containerColor = MaterialTheme.colorScheme.surface,
+                            // 分区分段：插画 / 漫画 / 小说 / 系列（Expressive 分段控件均分占满，
+                            // 4 个短标签手机/平板一致；选中态跟 Pager 落页，点击反向滚页）
+                            SingleChoiceSegmentedButtonRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                             ) {
                                 for (index in sections.indices) {
-                                    Tab(
+                                    SegmentedButton(
                                         selected = pagerState.currentPage == index,
                                         onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                        text = { Text(stringResource(sections[index].labelRes)) },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = sections.size),
+                                        modifier = Modifier.weight(1f),
+                                        label = { Text(stringResource(sections[index].labelRes)) },
                                     )
                                 }
                             }

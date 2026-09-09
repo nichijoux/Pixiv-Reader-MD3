@@ -42,8 +42,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -63,6 +64,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -87,8 +89,8 @@ import java.io.File
 import kotlinx.coroutines.launch
 
 /**
- * 下载管理：TabRow（插画/小说）+ HorizontalPager 滑动切换。
- * 插画用 `IllustCard`（宽高完整显示）、小说用 `NovelCard`；每项右上角删除按钮。
+ * 下载管理：分段控件（作品 / 小说）+ HorizontalPager 滑动切换。
+ * 作品（插画/漫画/动图）用 `IllustCard`（宽高完整显示）、小说用 `NovelCard`；每项右上角删除按钮。
  * 小说本地文件点击：txt/epub/md → 解析本地文件本地阅读；pdf/docx → 系统应用打开。
  *
  * @param onBack 返回
@@ -107,7 +109,6 @@ fun DownloadsRoute(
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
-    val filter by viewModel.filterFlow.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(pageCount = { DownloadFilter.entries.size })
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -140,15 +141,19 @@ fun DownloadsRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                SecondaryTabRow(
-                    selectedTabIndex = filter.ordinal.coerceAtMost(DownloadFilter.entries.size - 1),
-                    containerColor = MaterialTheme.colorScheme.surface,
+                // 类型分段：作品 / 小说（Expressive 分段控件；选中态跟 Pager 落页，点击反向滚页）
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 ) {
                     DownloadFilter.entries.forEachIndexed { index, f ->
-                        Tab(
+                        SegmentedButton(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(stringResource(f.labelRes)) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = DownloadFilter.entries.size),
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(f.labelRes)) },
                         )
                     }
                 }
@@ -225,27 +230,45 @@ private fun IllustDownloadList(
         verticalItemSpacing = 8.dp,
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
-            Box {
-                IllustCard(
-                    illust = entry.toDownloadIllust(),
-                    onClick = {
-                        if (entry.targetType == "ugoira" && entry.status == "done") onOpenFile(entry)
-                        else onOpenIllust(entry.targetId)
-                    },
-                    // 下载中/失败：标题栏显示进度条（failed 停住最后进度 + 红色标记）；done 恢复标题
-                    progress = if (entry.status == "done") null else entry.progress.coerceIn(0, 100) / 100f,
-                    failed = entry.status == "failed",
-                )
-                if (entry.status == "failed") {
-                    RetryOverlay(
-                        modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
-                        onRetry = { onRetry(entry) },
+            Column {
+                Box {
+                    IllustCard(
+                        illust = entry.toDownloadIllust(),
+                        onClick = {
+                            if (entry.targetType == "ugoira" && entry.status == DownloadEntryEntity.STATUS_DONE) onOpenFile(entry)
+                            else onOpenIllust(entry.targetId)
+                        },
+                        // 下载中/失败：标题栏显示进度条（failed 停住最后进度 + 红色标记）；待同步不显示进度；done 恢复标题
+                        progress = if (entry.status == DownloadEntryEntity.STATUS_DONE || entry.status == DownloadEntryEntity.STATUS_PENDING) {
+                            null
+                        } else {
+                            entry.progress.coerceIn(0, 100) / 100f
+                        },
+                        failed = entry.status == DownloadEntryEntity.STATUS_FAILED,
+                    )
+                    if (entry.status == DownloadEntryEntity.STATUS_FAILED) {
+                        RetryOverlay(
+                            modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
+                            onRetry = { onRetry(entry) },
+                        )
+                    }
+                    DeleteOverlay(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
+                        onDelete = { onDelete(entry) },
                     )
                 }
-                DeleteOverlay(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
-                    onDelete = { onDelete(entry) },
-                )
+                // 待同步：卡片下方排队提示（断网排队，联网自动开始）
+                if (entry.status == DownloadEntryEntity.STATUS_PENDING) {
+                    Text(
+                        text = stringResource(R.string.downloads_status_pending),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Spacing.xsPlus),
+                    )
+                }
             }
         }
     }
@@ -284,7 +307,7 @@ private fun NovelDownloadList(
                         showFavoriteCount = false,
                         coverBadge = { DownloadFormatBadge(entry.format) },
                     )
-                    if (entry.status == "failed") {
+                    if (entry.status == DownloadEntryEntity.STATUS_FAILED) {
                         RetryOverlay(
                             modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
                             onRetry = { onRetry(entry) },
@@ -302,14 +325,20 @@ private fun NovelDownloadList(
     }
 }
 
-/** 下载状态行：downloading 显示进度条 + 百分比；failed 显示红色失败标记；done 不显示。 */
+/** 下载状态行：downloading 显示进度条 + 百分比；待同步显示排队提示；failed 显示红色失败标记；done 不显示。 */
 @Composable
 private fun DownloadStatusRow(
     entry: DownloadEntryEntity,
     modifier: Modifier = Modifier,
 ) {
     when (entry.status) {
-        "downloading" -> Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.xsPlus)) {
+        DownloadEntryEntity.STATUS_PENDING -> Text(
+            text = stringResource(R.string.downloads_status_pending),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier.padding(top = Spacing.xs),
+        )
+        DownloadEntryEntity.STATUS_DOWNLOADING -> Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.xsPlus)) {
             LinearWavyProgressIndicator(
                 progress = { entry.progress.coerceIn(0, 100) / 100f },
                 modifier = Modifier.fillMaxWidth(),
@@ -322,7 +351,7 @@ private fun DownloadStatusRow(
                 modifier = Modifier.padding(top = Spacing.xs),
             )
         }
-        "failed" -> Text(
+        DownloadEntryEntity.STATUS_FAILED -> Text(
             text = stringResource(R.string.downloads_failed),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.error,

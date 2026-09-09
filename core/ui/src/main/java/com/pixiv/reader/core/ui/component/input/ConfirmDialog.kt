@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,30 +59,34 @@ enum class ConfirmDialogVariant(
  * `MaterialTheme.shapes.extraLarge`（28dp，Expressive）弹层圆角 + `surfaceContainerHigh` 底 +
  * `tonalElevation` 8dp（与 M3 AlertDialog 圆角口径一致）；
  * 首行「40dp 圆底图标 + 标题」同行（图标作为标题引导，`titleMedium SemiBold`），
- * 说明 `bodyMedium onSurfaceVariant`；
+ * 说明 `bodyMedium onSurfaceVariant`（或 [bodyContent] 自定义正文插槽）；
  * 底部按钮行右对齐——取消为 [TextButton]（onSurfaceVariant），确认为**强调色实心按钮**。
  * 强调色按 [variant]：删除类用 `error`（危险操作语义），提示类用 `primary`（如退出登录）。
  * 全部尺寸走 `Spacing` / `MaterialTheme.shapes` Token，无散落 magic number。
  *
  * @param title 确认标题（如「清空搜索历史？」「退出登录？」）
- * @param message 确认说明（删除类通常含「此操作不可撤销」语义）
+ * @param message 确认说明（删除类通常含「此操作不可撤销」语义）；提供 [bodyContent] 时可省略
  * @param confirmText 确认按钮文字（如「清空」「删除」「退出登录」）
  * @param onConfirm 确认回调（执行操作并自行关闭对话框）
  * @param onDismiss 取消/外部点击/返回回调
  * @param modifier 外层 Modifier（默认空）
  * @param variant 视觉种类（默认 [ConfirmDialogVariant.DANGER]，删除/清空类）
  * @param icon 顶部图标；null 时用 [ConfirmDialogVariant.defaultIcon]（默认删除图标）
+ * @param dismissText 取消按钮文字；null 时用通用「取消」文案
+ * @param bodyContent 自定义正文插槽（如可滚动的更新日志）；非 null 时替代 [message] 文本
  */
 @Composable
 fun ConfirmDialog(
     title: String,
-    message: String,
+    message: String? = null,
     confirmText: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     variant: ConfirmDialogVariant = ConfirmDialogVariant.DANGER,
     icon: ImageVector? = null,
+    dismissText: String? = null,
+    bodyContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     // 强调色：删除类 error / 提示类 primary
     val accent = when (variant) {
@@ -136,12 +141,20 @@ fun ConfirmDialog(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.sm),
-                    )
+                    // 正文：自定义插槽（如可滚动更新日志）优先，否则 message 说明文本
+                    if (bodyContent != null) {
+                        Column(
+                            modifier = Modifier.padding(top = Spacing.sm),
+                            content = bodyContent,
+                        )
+                    } else if (message != null) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = Spacing.sm),
+                        )
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -151,7 +164,7 @@ fun ConfirmDialog(
                     ) {
                         TextButton(onClick = onDismiss) {
                             Text(
-                                text = stringResource(R.string.common_cancel),
+                                text = dismissText ?: stringResource(R.string.common_cancel),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }

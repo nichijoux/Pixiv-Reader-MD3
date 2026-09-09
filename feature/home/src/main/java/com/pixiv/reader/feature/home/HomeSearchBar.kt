@@ -1,5 +1,6 @@
 package com.pixiv.reader.feature.home
 
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import androidx.compose.foundation.layout.Row
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
@@ -21,7 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 /**
- * 首页搜索框：圆角搜索条外观（icon + 占位文案）。
+ * 首页搜索框：全圆药丸搜索条外观（icon + 占位文案；M3 搜索栏全圆口径）。
  * 独立组件供两处复用：首页内容区入口 + MainShell 的 hero 过渡覆盖层
  * （点击后从搜索框位置/尺寸放大到搜索页搜索栏，实现连续过渡动画）。
  *
@@ -35,7 +35,7 @@ fun HomeSearchBar(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
+        shape = AppShapes.pill,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier,
     ) {

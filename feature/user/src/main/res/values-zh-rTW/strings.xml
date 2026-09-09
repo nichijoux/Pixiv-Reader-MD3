@@ -26,12 +26,12 @@
     <string name="user_illust_comments">評論</string>
 
     <!-- 历史 HistoryFilter -->
-    <string name="history_filter_illust">插畫</string>
+    <string name="history_filter_illust">作品</string>
     <string name="history_filter_novel">小說</string>
     <string name="history_filter_user">使用者</string>
 
     <!-- 下载 DownloadFilter -->
-    <string name="downloads_filter_illust">插畫</string>
+    <string name="downloads_filter_illust">作品</string>
     <string name="downloads_filter_novel">小說</string>
 
     <!-- 用户分区 UserSection -->
@@ -63,7 +63,7 @@
     <string name="me_novel_default_tab">小說預設頁</string>
     <string name="me_novel_default_recommend">推薦</string>
     <string name="me_novel_default_follow">關注</string>
-    <string name="me_viewer_orientation">插畫檢視方向</string>
+    <string name="me_viewer_orientation">作品檢視方向</string>
     <string name="me_clipboard_link_prompt">剪貼簿連結提示</string>
     <string name="me_clipboard_link_prompt_desc">從剪貼簿識別 pixiv 連結並提示開啟</string>
     <string name="me_viewer_orientation_horizontal">橫向滑動</string>
@@ -99,26 +99,7 @@
     <string name="me_watchlist_title">追更</string>
     <string name="me_watchlist_desc">已追更的小說與漫畫系列</string>
     <string name="me_blocked_desc">已遮蔽的使用者與標籤</string>
-    <string name="me_pending_title">待同步操作</string>
-    <string name="me_pending_desc_none">斷網時的收藏 / 關注 / 追更暫存處</string>
-    <string name="me_pending_desc_count">%1$d 條等待同步</string>
 
-    <!-- 待同步操作頁（PendingActionsRoute） -->
-    <string name="pending_title">待同步操作</string>
-    <string name="pending_empty">暫無待同步操作\n斷網時的收藏、關注、追更會出現在這裡，連網後自動同步</string>
-    <string name="pending_retry">重試</string>
-    <string name="pending_clear">清空</string>
-    <string name="pending_clear_title">清空待同步操作？</string>
-    <string name="pending_clear_message">將刪除全部 %1$d 條待同步記錄，連網後不再補發這些操作</string>
-    <string name="pending_status_pending">等待同步</string>
-    <string name="pending_status_failed">同步失敗</string>
-    <string name="pending_state_add">加入</string>
-    <string name="pending_state_remove">移除</string>
-    <string name="pending_family_illust_bookmark">收藏插畫</string>
-    <string name="pending_family_novel_bookmark">收藏小說</string>
-    <string name="pending_family_follow_user">關注使用者</string>
-    <string name="pending_family_manga_watchlist">追更漫畫系列</string>
-    <string name="pending_family_novel_watchlist">追更小說系列</string>
     <string name="me_theme_mode">主題模式</string>
     <string name="me_theme_follow_system">跟隨系統</string>
     <string name="me_theme_light">淺色</string>
@@ -152,7 +133,7 @@
     <string name="me_update_check_failed">檢查更新失敗：%1$s</string>
     <string name="me_cache_cleared">快取已清除</string>
     <string name="me_version">版本 %1$s</string>
-    <string name="me_about_description">一款開源 Pixiv Android 客戶端：瀏覽推薦/排行/發現，檢視插畫與小說，支援收藏、評論、下載匯出、離線閱讀等能力。資料來自 pixiv 官方介面，僅供學習交流使用。</string>
+    <string name="me_about_description">一款開源 Pixiv Android 客戶端：瀏覽推薦/排行/發現，檢視作品與小說，支援收藏、評論、下載匯出、離線閱讀等能力。資料來自 pixiv 官方介面，僅供學習交流使用。</string>
     <string name="me_open_source_repo">開源倉庫</string>
     <string name="me_open_source_license">開源許可</string>
     <string name="me_open_source_license_desc">專案基於 pixiv 開放介面開發，遵循 GPL-2.0 授權開源，僅供學習與交流使用。</string>
@@ -162,7 +143,7 @@
     <string name="history_clear">清空</string>
     <string name="history_clear_title">清空瀏覽歷史？</string>
     <string name="history_clear_message">將刪除全部瀏覽記錄，此操作不可撤銷。</string>
-    <string name="history_empty_illust">暫無插畫瀏覽記錄</string>
+    <string name="history_empty_illust">暫無作品瀏覽記錄</string>
     <string name="history_empty_novel">暫無小說瀏覽記錄</string>
     <string name="history_empty_user">暫無使用者瀏覽記錄</string>
     <!-- 稍後再看（ReadLaterRoute） -->
@@ -172,17 +153,18 @@
     <string name="read_later_title">稍後再看</string>
     <string name="read_later_clear_title">清空稍後再看？</string>
     <string name="read_later_clear_message">將移除全部稍後再看條目，此操作無法復原。</string>
-    <string name="read_later_empty_illust_title">暫無稍後再看的插畫</string>
+    <string name="read_later_empty_illust_title">暫無稍後再看的作品</string>
     <string name="read_later_empty_novel_title">暫無稍後再看的小說</string>
     <string name="read_later_empty_hint">長按列表中的卡片即可加入</string>
 
     <!-- DownloadsRoute -->
     <string name="downloads_title">下載管理</string>
-    <string name="downloads_empty_illust">暫無插畫下載</string>
+    <string name="downloads_empty_illust">暫無作品下載</string>
     <string name="downloads_empty">暫無下載</string>
     <string name="downloads_local_novel">本地小說</string>
     <string name="downloads_delete_title">刪除下載？</string>
     <string name="downloads_delete_message">將刪除「%1$s」，此操作不可撤銷。</string>
+    <string name="downloads_status_pending">待同步（連網後自動開始）</string>
     <string name="downloads_downloading">下載中 %1$d%%</string>
     <string name="downloads_failed">下載失敗</string>
     <string name="downloads_retry">重試</string>

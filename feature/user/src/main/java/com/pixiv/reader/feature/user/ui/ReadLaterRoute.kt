@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -30,9 +32,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,9 +62,10 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.ReadLaterViewModel
+import kotlinx.coroutines.launch
 
 /**
- * 稍后再看页（Me 页入口）：插画 / 小说 二段 Tab + 快照卡片列表。
+ * 稍后再看页（Me 页入口）：作品 / 小说 分段控件 + HorizontalPager 左右滑动切换 + 快照卡片列表。
  * 卡片数据从 `payloadJson` 离线还原（与浏览历史同范式：插画直解 `Illust`、小说逐字段重建防 NPE）；
  * 移除入口 = 长按卡片（全局动作菜单「移出稍后再看」），另提供顶栏清空（确认框）。
  *
@@ -79,10 +84,16 @@ fun ReadLaterRoute(
     viewModel: ReadLaterViewModel = hiltViewModel(),
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
-    val filter by viewModel.filter.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showClearConfirm by remember { mutableStateOf(false) }
     val gson = remember { Gson() }
+    // 左右滑动切页：分段点击滚动 Pager，滑动落页回写筛选（与历史/下载页的 TabRow+Pager 同范式）
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val scope = rememberCoroutineScope()
+    // 滑动切页 → 同步筛选（页 0=作品 / 1=小说，与 VM 默认筛选一致）
+    LaunchedEffect(pagerState.currentPage) {
+        viewModel.setFilter(if (pagerState.currentPage == 0) "illust" else "novel")
+    }
 
     Scaffold(
         topBar = {
@@ -114,41 +125,45 @@ fun ReadLaterRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：插画 / 小说（Expressive 二选一段控件，与追更页同语汇）
+                // 类型分段：作品 / 小说（Expressive 二选一段控件，与追更页同语汇）；
+                // 选中态跟随 Pager 落页，点击反向滚动 Pager（与历史/下载页 TabRow+Pager 同范式）
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 ) {
                     SegmentedButton(
-                        selected = filter == "illust",
-                        onClick = { viewModel.setFilter("illust") },
+                        selected = pagerState.currentPage == 0,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         modifier = Modifier.weight(1f),
                         label = { Text(stringResource(R.string.history_filter_illust)) },
                     )
                     SegmentedButton(
-                        selected = filter == "novel",
-                        onClick = { viewModel.setFilter("novel") },
+                        selected = pagerState.currentPage == 1,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         modifier = Modifier.weight(1f),
                         label = { Text(stringResource(R.string.history_filter_novel)) },
                     )
                 }
-                when (filter) {
-                    "illust" -> ReadLaterIllustList(
-                        entries = items,
-                        gson = gson,
-                        onOpenIllust = onOpenIllust,
-                        onOpenUser = onOpenUser,
-                    )
-                    else -> ReadLaterNovelList(
-                        entries = items,
-                        gson = gson,
-                        context = context,
-                        onOpenNovel = onOpenNovel,
-                        onOpenUser = onOpenUser,
-                    )
+                // 左右滑动切换：页 0=作品瀑布流 / 页 1=小说列表，各自持有滚动状态
+                HorizontalPager(state = pagerState) { page ->
+                    when (page) {
+                        0 -> ReadLaterIllustList(
+                            entries = items,
+                            gson = gson,
+                            onOpenIllust = onOpenIllust,
+                            onOpenUser = onOpenUser,
+                        )
+                        else -> ReadLaterNovelList(
+                            entries = items,
+                            gson = gson,
+                            context = context,
+                            onOpenNovel = onOpenNovel,
+                            onOpenUser = onOpenUser,
+                        )
+                    }
                 }
             }
         }

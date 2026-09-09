@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -25,11 +24,9 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TravelExplore
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -72,7 +69,6 @@ fun MeRoute(
     onOpenPixivision: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
-    onOpenPendingActions: () -> Unit,
     onOpenUser: (Long) -> Unit,
     viewModel: MeViewModel = hiltViewModel(),
 ) {
@@ -91,7 +87,6 @@ fun MeRoute(
     val novelFileNameTemplateSeries by viewModel.novelFileNameTemplateSeries.collectAsStateWithLifecycle()
     val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
     val clipboardLinkPrompt by viewModel.clipboardLinkPrompt.collectAsStateWithLifecycle()
-    val pendingActionCount by viewModel.pendingActionCount.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     val activity = context as? Activity
@@ -148,7 +143,6 @@ fun MeRoute(
                     SettingsCardItem(Icons.Filled.Schedule, stringResource(R.string.me_read_later_title), stringResource(R.string.me_read_later_desc), onClick = onOpenReadLater),
                     SettingsCardItem(Icons.Filled.Notifications, stringResource(R.string.me_watchlist_title), stringResource(R.string.me_watchlist_desc), onClick = onOpenWatchlist),
                     SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), onClick = onOpenDownloads),
-                    SettingsCardItem(Icons.Filled.CloudSync, stringResource(R.string.me_pending_title), pendingDesc(pendingActionCount), onClick = onOpenPendingActions),
                     SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), onClick = onOpenBlocked),
                 )
                 MeGroupCard {
@@ -317,12 +311,22 @@ fun MeRoute(
         )
     }
 
-    // 新版本更新对话框：changelog 正文 + 前往下载（浏览器打开 Release 页）
+    // 新版本更新对话框：changelog 正文（可滚动）+ 前往下载（浏览器打开 Release 页）。
+    // 走项目通用 ConfirmDialog（WARNING=primary 强调），替代原生 AlertDialog 保持弹层风格统一
     updateRelease?.let { release ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissUpdateDialog,
-            title = { Text(stringResource(R.string.me_update_available_title, release.tagName)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(R.string.me_update_available_title, release.tagName),
+            confirmText = stringResource(R.string.me_update_download),
+            onConfirm = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
+                }
+                viewModel.dismissUpdateDialog()
+            },
+            onDismiss = viewModel::dismissUpdateDialog,
+            variant = ConfirmDialogVariant.WARNING,
+            dismissText = stringResource(R.string.me_update_later),
+            bodyContent = {
                 if (release.body.isNotBlank()) {
                     Column(
                         modifier = Modifier
@@ -332,23 +336,9 @@ fun MeRoute(
                         Text(
                             text = release.body,
                             style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
-                    }
-                    viewModel.dismissUpdateDialog()
-                }) {
-                    Text(stringResource(R.string.me_update_download))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissUpdateDialog) {
-                    Text(stringResource(R.string.me_update_later))
                 }
             },
         )
@@ -369,14 +359,3 @@ fun MeRoute(
         )
     }
 }
-
-/**
- * 「待同步操作」入口描述文案：有待同步条目时显示条数，否则显示「暂无」。
- *
- * @param count 待同步操作条数
- * @return 描述文案
- */
-@Composable
-private fun pendingDesc(count: Int): String =
-    if (count > 0) stringResource(R.string.me_pending_desc_count, count)
-    else stringResource(R.string.me_pending_desc_none)

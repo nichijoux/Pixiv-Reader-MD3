@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +29,7 @@ import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
 import kotlinx.coroutines.launch
 
-/** 结果态：TabRow + HorizontalPager（按类型渲染 HOT / 普通结果）。 */
+/** 结果态：PrimaryScrollableTabRow + HorizontalPager（作品 / 小说 / 用户三段，按类型渲染 HOT / 普通结果）。 */
 @Composable
 internal fun SearchResultPager(
     viewModel: DiscoverViewModel,
@@ -51,7 +51,8 @@ internal fun SearchResultPager(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        SecondaryTabRow(
+        // 类型页签：作品 / 小说 / 用户（PrimaryScrollableTabRow；选中态跟 Pager 落页，点击反向滚页）
+        PrimaryScrollableTabRow(
             selectedTabIndex = pagerState.currentPage.coerceIn(0, SearchType.entries.size - 1),
             containerColor = MaterialTheme.colorScheme.surface,
         ) {

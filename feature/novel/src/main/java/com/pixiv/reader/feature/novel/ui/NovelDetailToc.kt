@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -56,11 +55,11 @@ internal fun ChapterRow(
             .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 序号徽标（HTML `.tidx`：28dp、圆角 9、当前章主色）
+        // 序号徽标（HTML `.tidx`：28dp、chip 圆角、当前章主色）
         Box(
             modifier = Modifier
                 .size(Sizes.s28)
-                .clip(RoundedCornerShape(9.dp))
+                .clip(AppShapes.cardSmall)
                 .background(
                     if (isCurrent) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.secondaryContainer,

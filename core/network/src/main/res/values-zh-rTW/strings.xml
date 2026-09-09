@@ -8,7 +8,4 @@
     <string name="ugoira_error_no_zip">動圖幀包位址缺失</string>
     <string name="ugoira_error_no_frames">動圖幀資料為空</string>
 
-    <!-- 離線操作佇列（OfflineActionQueue） -->
-    <string name="queue_msg_synced">已自動同步 %1$d 條離線操作</string>
-    <string name="queue_msg_sync_failed">%1$d 條離線操作同步失敗，可在「我的 → 待同步操作」中處理</string>
 </resources>

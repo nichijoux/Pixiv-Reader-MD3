@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -180,7 +179,7 @@ private fun PixivisionArticleCard(
             modifier = Modifier
                 .width(120.dp)
                 .height(80.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(AppShapes.small),
         ) {
             PixivImage(
                 url = article.thumbnail,

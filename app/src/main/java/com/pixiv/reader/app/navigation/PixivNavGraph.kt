@@ -22,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import androidx.compose.runtime.rememberCoroutineScope
 import com.pixiv.reader.app.download.retryDownload
 import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
@@ -50,13 +51,13 @@ import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.ui.BlockedRoute
 import com.pixiv.reader.feature.user.ui.DownloadsRoute
 import com.pixiv.reader.feature.user.ui.HistoryRoute
-import com.pixiv.reader.feature.user.ui.PendingActionsRoute
 import com.pixiv.reader.feature.user.ui.ReadLaterRoute
 import com.pixiv.reader.feature.user.ui.UserBookmarksRoute
 import com.pixiv.reader.feature.user.ui.UserFollowingRoute
 import com.pixiv.reader.feature.user.ui.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
 import com.pixiv.reader.feature.watchlist.WatchlistRoute
+import kotlinx.coroutines.launch
 
 /** 登录页（未登录时的导航起点）。 */
 const val ROUTE_AUTH = "auth"
@@ -136,11 +137,8 @@ const val ROUTE_NOTIFICATION_GROUP = "notification_group/{groupId}?title={title}
 /** 屏蔽名单（屏蔽标签按卡片分组展示）。 */
 const val ROUTE_BLOCKED = "blocked"
 
-/** 下载管理（图片 / 小说 / 本地文件三类，支持删除）。 */
+/** 下载管理（图片 / 小说 / 本地文件三类，支持删除；含待同步分段）。 */
 const val ROUTE_DOWNLOADS = "downloads"
-
-/** 待同步操作（离线收藏 / 关注 / 追更暂存队列管理页）。 */
-const val ROUTE_PENDING_ACTIONS = "pending_actions"
 
 /** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
@@ -291,9 +289,6 @@ fun PixivNavGraph(
                 },
                 onOpenDownloads = {
                     navController.navigate(ROUTE_DOWNLOADS)
-                },
-                onOpenPendingActions = {
-                    navController.navigate(ROUTE_PENDING_ACTIONS)
                 },
                 onOpenMangaRanking = {
                     navController.navigate(ROUTE_MANGA_RANKING)
@@ -748,15 +743,10 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
             )
         }
-        // 待同步操作（离线操作队列管理页）
-        composable(ROUTE_PENDING_ACTIONS) {
-            PendingActionsRoute(
-                onBack = { navController.safeBack() },
-            )
-        }
         // 下载管理：插画/小说；本地文件走 local_reader 路由
         composable(ROUTE_DOWNLOADS) {
             val context = LocalContext.current
+            val retryScope = rememberCoroutineScope()
             DownloadsRoute(
                 onBack = { navController.safeBack() },
                 onOpenIllust = { illustId ->
@@ -768,7 +758,8 @@ fun PixivNavGraph(
                 onOpenLocalReader = { novelId ->
                     navController.navigate("local_reader/$novelId")
                 },
-                onRetry = { entry -> retryDownload(context, entry) },
+                // 重试：复位条目为待同步并重建后台任务（挂起写库，经协程调度）
+                onRetry = { entry -> retryScope.launch { retryDownload(context, entry) } },
             )
         }
         // 本地文件阅读：正文经 LocalReaderStore.consume() 单次取走（仅一次，避免重复消费）

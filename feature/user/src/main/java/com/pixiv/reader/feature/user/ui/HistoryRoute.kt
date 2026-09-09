@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,8 +20,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -57,8 +59,8 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.launch
 
 /**
- * 阅读历史：TabRow（插画/小说/用户）+ HorizontalPager 滑动切换。
- * 三类内容各自使用通用组件：插画 `IllustCard`（瀑布流，含收藏）/ 小说 `NovelCard`（payloadJson 完整信息）/ 用户 `CreatorProfileCard`。
+ * 阅读历史：TabRow（作品/小说/用户）+ HorizontalPager 滑动切换。
+ * 三类内容各自使用通用组件：作品 `IllustCard`（瀑布流，含收藏；插画/漫画/动图共用）/ 小说 `NovelCard`（payloadJson 完整信息）/ 用户 `CreatorProfileCard`。
  *
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
@@ -77,7 +79,6 @@ fun HistoryRoute(
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val history by viewModel.history.collectAsStateWithLifecycle()
-    val filter by viewModel.filterFlow.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(pageCount = { HistoryFilter.entries.size })
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -128,16 +129,19 @@ fun HistoryRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // TabRow：插画 / 小说 / 用户
-                SecondaryTabRow(
-                    selectedTabIndex = filter.ordinal.coerceAtMost(HistoryFilter.entries.size - 1),
-                    containerColor = MaterialTheme.colorScheme.surface,
+                // 类型分段：作品 / 小说 / 用户（Expressive 分段控件；选中态跟 Pager 落页，点击反向滚页）
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 ) {
                     HistoryFilter.entries.forEachIndexed { index, f ->
-                        Tab(
+                        SegmentedButton(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(stringResource(f.labelRes)) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = HistoryFilter.entries.size),
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(f.labelRes)) },
                         )
                     }
                 }

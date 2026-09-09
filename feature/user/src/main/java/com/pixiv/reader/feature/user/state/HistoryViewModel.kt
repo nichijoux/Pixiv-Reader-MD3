@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** 历史类型筛选（插画 / 小说 / 用户）。 */
+/** 历史类型筛选（作品 / 小说 / 用户；作品段涵盖插画/漫画/动图）。 */
 enum class HistoryFilter(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.history_filter_illust),
     NOVEL(R.string.history_filter_novel),
@@ -36,6 +36,9 @@ class HistoryViewModel @Inject constructor(
     private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
+    /**
+     * 类型筛选：由页面 Pager 落页经 [selectFilter] 回写；选中态由 UI 侧 Pager 状态持有，不对外暴露。
+     */
     private val filter = MutableStateFlow(HistoryFilter.ILLUST)
 
     val history: StateFlow<List<BrowseHistoryEntity>> =
@@ -47,8 +50,7 @@ class HistoryViewModel @Inject constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val filterFlow: StateFlow<HistoryFilter> = filter
-
+    /** 切换类型筛选（切换后重订阅对应类型的历史流）。 */
     fun selectFilter(f: HistoryFilter) {
         if (filter.value != f) filter.value = f
     }

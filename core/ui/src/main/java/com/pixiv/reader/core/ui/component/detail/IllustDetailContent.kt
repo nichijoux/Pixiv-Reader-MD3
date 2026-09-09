@@ -3,7 +3,6 @@ package com.pixiv.reader.core.ui.component.detail
 import android.annotation.SuppressLint
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -244,9 +243,10 @@ fun IllustPagePager(
             .background(Color.Black),
     ) {
         val targetHeight = if (effectiveRatio > 0f) maxWidth / effectiveRatio else 400.dp
+        // 容器高度随图片比例吸附：Expressive spatial 弹簧（MotionScheme 随主题动效方案）
         val pagerHeight by animateDpAsState(
             targetValue = targetHeight,
-            animationSpec = tween(durationMillis = 250),
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
             label = "pagerHeight",
         )
         // 嵌套 lambda（pager item）无法隐式访问 BoxWithConstraints receiver：提前捕获

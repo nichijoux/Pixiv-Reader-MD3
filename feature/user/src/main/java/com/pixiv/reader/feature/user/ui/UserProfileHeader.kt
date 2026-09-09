@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -289,7 +288,7 @@ internal fun UserProfileSkeleton() {
             Box(
                 modifier = Modifier
                     .size(Sizes.s64)
-                    .clip(RoundedCornerShape(32.dp))
+                    .clip(AppShapes.circle)
                     .background(color),
             )
             Column(modifier = Modifier.padding(start = Spacing.md).weight(1f)) {
@@ -312,7 +311,7 @@ internal fun UserProfileSkeleton() {
             Box(
                 modifier = Modifier
                     .size(72.dp, 36.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(AppShapes.pill)
                     .background(color),
             )
         }

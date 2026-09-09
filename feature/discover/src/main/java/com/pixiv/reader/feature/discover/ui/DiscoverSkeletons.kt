@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -59,7 +58,7 @@ internal fun IllustSearchSkeleton() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(coverHeights[index % coverHeights.size])
-                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
+                        .clip(AppShapes.cardLargeTop),
                     color = color,
                 )
                 Column(modifier = Modifier.padding(Spacing.smPlus)) {
@@ -198,7 +197,7 @@ internal fun UserSearchSkeleton() {
                     )
                     Spacer(Modifier.width(10.dp))
                     SkeletonBlock(
-                        modifier = Modifier.width(72.dp).height(40.dp).clip(RoundedCornerShape(20.dp)),
+                        modifier = Modifier.width(72.dp).height(40.dp).clip(MaterialTheme.shapes.large),
                         color = color,
                     )
                 }

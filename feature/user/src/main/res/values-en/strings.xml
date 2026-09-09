@@ -26,12 +26,12 @@
     <string name="user_illust_comments">Comments</string>
 
     <!-- History filters -->
-    <string name="history_filter_illust">Illustrations</string>
+    <string name="history_filter_illust">Works</string>
     <string name="history_filter_novel">Novels</string>
     <string name="history_filter_user">Users</string>
 
     <!-- Download filters -->
-    <string name="downloads_filter_illust">Illustrations</string>
+    <string name="downloads_filter_illust">Works</string>
     <string name="downloads_filter_novel">Novels</string>
 
     <!-- User sections -->
@@ -63,7 +63,7 @@
     <string name="me_novel_default_tab">Default novel page</string>
     <string name="me_novel_default_recommend">Recommended</string>
     <string name="me_novel_default_follow">Following</string>
-    <string name="me_viewer_orientation">Illustration view direction</string>
+    <string name="me_viewer_orientation">Works view direction</string>
     <string name="me_clipboard_link_prompt">Clipboard link prompt</string>
     <string name="me_clipboard_link_prompt_desc">Detect pixiv links in clipboard and offer to open</string>
     <string name="me_viewer_orientation_horizontal">Horizontal</string>
@@ -99,26 +99,7 @@
     <string name="me_watchlist_title">Watchlist</string>
     <string name="me_watchlist_desc">Novel and manga series you follow</string>
     <string name="me_blocked_desc">Muted users and tags</string>
-    <string name="me_pending_title">Pending actions</string>
-    <string name="me_pending_desc_none">Bookmarks / follows / watchlists made offline</string>
-    <string name="me_pending_desc_count">%1$d waiting to sync</string>
 
-    <!-- Pending actions page (PendingActionsRoute) -->
-    <string name="pending_title">Pending actions</string>
-    <string name="pending_empty">Nothing to sync\nBookmarks, follows and watchlists made offline appear here and sync automatically</string>
-    <string name="pending_retry">Retry</string>
-    <string name="pending_clear">Clear</string>
-    <string name="pending_clear_title">Clear pending actions?</string>
-    <string name="pending_clear_message">Deletes all %1$d pending records; they will not be synced later</string>
-    <string name="pending_status_pending">Waiting to sync</string>
-    <string name="pending_status_failed">Sync failed</string>
-    <string name="pending_state_add">Add</string>
-    <string name="pending_state_remove">Remove</string>
-    <string name="pending_family_illust_bookmark">Bookmark illust</string>
-    <string name="pending_family_novel_bookmark">Bookmark novel</string>
-    <string name="pending_family_follow_user">Follow user</string>
-    <string name="pending_family_manga_watchlist">Follow manga series</string>
-    <string name="pending_family_novel_watchlist">Follow novel series</string>
     <string name="me_theme_mode">Theme mode</string>
     <string name="me_theme_follow_system">Follow system</string>
     <string name="me_theme_light">Light</string>
@@ -154,7 +135,7 @@
     <string name="me_update_check_failed">Update check failed: %1$s</string>
     <string name="me_cache_cleared">Cache cleared</string>
     <string name="me_version">Version %1$s</string>
-    <string name="me_about_description">An open-source Pixiv Android client: browse recommendations, rankings and discovery, view illustrations and novels, with bookmarking, comments, download/export and offline reading. Data comes from pixiv\'s official API, for learning purposes only.</string>
+    <string name="me_about_description">An open-source Pixiv Android client: browse recommendations, rankings and discovery, view works and novels, with bookmarking, comments, download/export and offline reading. Data comes from pixiv\'s official API, for learning purposes only.</string>
     <string name="me_open_source_repo">Open-source repository</string>
     <string name="me_open_source_license">Open-source license</string>
     <string name="me_open_source_license_desc">Built on pixiv\'s open API and released under the GPL-2.0 license, for learning purposes only.</string>
@@ -164,7 +145,7 @@
     <string name="history_clear">Clear</string>
     <string name="history_clear_title">Clear browse history?</string>
     <string name="history_clear_message">This will delete all browsing history. This action cannot be undone.</string>
-    <string name="history_empty_illust">No illustration history yet</string>
+    <string name="history_empty_illust">No work history yet</string>
     <string name="history_empty_novel">No novel history yet</string>
     <string name="history_empty_user">No user history yet</string>
     <!-- Read later (ReadLaterRoute) -->
@@ -174,17 +155,18 @@
     <string name="read_later_title">Read later</string>
     <string name="read_later_clear_title">Clear read later?</string>
     <string name="read_later_clear_message">All read later items will be removed. This cannot be undone.</string>
-    <string name="read_later_empty_illust_title">No illustrations saved for later</string>
+    <string name="read_later_empty_illust_title">No works saved for later</string>
     <string name="read_later_empty_novel_title">No novels saved for later</string>
     <string name="read_later_empty_hint">Long-press a card anywhere to add one</string>
 
     <!-- Downloads -->
     <string name="downloads_title">Downloads</string>
-    <string name="downloads_empty_illust">No illustration downloads</string>
+    <string name="downloads_empty_illust">No work downloads</string>
     <string name="downloads_empty">No downloads</string>
     <string name="downloads_local_novel">Local novel</string>
     <string name="downloads_delete_title">Delete download?</string>
     <string name="downloads_delete_message">This will delete "%1$s". This action cannot be undone.</string>
+    <string name="downloads_status_pending">Pending sync (starts automatically when online)</string>
     <string name="downloads_downloading">Downloading %1$d%%</string>
     <string name="downloads_failed">Download failed</string>
     <string name="downloads_retry">Retry</string>

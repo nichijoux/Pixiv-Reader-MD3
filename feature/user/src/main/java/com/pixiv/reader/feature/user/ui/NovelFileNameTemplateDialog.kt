@@ -7,16 +7,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -26,6 +32,7 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.format.renderNovelFileName
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -43,13 +51,14 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 
 /**
- * 小说下载命名模板编辑对话框：单本下载 / 系列导出两套模板分别配置。
+ * 小说下载命名模板编辑底部弹层（Expressive 表单承载范式，与收藏编辑器同容器）：单本下载 / 系列导出
+ * 两套模板分别配置。
  *
  * 顶部范围切换（单本/系列）决定当前编辑的模板与预览口径；占位符 chips 点击追加；
- * 占位符语义说明默认折叠（chips 已直观列出可用占位符，避免常驻提示挤占弹窗），
+ * 占位符语义说明默认折叠（chips 已直观列出可用占位符，避免常驻提示挤占弹层），
  * 点「占位符说明」按需展开；保存时两套一起落盘；恢复默认将两套重置为各自默认值。
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun NovelFileNameTemplateDialog(
     initialSingle: String,
@@ -97,121 +106,151 @@ internal fun NovelFileNameTemplateDialog(
         )
     }
 
-    AlertDialog(
+    // 底部弹层：下拉关闭走 onDismiss；内容自带纵向滚动（小屏 + 键盘展开也不截断）
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.me_novel_file_name_template)) },
-        text = {
-            Column {
-                // 范围切换：单本下载 / 系列导出
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = !editingSeries,
-                        onClick = { activeScope = 0 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    ) {
-                        Text(stringResource(R.string.me_file_name_scope_single))
-                    }
-                    SegmentedButton(
-                        selected = editingSeries,
-                        onClick = { activeScope = 1 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    ) {
-                        Text(stringResource(R.string.me_file_name_scope_series))
-                    }
+        sheetState = rememberModalBottomSheetState(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                // 键盘弹起时内容整体上移（文本输入在 sheet 中不被遮挡）
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.xl)
+                // sheet 容器不自动垫底：内容尾部避开系统手势条
+                .navigationBarsPadding()
+                .padding(bottom = Spacing.md),
+        ) {
+            Text(
+                text = stringResource(R.string.me_novel_file_name_template),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
+            // 范围切换：单本下载 / 系列导出
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.lg),
+            ) {
+                SegmentedButton(
+                    selected = !editingSeries,
+                    onClick = { activeScope = 0 },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                ) {
+                    Text(stringResource(R.string.me_file_name_scope_single))
                 }
-                OutlinedTextField(
-                    value = activeTemplate,
-                    onValueChange = { value ->
-                        if (editingSeries) seriesTemplate = value else singleTemplate = value
-                    },
-                    singleLine = true,
-                    label = {
-                        Text(
-                            stringResource(
-                                if (editingSeries) R.string.me_file_name_scope_series
-                                else R.string.me_file_name_scope_single
-                            )
+                SegmentedButton(
+                    selected = editingSeries,
+                    onClick = { activeScope = 1 },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                ) {
+                    Text(stringResource(R.string.me_file_name_scope_series))
+                }
+            }
+            OutlinedTextField(
+                value = activeTemplate,
+                onValueChange = { value ->
+                    if (editingSeries) seriesTemplate = value else singleTemplate = value
+                },
+                singleLine = true,
+                label = {
+                    Text(
+                        stringResource(
+                            if (editingSeries) R.string.me_file_name_scope_series
+                            else R.string.me_file_name_scope_single
                         )
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+            )
+            // 帮助开关（按需展示）：点击展开/收起占位符语义说明
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.sm)
+                    .clickable { showHelp = !showHelp },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Icon(
+                    imageVector = if (showHelp) Icons.Filled.ExpandLess else Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(Sizes.s16),
                 )
-                // 帮助开关（按需展示）：点击展开/收起占位符语义说明
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.sm)
-                        .clickable { showHelp = !showHelp },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                ) {
-                    Icon(
-                        imageVector = if (showHelp) Icons.Filled.ExpandLess else Icons.Outlined.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(Sizes.s16),
-                    )
-                    Text(
-                        text = stringResource(R.string.me_file_name_help_toggle),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                Text(
+                    text = stringResource(R.string.me_file_name_help_toggle),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            AnimatedVisibility(visible = showHelp) {
+                Text(
+                    text = stringResource(R.string.me_file_name_placeholder_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+            }
+            // 占位符插入按钮（浅色容器 + 全圆胶囊，点击追加到当前编辑模板末尾）
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+            ) {
+                NovelFileNameTemplate.ALL.forEach { token ->
+                    SuggestionChip(
+                        onClick = { appendToken(token) },
+                        label = { Text(token) },
+                        shape = AppShapes.pill,
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor = MaterialTheme.colorScheme.primary,
+                        ),
                     )
                 }
-                AnimatedVisibility(visible = showHelp) {
+            }
+            // 预览
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = stringResource(R.string.me_file_name_preview),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "$preview.txt",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+            }
+            // 操作行：恢复默认（左侧低权）+ 取消 / 保存（右侧，保存为强调色实心主操作）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(onClick = onReset) {
+                    Text(stringResource(R.string.me_reset_default))
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDismiss) {
                     Text(
-                        text = stringResource(R.string.me_file_name_placeholder_desc),
-                        style = MaterialTheme.typography.labelSmall,
+                        text = stringResource(R.string.me_cancel),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
-                // 占位符插入按钮（浅色容器 + 全圆胶囊，点击追加到当前编辑模板末尾）
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
-                ) {
-                    NovelFileNameTemplate.ALL.forEach { token ->
-                        SuggestionChip(
-                            onClick = { appendToken(token) },
-                            label = { Text(token) },
-                            shape = AppShapes.pill,
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                labelColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    }
-                }
-                // 预览
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                ) {
+                Button(onClick = { onSave(singleTemplate, seriesTemplate) }) {
                     Text(
-                        text = stringResource(R.string.me_file_name_preview),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "$preview.txt",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
+                        text = stringResource(R.string.me_save),
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
-        },
-        confirmButton = {
-            FilledTonalButton(onClick = { onSave(singleTemplate, seriesTemplate) }) {
-                Text(stringResource(R.string.me_save))
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onReset) {
-                Text(stringResource(R.string.me_reset_default))
-            }
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.me_cancel))
-            }
-        },
-    )
+        }
+    }
 }

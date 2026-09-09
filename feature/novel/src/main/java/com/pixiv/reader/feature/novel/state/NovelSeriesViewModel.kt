@@ -11,6 +11,8 @@ import com.pixiv.api.model.NovelSeriesDetail
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
@@ -21,6 +23,7 @@ import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportWorker
+import com.pixiv.reader.feature.novel.data.novelScopeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -191,13 +194,37 @@ class NovelSeriesViewModel @Inject constructor(
         }
     }
 
-    /** 导出小说为指定格式文件（整系列或部分分册，后台队列，支持断点续传）。 */
+    /** 导出小说为指定格式文件（整系列或部分分册，后台队列，支持断点续传）。
+     * 入队即建「待同步」索引条目：断网停留待同步（Worker 网络约束），联网自动开始。 */
     fun export(format: NovelExportFormat, chapterIds: List<Long>) {
         if (_downloading.value) return
         // targetId 用系列首册（全量未加载时用分页已加载的第一本兜底）
-        val novelId = _allChapters.value.firstOrNull()?.id
-            ?: paged.items.value.firstOrNull()?.id
-            ?: return
+        val firstNovel = _allChapters.value.firstOrNull() ?: paged.items.value.firstOrNull()
+        val novelId = firstNovel?.id ?: return
+        val scopeKey = novelScopeKey(seriesId, chapterIds.takeIf { it.isNotEmpty() })
+        // 入队即建「待同步」条目：卡片立即可见；Worker 起跑后覆写为下载中并补全快照
+        viewModelScope.launch {
+            runCatching {
+                DownloadQueue.markPending(
+                    downloadEntryDao,
+                    DownloadEntryEntity(
+                        targetId = novelId,
+                        targetType = "novel",
+                        title = (_detail.value?.title ?: firstNovel.title)?.let { "$it（${format.name}）" },
+                        coverUrl = firstNovel.image_urls?.medium ?: firstNovel.image_urls?.square_medium,
+                        format = format.name,
+                        scopeKey = scopeKey,
+                        seriesId = seriesId,
+                        seriesTitle = _detail.value?.title,
+                        authorName = firstNovel.user?.name,
+                        authorAvatarUrl = firstNovel.user?.profile_image_urls?.best(),
+                        wordCount = firstNovel.text_length ?: 0,
+                        favoriteCount = firstNovel.total_bookmarks ?: 0,
+                        publishDate = firstNovel.create_date,
+                    ),
+                )
+            }
+        }
         val data = mutableListOf<Pair<String, Any?>>()
         data += NovelExportWorker.KEY_NOVEL_ID to novelId
         data += NovelExportWorker.KEY_FORMAT to format.name
@@ -207,6 +234,8 @@ class NovelSeriesViewModel @Inject constructor(
         }
         val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
             .setInputData(workDataOf(*data.toTypedArray()))
+            .setConstraints(DownloadQueue.networkConstraints())
+            .addTag(DownloadQueue.workTag("novel", novelId, format.name, scopeKey))
             .build()
         WorkManager.getInstance(context).enqueue(request)
         _downloading.value = true
@@ -215,15 +244,12 @@ class NovelSeriesViewModel @Inject constructor(
         observeExportStateReset(novelId)
     }
 
-    /** 观察导出结束：等 downloading 出现后，等 done/failed，复位导出中状态。
+    /** 观察导出结束：等 done/failed 终态后复位导出中状态（待同步/下载中不复位，反映排队与进行中）。
      * 完成/失败通知由全局 DownloadCompletionNotifier 统一负责（离开页面也能收到）。 */
     private fun observeExportStateReset(id: Long) {
         viewModelScope.launch {
             downloadEntryDao.observeAll().first { entries ->
-                entries.any { it.targetId == id && it.targetType == "novel" && it.status == "downloading" }
-            }
-            downloadEntryDao.observeAll().first { entries ->
-                entries.any { it.targetId == id && it.targetType == "novel" && (it.status == "done" || it.status == "failed") }
+                entries.any { it.targetId == id && it.targetType == "novel" && (it.status == DownloadEntryEntity.STATUS_DONE || it.status == DownloadEntryEntity.STATUS_FAILED) }
             }
             _downloading.value = false
             _downloadProgress.value = null

@@ -86,7 +86,6 @@ private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
  * @param onOpenNotifications 打开通知中心
  * @param onOpenBlocked 打开屏蔽管理
  * @param onOpenDownloads 打开下载管理
- * @param onOpenPendingActions 打开待同步操作（离线操作队列管理页）
  * @param onOpenMangaRanking 打开漫画排行榜
  * @param onOpenIllustRanking 打开插画排行榜
  * @param onOpenNovelRanking 打开小说排行榜
@@ -115,7 +114,6 @@ fun MainShell(
     onOpenNotifications: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
-    onOpenPendingActions: () -> Unit,
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenNovelRanking: () -> Unit,
@@ -308,7 +306,6 @@ fun MainShell(
                         onOpenPixivision = onOpenPixivision,
                         onOpenBlocked = onOpenBlocked,
                         onOpenDownloads = onOpenDownloads,
-                        onOpenPendingActions = onOpenPendingActions,
                         onOpenUser = onOpenUser,
                     )
                 }

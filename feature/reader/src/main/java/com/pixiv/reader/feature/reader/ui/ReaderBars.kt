@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -56,6 +55,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -220,7 +220,7 @@ internal fun ReaderBottomToolBar(
             modifier = Modifier
                 .padding(horizontal = Spacing.md)
                 .fillMaxWidth()
-                .background(themeColors.topBar, RoundedCornerShape(20.dp))
+                .background(themeColors.topBar, MaterialTheme.shapes.large)
                 .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -287,7 +287,7 @@ private fun ReaderDotSlider(
     Box(
         modifier = modifier
             .height(CAPSULE_HEIGHT)
-            .background(capsuleColor, RoundedCornerShape(percent = 50))
+            .background(capsuleColor, AppShapes.pill)
             .pointerInput(Unit) {
                 // 点击直接定位并回调
                 detectTapGestures { offset ->

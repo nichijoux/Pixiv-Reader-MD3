@@ -2,7 +2,6 @@ package com.pixiv.reader.core.ui.component.feedback
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -41,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.theme.Durations
@@ -140,12 +140,17 @@ fun NotificationHost(
         // 退出动画期间通知已为 null：记住最近一次非 null 值，让退出动画仍能渲染旧卡片
         var last by remember { mutableStateOf(notification) }
         notification?.let { last = it }
+        // 通知进出动效：位移走 Expressive spatial 弹簧（进入带弹性 / 退出快速离场），
+        // 透明度走 effects 快档；AnimatedVisibility 参数在组合期取规格，无组合上下文限制
+        val slideInSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+        val slideOutSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+        val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
         AnimatedVisibility(
             visible = notification != null,
-            enter = slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(280)) +
-                fadeIn(animationSpec = tween(280)),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }, animationSpec = tween(220)) +
-                fadeOut(animationSpec = tween(220)),
+            enter = slideInVertically(initialOffsetY = { it / 2 }, animationSpec = slideInSpec) +
+                fadeIn(animationSpec = fadeSpec),
+            exit = slideOutVertically(targetOffsetY = { it / 2 }, animationSpec = slideOutSpec) +
+                fadeOut(animationSpec = fadeSpec),
         ) {
             // 卡片外包一层：contentModifier 只随卡片存在/消失而占位，空闲时宿主高度为 0，
             // 避免在沉浸式外层 Scaffold（contentWindowInsets=0）的 snackbar 槽残留底部空白

@@ -57,6 +57,12 @@ data class DownloadEntryEntity(
 ) {
 
     companion object {
+        /** 下载状态取值（status 列规范常量；入队点 / Worker 写入方与下载管理页共用，避免魔法字符串漂移）。 */
+        const val STATUS_PENDING = "pending" // 待同步：已入队等网络（Worker 网络约束自动开始）
+        const val STATUS_DOWNLOADING = "downloading"
+        const val STATUS_DONE = "done"
+        const val STATUS_FAILED = "failed"
+
         /** 导出格式取值（[format] 列的规范常量；写入方 NovelExportWorker/NovelExporter/UgoiraExporter 与
          *  消费方下载管理页共用，避免跨模块魔法字符串漂移。插画等非小说条目为空串）。 */
         const val FORMAT_TXT = "TXT"

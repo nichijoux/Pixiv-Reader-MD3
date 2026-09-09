@@ -5,20 +5,18 @@ import androidx.room.RoomDatabase
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.dao.FeedSnapshotDao
-import com.pixiv.reader.core.database.dao.PendingActionDao
 import com.pixiv.reader.core.database.dao.ReadLaterDao
 import com.pixiv.reader.core.database.dao.ReadingProgressDao
 import com.pixiv.reader.core.database.dao.SearchHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.database.entity.FeedSnapshotEntity
-import com.pixiv.reader.core.database.entity.PendingActionEntity
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 
 /**
- * 数据库结构（version = 6）。
+ * 数据库结构（version = 7）。
  *
  * 历史迁移（原 v1→v7 六条，含 download_entry 字段演进与主键重构）已全部清理，
  * 新装用户直接按此 schema 建库；旧版本（v7）数据经 `fallbackToDestructiveMigration` 重建。
@@ -28,9 +26,9 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
  * v3：download_entry 主键扩为 (targetType, targetId, format, scopeKey)，区分同一小说的
  *     单本/整系列/部分分册下载，修复系列下载顶替单本下载条目的问题。
  * v4：新增 read_later（稍后再看，本地暂存表；target 唯一索引，payloadJson 快照）。
- * v5：新增 pending_action（离线操作队列；family+targetId 唯一索引，断网收藏/关注/追更
- *     暂存联网补发）。
+ * v5：新增 pending_action（离线操作队列；已随 v7 移除）。
  * v6：新增 feed_snapshot（信息流首屏快照，首页秒开）。
+ * v7：删除 pending_action（离线操作队列下线，断网操作改为直接报错）。
  */
 @Database(
     entities = [
@@ -39,10 +37,9 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
         DownloadEntryEntity::class,
         SearchHistoryEntity::class,
         ReadLaterEntity::class,
-        PendingActionEntity::class,
         FeedSnapshotEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class PixivDatabase : RoomDatabase() {
@@ -51,7 +48,6 @@ abstract class PixivDatabase : RoomDatabase() {
     abstract fun downloadEntryDao(): DownloadEntryDao
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun readLaterDao(): ReadLaterDao
-    abstract fun pendingActionDao(): PendingActionDao
     abstract fun feedSnapshotDao(): FeedSnapshotDao
 
     companion object {
@@ -145,9 +141,9 @@ abstract class PixivDatabase : RoomDatabase() {
         }
 
         /**
-         * v4 → v5：新增 pending_action（离线操作队列）。
-         * 纯新增表零搬数据；列定义须与 [com.pixiv.reader.core.database.entity.PendingActionEntity]
-         * 完全一致（含 autoGenerate 主键与 family+targetId 唯一索引，Room 启动时校验 schema）。
+         * v4 → v5：新增 pending_action（离线操作队列；已随 v7 移除）。
+         * 纯新增表零搬数据；列定义与当时的 PendingActionEntity 一致
+         * （含 autoGenerate 主键与 family+targetId 唯一索引）。
          */
         val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
@@ -189,6 +185,13 @@ abstract class PixivDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
+            }
+        }
+
+        /** v6 → v7：删除 pending_action（离线操作队列下线；断网操作改为直接报错，不再暂存）。 */
+        val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS pending_action")
             }
         }
     }

@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.Image
@@ -42,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -89,7 +87,6 @@ fun MangaRoute(
     onOpenViewer: (Long, Int) -> Unit,
     viewModel: MangaViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
@@ -155,24 +152,6 @@ fun MangaRoute(
                     // 排行榜入口按内容类型显示对应榜单（漫画榜 / 插画榜；动图无榜单页）
                     when (tab) {
                         MangaContentType.MANGA -> Row {
-                            // COMIC 入口（漫画分段）：跳系统浏览器打开 comic.pixiv.net（无可用浏览器时静默）
-                            IconButton(
-                                onClick = {
-                                    runCatching {
-                                        context.startActivity(
-                                            android.content.Intent(
-                                                android.content.Intent.ACTION_VIEW,
-                                                android.net.Uri.parse("https://comic.pixiv.net/"),
-                                            ),
-                                        )
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Filled.AutoStories,
-                                    contentDescription = stringResource(R.string.manga_cd_comic),
-                                )
-                            }
                             // 追更入口（漫画分段）：跳追更页漫画分段
                             IconButton(onClick = onOpenWatchlist) {
                                 Icon(
