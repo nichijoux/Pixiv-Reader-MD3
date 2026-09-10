@@ -140,13 +140,22 @@ class WatchlistViewModel @Inject constructor(
     }
 
     /**
-     * 补齐漫画系列封面（幂等：已有封面的跳过；`Semaphore(4)` 限并发防刷）。
+     * 补齐漫画系列封面（幂等：已回填/已补齐的跳过；`Semaphore(4)` 限并发防刷）。
      * 封面经 [SeriesDetailCache] 进程缓存——追更页 → 系列详情页 → 返回，二次进入零请求。
+     * 注意：已缓存条目也要**同步回填** [_mangaCovers]——VM 随页面销毁重建后其本地流为空，
+     * 缓存命中 ≠ 无需回填，否则二次进入封面全空白。
      *
      * @param series 当前漫画追更列表（封面缺失的逐个补）
      * @return 无返回值；封面就绪经 [mangaCovers] 流驱动 UI 刷新
      */
     fun loadMangaCovers(series: List<WatchlistSeries>) {
+        // 已在进程缓存的封面先同步回填 VM 状态（零网络、无需起协程）
+        val cached = series.mapNotNull { s ->
+            seriesDetailCache.get(s.id)?.coverUrl
+                ?.takeIf { it.isNotBlank() }
+                ?.let { s.id to it }
+        }
+        if (cached.isNotEmpty()) _mangaCovers.update { it + cached }
         val pending = series.filter { it.id !in _mangaCovers.value }
         if (pending.isEmpty()) return
         viewModelScope.launch {
@@ -182,13 +191,20 @@ class WatchlistViewModel @Inject constructor(
     /**
      * 为小说追更列表批量取系列详情（复用 [SeriesDetailCache] 进程缓存，
      * 与小说 Tab 追更页签 / 用户页系列列表同一缓存；`Semaphore(4)` 限并发）。
+     * 已缓存条目先同步回填 [_novelInfos]——VM 随页面销毁重建后其本地流为空，缓存命中
+     * 路径也必须把数据送进 UI 流（否则返回后二次进入封面/简介全空白），仅真正缺失的走网络。
      * 隐藏（masked）系列的 `getNovelSeries` 可能抛异常——逐系列 try-catch，失败项留兜底展示不中断整批。
      *
      * @param series 当前小说追更列表（缺详情的逐个补）
      * @return 无返回值；详情就绪经 [novelInfos] 流驱动 UI 刷新
      */
     fun loadNovelInfos(series: List<WatchlistSeries>) {
-        val missing = series.filter { seriesDetailCache.get(it.id) == null }
+        // 已在进程缓存的详情先同步回填 VM 状态（零网络）
+        val cached = series.mapNotNull { s ->
+            seriesDetailCache.get(s.id)?.let { s.id to it }
+        }
+        if (cached.isNotEmpty()) _novelInfos.update { it + cached }
+        val missing = series.filter { it.id !in _novelInfos.value }
         if (missing.isEmpty()) return
         viewModelScope.launch {
             val sem = Semaphore(4)

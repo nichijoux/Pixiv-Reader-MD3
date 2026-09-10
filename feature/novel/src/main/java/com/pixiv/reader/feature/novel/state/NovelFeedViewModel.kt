@@ -243,15 +243,20 @@ class NovelFeedViewModel @Inject constructor(
     /**
      * 为追更列表批量取系列详情（复用 SeriesDetailCache 内存缓存 + in-flight 去重，
      * 与用户页系列列表同一缓存；封面/简介/连载状态同源自一次 `getNovelSeries`）。
-     * 列表项无这些字段，已缓存的零请求；并发限 6，避免首屏一批详情请求打满连接池。
+     * 列表项无这些字段；并发限 6，避免首屏一批详情请求打满连接池。
+     * 已缓存条目先同步回填 [_watchlistInfos]——VM 随 Tab 切换销毁重建后其本地流为空，
+     * 缓存命中路径也必须把数据送进 UI 流（否则二次进入追更页签封面全空白），仅真正缺失的走网络。
      *
      * 隐藏（masked）系列：`getNovelSeries` 可能抛异常（非 2xx 等），此前异常经
      * `getOrFetch` 重抛到本函数再上抛到 launch 未捕获 → 闪退。现逐系列 try-catch：
      * 失败打 Log.e 留痕并视为无详情（UI 空兜底），不再中断整批/崩溃。
      */
     private suspend fun loadWatchlistInfos() {
-        val missing = watchlist.items.value.map { it.id }
-            .filter { seriesDetailCache.get(it) == null }
+        // 已在进程缓存的详情先同步回填 VM 状态（零网络）
+        val ids = watchlist.items.value.map { it.id }
+        val cached = ids.mapNotNull { id -> seriesDetailCache.get(id)?.let { id to it } }
+        if (cached.isNotEmpty()) _watchlistInfos.value = _watchlistInfos.value + cached
+        val missing = ids.filter { it !in _watchlistInfos.value }
         if (missing.isEmpty()) return
         Log.d(TAG, "loadWatchlistInfos: 待取详情 ${missing.size} 个: $missing")
         missing.chunked(6).forEach { batch ->

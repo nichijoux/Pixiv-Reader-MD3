@@ -233,11 +233,15 @@ class UserViewModel @Inject constructor(
     /**
      * 为系列列表批量取详情（SeriesDetailCache 内存缓存 + in-flight 去重，
      * 封面/简介/连载状态/字数/更新时间同源自一次 getNovelSeries）。
-     * 列表项无这些字段，逐个经缓存取；已缓存的零请求。
-     * 并发限 6，避免首屏一批详情请求打满连接池。
+     * 列表项无这些字段；并发限 6，避免首屏一批详情请求打满连接池。
+     * 已缓存条目先同步回填 [_seriesInfos]——VM 随页面销毁重建后其本地流为空，缓存命中
+     * 路径也必须把数据送进 UI 流（否则返回后二次进入封面/简介全空白），仅真正缺失的走网络。
      */
     private fun loadSeriesInfos(seriesIds: List<Long>) {
-        val missing = seriesIds.filter { seriesDetailCache.get(it) == null }
+        // 已在进程缓存的详情先同步回填 VM 状态（零网络）
+        val cached = seriesIds.mapNotNull { id -> seriesDetailCache.get(id)?.let { id to it } }
+        if (cached.isNotEmpty()) _seriesInfos.value = _seriesInfos.value + cached
+        val missing = seriesIds.filter { it !in _seriesInfos.value }
         if (missing.isEmpty()) return
         viewModelScope.launch {
             missing.chunked(6).forEach { batch ->
