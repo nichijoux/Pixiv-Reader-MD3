@@ -42,7 +42,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 混淆 + 压缩：dex 从 ~64MB 降到 ~25MB；规则见 proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -71,6 +73,9 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/gradle/incremental.annotation.processors"
+            // pdfbox 传递依赖 BouncyCastle 的资源文件（后量子加密参数表 + x509 校验文案，
+            // PDF 导出完全用不到，未压缩约 8MB 死重；BC 类本身仍在 dex 中由 R8 裁剪）
+            excludes += "org/bouncycastle/**"
         }
     }
 }
