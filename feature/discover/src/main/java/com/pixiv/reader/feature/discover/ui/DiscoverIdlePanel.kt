@@ -1,9 +1,12 @@
 package com.pixiv.reader.feature.discover.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Groups
@@ -27,9 +29,11 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -139,36 +144,47 @@ internal fun IdlePanel(
                     )
                 }
             }
-            item(key = "hot_title") {
-                Text(
-                    text = stringResource(R.string.search_hot_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
-                )
-            }
-            items(hotTags.take(6).withIndex().toList(), key = { it.index }) { (index, tag) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { tag.tag?.let { viewModel.onQueryChange(it); viewModel.search() } }
-                        .padding(vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "${index + 1}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (index < 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(24.dp),
-                    )
-                    Text(
-                        text = tag.translated_name ?: tag.tag.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+            // 热门搜索（Expressive）：标题带火焰图标；标签胶囊流——前 3 名 primaryContainer
+            // 强调 + 序号圆徽，其余中性胶囊；按压 spring 微缩（MotionScheme 弹性触感）
+            if (hotTags.isNotEmpty()) {
+                item(key = "hot_title") {
+                    Row(
+                        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.Whatshot,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(Sizes.s18),
+                        )
+                        Text(
+                            text = stringResource(R.string.search_hot_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = Spacing.xsPlus),
+                        )
+                    }
+                }
+                item(key = "hot_chips") {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        hotTags.take(6).forEachIndexed { index, tag ->
+                            HotTagChip(
+                                rank = index + 1,
+                                label = tag.translated_name ?: tag.tag.orEmpty(),
+                                onClick = {
+                                    tag.tag?.let {
+                                        viewModel.onQueryChange(it)
+                                        viewModel.search()
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -222,6 +238,87 @@ internal fun HistoryChip(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = Spacing.md, vertical = 7.dp),
     )
+}
+
+/**
+ * 热门标签胶囊（Expressive）：序号圆徽 + 标签名；前 3 名 primaryContainer 强调
+ * （徽标实心 primary），其余中性灰；按压时 spring 微缩（MotionScheme 弹性触感）。
+ *
+ * @param rank 名次（从 1 开始）
+ * @param label 标签展示名（译名优先）
+ * @param onClick 点击回调（以该标签发起搜索）
+ * @return 无返回值
+ */
+@Composable
+private fun HotTagChip(
+    rank: Int,
+    label: String,
+    onClick: () -> Unit,
+) {
+    val top = rank <= 3
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    // 按压微缩：Expressive 空间弹簧（位移/形变档）
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.94f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "hotTagPress",
+    )
+    Surface(
+        onClick = onClick,
+        shape = AppShapes.pill,
+        color = if (top) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        interactionSource = interaction,
+        modifier = Modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        },
+    ) {
+        Row(
+            modifier = Modifier.padding(start = Spacing.xs, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+        ) {
+            // 序号圆徽：前 3 名实心强调色，其余中性淡底
+            Box(
+                modifier = Modifier
+                    .size(Sizes.s20)
+                    .background(
+                        if (top) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        AppShapes.circle,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "$rank",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (top) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (top) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (top) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 160.dp),
+            )
+        }
+    }
 }
 
 /**

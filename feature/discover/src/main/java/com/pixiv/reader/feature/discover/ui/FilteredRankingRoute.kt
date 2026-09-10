@@ -49,7 +49,9 @@ import com.pixiv.reader.core.ui.component.list.RankingList
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
-import com.pixiv.reader.feature.discover.state.DiscoverRankingViewModel
+import com.pixiv.reader.feature.discover.state.AiRankingViewModel
+import com.pixiv.reader.feature.discover.state.FilteredRankingViewModel
+import com.pixiv.reader.feature.discover.state.PeriodRankingViewModel
 
 
 /**
@@ -61,7 +63,8 @@ import com.pixiv.reader.feature.discover.state.DiscoverRankingViewModel
  * @param filter 客户端过滤谓词（true 保留）
  * @param filteredEmptyText 过滤后为空时的空态文案
  * @param eraChips 是否显示年代快捷 chips（年代榜专用：点击跳到该年代末的历史榜）
- * @param viewModel 共用排行 ViewModel（按 backstack entry 各自实例化）
+ * @param viewModel 共用排行 ViewModel（AI 榜用 day_ai 段、壁纸/年代榜用日/周/月段，
+ *        按 backstack entry 各自实例化）
  * @param onBack 返回
  * @param onOpenIllust 点击排名行打开作品详情（小屏单栏路径）
  * @param onOpenUser 点击作者打开用户主页
@@ -75,7 +78,7 @@ private fun FilteredRankingScreen(
     filter: (Illust) -> Boolean,
     filteredEmptyText: String,
     eraChips: Boolean,
-    viewModel: DiscoverRankingViewModel,
+    viewModel: FilteredRankingViewModel,
     onBack: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -210,12 +213,17 @@ private fun FilteredRankingScreen(
 /**
  * 列表头部：年代快捷 chips（年代榜）+ 当前选中日期 chip 行。
  * 年代 chips 点击 = selectDate 到该年代末的历史榜（如 2010 → 2010-12-31）。
+ *
+ * @param selectedDate 当前选中的历史日期（yyyy-MM-dd），null = 最新榜
+ * @param eraChips 是否显示年代快捷 chips（年代榜专用）
+ * @param viewModel 共用排行 ViewModel（读选中日期 + 切换日期）
+ * @return 无返回值
  */
 @Composable
 private fun EraHeader(
     selectedDate: String?,
     eraChips: Boolean,
-    viewModel: DiscoverRankingViewModel,
+    viewModel: FilteredRankingViewModel,
 ) {
     if (!eraChips) return
     Row(
@@ -261,7 +269,11 @@ private fun EraHeader(
     }
 }
 
-/** AI 榜：常规排行数据中过滤 AI 生成作品（illust_ai_type == 2），保留真实名次。 */
+/**
+ * AI 榜：pixiv 官方 AI 生成日榜（服务端 `mode=day_ai` 已过滤出 AI 作品，保留真实名次）。
+ * 常规日/周/月榜不收录 AI 作品（illust_ai_type 恒为 1），此前客户端 isAi 过滤恒为空，
+ * 故必须走专用 mode；过滤谓词放行为真，空态文案仅服务端榜单为空时出现。
+ */
 @Composable
 fun AiRankingRoute(
     onBack: () -> Unit,
@@ -269,11 +281,11 @@ fun AiRankingRoute(
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     onSearchTag: (String) -> Unit,
-    viewModel: DiscoverRankingViewModel = hiltViewModel(),
+    viewModel: AiRankingViewModel = hiltViewModel(),
 ) {
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_ai_title),
-        filter = { it.isAi() },
+        filter = { true },
         filteredEmptyText = stringResource(R.string.ranking_ai_empty),
         eraChips = false,
         viewModel = viewModel,
@@ -293,7 +305,7 @@ fun WallpaperRankingRoute(
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     onSearchTag: (String) -> Unit,
-    viewModel: DiscoverRankingViewModel = hiltViewModel(),
+    viewModel: PeriodRankingViewModel = hiltViewModel(),
 ) {
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_wallpaper_title),
@@ -317,7 +329,7 @@ fun EraRankingRoute(
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     onSearchTag: (String) -> Unit,
-    viewModel: DiscoverRankingViewModel = hiltViewModel(),
+    viewModel: PeriodRankingViewModel = hiltViewModel(),
 ) {
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_era_title),
