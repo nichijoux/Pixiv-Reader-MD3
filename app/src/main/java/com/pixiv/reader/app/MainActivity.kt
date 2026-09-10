@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -49,12 +50,14 @@ import com.pixiv.reader.core.datastore.readAppLanguageSync
 import com.pixiv.reader.core.datastore.readOnboardingCompleteSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
+import com.pixiv.reader.core.network.update.AppRelease
 import com.pixiv.reader.core.network.update.AppUpdateChecker
 import com.pixiv.reader.core.network.update.AppUpdateVersion
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.NotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.NotificationType
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
 import com.pixiv.reader.feature.user.R as UserR
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
@@ -142,6 +145,8 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
             val notificationHostState = rememberNotificationHostState()
+            // 启动自动检查到的新版本 Release：非空时弹更新对话框（与「检测更新」按钮一致）
+            val updateRelease = remember { mutableStateOf<AppRelease?>(null) }
             val context = LocalContext.current
             // 全局下载完成通知：观察下载索引状态迁移（downloading→done/failed），
             // 离开详情页/查看器后仍能收到完成/失败提示（此前依赖 VM 存活监听，页面销毁即丢）
@@ -165,7 +170,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
             // 启动自动检查更新：开关（「我的」页-系统设置）开启时每进程冷启动静默查一次
-            // GitHub Release，有新版弹通知提示（点击打开 Release 页）；失败/已最新均静默不打扰。
+            // GitHub Release，有新版弹更新对话框（changelog + 前往下载，与「检测更新」按钮一致，
+            // 对话框渲染见下方主题内 UpdateReleaseDialog）；失败/已最新均静默不打扰。
             LaunchedEffect(Unit) {
                 if (!userPreferences.autoUpdate.first()) return@LaunchedEffect
                 updateChecker.latestRelease().onSuccess { release ->
@@ -173,16 +179,7 @@ class MainActivity : ComponentActivity() {
                         .versionName.orEmpty()
                     // release == null：仓库尚无发布（404）→ 静默视为无更新
                     if (release != null && AppUpdateVersion.isNewer(localVersion, release.tagName)) {
-                        notificationHostState.show(
-                            text = getString(UserR.string.me_update_available_title, release.tagName),
-                            type = NotificationType.Info,
-                            actionText = getString(UserR.string.me_update_download),
-                            onAction = {
-                                runCatching {
-                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
-                                }
-                            },
-                        )
+                        updateRelease.value = release
                     }
                 }
             }
@@ -283,6 +280,23 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                }
+                // 启动自动检查到新版本：弹与「检测更新」按钮一致的更新对话框
+                // （changelog 正文 + 前往下载浏览器打开 Release 页 / 下次再说）
+                updateRelease.value?.let { release ->
+                    UpdateReleaseDialog(
+                        release = release,
+                        title = stringResource(UserR.string.me_update_available_title, release.tagName),
+                        confirmText = stringResource(UserR.string.me_update_download),
+                        dismissText = stringResource(UserR.string.me_update_later),
+                        onConfirm = {
+                            runCatching {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
+                            }
+                            updateRelease.value = null
+                        },
+                        onDismiss = { updateRelease.value = null },
+                    )
                 }
             }
             }

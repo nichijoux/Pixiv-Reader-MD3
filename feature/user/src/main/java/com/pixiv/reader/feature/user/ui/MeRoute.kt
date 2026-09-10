@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,7 +25,6 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,12 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
+import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.card.ProfileHeader
 import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
@@ -311,12 +309,14 @@ fun MeRoute(
         )
     }
 
-    // 新版本更新对话框：changelog 正文（可滚动）+ 前往下载（浏览器打开 Release 页）。
-    // 走项目通用 ConfirmDialog（WARNING=primary 强调），替代原生 AlertDialog 保持弹层风格统一
+    // 新版本更新对话框：changelog 正文（可滚动）+ 前往下载（浏览器打开 Release 页），
+    // 走 core:ui 共享组件（与启动自动检查弹层一致）
     updateRelease?.let { release ->
-        ConfirmDialog(
+        UpdateReleaseDialog(
+            release = release,
             title = stringResource(R.string.me_update_available_title, release.tagName),
             confirmText = stringResource(R.string.me_update_download),
+            dismissText = stringResource(R.string.me_update_later),
             onConfirm = {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
@@ -324,23 +324,6 @@ fun MeRoute(
                 viewModel.dismissUpdateDialog()
             },
             onDismiss = viewModel::dismissUpdateDialog,
-            variant = ConfirmDialogVariant.WARNING,
-            dismissText = stringResource(R.string.me_update_later),
-            bodyContent = {
-                if (release.body.isNotBlank()) {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 320.dp)
-                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        Text(
-                            text = release.body,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            },
         )
     }
 
