@@ -9,6 +9,8 @@
     <string name="viewer_cd_bookmark">Bookmark</string>
     <string name="viewer_cd_download_original">Download original</string>
     <string name="viewer_cd_set_wallpaper">Set as wallpaper</string>
+    <string name="viewer_wallpaper_confirm_title">Set as wallpaper?</string>
+    <string name="viewer_wallpaper_confirm_message">This will download the original image and overwrite your current wallpaper.</string>
     <string name="viewer_cd_view_original">View original</string>
     <string name="viewer_ugoira_loading">Loading animation…</string>
     <string name="viewer_msg_load_failed_reason">Failed to load: %1$s</string>

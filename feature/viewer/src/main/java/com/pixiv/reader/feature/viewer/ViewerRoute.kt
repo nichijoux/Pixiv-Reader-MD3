@@ -76,6 +76,8 @@ import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.image.ZoomableImage
+import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.FavoriteRed
@@ -132,6 +134,8 @@ fun ViewerRoute(
     var menuExpanded by remember { mutableStateOf(false) }
     // 动图导出格式选择弹层（MP4 / ZIP）
     var showGifExportSheet by remember { mutableStateOf(false) }
+    // 设为壁纸确认（直接覆盖系统壁纸，加确认防误触）
+    var showWallpaperConfirm by remember { mutableStateOf(false) }
     // 图库式工具栏显隐：仅单击图片区切换，滑动翻页不影响其显隐
     var barsVisible by remember { mutableStateOf(true) }
     val barsShown = barsVisible
@@ -362,9 +366,7 @@ fun ViewerRoute(
                         pages.getOrNull(currentIndex)?.let(viewModel::download)
                     }
                 },
-                onWallpaper = {
-                    if (!isGif) pages.getOrNull(currentIndex)?.let(viewModel::wallpaper)
-                },
+                onWallpaper = { if (!isGif) showWallpaperConfirm = true },
                 onOriginal = viewModel::toggleOriginal,
             )
         }
@@ -392,6 +394,21 @@ fun ViewerRoute(
         onCreateTag = viewModel.bookmarkEditor::createTag,
         onConfirm = viewModel::saveBookmarkEditor,
     )
+
+    // 设为壁纸确认：提示将覆盖系统壁纸，确认后才真正执行（防误触）
+    if (showWallpaperConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.viewer_wallpaper_confirm_title),
+            message = stringResource(R.string.viewer_wallpaper_confirm_message),
+            confirmText = stringResource(R.string.viewer_cd_set_wallpaper),
+            onConfirm = {
+                showWallpaperConfirm = false
+                pages.getOrNull(currentIndex)?.let(viewModel::wallpaper)
+            },
+            onDismiss = { showWallpaperConfirm = false },
+            variant = ConfirmDialogVariant.WARNING,
+        )
+    }
 
     // 动图导出格式选择：MP4 视频（通用播放）/ ZIP 帧包（原始帧 + 延时表）
     if (showGifExportSheet) {
@@ -454,6 +471,10 @@ private const val FALLBACK_ASPECT_RATIO = 0.75f
 /**
  * 无缝竖向模式：每 P 按真实宽高比撑满屏宽连续堆叠（无间距），
  * 单指上下连续滚动；缩放时由 [LazyColumn.userScrollEnabled] 锁定滚动（与翻页模式一致）。
+ *
+ * 单图特例：整屏作为缩放画布（`fillParentMaxSize`，与翻页模式同语义的 Fit 居中）——
+ * telephoto 的缩放平移被约束在自身布局边界内，若按宽高比裁框，放大后平移会被框限制；
+ * 整屏边界下放大体验与横向/竖向翻页一致。
  */
 @Composable
 private fun SeamlessViewer(
@@ -466,21 +487,26 @@ private fun SeamlessViewer(
         state = state,
         userScrollEnabled = userScrollEnabled,
         modifier = Modifier.fillMaxSize(),
-        // 单图且图高不足一屏时垂直居中；多图/超一屏时从顶部排布可滚动
-        verticalArrangement = if (pages.size == 1) Arrangement.Center else Arrangement.Top,
     ) {
         itemsIndexed(pages) { index, page ->
-            val ratio = if (page.width > 0 && page.height > 0) {
-                page.width.toFloat() / page.height.toFloat()
+            if (pages.size == 1) {
+                // 单图：整屏边界，图片 Fit 居中（黑边语义与翻页模式一致）
+                Box(modifier = Modifier.fillParentMaxSize()) {
+                    content(index)
+                }
             } else {
-                FALLBACK_ASPECT_RATIO
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(ratio),
-            ) {
-                content(index)
+                val ratio = if (page.width > 0 && page.height > 0) {
+                    page.width.toFloat() / page.height.toFloat()
+                } else {
+                    FALLBACK_ASPECT_RATIO
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(ratio),
+                ) {
+                    content(index)
+                }
             }
         }
     }

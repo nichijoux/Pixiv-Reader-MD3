@@ -9,6 +9,8 @@
     <string name="viewer_cd_bookmark">收藏</string>
     <string name="viewer_cd_download_original">下载原图</string>
     <string name="viewer_cd_set_wallpaper">设为壁纸</string>
+    <string name="viewer_wallpaper_confirm_title">设为壁纸？</string>
+    <string name="viewer_wallpaper_confirm_message">将下载原图并覆盖当前手机壁纸。</string>
     <string name="viewer_cd_view_original">查看原图</string>
     <string name="viewer_ugoira_loading">动图加载中…</string>
     <string name="viewer_msg_load_failed_reason">加载失败：%1$s</string>
