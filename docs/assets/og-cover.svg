@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- PixivReader 社交分享封面（由 Edge 无头截图导出为 og-cover.png） -->
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0096FA"/>
+      <stop offset="1" stop-color="#0069C2"/>
+    </linearGradient>
+    <!-- 应用图标渐变（同 APK 启动图标） -->
+    <linearGradient id="oc-bg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39A9FF"/>
+      <stop offset="0.5" stop-color="#1685F5"/>
+      <stop offset="1" stop-color="#075EEA"/>
+    </linearGradient>
+    <linearGradient id="oc-pl" x1="120" y1="670" x2="120" y2="970" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCEEFF"/>
+    </linearGradient>
+    <linearGradient id="oc-pr" x1="512" y1="850" x2="512" y2="970" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCEEFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.2" r="0.75">
+      <stop offset="0" stop-color="#0096FA" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#0096FA" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="t1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2C5F8F"/><stop offset="1" stop-color="#1A3450"/>
+    </linearGradient>
+    <linearGradient id="t2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5E3A8C"/><stop offset="1" stop-color="#34204E"/>
+    </linearGradient>
+    <linearGradient id="t3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2F7A6B"/><stop offset="1" stop-color="#1A443C"/>
+    </linearGradient>
+    <linearGradient id="t4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8C4A66"/><stop offset="1" stop-color="#4E2939"/>
+    </linearGradient>
+    <clipPath id="phoneClip"><rect x="0" y="0" width="204" height="412" rx="26"/></clipPath>
+    <clipPath id="tabClip"><rect x="0" y="0" width="330" height="500" rx="20"/></clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0A0A0A"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- 品牌行 -->
+  <g transform="translate(90,86)">
+    <!-- 应用图标（与 APK 启动图标同源） -->
+    <svg x="0" y="0" width="56" height="56" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="27" fill="url(#oc-bg)"/>
+      <g transform="scale(0.10546875)">
+        <g transform="translate(512 512) scale(0.66) translate(-512 -512)">
+          <path d="M810,180 L828,225 L873,243 L828,261 L810,306 L792,261 L747,243 L792,225 Z" fill="#FFFFFF" fill-opacity="0.9"/>
+          <path d="M220,470 L232,500 L262,512 L232,524 L220,554 L208,524 L178,512 L208,500 Z" fill="#FFFFFF" fill-opacity="0.8"/>
+          <path d="M370,260 V650 M370,270 C370,270 520,190 680,280 C790,345 750,510 620,535 C530,550 450,520 370,480"
+                fill="none" stroke="#FFFFFF" stroke-width="55" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M512,835 m-360,0 a360,55 0 1,0 720,0 a360,55 0 1,0 -720,0" fill="#004FC7" fill-opacity="0.35"/>
+          <path d="M120,670 C260,660 390,720 512,850 V970 C390,850 250,820 120,830 Z" fill="url(#oc-pl)"/>
+          <path d="M512,850 C650,720 780,660 904,670 V830 C780,820 640,850 512,970 Z" fill="url(#oc-pr)"/>
+          <path d="M512,850 C480,820 470,820 430,800 C460,860 480,900 512,970 C544,900 564,860 594,800 C554,820 544,820 512,850 Z" fill="#E8F4FF"/>
+          <path d="M620,840 C700,760 770,720 860,710 C790,760 720,820 650,900 Z" fill="#FFFFFF" fill-opacity="0.85"/>
+          <path d="M110,680 C260,660 390,720 470,800" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-opacity="0.45"/>
+          <path d="M914,680 C760,660 630,720 550,800" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-opacity="0.45"/>
+        </g>
+      </g>
+    </svg>
+    <text x="76" y="28" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+          font-size="30" font-weight="700" fill="#EDEDEF">PixivReader</text>
+    <text x="76" y="52" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+          font-size="16" fill="#8A8F98">github.com/nichijoux/Pixiv-Reader-MD3</text>
+  </g>
+
+  <!-- 标题区 -->
+  <g transform="translate(90,240)">
+    <rect x="0" y="-34" width="222" height="44" rx="22" fill="#0096FA" fill-opacity="0.1"/>
+    <rect x="0.5" y="-33.5" width="221" height="43" rx="22" fill="none" stroke="#0096FA" stroke-opacity="0.35"/>
+    <circle cx="26" cy="-12" r="5" fill="#4CAF50"/>
+    <text x="42" y="-4" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+          font-size="20" fill="#7DCBFF">v0.2.0 · Android 8.0+ · ≈ 9 MB</text>
+    <text x="0" y="78" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+          font-size="54" font-weight="800" fill="#EDEDEF">非官方 Pixiv 安卓客户端</text>
+    <text x="0" y="134" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+          font-size="26" fill="#C9CDD3">插画 · 漫画 · 小说一站式阅读，Material 3 设计</text>
+    <text x="0" y="176" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+          font-size="26" fill="#8A8F98">排行榜 · 离线下载 · 平板自适应 · 开源 GPL-2.0</text>
+    <!-- 下载按钮 -->
+    <g transform="translate(0,222)">
+      <rect width="252" height="58" rx="14" fill="#0096FA"/>
+      <path d="M28 20v10a4 4 0 0 0 4 4h16a4 4 0 0 0 4-4V20" fill="none" stroke="#06121D" stroke-width="3" stroke-linecap="round"/>
+      <path d="m38 22 8 8 8-8" fill="none" stroke="#06121D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M46 14v16" stroke="#06121D" stroke-width="3" stroke-linecap="round"/>
+      <text x="86" y="38" font-family="-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+            font-size="22" font-weight="600" fill="#06121D">下载最新版 APK</text>
+    </g>
+  </g>
+
+  <!-- 右侧设备：平板 + 手机 -->
+  <g transform="translate(768,120) scale(0.85)">
+    <g transform="rotate(-3 165 250)">
+      <rect x="0" y="0" width="330" height="500" rx="24" fill="#17171C" stroke="#2A2A32"/>
+      <g clip-path="url(#tabClip)">
+        <rect x="0" y="0" width="330" height="500" fill="#0D0D12"/>
+        <rect x="16" y="26" width="10" height="10" rx="3" fill="#0096FA"/>
+        <rect x="16" y="52" width="10" height="10" rx="3" fill="#3A3A44"/>
+        <rect x="16" y="78" width="10" height="10" rx="3" fill="#3A3A44"/>
+        <rect x="16" y="104" width="10" height="10" rx="3" fill="#3A3A44"/>
+        <rect x="46" y="22" width="120" height="14" rx="7" fill="#23232B"/>
+        <rect x="46" y="56" width="128" height="176" rx="10" fill="url(#t1)"/>
+        <rect x="46" y="246" width="128" height="150" rx="10" fill="url(#t2)"/>
+        <rect x="46" y="410" width="128" height="76" rx="10" fill="url(#t4)"/>
+        <rect x="188" y="56" width="128" height="120" rx="10" fill="url(#t3)"/>
+        <rect x="188" y="190" width="128" height="90" rx="10" fill="url(#t2)"/>
+        <rect x="188" y="294" width="128" height="192" rx="10" fill="#131318"/>
+        <rect x="200" y="308" width="104" height="70" rx="8" fill="url(#t1)"/>
+        <rect x="200" y="388" width="76" height="9" rx="4.5" fill="#2A2A33"/>
+        <rect x="200" y="404" width="52" height="9" rx="4.5" fill="#2A2A33"/>
+        <rect x="200" y="426" width="100" height="18" rx="9" fill="#1E1E26"/>
+        <rect x="240" y="452" width="60" height="18" rx="9" fill="#0096FA" fill-opacity="0.25"/>
+      </g>
+    </g>
+    <g transform="translate(286,64)">
+      <rect x="0" y="0" width="204" height="412" rx="30" fill="#17171C" stroke="#2A2A32"/>
+      <g clip-path="url(#phoneClip)">
+        <rect x="0" y="0" width="204" height="412" fill="#0D0D12"/>
+        <rect x="14" y="16" width="84" height="12" rx="6" fill="#23232B"/>
+        <rect x="14" y="40" width="80" height="128" rx="9" fill="url(#t1)"/>
+        <rect x="14" y="178" width="80" height="94" rx="9" fill="url(#t4)"/>
+        <rect x="14" y="282" width="80" height="106" rx="9" fill="url(#t2)"/>
+        <rect x="104" y="40" width="86" height="100" rx="9" fill="url(#t2)"/>
+        <rect x="104" y="150" width="86" height="130" rx="9" fill="url(#t3)"/>
+        <rect x="104" y="290" width="86" height="60" rx="9" fill="url(#t1)"/>
+        <rect x="0" y="368" width="204" height="44" fill="#101015"/>
+        <circle cx="42" cy="390" r="6" fill="#3A3A44"/>
+        <circle cx="82" cy="390" r="6" fill="#3A3A44"/>
+        <circle cx="122" cy="390" r="6" fill="#0096FA"/>
+        <circle cx="162" cy="390" r="6" fill="#3A3A44"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- 底部条 -->
+  <rect x="0" y="606" width="1200" height="24" fill="#0096FA" fill-opacity="0.12"/>
+</svg>

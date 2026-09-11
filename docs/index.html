@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="meta.title">PixivReader — 非官方 Pixiv 安卓客户端 · APK 下载</title>
+  <meta name="description" content="PixivReader：Material 3 设计的非官方 Pixiv 安卓客户端。插画、漫画、小说一站式阅读，支持排行榜、离线下载、平板自适应。免费开源（GPL-2.0），APK 约 10 MB。">
+  <meta name="theme-color" content="#0A0A0A">
+  <script>
+    /* 首帧前确定主题（深色 / 亮色 / 跟随系统），避免亮色用户看到深色闪烁。
+       支持 ?theme=light|dark|system 参数，便于分享与测试。 */
+    (function () {
+      var pref = 'system';
+      try { pref = localStorage.getItem('pr_theme') || 'system'; } catch (e) { /* 忽略 */ }
+      var q = new URLSearchParams(location.search).get('theme');
+      if (q === 'light' || q === 'dark' || q === 'system') pref = q;
+      var dark = pref === 'dark' || (pref === 'system' &&
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="PixivReader — 非官方 Pixiv 安卓客户端">
+  <meta property="og:description" content="插画、漫画、小说一站式阅读。Material 3 设计，免费开源（GPL-2.0），APK 约 10 MB。">
+  <meta property="og:url" content="https://nichijoux.github.io/Pixiv-Reader-MD3/">
+  <meta property="og:image" content="https://nichijoux.github.io/Pixiv-Reader-MD3/assets/og-cover.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="a11y.skip">跳到主要内容</a>
+
+  <!-- ═══════════════ 顶部导航 ═══════════════ -->
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="#top" aria-label="PixivReader">
+        <!-- 品牌图标：与 APK 启动图标同源（渐变蓝 + 白 P + 书页） -->
+        <svg class="brand-mark" viewBox="0 0 108 108" width="28" height="28" aria-hidden="true">
+          <defs>
+            <linearGradient id="nb-bg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#39A9FF"/><stop offset="0.5" stop-color="#1685F5"/><stop offset="1" stop-color="#075EEA"/>
+            </linearGradient>
+            <linearGradient id="nb-pl" x1="120" y1="670" x2="120" y2="970" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#DCEEFF"/>
+            </linearGradient>
+            <linearGradient id="nb-pr" x1="512" y1="850" x2="512" y2="970" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#DCEEFF"/>
+            </linearGradient>
+          </defs>
+          <rect width="108" height="108" rx="18" fill="url(#nb-bg)"/>
+          <g transform="scale(0.10546875)">
+            <g transform="translate(512 512) scale(0.66) translate(-512 -512)">
+              <path d="M810,180 L828,225 L873,243 L828,261 L810,306 L792,261 L747,243 L792,225 Z" fill="#FFFFFF" fill-opacity="0.9"/>
+              <path d="M220,470 L232,500 L262,512 L232,524 L220,554 L208,524 L178,512 L208,500 Z" fill="#FFFFFF" fill-opacity="0.8"/>
+              <path d="M370,260 V650 M370,270 C370,270 520,190 680,280 C790,345 750,510 620,535 C530,550 450,520 370,480"
+                    fill="none" stroke="#FFFFFF" stroke-width="55" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M512,835 m-360,0 a360,55 0 1,0 720,0 a360,55 0 1,0 -720,0" fill="#004FC7" fill-opacity="0.35"/>
+              <path d="M120,670 C260,660 390,720 512,850 V970 C390,850 250,820 120,830 Z" fill="url(#nb-pl)"/>
+              <path d="M512,850 C650,720 780,660 904,670 V830 C780,820 640,850 512,970 Z" fill="url(#nb-pr)"/>
+              <path d="M512,850 C480,820 470,820 430,800 C460,860 480,900 512,970 C544,900 564,860 594,800 C554,820 544,820 512,850 Z" fill="#E8F4FF"/>
+              <path d="M620,840 C700,760 770,720 860,710 C790,760 720,820 650,900 Z" fill="#FFFFFF" fill-opacity="0.85"/>
+              <path d="M110,680 C260,660 390,720 470,800" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-opacity="0.45"/>
+              <path d="M914,680 C760,660 630,720 550,800" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-opacity="0.45"/>
+            </g>
+          </g>
+        </svg>
+        <span class="brand-name">PixivReader</span>
+      </a>
+
+      <nav class="nav-links" id="nav-links" aria-label="页面导航" data-i18n-aria="nav.pageAria">
+        <a href="#features" data-i18n="nav.features">功能</a>
+        <a href="#screens" data-i18n="nav.ui">界面</a>
+        <a href="#download" data-i18n="nav.download">下载</a>
+        <a href="#install" data-i18n="nav.install">安装</a>
+        <a href="#faq" data-i18n="nav.faq">常见问题</a>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="theme-btn" id="theme-btn" type="button" aria-label="主题">
+          <!-- 跟随系统 -->
+          <svg data-icon="system" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <!-- 亮色 -->
+          <svg data-icon="light" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></svg>
+          <!-- 深色 -->
+          <svg data-icon="dark" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+        <button class="lang-btn" id="lang-btn" type="button" data-i18n-aria="nav.langAria" aria-label="切换到 English">EN</button>
+        <a class="gh-btn" href="https://github.com/nichijoux/Pixiv-Reader-MD3" target="_blank" rel="noopener"
+           data-i18n-aria="nav.github" aria-label="在 GitHub 查看源码">
+          <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+          </svg>
+        </a>
+        <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links"
+                data-i18n-aria="nav.menu" aria-label="打开菜单">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ═══════════════ Hero ═══════════════ -->
+    <section class="hero" id="top">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="chip chip-release">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span data-release="version">最新版</span><span aria-hidden="true"> · </span><span>Android 8.0+</span><span aria-hidden="true"> · </span><span data-release="size">约 10 MB</span>
+          </p>
+          <h1 class="hero-title">PixivReader</h1>
+          <p class="hero-sub" data-i18n-html="hero.subtitle">非官方 Pixiv 安卓客户端<br>Material 3 设计 · 开源免费</p>
+          <p class="hero-desc" data-i18n="hero.desc">插画、漫画、小说一站式阅读：瀑布流浏览、排行榜、离线下载、平板自适应，全部开源实现。</p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases/latest" data-release-link="arm64">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span data-i18n="hero.cta.download">下载最新版 APK</span>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/nichijoux/Pixiv-Reader-MD3" target="_blank" rel="noopener">
+              <span data-i18n="hero.cta.source">查看源码</span>
+            </a>
+          </div>
+          <ul class="hero-meta" aria-label="Highlights">
+            <li data-i18n="hero.meta.license">GPL-2.0 开源</li>
+            <li data-i18n="hero.meta.noad">无广告 · 无内购</li>
+            <li data-i18n="hero.meta.local">数据仅存本地</li>
+          </ul>
+        </div>
+
+        <!-- 设备模型：手机 + 平板（截图放入 assets/screens/ 后自动替换占位画面） -->
+        <div class="hero-devices" aria-hidden="false">
+          <div class="device device-tablet hero-tablet">
+            <div class="device-screen ratio-tablet" data-slot="tablet-ranking" data-dim="2560×1600">
+              <div class="ghost ghost-tablet" aria-hidden="true">
+                <div class="gt-rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+                <div class="gt-body">
+                  <div class="gt-bar"></div>
+                  <div class="gt-split">
+                    <div class="gt-list">
+                      <i class="gt h46 hue1"></i><i class="gt h30 hue2"></i><i class="gt h40 hue3"></i>
+                    </div>
+                    <div class="gt-detail">
+                      <i class="gt-hero hue4"></i>
+                      <span class="gt-line w70"></span><span class="gt-line w50"></span>
+                      <span class="gt-bub"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <img class="slot-img" src="assets/screens/tablet-ranking.png" alt="" width="2560" height="1600" loading="lazy" hidden>
+            </div>
+          </div>
+          <div class="device device-phone hero-phone">
+            <div class="device-screen ratio-phone" data-slot="phone-home" data-dim="1080×2340">
+              <div class="ghost ghost-phone" aria-hidden="true">
+                <div class="gt-bar"></div>
+                <div class="gt-masonry">
+                  <div class="gcol"><i class="gt h56 hue1"></i><i class="gt h34 hue3"></i><i class="gt h44 hue5"></i></div>
+                  <div class="gcol"><i class="gt h38 hue2"></i><i class="gt h52 hue4"></i><i class="gt h30 hue6"></i></div>
+                </div>
+                <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+              </div>
+              <img class="slot-img" src="assets/screens/phone-home.png" alt="" width="1080" height="2340" loading="lazy" hidden>
+            </div>
+            <span class="device-label" data-i18n="hero.phone.label">手机</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 信任条 -->
+      <div class="container">
+        <ul class="trust">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span data-i18n="trust.1">开源可审计（GPL-2.0）</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+            <span data-i18n="trust.2">无广告 · 无内购</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <span data-i18n="trust.3">数据仅存本机</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            <span data-i18n="trust.4">直连 pixiv 官方 API</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 功能特性（Bento） ═══════════════ -->
+    <section class="section" id="features">
+      <div class="container">
+        <p class="kicker" data-i18n="feat.kicker">功能特性</p>
+        <h2 class="section-title" data-i18n="feat.title">一个客户端，覆盖阅读全流程</h2>
+        <p class="section-desc" data-i18n="feat.desc">插画 · 漫画 · 小说 · 下载 · 互动，核心能力全部开源实现。</p>
+
+        <div class="bento">
+          <article class="card card-wide">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></span>
+            <h3 data-i18n="feat.1.t">插画与漫画</h3>
+            <p data-i18n="feat.1.d">Material 3 瀑布流浏览，详情大图无损缩放；ugoira 动图在线播放，可导出 MP4 视频或 ZIP 帧包。</p>
+          </article>
+          <article class="card card-wide">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.7V17c0 .6-.5 1-1 1.2-1.2.6-2 2-2 3.8"/><path d="M14 14.7V17c0 .6.5 1 1 1.2 1.2.6 2 2 2 3.8"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
+            <h3 data-i18n="feat.2.t">榜单齐全</h3>
+            <p data-i18n="feat.2.d">日 / 周 / 月 / 男性向 / 女性向 / 新人 / R-18，滑动切段、触底加载；另有画师榜、AI 榜、年代榜、壁纸榜。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+            <h3 data-i18n="feat.3.t">小说阅读</h3>
+            <p data-i18n="feat.3.d">在线阅读并记忆进度，四套阅读主题；本地 TXT / EPUB / Markdown 导入，支持导出 PDF / TXT。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.2 7.8 14.1 14.1 7.8 16.2 9.9 9.9 16.2 7.8"/></svg></span>
+            <h3 data-i18n="feat.4.t">发现生态</h3>
+            <p data-i18n="feat.4.d">插画与小说检索、热门标签、pixivision 特辑；FANBOX / COMIC / 私信跳转系统浏览器。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span>
+            <h3 data-i18n="feat.5.t">追更管理</h3>
+            <p data-i18n="feat.5.d">小说 / 漫画系列追更，系列详情页，分段管理与行内取消。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
+            <h3 data-i18n="feat.6.t">评论互动</h3>
+            <p data-i18n="feat.6.d">文字评论 + 文字表情 + pixiv 官方贴纸，可删除自己的评论。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
+            <h3 data-i18n="feat.7.t">历史 · 稍后再看 · 屏蔽</h3>
+            <p data-i18n="feat.7.d">浏览与搜索历史完整保留；长按卡片加入稍后再看或就地屏蔽。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+            <h3 data-i18n="feat.8.t">离线下载</h3>
+            <p data-i18n="feat.8.d">WorkManager 后台下载，进度跟踪、完成通知、断网排队、失败重试。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/></svg></span>
+            <h3 data-i18n="feat.9.t">收藏与关注</h3>
+            <p data-i18n="feat.9.d">收藏支持公开 / 私密与标签编辑，关注列表一目了然。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.7-1.7h2c3 0 5.5-2.5 5.5-5.5C22 6 17.5 2 12 2z"/></svg></span>
+            <h3 data-i18n="feat.10.t">个性体验</h3>
+            <p data-i18n="feat.10.d">深色模式 + Material You 动态取色；简体中文 / 繁體中文 / English 切换；字体缩放。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+            <h3 data-i18n="feat.11.t">快与稳</h3>
+            <p data-i18n="feat.11.d">首页快照冷启动秒开，断网可离线浏览；应用内更新检查，支持 pixiv:// 深链。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.3 9 5.1"/><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>
+            <h3 data-i18n="feat.12.t">体积小巧</h3>
+            <p data-i18n="feat.12.d">Release 经 R8 混淆压缩，单 ABI 瘦身包约 10 MB。</p>
+          </article>
+        </div>
+
+        <!-- 折叠控制：默认只展示前 6 项，点击展开其余功能 -->
+        <div class="bento-actions">
+          <button class="btn btn-ghost feat-toggle" id="feat-toggle" type="button" aria-expanded="false">
+            <span class="feat-more" data-i18n="feat.more">展开全部功能</span>
+            <span class="feat-less" data-i18n="feat.less" hidden>收起</span>
+            <svg class="feat-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 界面预览 · 多端适配 ═══════════════ -->
+    <section class="section section-alt" id="screens">
+      <div class="container">
+        <p class="kicker" data-i18n="ui.kicker">界面预览</p>
+        <h2 class="section-title" data-i18n="ui.title">手机与平板，同一套 Material 3</h2>
+        <p class="section-desc" data-i18n="ui.desc">界面随窗口宽度自适应：手机用底部导航，平板自动切换为侧边栏，宽屏下排行榜还会展开「列表 + 详情」双栏。</p>
+
+        <div class="ui-tabs" role="tablist" aria-label="Device">
+          <button class="ui-tab is-active" id="tab-phone" role="tab" aria-selected="true" aria-controls="panel-phone" type="button" data-i18n="ui.tab.phone">手机</button>
+          <button class="ui-tab" id="tab-tablet" role="tab" aria-selected="false" aria-controls="panel-tablet" type="button" data-i18n="ui.tab.tablet">平板</button>
+        </div>
+
+        <!-- 手机面板 -->
+        <div class="ui-panel is-active" id="panel-phone" role="tabpanel" aria-labelledby="tab-phone">
+          <div class="ui-stage">
+            <div class="device device-phone ui-device">
+              <div class="device-screen ratio-phone" data-slot="phone-home" data-dim="1080×2340">
+                <div class="ghost ghost-phone" aria-hidden="true">
+                  <div class="gt-bar"></div>
+                  <div class="gt-masonry">
+                    <div class="gcol"><i class="gt h56 hue1"></i><i class="gt h34 hue3"></i><i class="gt h44 hue5"></i></div>
+                    <div class="gcol"><i class="gt h38 hue2"></i><i class="gt h52 hue4"></i><i class="gt h30 hue6"></i></div>
+                  </div>
+                  <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+                </div>
+                <img class="slot-img" src="assets/screens/phone-home.png" alt="" width="1080" height="2340" loading="lazy" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-home.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 1080×2340</span></span>
+              </div>
+            </div>
+            <ol class="ui-notes">
+              <li><span class="note-num">1</span><span data-i18n="ui.an.p1">底部导航 5 个 Tab：首页 / 作品 / 小说 / 关注 / 我的</span></li>
+              <li><span class="note-num">2</span><span data-i18n="ui.an.p2">瀑布流按原图比例显示，不裁剪</span></li>
+              <li><span class="note-num">3</span><span data-i18n="ui.an.p3">全屏查看器支持捏合缩放与逐帧动图播放</span></li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- 平板面板 -->
+        <div class="ui-panel" id="panel-tablet" role="tabpanel" aria-labelledby="tab-tablet" hidden>
+          <div class="ui-stage">
+            <div class="device device-tablet ui-device">
+              <div class="device-screen ratio-tablet" data-slot="tablet-ranking" data-dim="2560×1600">
+                <div class="ghost ghost-tablet" aria-hidden="true">
+                  <div class="gt-rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+                  <div class="gt-body">
+                    <div class="gt-bar"></div>
+                    <div class="gt-split">
+                      <div class="gt-list">
+                        <i class="gt h46 hue1"></i><i class="gt h30 hue2"></i><i class="gt h40 hue3"></i><i class="gt h36 hue5"></i>
+                      </div>
+                      <div class="gt-detail">
+                        <i class="gt-hero hue4"></i>
+                        <span class="gt-line w70"></span><span class="gt-line w50"></span>
+                        <span class="gt-bub"></span><span class="gt-bub gt-bub-me"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <img class="slot-img" src="assets/screens/tablet-ranking.png" alt="" width="2560" height="1600" loading="lazy" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/tablet-ranking.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 2560×1600</span></span>
+              </div>
+            </div>
+            <ol class="ui-notes">
+              <li><span class="note-num">1</span><span data-i18n="ui.an.t1">≥600dp：左侧 84dp NavigationRail 取代底部导航</span></li>
+              <li><span class="note-num">2</span><span data-i18n="ui.an.t2">≥704dp：排行榜展开「列表 + 详情 / 评论」双栏</span></li>
+              <li><span class="note-num">3</span><span data-i18n="ui.an.t3">正文限宽 760dp 居中，大屏不拉伸</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 下载 ═══════════════ -->
+    <section class="section" id="download">
+      <div class="container container-narrow">
+        <p class="kicker" data-i18n="dl.kicker">下载</p>
+        <h2 class="section-title" data-i18n="dl.title">获取最新版 APK</h2>
+        <p class="section-desc" data-i18n="dl.desc">安装包按 CPU 架构拆分以减小体积。不确定就选 arm64-v8a，绝大多数手机都是它。</p>
+
+        <div class="dl-card">
+          <div class="dl-head">
+            <div>
+              <p class="dl-ver"><span class="dl-ver-label" data-i18n="dl.ver.label">最新版本</span><strong data-release="version">最新版</strong></p>
+              <p class="dl-date"><span data-i18n="dl.date.label">发布于</span> <span data-release="date">—</span></p>
+            </div>
+            <a class="btn btn-ghost btn-sm" href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases" target="_blank" rel="noopener" data-i18n="dl.all">查看全部历史版本</a>
+          </div>
+
+          <div class="dl-grid">
+            <div class="dl-item">
+              <div class="dl-item-head">
+                <span class="dl-abi">arm64-v8a</span>
+                <span class="dl-badge" data-i18n="dl.badge.rec">推荐</span>
+              </div>
+              <p class="dl-item-desc" data-i18n="dl.abi.arm64.desc">2016 年后的绝大多数手机与平板</p>
+              <a class="btn btn-primary btn-block" href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases/latest" data-release-link="arm64">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span data-i18n="dl.cta">下载 APK</span>
+              </a>
+              <p class="dl-size"><span data-i18n="dl.size">大小</span> · <span data-release="size-arm64">见 Release</span></p>
+            </div>
+
+            <div class="dl-item">
+              <div class="dl-item-head">
+                <span class="dl-abi">armeabi-v7a</span>
+              </div>
+              <p class="dl-item-desc" data-i18n="dl.abi.v7a.desc">旧设备 · 32 位 ARM</p>
+              <a class="btn btn-outline btn-block" href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases/latest" data-release-link="v7a">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span data-i18n="dl.cta">下载 APK</span>
+              </a>
+              <p class="dl-size"><span data-i18n="dl.size">大小</span> · <span data-release="size-v7a">见 Release</span></p>
+            </div>
+          </div>
+
+          <details class="dl-which">
+            <summary data-i18n="dl.which.t">该选哪个？</summary>
+            <p data-i18n="dl.which.d">打开系统设置 → 关于手机，查看处理器信息：64 位（绝大多数机型）选 arm64-v8a；只能看到 32 位字样的老机器选 armeabi-v7a。架构不匹配时系统会提示「应用未安装」。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 安装方法 ═══════════════ -->
+    <section class="section section-alt" id="install">
+      <div class="container">
+        <p class="kicker" data-i18n="install.kicker">使用方法</p>
+        <h2 class="section-title" data-i18n="install.title">四步开始使用</h2>
+        <p class="section-desc" data-i18n="install.desc">全程约两分钟，无需任何额外配置。</p>
+
+        <ol class="steps">
+          <li class="step">
+            <span class="step-num" aria-hidden="true">1</span>
+            <div>
+              <h3 data-i18n="install.1.t">下载 APK</h3>
+              <p data-i18n="install.1.d">从上方选择对应架构的安装包，或到 GitHub Releases 页面下载。</p>
+            </div>
+          </li>
+          <li class="step">
+            <span class="step-num" aria-hidden="true">2</span>
+            <div>
+              <h3 data-i18n="install.2.t">允许安装未知应用</h3>
+              <p data-i18n="install.2.d">Android 8+ 首次安装会提示，需在系统设置中允许你的浏览器或文件管理器「安装未知应用」，属正常系统提示。</p>
+            </div>
+          </li>
+          <li class="step">
+            <span class="step-num" aria-hidden="true">3</span>
+            <div>
+              <h3 data-i18n="install.3.t">安装并打开</h3>
+              <p data-i18n="install.3.d">点击下载的 APK 完成安装。覆盖安装会保留历史、下载与阅读进度。</p>
+            </div>
+          </li>
+          <li class="step">
+            <span class="step-num" aria-hidden="true">4</span>
+            <div>
+              <h3 data-i18n="install.4.t">登录 pixiv 账号</h3>
+              <p data-i18n="install.4.d">首次启动引导登录，走 pixiv 官方 OAuth 授权，密码只在 pixiv 官方页面输入，本应用不经手。</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="notes-grid">
+          <div class="note-card">
+            <h4 data-i18n="install.note1.t">数据保存在哪？</h4>
+            <p data-i18n="install.note1.d">浏览历史、搜索记录、下载与阅读进度全部只存在本机数据库中，卸载应用即清空。</p>
+          </div>
+          <div class="note-card">
+            <h4 data-i18n="install.note2.t">如何更新？</h4>
+            <p data-i18n="install.note2.d">应用内「我的 → 检查更新」会读取 GitHub Releases；也可以直接下载新 APK 覆盖安装。</p>
+          </div>
+          <div class="note-card">
+            <h4 data-i18n="install.note3.t">系统要求</h4>
+            <p data-i18n="install.note3.d">Android 8.0（API 26）及以上；arm64-v8a 或 armeabi-v7a 设备；需能访问 pixiv 的网络环境。</p>
+          </div>
+        </div>
+
+        <details class="build">
+          <summary>
+            <span data-i18n="build.t">从源码构建</span>
+            <span class="build-req" data-i18n="build.d">需要 JDK 21 与 Android SDK（compileSdk 37）</span>
+          </summary>
+          <pre><code>git clone https://github.com/nichijoux/Pixiv-Reader-MD3.git
+cd Pixiv-Reader-MD3
+
+# Windows (PowerShell)
+.\gradlew.bat :app:assembleRelease -PversionName=dev -PversionCode=1
+
+# macOS / Linux
+./gradlew :app:assembleRelease -PversionName=dev -PversionCode=1
+
+# 产物位于 app/build/outputs/apk/release/</code></pre>
+        </details>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 常见问题 ═══════════════ -->
+    <section class="section" id="faq">
+      <div class="container container-narrow">
+        <p class="kicker" data-i18n="faq.kicker">常见问题</p>
+        <h2 class="section-title" data-i18n="faq.title">你可能想问</h2>
+
+        <div class="faq-list">
+          <details class="faq">
+            <summary data-i18n="faq.1.q">需要 pixiv 账号吗？</summary>
+            <p data-i18n="faq.1.a">需要。首次启动会引导登录，走 pixiv 官方 OAuth 授权（PKCE），密码只在 pixiv 官方页面输入，本应用不经手、不存储。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.2.q">使用第三方客户端会不会封号？</summary>
+            <p data-i18n="faq.2.a">本应用为非官方客户端，使用第三方客户端访问 pixiv 存在理论上的账号风险，请自行评估后使用。项目仅供学习交流，作者不对账号问题负责。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.3.q">我的数据安全吗？存在哪里？</summary>
+            <p data-i18n="faq.3.a">浏览历史、搜索记录、下载与阅读进度全部只存在本机 Room 数据库中，应用不上传、不收集任何数据，也没有任何统计 SDK。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.4.q">为什么只有 ARM 架构的 APK？</summary>
+            <p data-i18n="faq.4.a">Release 按 ABI 拆分以减小体积，覆盖 arm64-v8a 与 armeabi-v7a 两种架构，已覆盖 virtually 全部 Android 手机与平板；x86 设备与模拟器不在支持范围内。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.5.q">安装时提示「未知来源」怎么办？</summary>
+            <p data-i18n="faq.5.a">Android 8.0 起系统要求逐应用授权：在弹出的设置页中，允许你用来下载 APK 的浏览器或文件管理器「安装未知应用」，返回后重新安装即可。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.6.q">怎么更新到新版本？</summary>
+            <p data-i18n="faq.6.a">应用内「我的 → 检查更新」会读取 GitHub Releases 并展示更新说明；也可以直接到本页或 Releases 页下载新 APK 覆盖安装，本地数据全部保留。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.7.q">支持平板吗？</summary>
+            <p data-i18n="faq.7.a">支持。窗口宽度 ≥600dp 自动切换为左侧导航栏，≥704dp 排行榜展开「列表 + 详情 / 评论」双栏，正文限宽 760dp 居中，横竖屏均可。</p>
+          </details>
+          <details class="faq">
+            <summary data-i18n="faq.8.q">和 Pixiv-Shaft 是什么关系？</summary>
+            <p data-i18n="faq.8.a">没有从属关系。PixivReader 是独立项目，API 层参考并借鉴了开源项目 Pixiv-Shaft 与 pixiv-api-kotlin，均遵循 GPL-2.0，已在页脚致谢。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 更新内容 ═══════════════ -->
+    <section class="section section-alt" id="changelog">
+      <div class="container container-narrow">
+        <p class="kicker" data-i18n="log.kicker">更新内容</p>
+        <h2 class="section-title"><span data-i18n="log.prefix">v</span><span data-release="version-num">?</span><span data-i18n="log.title"> 更新了什么</span></h2>
+        <div class="log-card" data-release="changelog" aria-live="polite">
+          <p class="log-loading" data-i18n="log.loading">正在加载更新说明…</p>
+        </div>
+        <p class="log-more"><a href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases" target="_blank" rel="noopener" data-i18n="log.all">在 GitHub 查看完整更新日志 →</a></p>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 页脚 ═══════════════ -->
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-col footer-brand">
+          <p class="brand-name">PixivReader</p>
+          <p data-i18n="foot.license">基于 GPL-2.0 许可开源</p>
+          <p class="footer-dim" data-i18n="foot.built">使用原生 HTML / CSS / JS 构建 · 无跟踪</p>
+        </div>
+        <div class="footer-col">
+          <h5 data-i18n="foot.disclaimer.t">免责声明</h5>
+          <p class="footer-dim" data-i18n="foot.disclaimer.d">PixivReader 是非官方第三方客户端，与 pixiv 及 Pixiv Inc. 无任何关联。pixiv 名称与相关商标归其权利人所有。使用本应用产生的一切风险由使用者自行承担，仅供学习交流。</p>
+        </div>
+        <div class="footer-col">
+          <h5 data-i18n="foot.credits.t">致谢</h5>
+          <p class="footer-dim" data-i18n="foot.credits.d">API 层参考并借鉴了以下开源项目：</p>
+          <ul class="footer-links">
+            <li><a href="https://github.com/CeuiLiSA/Pixiv-Shaft" target="_blank" rel="noopener">Pixiv-Shaft</a></li>
+            <li><a href="https://github.com/Notsfsssf/pixiv-api" target="_blank" rel="noopener">pixiv-api-kotlin</a></li>
+          </ul>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script src="assets/app.js" defer></script>
+</body>
+</html>

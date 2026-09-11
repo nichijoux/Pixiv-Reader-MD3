@@ -6,24 +6,28 @@
 
 **English | [简体中文](./README.md)**
 
+> 🌐 **Release site**: <https://nichijoux.github.io/Pixiv-Reader-MD3/> — APK downloads, setup guide and phone/tablet screenshots.
+
 > ⚠️ This is an **unofficial** third-party client, not affiliated with Pixiv Inc. All illustrations, manga and novel works remain copyrighted by their respective creators or Pixiv. Use at your own risk regarding account security (e.g. Pixiv rate-limit/risk-control on third-party clients, OAuth login restrictions). Please comply with Pixiv's Terms of Service.
 
 ## Features
 
-- **Illustrations / Manga**: waterfall feed, artwork detail, pinch-to-zoom, ugoira (motion) playback, rankings (slide-to-switch sections + infinite pagination).
-- **Novels**: online reading, novel rankings, local **TXT / EPUB / Markdown** import & reading, export (PDF / TXT).
-- **Comments**: text comments + text emoji + pixiv stamps.
-- **Search**: illustration / novel search (shared query across tabs).
-- **History**: browsing history & search history.
-- **Downloads**: illustration / page downloads via WorkManager background tasks, progress tracking, completion notifications.
-- **Bookmarks / Favorites / Watchlist / Follows**.
-- **Personalization**: dark mode + dynamic color (Material 3), in-app **中文 / English** language switch.
+- **Illustrations / Manga**: waterfall feed, artwork detail, pinch-to-zoom, ugoira (motion) playback & export (**MP4 video / ZIP frame pack**), rankings (day / week / month / male / female / rookie / R-18 sections with slide-to-switch + infinite pagination).
+- **Novels**: online reading (reading-progress memory), novel rankings, local **TXT / EPUB / Markdown** import & reading, export (PDF / TXT).
+- **Discover / Ecosystem**: illustration & novel search with trending tags, pixivision features, illustrator / AI / era / wallpaper rankings; FANBOX / COMIC / DMs open in the system browser.
+- **Watchlist**: follow novel / manga series, series detail pages, watchlist management (novel / manga sections + inline unfollow).
+- **Comments**: text comments + text emoji + pixiv stamps; delete your own comments.
+- **History / Read Later / Blocking**: browsing & search history; long-press cards to add to read later (manager with artwork / novel sections and clear-all); long-press to block works (blurred card overlay + block manager).
+- **Downloads**: illustration / page downloads via WorkManager background tasks, progress tracking, completion notifications, offline queuing and retry.
+- **Bookmarks / Favorites / Follows**: bookmark editor supports public / private and tag editing.
+- **Personalization**: dark mode + dynamic color (Material 3), in-app **简体中文 / 繁體中文 / English** language switch, font scale.
+- **Misc**: home feed snapshot (instant cold start, offline browsing), in-app update check (GitHub Releases + rendered changelog), `pixiv://` deep links.
 
 ## Tech Stack
 
 | Layer | Choice |
 |---|---|
-| Language | Kotlin 2.1 |
+| Language | Kotlin 2.4 |
 | UI | Jetpack Compose (Material 3) |
 | Architecture | Single Activity + Compose Navigation, MVVM |
 | DI | Hilt |
@@ -37,7 +41,7 @@ Module dependency (hard constraint): `app → feature/* → core/ui → core/net
 
 ## Build
 
-- **Requirements**: Android 8.0 (API 26)+; JDK 21; Gradle 8.14.3 (wrapper).
+- **Requirements**: Android 8.0 (API 26)+; JDK 21; Gradle 9.7.1 (wrapper).
 - Command-line build (Windows, no Android Studio):
 
 ```powershell
@@ -61,7 +65,7 @@ Pushing a `v*` tag (e.g. `v1.2.3`) triggers GitHub Actions to build Release APKs
 
 ## Attribution
 
-- Inspired by **[Pixiv-Shaft](https://github.com/CeuiLiSA/Pixiv-Shaft) (MIT)** and the pixiv client ecosystem; parts of the API wrapper / login flow derive from or reference it.
+- Inspired by **[Pixiv-Shaft](https://github.com/CeuiLiSA/Pixiv-Shaft) (GPL-2.0)** and the pixiv client ecosystem; parts of the API wrapper / login flow derive from or reference it.
 - Third-party dependencies retain their own licenses: `lib:pixivapi` (vendored pixiv API wrapper, upstream source), `pixiv-login`, Room, MMKV, Coil, PDFBox, etc.
 
 ## License

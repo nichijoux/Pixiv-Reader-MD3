@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- 网页图标：与 APK 启动图标同源（app/src/main/res/drawable/ic_launcher_*.xml 转写） -->
+  <defs>
+    <!-- 背景：pixiv 渐变蓝（同 ic_launcher_background） -->
+    <linearGradient id="bg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39A9FF"/>
+      <stop offset="0.5" stop-color="#1685F5"/>
+      <stop offset="1" stop-color="#075EEA"/>
+    </linearGradient>
+    <!-- 左右书页渐变（同 ic_launcher_foreground） -->
+    <linearGradient id="pl" x1="120" y1="670" x2="120" y2="970" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCEEFF"/>
+    </linearGradient>
+    <linearGradient id="pr" x1="512" y1="850" x2="512" y2="970" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCEEFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="18" fill="url(#bg)"/>
+  <!-- 前景：1024 视口，整体 0.66 缩放落在安全区（同 foreground group），再按 108/1024 缩放 -->
+  <g transform="scale(0.10546875)">
+    <g transform="translate(512 512) scale(0.66) translate(-512 -512)">
+      <!-- 星光 -->
+      <path d="M810,180 L828,225 L873,243 L828,261 L810,306 L792,261 L747,243 L792,225 Z" fill="#FFFFFF" fill-opacity="0.9"/>
+      <path d="M220,470 L232,500 L262,512 L232,524 L220,554 L208,524 L178,512 L208,500 Z" fill="#FFFFFF" fill-opacity="0.8"/>
+      <!-- P 标识 -->
+      <path d="M370,260 V650 M370,270 C370,270 520,190 680,280 C790,345 750,510 620,535 C530,550 450,520 370,480"
+            fill="none" stroke="#FFFFFF" stroke-width="55" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- 书本底部阴影 -->
+      <path d="M512,835 m-360,0 a360,55 0 1,0 720,0 a360,55 0 1,0 -720,0" fill="#004FC7" fill-opacity="0.35"/>
+      <!-- 左右书页 + 书脊 + 翻页 -->
+      <path d="M120,670 C260,660 390,720 512,850 V970 C390,850 250,820 120,830 Z" fill="url(#pl)"/>
+      <path d="M512,850 C650,720 780,660 904,670 V830 C780,820 640,850 512,970 Z" fill="url(#pr)"/>
+      <path d="M512,850 C480,820 470,820 430,800 C460,860 480,900 512,970 C544,900 564,860 594,800 C554,820 544,820 512,850 Z" fill="#E8F4FF"/>
+      <path d="M620,840 C700,760 770,720 860,710 C790,760 720,820 650,900 Z" fill="#FFFFFF" fill-opacity="0.85"/>
+      <!-- 高光 -->
+      <path d="M110,680 C260,660 390,720 470,800" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-opacity="0.45"/>
+      <path d="M914,680 C760,660 630,720 550,800" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-opacity="0.45"/>
+    </g>
+  </g>
+</svg>
