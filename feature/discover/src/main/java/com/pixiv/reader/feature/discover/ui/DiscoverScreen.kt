@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.parse.PixivLinkType
 import com.pixiv.reader.core.common.parse.PixivUrlParser
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
 
@@ -43,9 +44,8 @@ fun DiscoverRoute(
     onOpenWallpaperRanking: () -> Unit = {},
     modifier: Modifier = Modifier,
     initialQuery: String? = null,
-    // 跨 Tab 标签搜索的预选类型：true=小说标签（搜小说），false/null=作品（搜插画）。
-    // 仅在 initialQuery 非空时生效
-    initialTypeIsNovel: Boolean? = null,
+    // 跨 Tab 标签搜索的预选类型（仅 initialQuery 非空时生效；null 不切换）
+    initialTagType: TagType? = null,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -81,7 +81,11 @@ fun DiscoverRoute(
     // 类型预选在搜索前切换（setType 会按类型归一匹配方式，hasSearched=false 时不触发重复搜索）
     LaunchedEffect(initialQuery) {
         if (!initialQuery.isNullOrBlank()) {
-            if (initialTypeIsNovel == true) viewModel.setType(SearchType.NOVEL)
+            when (initialTagType) {
+                TagType.NOVEL -> viewModel.setType(SearchType.NOVEL)
+                TagType.ILLUST -> viewModel.setType(SearchType.ILLUST)
+                null -> {}
+            }
             viewModel.onQueryChange(initialQuery)
             val link = PixivUrlParser.parse(initialQuery)
             when (link?.type) {

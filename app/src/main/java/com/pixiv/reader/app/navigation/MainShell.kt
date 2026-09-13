@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.pixiv.reader.app.R
+import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
@@ -64,14 +65,14 @@ private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
  * 跨 Tab 搜索启动载荷：关键词 + 预选搜索类型（novelTab 标签搜小说、illustTab 搜作品）。
  * DiscoverRoute 以 [initialQuery]/[initialType] 一次性消费。
  */
-data class SearchLaunch(val query: String, val isNovel: Boolean = false)
+data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST)
 
 /**
  * 登录后的主壳。
  * 自适应导航：手机 = 底部 NavigationBar；平板 = 左侧 NavigationRail。
  *
  * 内层 Tab 的跨 Tab 搜索：各 Tab 标签点击 → pendingSearch 缓存（[SearchLaunch]）→
- * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialType 消费（一次性）。
+ * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialTagType 消费（一次性）。
  * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道（默认搜作品）。
  *
  * @param onLogout 退出登录（外层清栈回登录页）
@@ -135,8 +136,8 @@ fun MainShell(
     /** 打开封面/头像全屏大图（系列 pane 封面点击） */
     onOpenCover: (String) -> Unit,
     initialSearch: String? = null,
-    // 初始搜索词是否为小说标签（排行榜小说页等深链通道；与 initialSearch 配套）
-    initialSearchIsNovel: Boolean? = null,
+    // 初始搜索词的标签类型（排行榜等深链通道；与 initialSearch 配套，null=不限）
+    initialSearchTagType: TagType? = null,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -168,16 +169,21 @@ fun MainShell(
         }
     }
 
-    /** 标签搜索便捷入口：缓存载荷并切到发现页（小说标签 isNovel=true 预选小说分类）。 */
-    fun launchTagSearch(tag: String, isNovel: Boolean = false) {
-        pendingSearch = SearchLaunch(tag, isNovel)
+    /**
+     * 标签搜索便捷入口：缓存载荷并切到发现页（发现页按 [tagType] 预选搜索分类）。
+     *
+     * @param tag 标签词
+     * @param tagType 标签内容类型（默认作品）
+     */
+    fun launchTagSearch(tag: String, tagType: TagType = TagType.ILLUST) {
+        pendingSearch = SearchLaunch(tag, tagType)
         navigateToTab("discover_tab")
     }
 
     // 顶层路由带 search 参数进入：切到发现页并搜索（排行榜深链携带类型标记）
     LaunchedEffect(initialSearch) {
         if (!initialSearch.isNullOrBlank()) {
-            pendingSearch = SearchLaunch(initialSearch, isNovel = initialSearchIsNovel == true)
+            pendingSearch = SearchLaunch(initialSearch, tagType = initialSearchTagType ?: TagType.ILLUST)
             navigateToTab("discover_tab")
         }
     }
@@ -233,7 +239,7 @@ fun MainShell(
                         onOpenSeries = onOpenSeries,
                         onOpenViewer = onOpenViewer,
                         // 关注页小说卡标签 → 搜小说
-                        onSearchTag = { tag -> launchTagSearch(tag, isNovel = true) },
+                        onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
                         // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
                         // （feature 间禁止依赖，关注页经此槽位复用；作品 pane 在 core:ui，关注页直用）
                         novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
@@ -263,7 +269,7 @@ fun MainShell(
                                 onOpenSeries = onOpenSeries,
                                 onOpenUser = onOpenUser,
                                 onOpenCover = onOpenCover,
-                                onSearchTag = { tag -> launchTagSearch(tag, isNovel = true) },
+                                onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
                                 viewModel = seriesVm,
                             )
                         },
@@ -292,7 +298,7 @@ fun MainShell(
                         onOpenEraRanking = onOpenEraRanking,
                         onOpenWallpaperRanking = onOpenWallpaperRanking,
                         initialQuery = launch?.query,
-                        initialTypeIsNovel = launch?.isNovel,
+                        initialTagType = launch?.tagType,
                         // hero：发现页搜索栏共享元素修饰（与首页搜索框同 key）
                         modifier = with(this@SharedTransitionLayout) {
                             Modifier.sharedBounds(
@@ -321,7 +327,7 @@ fun MainShell(
                         onOpenUser = onOpenUser,
                         onOpenNovelRanking = onOpenNovelRanking,
                         onOpenSeries = onOpenSeries,
-                        onSearchTag = { tag -> launchTagSearch(tag, isNovel = true) },
+                        onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
                         onOpenReader = onOpenReader,
                         onOpenCover = onOpenCover,
                     )
