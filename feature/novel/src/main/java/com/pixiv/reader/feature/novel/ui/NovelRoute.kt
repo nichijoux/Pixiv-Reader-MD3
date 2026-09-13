@@ -25,7 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -67,7 +67,7 @@ import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import kotlinx.coroutines.launch
 
 /**
- * 小说 Tab：推荐 / 关注 / 追更 三段页签（PrimaryScrollableTabRow，左右滑动切换）+ 推荐页排行榜入口 banner。
+ * 小说 Tab：推荐 / 关注 / 追更 三段页签（PrimaryTabRow 等宽铺满）+ 推荐页排行榜入口 banner。
  *
  * 顶部与漫画 Tab 一致：`Scaffold + TopAppBar`（自带状态栏 inset），actions 为排行榜入口。
  * 推荐页：排行榜入口 banner（列表头部，随滚动）+ 推荐流；关注页：关注用户的新小说流；追更页：追更小说流。
@@ -190,9 +190,9 @@ fun NovelRoute(
                 // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
                 AdaptiveContentBox(maxWidth = listMax) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // 类型页签：推荐 / 关注 / 追更（PrimaryScrollableTabRow，滑动切换；
+                        // 类型页签：推荐 / 关注 / 追更（PrimaryTabRow 等宽铺满，对齐排行页约定；
                         // 选中态跟 Pager 落页，点击反向滚页）
-                        PrimaryScrollableTabRow(
+                        PrimaryTabRow(
                             selectedTabIndex = pagerState.currentPage.coerceIn(0, 2),
                             containerColor = MaterialTheme.colorScheme.surface,
                         ) {
