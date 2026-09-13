@@ -117,6 +117,10 @@ fun MainShell(
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
     onOpenNovelRanking: () -> Unit,
+    /** 打开 FANBOX 原生首页（我的页生态入口，已登录 FANBOX 时） */
+    onOpenFanbox: () -> Unit,
+    /** 打开 FANBOX 内置网页（url, title）：登录引导 / 创作者主页等 */
+    onOpenFanboxWeb: (String, String) -> Unit,
     /** 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码） */
     onOpenViewer: (Long, Int) -> Unit,
     /** 打开小说阅读器（小说 pane「开始阅读」入口） */
@@ -307,6 +311,8 @@ fun MainShell(
                         onOpenBlocked = onOpenBlocked,
                         onOpenDownloads = onOpenDownloads,
                         onOpenUser = onOpenUser,
+                        onOpenFanbox = onOpenFanbox,
+                        onOpenFanboxWeb = onOpenFanboxWeb,
                     )
                 }
             }

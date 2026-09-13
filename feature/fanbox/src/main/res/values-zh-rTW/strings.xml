@@ -1,0 +1,41 @@
+<resources>
+    <!-- FANBOX 原生瀏覽（首頁 / 貼文詳情 / 內建網頁） -->
+    <string name="fanbox_title">FANBOX</string>
+    <string name="fanbox_cd_back">返回</string>
+
+    <!-- 首頁 -->
+    <string name="fanbox_tab_posts">投稿</string>
+    <string name="fanbox_tab_creators">推薦創作者</string>
+    <string name="fanbox_loading">載入中…</string>
+    <string name="fanbox_retry">點擊重試</string>
+    <string name="fanbox_empty_posts">暫無投稿</string>
+    <string name="fanbox_empty_creators">暫無推薦創作者</string>
+    <string name="fanbox_session_expired">FANBOX 登入已過期</string>
+    <string name="fanbox_session_expired_hint">在網頁中重新登入後返回即可</string>
+    <string name="fanbox_login_again">重新登入</string>
+    <string name="fanbox_fee_required">需 %1$d 日圓贊助</string>
+    <string name="fanbox_fee_free">免費</string>
+    <string name="fanbox_r18">R-18</string>
+    <string name="fanbox_supported">已支持</string>
+    <string name="fanbox_followed">已關注</string>
+    <string name="fanbox_restricted_badge">付費內容</string>
+
+    <!-- 貼文詳情 -->
+    <string name="fanbox_post_title">貼文詳情</string>
+    <string name="fanbox_open_in_web">在網頁中開啟</string>
+    <string name="fanbox_body_fallback">正文暫不可用，可在網頁中查看</string>
+    <string name="fanbox_restricted_title">此內容需要贊助解鎖</string>
+    <string name="fanbox_plans_title">贊助方案</string>
+    <string name="fanbox_plan_fee">%1$d 日圓/月</string>
+    <string name="fanbox_plan_join">加入方案</string>
+    <string name="fanbox_comments_title">留言（%1$d）</string>
+    <string name="fanbox_comments_locked">留言需要贊助後查看</string>
+    <string name="fanbox_comments_empty">暫無留言</string>
+    <string name="fanbox_file_badge">附件</string>
+    <string name="fanbox_embed_open">開啟嵌入內容</string>
+    <string name="fanbox_msg_login_done">登入成功，返回即可繼續</string>
+
+    <!-- 內建網頁 -->
+    <string name="fanbox_web_title">FANBOX</string>
+    <string name="fanbox_web_open_external">用系統瀏覽器開啟</string>
+</resources>

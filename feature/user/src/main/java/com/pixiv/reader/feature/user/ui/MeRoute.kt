@@ -47,6 +47,7 @@ import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
 
@@ -55,6 +56,9 @@ import com.pixiv.reader.feature.user.state.MeViewModel
  * ProfileHeader（头像/名称/@account/退出登录）+ Expressive 分组设置面板（导航行 / 外观 / 浏览 / 系统 / 关于）。
  * 数据驱动（SettingsCardItem + MeRow），Material 主题，自适应布局。
  * 各区块组件见 [MeAppearanceSection] / [MeBrowseSection] / [MeSystemSection] / [MeAboutSection]。
+ *
+ * @param onOpenFanbox 打开 FANBOX 原生首页（生态区 FANBOX 条目，已登录 FANBOX 时）
+ * @param onOpenFanboxWeb 打开 FANBOX 内置网页（url, title）：未登录登录引导 / 创作者主页等
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -68,6 +72,8 @@ fun MeRoute(
     onOpenBlocked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenFanbox: () -> Unit,
+    onOpenFanboxWeb: (String, String) -> Unit,
     viewModel: MeViewModel = hiltViewModel(),
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
@@ -162,15 +168,26 @@ fun MeRoute(
                     }
                 }
 
-                // ── pixiv 生态（COMIC / pixivision） ──
+                // ── pixiv 生态（FANBOX 原生 / COMIC / 私信 / pixivision） ──
                 SectionSpacer()
                 SectionTitle(stringResource(R.string.me_section_ecosystem))
+                val fanboxTitle = stringResource(R.string.me_fanbox_title)
                 val ecoItems = listOf(
                     SettingsCardItem(
                         Icons.Filled.FavoriteBorder,
-                        stringResource(R.string.me_fanbox_title),
+                        fanboxTitle,
                         stringResource(R.string.me_fanbox_desc),
-                        onClick = { viewModel.openEcosystemPage("https://www.fanbox.cc/") },
+                        // FANBOX 按登录态分流：已登录（cookie 含 FANBOXSESSID）进原生首页，
+                        // 否则进 App 内可见 WebView 登录（不走系统浏览器与网页 SSO 门控）
+                        onClick = {
+                            if (viewModel.hasFanboxSession()) {
+                                onOpenFanbox()
+                            } else {
+                                // 未登录直达 pixiv 账号登录页（returnTo 回 fanbox），
+                                // 移动版首页的登录入口藏在汉堡侧边栏且 WebView 内常点不开
+                                onOpenFanboxWeb(FanboxHeaderInterceptor.FANBOX_LOGIN_URL, fanboxTitle)
+                            }
+                        },
                     ),
                     SettingsCardItem(
                         Icons.Filled.AutoStories,

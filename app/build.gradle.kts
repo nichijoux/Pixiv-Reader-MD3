@@ -104,6 +104,7 @@ dependencies {
     implementation(project(":feature:manga"))
     implementation(project(":feature:follow"))
     implementation(project(":feature:onboarding"))
+    implementation(project(":feature:fanbox"))
 
     // 基础设施
     implementation(libs.androidx.core.ktx)

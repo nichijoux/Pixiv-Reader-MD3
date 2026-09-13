@@ -1,0 +1,41 @@
+<resources>
+    <!-- FANBOX native browsing (home / post detail / embedded web) -->
+    <string name="fanbox_title">FANBOX</string>
+    <string name="fanbox_cd_back">Back</string>
+
+    <!-- Home -->
+    <string name="fanbox_tab_posts">Posts</string>
+    <string name="fanbox_tab_creators">Recommended Creators</string>
+    <string name="fanbox_loading">Loading…</string>
+    <string name="fanbox_retry">Tap to retry</string>
+    <string name="fanbox_empty_posts">No posts yet</string>
+    <string name="fanbox_empty_creators">No recommended creators</string>
+    <string name="fanbox_session_expired">FANBOX session expired</string>
+    <string name="fanbox_session_expired_hint">Sign in again on the web page, then come back</string>
+    <string name="fanbox_login_again">Sign in again</string>
+    <string name="fanbox_fee_required">Requires ¥%1$d pledge</string>
+    <string name="fanbox_fee_free">Free</string>
+    <string name="fanbox_r18">R-18</string>
+    <string name="fanbox_supported">Supporting</string>
+    <string name="fanbox_followed">Following</string>
+    <string name="fanbox_restricted_badge">Paid content</string>
+
+    <!-- Post detail -->
+    <string name="fanbox_post_title">Post</string>
+    <string name="fanbox_open_in_web">Open on web</string>
+    <string name="fanbox_body_fallback">Content unavailable, open on web to view</string>
+    <string name="fanbox_restricted_title">This content requires a pledge</string>
+    <string name="fanbox_plans_title">Pledge Plans</string>
+    <string name="fanbox_plan_fee">¥%1$d/month</string>
+    <string name="fanbox_plan_join">Join plan</string>
+    <string name="fanbox_comments_title">Comments (%1$d)</string>
+    <string name="fanbox_comments_locked">Comments are for patrons only</string>
+    <string name="fanbox_comments_empty">No comments yet</string>
+    <string name="fanbox_file_badge">File</string>
+    <string name="fanbox_embed_open">Open embedded content</string>
+    <string name="fanbox_msg_login_done">Signed in, you can go back now</string>
+
+    <!-- Embedded web -->
+    <string name="fanbox_web_title">FANBOX</string>
+    <string name="fanbox_web_open_external">Open in browser</string>
+</resources>

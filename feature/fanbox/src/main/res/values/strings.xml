@@ -1,0 +1,41 @@
+<resources>
+    <!-- FANBOX 原生浏览（首页 / 帖子详情 / 内置网页） -->
+    <string name="fanbox_title">FANBOX</string>
+    <string name="fanbox_cd_back">返回</string>
+
+    <!-- 首页 -->
+    <string name="fanbox_tab_posts">投稿</string>
+    <string name="fanbox_tab_creators">推荐创作者</string>
+    <string name="fanbox_loading">加载中…</string>
+    <string name="fanbox_retry">点击重试</string>
+    <string name="fanbox_empty_posts">暂无投稿</string>
+    <string name="fanbox_empty_creators">暂无推荐创作者</string>
+    <string name="fanbox_session_expired">FANBOX 登录已过期</string>
+    <string name="fanbox_session_expired_hint">在网页中重新登录后返回即可</string>
+    <string name="fanbox_login_again">重新登录</string>
+    <string name="fanbox_fee_required">需 %1$d 日元赞助</string>
+    <string name="fanbox_fee_free">免费</string>
+    <string name="fanbox_r18">R-18</string>
+    <string name="fanbox_supported">已支持</string>
+    <string name="fanbox_followed">已关注</string>
+    <string name="fanbox_restricted_badge">付费内容</string>
+
+    <!-- 帖子详情 -->
+    <string name="fanbox_post_title">帖子详情</string>
+    <string name="fanbox_open_in_web">在网页中打开</string>
+    <string name="fanbox_body_fallback">正文暂不可用，可在网页中查看</string>
+    <string name="fanbox_restricted_title">此内容需要赞助解锁</string>
+    <string name="fanbox_plans_title">赞助方案</string>
+    <string name="fanbox_plan_fee">%1$d 日元/月</string>
+    <string name="fanbox_plan_join">加入方案</string>
+    <string name="fanbox_comments_title">评论（%1$d）</string>
+    <string name="fanbox_comments_locked">评论需要赞助后查看</string>
+    <string name="fanbox_comments_empty">暂无评论</string>
+    <string name="fanbox_file_badge">附件</string>
+    <string name="fanbox_embed_open">打开嵌入内容</string>
+    <string name="fanbox_msg_login_done">登录成功，返回即可继续</string>
+
+    <!-- 内置网页 -->
+    <string name="fanbox_web_title">FANBOX</string>
+    <string name="fanbox_web_open_external">用系统浏览器打开</string>
+</resources>

@@ -12,6 +12,7 @@ import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.feed.FeedSnapshotStore
+import com.pixiv.reader.core.network.fanbox.FanboxRepository
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.network.update.AppRelease
@@ -40,6 +41,7 @@ class MeViewModel @Inject constructor(
     private val userPreferences: UserPreferences,
     private val updateChecker: AppUpdateChecker,
     private val feedSnapshotStore: FeedSnapshotStore,
+    private val fanboxRepository: FanboxRepository,
 ) : MessageViewModel() {
 
     private val appContext: Context = context.applicationContext
@@ -51,14 +53,22 @@ class MeViewModel @Inject constructor(
     val ownUid: Long? get() = _user.value?.id
 
     /**
-     * 打开 pixiv 生态网页（FANBOX / COMIC / 私信消息页）。
+     * 是否已登录 FANBOX（WebView cookie 含 FANBOXSESSID）——生态区 FANBOX 条目分流用。
+     * 注意存在 ≠ 有效：过期后原生首页按 401 引导重登（FanboxHomeViewModel）。
+     *
+     * @return 已登录过 FANBOX 为 true
+     */
+    fun hasFanboxSession(): Boolean = fanboxRepository.hasSession()
+
+    /**
+     * 打开 pixiv 生态网页（COMIC / 私信消息页；FANBOX 已改走原生入口，不再经过本方法）。
      *
      * 首次点击（本会话未完成浏览器 SSO）时先在系统浏览器打开 pixiv 授权登录页：
      * 登录/SSO 完成后 pixiv 302 到 `pixiv://account/login` 自动唤起本 app，
      * 同时浏览器已获得网页登录态——再次点击同一入口即以登录态直达目标网页。
      * SSO 完成后的后续点击直接打开目标网页。
      *
-     * @param targetUrl 目标网页地址（fanbox.cc / comic.pixiv.net / message.php）
+     * @param targetUrl 目标网页地址（comic.pixiv.net / message.php）
      * @return 无返回值；SSO 提示经消息通道展示
      */
     fun openEcosystemPage(targetUrl: String) {

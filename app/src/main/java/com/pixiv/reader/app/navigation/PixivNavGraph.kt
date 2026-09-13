@@ -35,6 +35,9 @@ import com.pixiv.reader.feature.discover.ui.PixivisionRoute
 import com.pixiv.reader.feature.discover.ui.UserRankingRoute
 import com.pixiv.reader.feature.discover.ui.WallpaperRankingRoute
 import com.pixiv.reader.feature.illust.IllustDetailRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxHomeRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxPostRoute
+import com.pixiv.reader.feature.fanbox.ui.FanboxWebRoute
 import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
@@ -157,6 +160,15 @@ const val ROUTE_IMAGE_PREVIEW = "image_preview?url={url}&title={title}"
  * novelId 对应 LocalReaderStore 的存储键，正文经 `LocalReaderStore.consume()` 单次取走。
  */
 const val ROUTE_LOCAL_READER = "local_reader/{novelId}"
+
+/** FANBOX 原生首页（投稿流 + 推荐创作者；会话过期经可见 WebView 重登）。 */
+const val ROUTE_FANBOX_HOME = "fanbox_home"
+
+/** FANBOX 帖子详情（正文经无屏 WebView post.info，失败退 post.get 仅元数据）。 */
+const val ROUTE_FANBOX_POST = "fanbox_post/{postId}"
+
+/** FANBOX 内置网页（登录 / 创作者主页 / 方案页；仅放行 *.fanbox.cc，站外转系统浏览器）。 */
+const val ROUTE_FANBOX_WEB = "fanbox_web?url={url}&title={title}"
 
 /**
  * 应用根导航。
@@ -298,6 +310,14 @@ fun PixivNavGraph(
                 },
                 onOpenNovelRanking = {
                     navController.navigate(ROUTE_NOVEL_RANKING)
+                },
+                onOpenFanbox = {
+                    // 我的页 FANBOX 入口（已登录 FANBOX 进原生首页）
+                    navController.navigate(ROUTE_FANBOX_HOME)
+                },
+                onOpenFanboxWeb = { url, title ->
+                    // FANBOX 内置网页（登录引导 / 创作者主页等）
+                    navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
                 },
                 onOpenViewer = { id, page ->
                     // 全屏查看器：Tab 内详情 pane 图片点击（定位到指定页）
@@ -896,6 +916,51 @@ fun PixivNavGraph(
                 onOpenReader = { novelId ->
                     navController.navigate("reader/$novelId")
                 },
+            )
+        }
+        // FANBOX 原生首页：投稿流 + 推荐创作者（会话过期引导进网页登录）
+        composable(ROUTE_FANBOX_HOME) {
+            FanboxHomeRoute(
+                onBack = { navController.safeBack() },
+                onOpenPost = { postId ->
+                    navController.navigate("fanbox_post/$postId")
+                },
+                onOpenWeb = { url, title ->
+                    navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                },
+            )
+        }
+        // FANBOX 帖子详情：正文（post.info → post.get 兜底）+ 赞助方案 + 评论
+        composable(
+            route = ROUTE_FANBOX_POST,
+            arguments = listOf(navArgument("postId") { type = NavType.StringType }),
+        ) { _ ->
+            FanboxPostRoute(
+                onBack = { navController.safeBack() },
+                onOpenWeb = { url, title ->
+                    navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                },
+                onOpenImage = { url, title ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                },
+            )
+        }
+        // FANBOX 内置网页：登录 / 创作者主页 / 方案页（url/title 可选参数）
+        composable(
+            route = ROUTE_FANBOX_WEB,
+            arguments = listOf(
+                navArgument("url") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+                navArgument("title") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
+            FanboxWebRoute(
+                url = backStackEntry.arguments?.getString("url"),
+                title = backStackEntry.arguments?.getString("title"),
+                onBack = { navController.safeBack() },
             )
         }
     }
