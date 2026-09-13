@@ -53,8 +53,9 @@ class FanboxPostViewModel @Inject constructor(
     private val fanboxRepository: FanboxRepository,
 ) : MessageViewModel() {
 
-    /** 路由参数 postId。 */
-    val postId: String = savedStateHandle["postId"] ?: ""
+    /** 路由参数 postId（全屏路由初始化；平板 pane 经 [loadPost] 动态切换）。 */
+    var postId: String = savedStateHandle["postId"] ?: ""
+        private set
 
     private val _post = MutableStateFlow(FanboxPostState())
     val post: StateFlow<FanboxPostState> = _post.asStateFlow()
@@ -172,6 +173,19 @@ class FanboxPostViewModel @Inject constructor(
 
     /** 重试整页（详情 + 评论；方案随详情链路触发）。 */
     fun retry() {
+        viewModelScope.launch { loadPost() }
+        viewModelScope.launch { loadComments() }
+    }
+
+    /**
+     * pane 模式加载指定帖子（全屏路由经 SavedStateHandle 初始化，平板 pane 由首页驱动切换）。
+     * 切换目标时重置三路状态并重新拉取。
+     *
+     * @param newPostId 目标帖子 id
+     */
+    fun loadPost(newPostId: String) {
+        if (newPostId == postId && _post.value.post != null) return
+        postId = newPostId
         viewModelScope.launch { loadPost() }
         viewModelScope.launch { loadComments() }
     }

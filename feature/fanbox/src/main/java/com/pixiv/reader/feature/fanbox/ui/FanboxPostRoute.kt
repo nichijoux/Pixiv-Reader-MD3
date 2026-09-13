@@ -62,6 +62,9 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.fanbox.R
+import com.pixiv.reader.feature.fanbox.state.FanboxCommentsState
+import com.pixiv.reader.feature.fanbox.state.FanboxPlansState
+import com.pixiv.reader.feature.fanbox.state.FanboxPostState
 import com.pixiv.reader.feature.fanbox.state.FanboxPostViewModel
 import java.util.Locale
 
@@ -130,41 +133,76 @@ fun FanboxPostRoute(
         snackbarHost = { NotificationHost(notificationHost) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            when {
-                postState.isLoading -> LoadingBox()
-                postState.error != null -> ErrorBox(message = postState.error, onRetry = viewModel::retry)
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = Spacing.xl),
-                ) {
-                    postState.post?.let { post ->
-                        item(key = "header") { PostHeader(post = post, onOpenWeb = onOpenWeb) }
-                        item(key = "body_notice") { BodyNotice(postState = postState) }
+        FanboxPostContent(
+            postState = postState,
+            plansState = plansState,
+            commentsState = commentsState,
+            onRetry = viewModel::retry,
+            onOpenWeb = onOpenWeb,
+            onOpenImage = onOpenImage,
+            openLink = ::openLink,
+            modifier = Modifier.padding(padding),
+        )
+    }
+}
 
-                        postState.sections.forEachIndexed { index, section ->
-                            item(key = "section_$index") {
-                                SectionContent(
-                                    section = section,
-                                    onOpenImage = onOpenImage,
-                                    openLink = ::openLink,
-                                )
-                            }
-                        }
+/**
+ * 帖子详情内容块（不含 Scaffold/TopAppBar）：全屏路由与平板详情 pane 共用。
+ *
+ * @param postState 详情状态（元数据 + 正文段）
+ * @param plansState 赞助方案段状态
+ * @param commentsState 评论段状态
+ * @param onRetry 整页重试
+ * @param onOpenWeb 打开可见 WebView
+ * @param onOpenImage 打开全屏图片
+ * @param openLink 站内/站外链接统一路由
+ * @param modifier 外部传入的 Modifier（通常带 padding）
+ */
+@Composable
+internal fun FanboxPostContent(
+    postState: FanboxPostState,
+    plansState: FanboxPlansState,
+    commentsState: FanboxCommentsState,
+    onRetry: () -> Unit,
+    onOpenWeb: (String, String) -> Unit,
+    onOpenImage: (String, String) -> Unit,
+    openLink: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AdaptiveContentBox(modifier = modifier) {
+        when {
+            postState.isLoading -> LoadingBox()
+            postState.error != null -> ErrorBox(message = postState.error, onRetry = onRetry)
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = Spacing.xl),
+            ) {
+                postState.post?.let { post ->
+                    item(key = "header") { PostHeader(post = post, onOpenWeb = onOpenWeb) }
+                    item(key = "body_notice") { BodyNotice(postState = postState) }
 
-                        if (post.isRestricted) {
-                            item(key = "plans") {
-                                PlansSection(
-                                    state = plansState,
-                                    plansUrl = "${FanboxHeaderInterceptor.FANBOX_URL}@${post.creatorId.orEmpty()}/plans",
-                                    creatorName = post.user?.name.orEmpty(),
-                                    onOpenWeb = onOpenWeb,
-                                )
-                            }
+                    postState.sections.forEachIndexed { index, section ->
+                        item(key = "section_$index") {
+                            SectionContent(
+                                section = section,
+                                onOpenImage = onOpenImage,
+                                openLink = openLink,
+                            )
                         }
-                        item(key = "comments") {
-                            CommentsSection(state = commentsState)
+                    }
+
+                    if (post.isRestricted) {
+                        item(key = "plans") {
+                            PlansSection(
+                                state = plansState,
+                                plansUrl = "${FanboxHeaderInterceptor.FANBOX_URL}@${post.creatorId.orEmpty()}/plans",
+                                creatorName = post.user?.name.orEmpty(),
+                                onOpenWeb = onOpenWeb,
+                            )
                         }
+                    }
+                    item(key = "comments") {
+                        CommentsSection(state = commentsState)
                     }
                 }
             }
@@ -229,7 +267,7 @@ private fun PostHeader(post: FanboxPost, onOpenWeb: (String, String) -> Unit) {
 
 /** 正文前置提示：受限帖说明 / 元数据兜底说明 / 均正常则不渲染。 */
 @Composable
-private fun BodyNotice(postState: com.pixiv.reader.feature.fanbox.state.FanboxPostState) {
+private fun BodyNotice(postState: FanboxPostState) {
     val post = postState.post ?: return
     val message = when {
         post.isRestricted -> stringResource(R.string.fanbox_restricted_title)
@@ -487,7 +525,7 @@ private fun PlansSection(
 
 /** 评论段：锁定（赞助门槛）/ 加载 / 空 / 列表（楼中楼缩进）。 */
 @Composable
-private fun CommentsSection(state: com.pixiv.reader.feature.fanbox.state.FanboxCommentsState) {
+private fun CommentsSection(state: FanboxCommentsState) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.lg)) {
         Text(
             text = stringResource(R.string.fanbox_comments_title, state.items.sumOf { 1 + it.replies.orEmpty().size }),

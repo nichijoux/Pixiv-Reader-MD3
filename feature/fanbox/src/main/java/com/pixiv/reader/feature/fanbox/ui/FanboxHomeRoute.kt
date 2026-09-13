@@ -1,9 +1,13 @@
 package com.pixiv.reader.feature.fanbox.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -39,11 +43,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -63,14 +70,19 @@ import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.fanbox.R
 import com.pixiv.reader.feature.fanbox.state.FanboxCreatorsState
 import com.pixiv.reader.feature.fanbox.state.FanboxHomeViewModel
+import com.pixiv.reader.feature.fanbox.state.FanboxPostViewModel
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -87,10 +99,12 @@ private enum class FanboxHomeTab(@param:StringRes val labelRes: Int) {
  * 「投稿」流（触底翻页）与「推荐创作者」（单页，点击进创作者网页）。
  * 会话过期（401）时以「重新登录」引导替代普通错误态；从登录页返回本页时自动重试
  * （cookie 换新后无需手动点重试，仍 401 则继续展示过期引导）。
+ * 平板（内容区 ≥704dp）启用 Master-Detail：帖子卡点击右栏滑入详情 pane；手机退化为全屏路由。
  *
  * @param onBack 返回上一页
- * @param onOpenPost 打开帖子详情
+ * @param onOpenPost 打开帖子详情全屏路由（手机端 / pane 未启用时）
  * @param onOpenWeb 打开 App 内可见 WebView（url, title）
+ * @param onOpenImage 打开全屏图片预览（url, title）
  * @param viewModel 页面状态
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,6 +113,7 @@ fun FanboxHomeRoute(
     onBack: () -> Unit,
     onOpenPost: (String) -> Unit,
     onOpenWeb: (String, String) -> Unit,
+    onOpenImage: (String, String) -> Unit,
     viewModel: FanboxHomeViewModel = hiltViewModel(),
 ) {
     val posts by viewModel.postsPaged.items.collectAsStateWithLifecycle()
@@ -108,6 +123,11 @@ fun FanboxHomeRoute(
     val error by viewModel.postsPaged.error.collectAsStateWithLifecycle()
     val creators by viewModel.creators.collectAsStateWithLifecycle()
     val sessionExpired by viewModel.sessionExpired.collectAsStateWithLifecycle()
+
+    // Master-Detail：选中的帖子 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    var selectedPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
+    val detailPaneEnabled = isDetailPaneEnabled()
 
     val pagerState = rememberPagerState(pageCount = { FanboxHomeTab.entries.size })
     val scope = rememberCoroutineScope()
@@ -143,8 +163,15 @@ fun FanboxHomeRoute(
         snackbarHost = { NotificationHost(notificationHost) },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
-        AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            Column(modifier = Modifier.fillMaxSize()) {
+        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
+        ListDetailOverlay(
+            selected = selectedPostId,
+            onClose = { selectedPostId = null },
+            // 消费已应用的 padding，pane 内系统栏 inset 自适应
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+            listContent = { listMax ->
+                AdaptiveContentBox(maxWidth = listMax) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                 // tab 分段：点击反向滚页（选中态跟 Pager 落页）
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier
@@ -172,7 +199,10 @@ fun FanboxHomeRoute(
                             sessionExpired = sessionExpired,
                             onRetry = viewModel::retry,
                             onLoadMore = viewModel::loadMorePosts,
-                            onOpenPost = onOpenPost,
+                            // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                            onOpenPost = { id ->
+                                if (detailPaneEnabled) selectedPostId = id else onOpenPost(id)
+                            },
                             onLoginAgain = { onOpenWeb(FanboxHeaderInterceptor.FANBOX_LOGIN_URL, "") },
                         )
                         FanboxHomeTab.CREATORS -> CreatorsPage(
@@ -186,8 +216,79 @@ fun FanboxHomeRoute(
                     }
                 }
             }
+                }
+            },
+            detailPane = {
+                // 右侧详情 pane：内嵌 FanboxPostViewModel（同一 backstack entry 作用域）
+                val postVm: FanboxPostViewModel = hiltViewModel()
+                FanboxPostPane(
+                    selectedPostId = selectedPostId,
+                    onOpenWeb = onOpenWeb,
+                    onOpenImage = onOpenImage,
+                    viewModel = postVm,
+                )
+            },
+        )
+    }
+}
+
+/**
+ * 平板详情 pane：selectedId 为空显示占位，非空加载并渲染帖子详情。
+ * 内容复用 [FanboxPostContent]（全屏路由同款内容块）；WebView / 图片全屏经回调上抛宿主路由。
+ *
+ * @param selectedPostId 当前选中的帖子 id（null 显示占位）
+ * @param onOpenWeb 打开 App 内可见 WebView（url, title）
+ * @param onOpenImage 打开全屏图片预览（url, title）
+ * @param viewModel 帖子详情 VM（宿主提供的 backstack entry 作用域实例）
+ */
+@Composable
+private fun FanboxPostPane(
+    selectedPostId: String?,
+    onOpenWeb: (String, String) -> Unit,
+    onOpenImage: (String, String) -> Unit,
+    viewModel: FanboxPostViewModel,
+) {
+    val host = rememberNotificationHostState()
+    UiMessageEffect(viewModel.message, host)
+    // 选中变化 → 驱动 VM 加载对应帖子（全屏路由经 SavedStateHandle 取参，pane 手动驱动）
+    LaunchedEffect(selectedPostId) {
+        val id = selectedPostId
+        if (id != null && id != viewModel.postId) viewModel.loadPost(id)
+    }
+    if (selectedPostId == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.fanbox_pane_placeholder),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    val postState by viewModel.post.collectAsStateWithLifecycle()
+    val plansState by viewModel.plans.collectAsStateWithLifecycle()
+    val commentsState by viewModel.comments.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器。 */
+    fun openLink(url: String) {
+        val target = runCatching { Uri.parse(url).host }.getOrNull()
+        if (target == "fanbox.cc" || target?.endsWith(".fanbox.cc") == true) {
+            onOpenWeb(url, postState.post?.title.orEmpty())
+        } else {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         }
     }
+
+    FanboxPostContent(
+        postState = postState,
+        plansState = plansState,
+        commentsState = commentsState,
+        onRetry = viewModel::retry,
+        onOpenWeb = onOpenWeb,
+        onOpenImage = onOpenImage,
+        openLink = ::openLink,
+    )
 }
 
 /**

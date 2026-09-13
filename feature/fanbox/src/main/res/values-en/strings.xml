@@ -34,6 +34,7 @@
     <string name="fanbox_file_badge">File</string>
     <string name="fanbox_embed_open">Open embedded content</string>
     <string name="fanbox_msg_login_done">Signed in, you can go back now</string>
+    <string name="fanbox_pane_placeholder">Select a post to view details</string>
 
     <!-- Embedded web -->
     <string name="fanbox_web_title">FANBOX</string>

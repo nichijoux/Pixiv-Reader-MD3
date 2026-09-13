@@ -928,6 +928,9 @@ fun PixivNavGraph(
                 onOpenWeb = { url, title ->
                     navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
                 },
+                onOpenImage = { url, title ->
+                    navController.navigate("image_preview?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                },
             )
         }
         // FANBOX 帖子详情：正文（post.info → post.get 兜底）+ 赞助方案 + 评论

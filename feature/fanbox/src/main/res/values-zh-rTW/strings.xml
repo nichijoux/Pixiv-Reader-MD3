@@ -34,6 +34,7 @@
     <string name="fanbox_file_badge">附件</string>
     <string name="fanbox_embed_open">開啟嵌入內容</string>
     <string name="fanbox_msg_login_done">登入成功，返回即可繼續</string>
+    <string name="fanbox_pane_placeholder">選擇左側貼文查看詳情</string>
 
     <!-- 內建網頁 -->
     <string name="fanbox_web_title">FANBOX</string>
