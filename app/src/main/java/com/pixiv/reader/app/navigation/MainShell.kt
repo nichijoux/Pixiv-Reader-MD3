@@ -61,12 +61,18 @@ private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
 )
 
 /**
+ * 跨 Tab 搜索启动载荷：关键词 + 预选搜索类型（novelTab 标签搜小说、illustTab 搜作品）。
+ * DiscoverRoute 以 [initialQuery]/[initialType] 一次性消费。
+ */
+data class SearchLaunch(val query: String, val isNovel: Boolean = false)
+
+/**
  * 登录后的主壳。
  * 自适应导航：手机 = 底部 NavigationBar；平板 = 左侧 NavigationRail。
  *
- * 内层 Tab 的跨 Tab 搜索：NovelRoute 标签点击 → pendingSearch 缓存关键词 →
- * 切到 discover_tab 后 DiscoverRoute 以 initialQuery 消费（一次性）。
- * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道。
+ * 内层 Tab 的跨 Tab 搜索：各 Tab 标签点击 → pendingSearch 缓存（[SearchLaunch]）→
+ * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialType 消费（一次性）。
+ * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道（默认搜作品）。
  *
  * @param onLogout 退出登录（外层清栈回登录页）
  * @param onOpenIllust 打开作品详情（由外层导航处理，底部导航自动隐藏）
@@ -129,13 +135,15 @@ fun MainShell(
     /** 打开封面/头像全屏大图（系列 pane 封面点击） */
     onOpenCover: (String) -> Unit,
     initialSearch: String? = null,
+    // 初始搜索词是否为小说标签（排行榜小说页等深链通道；与 initialSearch 配套）
+    initialSearchIsNovel: Boolean? = null,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val tabs = rememberTabs()
-    // 待搜索关键词（小说 Tab / 顶层路由标签点击 → 切到发现页搜索）
-    var pendingSearch by remember { mutableStateOf<String?>(null) }
+    // 待搜索载荷（关键词 + 类型）：Tab 标签点击 / main?search 深链一次性消费
+    var pendingSearch by remember { mutableStateOf<SearchLaunch?>(null) }
 
     // 再次点击当前 Tab → 对应页面滚回顶部：每个 Tab 一个计数作为 key 下传，
     // 页面侧比较 key 变化才滚动（首次组合只记录不触发，避免带旧值进入页面误滚）
@@ -160,10 +168,16 @@ fun MainShell(
         }
     }
 
-    // 顶层路由带 search 参数进入：切到发现页并搜索
+    /** 标签搜索便捷入口：缓存载荷并切到发现页（小说标签 isNovel=true 预选小说分类）。 */
+    fun launchTagSearch(tag: String, isNovel: Boolean = false) {
+        pendingSearch = SearchLaunch(tag, isNovel)
+        navigateToTab("discover_tab")
+    }
+
+    // 顶层路由带 search 参数进入：切到发现页并搜索（排行榜深链携带类型标记）
     LaunchedEffect(initialSearch) {
         if (!initialSearch.isNullOrBlank()) {
-            pendingSearch = initialSearch
+            pendingSearch = SearchLaunch(initialSearch, isNovel = initialSearchIsNovel == true)
             navigateToTab("discover_tab")
         }
     }
@@ -196,10 +210,7 @@ fun MainShell(
                         onOpenSearch = {
                             navigateToTab("discover_tab")
                         },
-                        onSearchTag = { tag ->
-                            pendingSearch = tag
-                            navigateToTab("discover_tab")
-                        },
+                        onSearchTag = { tag -> launchTagSearch(tag) },
                         onOpenIllust = onOpenIllust,
                         onOpenUser = onOpenUser,
                         onOpenNotifications = onOpenNotifications,
@@ -221,6 +232,8 @@ fun MainShell(
                         onOpenUser = onOpenUser,
                         onOpenSeries = onOpenSeries,
                         onOpenViewer = onOpenViewer,
+                        // 关注页小说卡标签 → 搜小说
+                        onSearchTag = { tag -> launchTagSearch(tag, isNovel = true) },
                         // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
                         // （feature 间禁止依赖，关注页经此槽位复用；作品 pane 在 core:ui，关注页直用）
                         novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
@@ -250,10 +263,7 @@ fun MainShell(
                                 onOpenSeries = onOpenSeries,
                                 onOpenUser = onOpenUser,
                                 onOpenCover = onOpenCover,
-                                onSearchTag = { tag ->
-                                    pendingSearch = tag
-                                    navigateToTab("discover_tab")
-                                },
+                                onSearchTag = { tag -> launchTagSearch(tag, isNovel = true) },
                                 viewModel = seriesVm,
                             )
                         },
@@ -268,6 +278,9 @@ fun MainShell(
                     popEnterTransition = { fadeIn(tween(180)) },
                     popExitTransition = { fadeOut(tween(220)) },
                 ) {
+                    // 一次性消费跨 Tab 搜索载荷（先取出再置空，避免双重消费）
+                    val launch = pendingSearch
+                    pendingSearch = null
                     DiscoverRoute(
                         onOpenIllust = onOpenIllust,
                         onOpenNovel = onOpenNovel,
@@ -278,7 +291,8 @@ fun MainShell(
                         onOpenAiRanking = onOpenAiRanking,
                         onOpenEraRanking = onOpenEraRanking,
                         onOpenWallpaperRanking = onOpenWallpaperRanking,
-                        initialQuery = pendingSearch?.also { pendingSearch = null },
+                        initialQuery = launch?.query,
+                        initialTypeIsNovel = launch?.isNovel,
                         // hero：发现页搜索栏共享元素修饰（与首页搜索框同 key）
                         modifier = with(this@SharedTransitionLayout) {
                             Modifier.sharedBounds(
@@ -291,6 +305,7 @@ fun MainShell(
                 composable("manga_tab") {
                     MangaRoute(
                         reselectKey = tabReselectKeys["manga_tab"] ?: 0,
+                        onSearchTag = { tag -> launchTagSearch(tag) },
                         onOpenIllust = onOpenIllust,
                         onOpenMangaRanking = onOpenMangaRanking,
                         onOpenIllustRanking = onOpenIllustRanking,
@@ -306,10 +321,7 @@ fun MainShell(
                         onOpenUser = onOpenUser,
                         onOpenNovelRanking = onOpenNovelRanking,
                         onOpenSeries = onOpenSeries,
-                        onSearchTag = { tag ->
-                            pendingSearch = tag
-                            navigateToTab("discover_tab")
-                        },
+                        onSearchTag = { tag -> launchTagSearch(tag, isNovel = true) },
                         onOpenReader = onOpenReader,
                         onOpenCover = onOpenCover,
                     )

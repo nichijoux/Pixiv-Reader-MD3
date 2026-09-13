@@ -195,7 +195,7 @@ fun PixivNavGraph(
     val currentRoute = backStackEntry?.destination?.route
     val startRoutePattern =
         if (!onboardingComplete) ROUTE_ONBOARDING
-        else if (isLoggedIn) "main?search={search}"
+        else if (isLoggedIn) "main?search={search}&sn={sn}"
         else ROUTE_AUTH
     val activity = LocalContext.current as? Activity
     BackHandler(enabled = currentRoute == startRoutePattern) {
@@ -232,16 +232,20 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 主壳：携带 search 参数跨 Tab 搜索（发现页初始查询词）
+        // 主壳：携带 search 参数跨 Tab 搜索（发现页初始查询词；sn=1 表示小说标签）
         composable(
-            route = "main?search={search}",
+            route = "main?search={search}&sn={sn}",
             arguments = listOf(
                 navArgument("search") {
+                    type = NavType.StringType; nullable = true; defaultValue = null
+                },
+                navArgument("sn") {
                     type = NavType.StringType; nullable = true; defaultValue = null
                 },
             ),
         ) { backStackEntry ->
             val initialSearch = backStackEntry.arguments?.getString("search")
+            val initialIsNovel = backStackEntry.arguments?.getString("sn") == "1"
             MainShell(
                 onLogout = {
                     onLogout()
@@ -332,6 +336,7 @@ fun PixivNavGraph(
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 initialSearch = initialSearch,
+                initialSearchIsNovel = initialIsNovel,
             )
         }
         // 插画详情：全屏路由（隐藏底部导航），支持 pixiv://illust/{id} 深链
@@ -512,6 +517,7 @@ fun PixivNavGraph(
                     navController.navigate("user/$target")
                 },
                 onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                onNovelSearchTag = { tag -> navController.navigateTagSearch(tag, isNovel = true) },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
@@ -561,7 +567,8 @@ fun PixivNavGraph(
                         onOpenCover = { url ->
                             navController.navigate("image_preview?url=${Uri.encode(url)}")
                         },
-                        onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                        // 系列页签内的小说标签 → 搜小说
+                        onSearchTag = { tag -> navController.navigateTagSearch(tag, isNovel = true) },
                         viewModel = seriesVm,
                     )
                 },
@@ -600,8 +607,7 @@ fun PixivNavGraph(
             arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
         ) {
             NovelSeriesRoute(
-                onBack = { navController.safeBack() },
-                onOpenNovel = { novelId ->
+                onBack = { navController.safeBack() },                onOpenNovel = { novelId ->
                     navController.navigate("novel/$novelId")
                 },
                 onOpenCover = { url ->
@@ -610,7 +616,7 @@ fun PixivNavGraph(
                 onOpenUser = { target ->
                     navController.navigate("user/$target")
                 },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag, isNovel = true) },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
@@ -676,6 +682,7 @@ fun PixivNavGraph(
                     navController.navigate("novel_series/$seriesId")
                 },
                 onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                onNovelSearchTag = { tag -> navController.navigateTagSearch(tag, isNovel = true) },
             )
         }
         // 追更列表（小说 / 漫画分段；小说卡开系列详情页，漫画卡开最新一话）
@@ -909,7 +916,7 @@ fun PixivNavGraph(
                     navController.navigate("user/$userId")
                 },
                 // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                onSearchTag = { tag -> navController.navigateTagSearch(tag, isNovel = true) },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")
                 },
@@ -992,8 +999,17 @@ private fun NavHostController.safeBack() {
  * @param tag 搜索标签词（内部 Uri 编码）
  * @return 无返回值
  */
-private fun NavHostController.navigateTagSearch(tag: String) {
-    navigate("main?search=${Uri.encode(tag)}") {
+/**
+ * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词重建 main 壳，
+ * 清栈到旧 main（inclusive）+ launchSingleTop，避免旧 main 残留在栈底。
+ *
+ * @param tag 搜索标签词（内部 Uri 编码）
+ * @param isNovel 是否为小说标签（true → 发现页预选小说分类）
+ * @return 无返回值
+ */
+private fun NavHostController.navigateTagSearch(tag: String, isNovel: Boolean = false) {
+    val sn = if (isNovel) "&sn=1" else ""
+    navigate("main?search=${Uri.encode(tag)}$sn") {
         popUpTo(ROUTE_MAIN) { inclusive = true }
         launchSingleTop = true
     }

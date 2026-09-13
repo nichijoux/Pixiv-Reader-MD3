@@ -19,6 +19,7 @@ import com.pixiv.reader.core.common.parse.PixivLinkType
 import com.pixiv.reader.core.common.parse.PixivUrlParser
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
+import com.pixiv.reader.feature.discover.state.SearchType
 
 /**
  * 发现页搜索：热门 + 历史 → 联想 → 结果（TabRow + HorizontalPager 滑动切换插画/小说/用户）。
@@ -42,6 +43,9 @@ fun DiscoverRoute(
     onOpenWallpaperRanking: () -> Unit = {},
     modifier: Modifier = Modifier,
     initialQuery: String? = null,
+    // 跨 Tab 标签搜索的预选类型：true=小说标签（搜小说），false/null=作品（搜插画）。
+    // 仅在 initialQuery 非空时生效
+    initialTypeIsNovel: Boolean? = null,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -73,9 +77,11 @@ fun DiscoverRoute(
         }
     }
 
-    // 跨 Tab 标签搜索：从别处带关键词进入则自动搜索；携带 pixiv 链接则直接跳详情
+    // 跨 Tab 标签搜索：从别处带关键词进入则自动搜索；携带 pixiv 链接则直接跳详情。
+    // 类型预选在搜索前切换（setType 会按类型归一匹配方式，hasSearched=false 时不触发重复搜索）
     LaunchedEffect(initialQuery) {
         if (!initialQuery.isNullOrBlank()) {
+            if (initialTypeIsNovel == true) viewModel.setType(SearchType.NOVEL)
             viewModel.onQueryChange(initialQuery)
             val link = PixivUrlParser.parse(initialQuery)
             when (link?.type) {

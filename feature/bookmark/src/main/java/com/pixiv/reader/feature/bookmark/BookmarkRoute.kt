@@ -65,6 +65,8 @@ fun BookmarkRoute(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
+    // 小说分区标签点击（搜小说类型）；空则复用 [onSearchTag]
+    onNovelSearchTag: ((String) -> Unit)? = null,
     viewModel: BookmarkViewModel = hiltViewModel(),
 ) {
     val type by viewModel.type.collectAsStateWithLifecycle()
@@ -158,7 +160,7 @@ fun BookmarkRoute(
                             onOpenUser = onOpenUser,
                             onOpenSeries = onOpenSeries,
                             onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
-                            onTagClick = onSearchTag,
+                            onTagClick = onNovelSearchTag ?: onSearchTag,
                             onLoadMore = viewModel::loadMore,
                         )
                         null -> {}

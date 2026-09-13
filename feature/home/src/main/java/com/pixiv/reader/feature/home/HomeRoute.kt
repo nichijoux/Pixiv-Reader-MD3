@@ -166,11 +166,13 @@ fun HomeRoute(
                                 viewModel, onOpenIllust, onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
                                 scrollToTopKey = reselectKey,
+                                onSearchTag = onSearchTag,
                             )
                             HomeTab.FOLLOW -> FollowContent(
                                 viewModel, onOpenIllust, onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
                                 scrollToTopKey = reselectKey,
+                                onSearchTag = onSearchTag,
                             )
                         }
                     }
@@ -217,6 +219,7 @@ private fun RecommendContent(
     onOpenUser: (Long) -> Unit,
     onSelectIllust: (Long) -> Unit,
     scrollToTopKey: Int = 0,
+    onSearchTag: (String) -> Unit = {},
 ) {
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
@@ -250,6 +253,7 @@ private fun RecommendContent(
                 isLoadingMore = isLoadingMore,
                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                 onOpenUser = onOpenUser,
+                onTagClick = onSearchTag,
                 scrollToTopKey = scrollToTopKey,
             )
         }
@@ -264,6 +268,7 @@ private fun FollowContent(
     onOpenUser: (Long) -> Unit,
     onSelectIllust: (Long) -> Unit,
     scrollToTopKey: Int = 0,
+    onSearchTag: (String) -> Unit = {},
 ) {
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
@@ -297,6 +302,7 @@ private fun FollowContent(
                 isLoadingMore = isLoadingMore,
                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                 onOpenUser = onOpenUser,
+                onTagClick = onSearchTag,
                 scrollToTopKey = scrollToTopKey,
             )
         }

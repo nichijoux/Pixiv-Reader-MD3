@@ -30,6 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,6 +105,8 @@ fun IllustCard(
     coverHeight: Dp = 150.dp,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
     onOpenAuthor: () -> Unit = {},
+    // 标签点击 → 跳发现页搜索该标签；null 不展示标签行（兼容瀑布流密度）
+    onTagClick: ((String) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
     progress: Float? = null,
     failed: Boolean = false,
@@ -299,6 +305,36 @@ fun IllustCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+            // 标签行（紧凑文本式，最多 3 个 + "+N"）：仅调用方提供 [onTagClick] 时展示，
+            // 每个标签独立可点 → 跳发现页搜索该标签（作品类型）
+            val tagNames = illust.tags.orEmpty().mapNotNull { it.name }.filter { it.isNotBlank() }
+            if (onTagClick != null && tagNames.isNotEmpty()) {
+                val click = onTagClick
+                val annotated = buildAnnotatedString {
+                    tagNames.take(3).forEachIndexed { i, tag ->
+                        if (i > 0) append("  ")
+                        val start = length
+                        append("#$tag")
+                        addLink(
+                            LinkAnnotation.Clickable(
+                                tag,
+                                TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary)),
+                                linkInteractionListener = { click(tag) },
+                            ),
+                            start,
+                            length,
+                        )
+                    }
+                    if (tagNames.size > 3) append("  +${tagNames.size - 3}")
+                }
+                Text(
+                    text = annotated,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
             }
         }
         }

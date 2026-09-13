@@ -71,6 +71,7 @@ internal fun FollowFeed(
     hasError: Boolean,
     isCompact: Boolean,
     scrollToTopKey: Int = 0,
+    onSearchTag: (String) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onOpenIllust: (Long) -> Unit,
@@ -101,6 +102,7 @@ internal fun FollowFeed(
                 items = items,
                 isLoadingMore = isLoadingMore,
                 scrollToTopKey = scrollToTopKey,
+                onSearchTag = onSearchTag,
                 onLoadMore = onLoadMore,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
@@ -114,6 +116,7 @@ internal fun FollowFeed(
                 items = items,
                 isLoadingMore = isLoadingMore,
                 scrollToTopKey = scrollToTopKey,
+                onSearchTag = onSearchTag,
                 onLoadMore = onLoadMore,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
@@ -132,6 +135,7 @@ private fun FollowFeedList(
     items: List<FollowFeedItem>,
     isLoadingMore: Boolean,
     scrollToTopKey: Int = 0,
+    onSearchTag: (String) -> Unit,
     onLoadMore: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
@@ -164,6 +168,7 @@ private fun FollowFeedList(
         lazyItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
+                onSearchTag = onSearchTag,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
                 onOpenUser = onOpenUser,
@@ -184,6 +189,7 @@ private fun FollowFeedGrid(
     items: List<FollowFeedItem>,
     isLoadingMore: Boolean,
     scrollToTopKey: Int = 0,
+    onSearchTag: (String) -> Unit,
     onLoadMore: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
@@ -219,6 +225,7 @@ private fun FollowFeedGrid(
             FollowFeedItemCard(
                 item = item,
                 modifier = Modifier.fillMaxWidth(),
+                onSearchTag = onSearchTag,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
                 onOpenUser = onOpenUser,
@@ -307,6 +314,7 @@ private fun FollowFeedListSkeleton() {
 private fun FollowFeedItemCard(
     item: FollowFeedItem,
     modifier: Modifier = Modifier,
+    onSearchTag: (String) -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -321,6 +329,7 @@ private fun FollowFeedItemCard(
                 illust = illust,
                 onClick = { onOpenIllust(illust.id) },
                 modifier = modifier,
+                onTagClick = onSearchTag,
                 onToggleFavorite = { fav -> onToggleIllustFavorite(illust.id, fav) },
                 onOpenAuthor = { illust.user?.id?.let(onOpenUser) },
             )
@@ -335,7 +344,7 @@ private fun FollowFeedItemCard(
                 coverWidth = 88.dp,
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> onToggleNovelFavorite(novel.id, fav) },
-                onTagClick = {},
+                onTagClick = onSearchTag,
                 onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
                 modifier = modifier,
             )

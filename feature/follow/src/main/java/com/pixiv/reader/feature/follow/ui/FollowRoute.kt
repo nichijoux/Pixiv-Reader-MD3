@@ -92,6 +92,8 @@ fun FollowRoute(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
+    // 小说卡标签点击 → 搜小说（主壳注入）
+    onSearchTag: (String) -> Unit = {},
     novelDetailPane: @Composable (
         selectedId: Long?,
         novelViewModel: NovelViewModel,
@@ -250,6 +252,7 @@ fun FollowRoute(
                                             hasError = feedError,
                                             isCompact = isCompact,
                                             scrollToTopKey = reselectKey,
+                                            onSearchTag = onSearchTag,
                                             onLoadMore = viewModel::loadMoreFeed,
                                             onRetry = viewModel::retry,
                                             // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转

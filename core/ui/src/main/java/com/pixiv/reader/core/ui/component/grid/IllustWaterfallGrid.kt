@@ -69,6 +69,8 @@ fun IllustWaterfallGrid(
     minColumnWidth: Dp = 160.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
     onOpenUser: ((Long) -> Unit)? = null,
+    // 作品标签点击 → 跳发现页搜索该标签；null 卡片不展示标签行
+    onTagClick: ((String) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
     header: (@Composable () -> Unit)? = null,
     scrollToTopKey: Int = 0,
@@ -108,6 +110,7 @@ fun IllustWaterfallGrid(
                 onOpenAuthor = onOpenUser?.let { cb ->
                     { illust.user?.id?.let(cb); }
                 } ?: {},
+                onTagClick = onTagClick,
                 ugoiraLoader = ugoiraLoader,
                 modifier = Modifier.fillMaxWidth(),
             )

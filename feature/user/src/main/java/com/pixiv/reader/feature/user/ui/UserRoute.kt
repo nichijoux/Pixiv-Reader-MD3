@@ -107,6 +107,8 @@ fun UserRoute(
     onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
+    // 小说分区标签点击（搜小说类型）；空则复用 [onSearchTag]
+    onNovelSearchTag: ((String) -> Unit)? = null,
     onOpenSeries: (Long) -> Unit,
     onOpenMangaSeries: (Long) -> Unit,
     onOpenUserBookmarks: () -> Unit,
@@ -370,7 +372,7 @@ fun UserRoute(
                                             if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
                                         },
                                         onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
-                                        onTagClick = onSearchTag,
+                                        onTagClick = onNovelSearchTag ?: onSearchTag,
                                         onRetry = viewModel::load,
                                         onLoadMore = viewModel::loadMore,
                                     )

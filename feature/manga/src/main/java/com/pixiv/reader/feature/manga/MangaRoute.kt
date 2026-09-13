@@ -80,6 +80,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 @Composable
 fun MangaRoute(
     reselectKey: Int = 0,
+    onSearchTag: (String) -> Unit = {},
     onOpenIllust: (Long) -> Unit,
     onOpenMangaRanking: () -> Unit,
     onOpenIllustRanking: () -> Unit,
@@ -220,6 +221,7 @@ fun MangaRoute(
                                 },
                                 onOpenUser = onOpenUser,
                                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                                onTagClick = onSearchTag,
                                 scrollToTopKey = reselectKey,
                             )
                             MangaContentType.ILLUST -> MangaContentList(
@@ -240,6 +242,7 @@ fun MangaRoute(
                                 },
                                 onOpenUser = onOpenUser,
                                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                                onTagClick = onSearchTag,
                                 scrollToTopKey = reselectKey,
                             )
                             MangaContentType.UGOIRA -> MangaContentList(
@@ -255,6 +258,7 @@ fun MangaRoute(
                                 },
                                 onOpenUser = onOpenUser,
                                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                                onTagClick = onSearchTag,
                                 scrollToTopKey = reselectKey,
                             )
                         }
@@ -327,6 +331,7 @@ private fun MangaContentList(
     onOpenUser: (Long) -> Unit,
     onToggleFavorite: (Long, Boolean) -> Unit,
     ugoiraLoader: UgoiraLoader? = null,
+    onTagClick: ((String) -> Unit)? = null,
     scrollToTopKey: Int = 0,
 ) {
     val items by paged.items.collectAsStateWithLifecycle()
@@ -368,6 +373,7 @@ private fun MangaContentList(
             ugoiraLoader = ugoiraLoader,
             // 排行榜入口 banner 作为网格头部（仅漫画/插画类型，随列表滚动/下拉）
             header = rankingBanner,
+            onTagClick = onTagClick,
             scrollToTopKey = scrollToTopKey,
         )
     }
