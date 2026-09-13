@@ -85,8 +85,12 @@ fun NovelDetailRoute(
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
     val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
-    // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
-    val isPrivateBookmark = isBookmarked && editorRestrict == PixivConstants.RESTRICT_PRIVATE
+    // 收藏三态（已收藏且为私密 → PRIVATE；底部收藏按钮图标与文案随之切换）
+    val bookmarkPrivacy = when {
+        !isBookmarked -> BookmarkPrivacy.NONE
+        editorRestrict == PixivConstants.RESTRICT_PRIVATE -> BookmarkPrivacy.PRIVATE
+        else -> BookmarkPrivacy.PUBLIC
+    }
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     val notificationHostState = rememberNotificationHostState()
@@ -142,14 +146,13 @@ fun NovelDetailRoute(
             if (actionNovel != null) {
                 NovelActionBar(
                     seriesId = actionNovel.series?.id,
-                    isBookmarked = isBookmarked,
+                    privacy = bookmarkPrivacy,
                     isBookmarking = isBookmarking,
                     isWatchlisted = isWatchlisted,
                     isWatchlisting = isWatchlisting,
                     downloading = downloading,
                     onBookmark = viewModel::toggleBookmark,
                     onBookmarkLongClick = viewModel.bookmarkEditor::open,
-                    isPrivateBookmark = isPrivateBookmark,
                     onWatchlist = viewModel::toggleWatchlist,
                     onDownload = { showDownloadDialog = true },
                     onComments = { onOpenComments(actionNovel.id) },

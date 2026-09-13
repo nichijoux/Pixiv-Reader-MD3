@@ -34,10 +34,10 @@ data class SearchFilters(
     val durationBucket: String? = null,
     val startDate: String? = null,    // YYYY-MM-DD —— 与 durationBucket 互斥
     val endDate: String? = null,      // YYYY-MM-DD
-    /** AI 作品三档：0 全部 / 1 仅人绘（search_ai_type=1）/ 2 仅看 AI（search_ai_type=0 + 客户端按 ai_type==2 过滤） */
-    val aiType: Int = 0,
-    /** R18 三档（对齐 Shaft）：0 全部 / 1 仅安全（x_restrict<=0）/ 2 仅 R18（x_restrict>0），客户端过滤 */
-    val r18Mode: Int = 0,
+    /** AI 作品三档（wire 为 UserPreferences 持久化值；请求映射见 DiscoverViewModel） */
+    val aiType: AiFilter = AiFilter.ALL,
+    /** R18 三档（对齐 Shaft；wire 同为持久化值，客户端过滤） */
+    val r18Mode: R18Filter = R18Filter.ALL,
     /** 长宽比（仅插画，官方值 landscape/portrait/square；null=所有） */
     val ratioPattern: String? = null,
     /** 分辨率档位（仅插画）：Above3000 / Between1000And2999 / Below1000；null=全部清晰度 */
@@ -52,3 +52,41 @@ data class SearchFilters(
     val isOriginalOnly: Boolean? = null,
     val isReplaceableOnly: Boolean? = null,
 )
+
+/**
+ * AI 作品筛选三档（[wire] 为 UserPreferences 持久化值；请求映射见 DiscoverViewModel.search）。
+ */
+enum class AiFilter(val wire: Int) {
+    ALL(0),
+    HUMAN_ONLY(1),
+    AI_ONLY(2);
+
+    companion object {
+        /**
+         * 从持久化 wire 值解析。
+         *
+         * @param wire 持久化值（未知值回退 [ALL]）
+         * @return 解析结果（永不失败）
+         */
+        fun fromWire(wire: Int): AiFilter = entries.firstOrNull { it.wire == wire } ?: ALL
+    }
+}
+
+/**
+ * R18 筛选三档（对齐 Shaft；[wire] 同为持久化值，过滤在客户端按 x_restrict 执行）。
+ */
+enum class R18Filter(val wire: Int) {
+    ALL(0),
+    SAFE_ONLY(1),
+    R18_ONLY(2);
+
+    companion object {
+        /**
+         * 从持久化 wire 值解析。
+         *
+         * @param wire 持久化值（未知值回退 [ALL]）
+         * @return 解析结果（永不失败）
+         */
+        fun fromWire(wire: Int): R18Filter = entries.firstOrNull { it.wire == wire } ?: ALL
+    }
+}

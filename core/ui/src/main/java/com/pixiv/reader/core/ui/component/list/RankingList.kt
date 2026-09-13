@@ -38,7 +38,9 @@ import com.pixiv.reader.core.common.ui.RankingModeInfo
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.FeedPhase
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
@@ -262,15 +264,15 @@ private fun <T> RankingPage(
     itemContent: @Composable (T, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    when {
-        isLoading && items.isEmpty() -> LoadingBox(modifier)
-        error != null && items.isEmpty() -> ErrorBox(
+    when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty(), hasError = error != null)) {
+        FeedPhase.LOADING -> LoadingBox(modifier)
+        FeedPhase.ERROR -> ErrorBox(
             message = error,
             onRetry = { onRetry(modeValue) },
             modifier = modifier,
         )
-        items.isEmpty() -> EmptyBox(emptyText, modifier)
-        else -> {
+        FeedPhase.EMPTY -> EmptyBox(emptyText, modifier)
+        FeedPhase.CONTENT -> {
             // 保留真实排名：rank 取该项在原始 items 中的位置 + 1（即榜单真实名次）。
             // 过滤只隐藏不匹配项，不改变其余项排名——封面左上角显示的是其在榜单中的真实名次。
             val visibleIndexed = items.withIndex().filter { (_, item) ->

@@ -167,7 +167,7 @@ class DiscoverViewModel @Inject constructor(
                 userPreferences.setSearchFilterTarget(value.searchTarget)
                 userPreferences.setSearchFilterBookmarkMin(value.bookmarkNumMin ?: 0)
                 userPreferences.setSearchFilterKeywordUsers(value.keywordUsersBucket ?: 0)
-                userPreferences.setSearchFilterAiType(value.aiType)
+                userPreferences.setSearchFilterAiType(value.aiType.wire)
             }
         }
     }
@@ -180,7 +180,7 @@ class DiscoverViewModel @Inject constructor(
                 .getOrDefault("partial_match_for_tags")
             val bookmarkMin = runCatching { userPreferences.searchFilterBookmarkMin.first() }.getOrDefault(0)
             val keywordUsers = runCatching { userPreferences.searchFilterKeywordUsers.first() }.getOrDefault(0)
-            val aiType = runCatching { userPreferences.searchFilterAiType.first() }.getOrDefault(0)
+            val aiType = AiFilter.fromWire(runCatching { userPreferences.searchFilterAiType.first() }.getOrDefault(0))
             // 恢复的匹配方式按当前类型归一（持久化可能来自另一类型，跨类型值会 400）
             val allowed = if (type.value == SearchType.NOVEL) NOVEL_TARGETS else ILLUST_TARGETS
             filters.value = SearchFilters(
@@ -240,7 +240,7 @@ class DiscoverViewModel @Inject constructor(
             ?.takeUnless { it == "partial_match_for_tags" }
         // 官方 search_ai_type 只有 0/1（对齐 Pixiv-Shaft）：「仅人绘」发 1；「全部」「仅看 AI」都发 0——
         // 「仅看 AI」由客户端按真实 ai_type==2 过滤
-        val searchAiType = if (f.aiType == 1) 1 else 0
+        val searchAiType = if (f.aiType == AiFilter.HUMAN_ONLY) 1 else 0
         // 投稿期间相对档当场算 today−N（每次搜索重算，跨午夜自动跟随）；bucket 为空回落自定义起止
         val computed = durationRange(f.durationBucket)
         val startDate = computed?.first ?: f.startDate
@@ -276,14 +276,14 @@ class DiscoverViewModel @Inject constructor(
                             )
                             // 客户端过滤：仅看 AI（illust_ai_type==2）+ R18 档（x_restrict）
                             resp.copy(illusts = resp.illusts.filter {
-                                (f.aiType != 2 || it.illust_ai_type == 2) &&
+                                (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
                                     r18Accept(it.x_restrict, f.r18Mode)
                             })
                         },
                         fetchNext = { url ->
                             val resp = pixivRepository.api.getNextIllusts(url)
                             resp.copy(illusts = resp.illusts.filter {
-                                (f.aiType != 2 || it.illust_ai_type == 2) &&
+                                (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
                                     r18Accept(it.x_restrict, f.r18Mode)
                             })
                         },
@@ -317,14 +317,14 @@ class DiscoverViewModel @Inject constructor(
                             )
                             // 客户端过滤：仅看 AI（novel_ai_type==2）+ R18 档（x_restrict）
                             resp.copy(novels = resp.novels.filter {
-                                (f.aiType != 2 || it.novel_ai_type == 2) &&
+                                (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
                                     r18Accept(it.x_restrict, f.r18Mode)
                             })
                         },
                         fetchNext = { url ->
                             val resp = pixivRepository.api.getNextNovels(url)
                             resp.copy(novels = resp.novels.filter {
-                                (f.aiType != 2 || it.novel_ai_type == 2) &&
+                                (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
                                     r18Accept(it.x_restrict, f.r18Mode)
                             })
                         },
@@ -365,7 +365,7 @@ class DiscoverViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _popularIllusts.value = it.illusts.take(10).filter { i ->
-                    (f.aiType != 2 || i.illust_ai_type == 2) && r18Accept(i.x_restrict, f.r18Mode)
+                    (f.aiType != AiFilter.AI_ONLY || i.illust_ai_type == 2) && r18Accept(i.x_restrict, f.r18Mode)
                 }
             }.onFailure { _popularIllusts.value = emptyList() }
             SearchType.NOVEL -> runCatching {
@@ -377,7 +377,7 @@ class DiscoverViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _popularNovels.value = it.novels.take(10).filter { n ->
-                    (f.aiType != 2 || n.novel_ai_type == 2) && r18Accept(n.x_restrict, f.r18Mode)
+                    (f.aiType != AiFilter.AI_ONLY || n.novel_ai_type == 2) && r18Accept(n.x_restrict, f.r18Mode)
                 }
             }.onFailure { _popularNovels.value = emptyList() }
             SearchType.USER -> Unit
@@ -420,9 +420,9 @@ class DiscoverViewModel @Inject constructor(
     }
 
     /** R18 三档客户端过滤（对齐 Shaft：按 x_restrict，缺失当全年龄 0）。 */
-    private fun r18Accept(xRestrict: Int?, mode: Int): Boolean = when (mode) {
-        1 -> (xRestrict ?: 0) <= 0
-        2 -> (xRestrict ?: 0) > 0
+    private fun r18Accept(xRestrict: Int?, mode: R18Filter): Boolean = when (mode) {
+        R18Filter.SAFE_ONLY -> (xRestrict ?: 0) <= 0
+        R18Filter.R18_ONLY -> (xRestrict ?: 0) > 0
         else -> true
     }
 

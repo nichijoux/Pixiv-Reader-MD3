@@ -21,6 +21,27 @@ import kotlinx.coroutines.launch
 private const val TAG = "CommentList"
 
 /**
+ * 评论目标类型（novel / illust 两套 API 路径与响应结构）。
+ *
+ * @property apiValue app-api 评论接口的 type 路径参数值（全小写）
+ */
+enum class CommentTarget(val apiValue: String) {
+    ILLUST("illust"),
+    NOVEL("novel");
+
+    companion object {
+        /**
+         * 从路由/存储的原始字符串解析。
+         *
+         * @param raw 原始值（"illust" / "novel"；null 或未知值回退 [NOVEL]）
+         * @return 解析结果（永不失败）
+         */
+        fun from(raw: String?): CommentTarget =
+            if (raw == ILLUST.apiValue) ILLUST else NOVEL
+    }
+}
+
+/**
  * 通用评论列表 ViewModel（novel / illust 共用，core:network 下沉，
  * 供 feature:comments 评论页与 feature:manga 排行右栏评论区共用）。
  *
@@ -35,16 +56,17 @@ class CommentListViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
 ) : MessageViewModel() {
 
-    private val type: String = savedStateHandle.get<String>("type") ?: "novel"
+    private var target: CommentTarget = CommentTarget.from(savedStateHandle.get<String>("type"))
     private val targetId: Long = savedStateHandle.get<Long>("targetId") ?: 0L
 
-    val isIllust: Boolean get() = type == "illust"
+    /** 当前评论目标类型（pane 场景经 [switchTo] 切换）。 */
+    val commentTarget: CommentTarget get() = _type.value
 
     /** 当前登录用户 id（未登录为 0），用于判定「自己的评论」以暴露删除入口。 */
     val ownUid: Long get() = sessionRepository.session.loggedInUid
 
     /** 当前评论目标（可变：排行右栏随选中项切换；无路由参数时初始为 novel/0 待 [switchTo]）。 */
-    private val _type = MutableStateFlow(type)
+    private val _type = MutableStateFlow(target)
     private val _targetId = MutableStateFlow(targetId)
 
     /** 分页评论列表（数据驻留 VM，触底加载更多）。 */
@@ -79,7 +101,7 @@ class CommentListViewModel @Inject constructor(
     init {
         // 评论路由必有 type+targetId；排行右栏（无路由参数）不预载，等 switchTo
         if (targetId > 0L) {
-            Log.d(TAG, "打开评论区 type=$type targetId=$targetId")
+            Log.d(TAG, "打开评论区 type=$target targetId=$targetId")
             loadComments()
             loadStamps()
         }
@@ -89,9 +111,9 @@ class CommentListViewModel @Inject constructor(
      * 切换到另一作品的评论区（排行右栏选中项变化时调用）。
      * 清空旧评论状态后重新加载。
      */
-    fun switchTo(newType: String, newTargetId: Long) {
+    fun switchTo(newTarget: CommentTarget, newTargetId: Long) {
         if (newTargetId == _targetId.value || newTargetId <= 0L) return
-        _type.value = newType
+        _type.value = newTarget
         _targetId.value = newTargetId
         commentsPaged.reset()
         _replies.value = emptyMap()
@@ -117,7 +139,7 @@ class CommentListViewModel @Inject constructor(
             Log.d(TAG, "加载评论 type=${_type.value} targetId=${_targetId.value}")
             commentsPaged.loadInitial(
                 fetch = {
-                    if (_type.value == "illust") {
+                    if (_type.value == CommentTarget.ILLUST) {
                         pixivRepository.api.getIllustComments(_targetId.value)
                     } else {
                         pixivRepository.api.getNovelComments(_targetId.value)
@@ -149,7 +171,7 @@ class CommentListViewModel @Inject constructor(
         if (_replies.value.containsKey(parentId) || _repliesLoading.value.contains(parentId)) return
         viewModelScope.launch {
             _repliesLoading.value += parentId
-            runCatching { pixivRepository.api.getCommentReplies(_type.value, parentId) }
+            runCatching { pixivRepository.api.getCommentReplies(_type.value.apiValue, parentId) }
                 .onSuccess { resp ->
                     _replies.value += (parentId to resp.comments)
                 }
@@ -188,7 +210,7 @@ class CommentListViewModel @Inject constructor(
             runCatching {
                 val commentText = if (stampId != null) "" else text
                 val parentId = _replyTarget.value?.id
-                if (_type.value == "illust") {
+                if (_type.value == CommentTarget.ILLUST) {
                     pixivRepository.api.postIllustComment(
                         illustId = _targetId.value,
                         comment = commentText,
@@ -237,7 +259,7 @@ class CommentListViewModel @Inject constructor(
      */
     fun deleteComment(commentId: Long) {
         viewModelScope.launch {
-            runCatching { pixivRepository.api.deleteComment(_type.value, commentId) }
+            runCatching { pixivRepository.api.deleteComment(_type.value.apiValue, commentId) }
                 .onSuccess {
                     sendMessage(UiMessage(CoreR.string.core_comment_deleted))
                     loadComments()

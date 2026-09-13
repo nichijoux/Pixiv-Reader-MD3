@@ -32,16 +32,31 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
+ * 卡片屏蔽遮罩三态（[CardBlockGesture.state] 取值）。
+ *
+ * @property isMasked 是否处于「屏蔽且未临时显示」态（true 时封面模糊 + 遮罩）
+ * @property isRevealed 是否处于「已临时显示但仍被屏蔽」态（true 时调用方显示已屏蔽角标）
+ */
+enum class CardMaskState(val isMasked: Boolean, val isRevealed: Boolean) {
+    /** 未被屏蔽：正常渲染。 */
+    NONE(false, false),
+
+    /** 屏蔽且未临时显示：封面模糊 + 全遮罩。 */
+    MASKED(true, false),
+
+    /** 屏蔽且已临时显示：内容可见 + 常驻「已屏蔽」角标。 */
+    REVEALED(false, true),
+}
+
+/**
  * 卡片就地屏蔽手势包装结果（[rememberCardBlockGesture] 产物，三卡共用）。
  *
- * @param isBlocked 是否处于「屏蔽且未临时显示」态（true 时封面模糊 + 遮罩）
- * @param isRevealed 是否处于「已临时显示但仍被屏蔽」态（true 时卡片可见，调用方应显示已屏蔽角标提醒）
+ * @param state 屏蔽遮罩三态（NONE / MASKED / REVEALED；互斥，勿用双 Boolean 表达）
  * @param onClick 包装后的点击回调（屏蔽态首次点击改为临时显示，不透传原点击）
  * @param onLongClick 包装后的长按回调（弹全局动作菜单；无宿主环境为 null）
  */
 class CardBlockGesture(
-    val isBlocked: Boolean,
-    val isRevealed: Boolean,
+    val state: CardMaskState,
     val onClick: () -> Unit,
     val onLongClick: (() -> Unit)?,
 )
@@ -81,13 +96,17 @@ internal fun rememberCardBlockGesture(
     var revealed by remember(targetType, targetId) { mutableStateOf(false) }
     val rawBlocked = controller != null && controller.keyOf(targetType, targetId) in blockedIds
     // 取消屏蔽后再次屏蔽：重置临时显示标记——否则上一次点开留下的 revealed=true
-    // 会让 isBlocked 恒为 false，重新屏蔽的遮罩永不恢复
+    // 会让遮罩永不恢复（历史 bug，枚举化前三态被拆成双 Boolean 时的踩坑记录）
     LaunchedEffect(rawBlocked) {
         if (rawBlocked) revealed = false
     }
+    val state = when {
+        !rawBlocked -> CardMaskState.NONE
+        revealed -> CardMaskState.REVEALED
+        else -> CardMaskState.MASKED
+    }
     return CardBlockGesture(
-        isBlocked = rawBlocked && !revealed,
-        isRevealed = rawBlocked && revealed,
+        state = state,
         onClick = {
             // 非屏蔽态透传原点击；屏蔽态首次点击 = 临时显示；
             // 已临时显示（仍在屏蔽名单）→ 提示无法打开详情，避免卡片静默无响应

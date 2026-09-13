@@ -47,6 +47,8 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.emoji.buildEmojiAnnotatedString
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.FeedPhase
+import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
@@ -133,21 +135,21 @@ fun CommentListContent(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when {
+        when (feedPhase(loading = isLoading, hasItems = comments.isNotEmpty(), hasError = error != null)) {
             // 首载：骨架占位（仿评论行布局），替代全屏转圈
-            isLoading && comments.isEmpty() -> CommentSkeleton(Modifier.fillMaxSize())
-            error != null && comments.isEmpty() -> ErrorBox(
+            FeedPhase.LOADING -> CommentSkeleton(Modifier.fillMaxSize())
+            FeedPhase.ERROR -> ErrorBox(
                 message = error,
                 onRetry = onLoadComments,
                 modifier = Modifier.fillMaxSize(),
             )
 
-            comments.isEmpty() -> EmptyBox(
+            FeedPhase.EMPTY -> EmptyBox(
                 text = emptyText,
                 modifier = Modifier.fillMaxSize(),
             )
 
-            else -> LazyColumn(
+            FeedPhase.CONTENT -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 // 底部留出输入条高度（约 72dp），最后一条评论可滚到输入条上方不被遮挡

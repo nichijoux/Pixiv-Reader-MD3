@@ -78,7 +78,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  *   进程缓存补齐，点击打开系列详情页），漫画段与作品入口同款瀑布流。
  *
  * @param onBack 返回
- * @param initialType 初始类型（"novel" / "manga"，路由参数；manga = 作品页入口纯漫画形态）
+ * @param initialType 初始分段（MANGA = 作品页入口纯漫画形态）
  * @param onOpenSeries 打开小说系列详情（小说卡片点击，对齐小说 Tab 追更页签）
  * @param onOpenIllust 打开插画/漫画详情（漫画卡片点击 = 最新一话）
  */
@@ -86,7 +86,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 @Composable
 fun WatchlistRoute(
     onBack: () -> Unit,
-    initialType: String = WatchlistViewModel.TYPE_NOVEL,
+    initialType: WatchlistSegment = WatchlistSegment.NOVEL,
     onOpenSeries: (Long) -> Unit,
     onOpenIllust: (Long) -> Unit = {},
     viewModel: WatchlistViewModel = hiltViewModel(),
@@ -101,7 +101,7 @@ fun WatchlistRoute(
     val hasMore by paged.hasMore.collectAsStateWithLifecycle()
     val error by paged.error.collectAsStateWithLifecycle()
     // 作品页入口（type=manga）：单分段纯漫画形态
-    val mangaOnly = initialType == WatchlistViewModel.TYPE_MANGA
+    val mangaOnly = initialType == WatchlistSegment.MANGA
     val notificationHostState = rememberNotificationHostState()
 
     // 行内取消追更失败等消息提示

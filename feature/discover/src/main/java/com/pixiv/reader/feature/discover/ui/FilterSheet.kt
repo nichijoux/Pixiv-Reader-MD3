@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
 import com.pixiv.api.model.SearchLangOption
 import com.pixiv.reader.feature.discover.R
+import com.pixiv.reader.feature.discover.state.AiFilter
+import com.pixiv.reader.feature.discover.state.R18Filter
 import com.pixiv.reader.feature.discover.state.SearchFilters
 import com.pixiv.reader.feature.discover.state.SearchType
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -130,7 +132,7 @@ internal fun FilterBottomSheet(
             when (p) {
                 null -> MainFilterContent(
                     draft = draft,
-                    isNovel = isNovel,
+                    type = type,
                     isPremium = isPremium,
                     toolOptions = toolOptions,
                     genreOptions = genreOptions,
@@ -196,9 +198,9 @@ internal fun FilterBottomSheet(
 
                 Picker.Other -> OtherPickerContent(
                     draft = draft,
-                    isNovel = isNovel,
+                    type = type,
                     toolOptions = toolOptions,
-                    onConfirm = { ai, r18, originalOnly, replaceableOnly, tool ->
+                    onConfirm = { ai: AiFilter, r18: R18Filter, originalOnly: Boolean?, replaceableOnly: Boolean?, tool: String? ->
                         draft = draft.copy(
                             aiType = ai, r18Mode = r18,
                             isOriginalOnly = originalOnly, isReplaceableOnly = replaceableOnly,
@@ -220,7 +222,7 @@ internal fun FilterBottomSheet(
 @Composable
 private fun MainFilterContent(
     draft: SearchFilters,
-    isNovel: Boolean,
+    type: SearchType,
     isPremium: Boolean,
     toolOptions: List<String>,
     genreOptions: List<SearchGenreOption>,
@@ -232,10 +234,11 @@ private fun MainFilterContent(
     onDismiss: () -> Unit,
 ) {
     // 行点击后弹出的 picker 参数全部在此（composable 上下文）预先算好
+    val isNovel = type == SearchType.NOVEL
     val targetPicker = Picker.Simple(
         stringResource(R.string.filter_row_target),
-        targetLabels(isNovel),
-        targetLabels(isNovel).indexOf(targetSummary(draft.searchTarget)).coerceAtLeast(0),
+        targetLabels(type),
+        targetLabels(type).indexOf(targetSummary(draft.searchTarget)).coerceAtLeast(0),
         onSelect = { idx -> onDraftChange(draft.copy(searchTarget = (if (isNovel) NOVEL_TARGETS else ILLUST_TARGETS)[idx])) },
     )
     val sortPicker = Picker.Simple(
@@ -418,7 +421,7 @@ private fun MainFilterContent(
             }
             // C 段：其他条件
             FilterCard {
-                FilterRow(stringResource(R.string.filter_row_other), otherSummary(draft, isNovel)) {
+                FilterRow(stringResource(R.string.filter_row_other), otherSummary(draft, type)) {
                     onOpenPicker(Picker.Other)
                 }
             }
@@ -813,17 +816,18 @@ private fun handleBodyLengthPick(
 @Composable
 private fun OtherPickerContent(
     draft: SearchFilters,
-    isNovel: Boolean,
+    type: SearchType,
     toolOptions: List<String>,
-    onConfirm: (ai: Int, r18: Int, originalOnly: Boolean?, replaceableOnly: Boolean?, tool: String?) -> Unit,
+    onConfirm: (ai: AiFilter, r18: R18Filter, originalOnly: Boolean?, replaceableOnly: Boolean?, tool: String?) -> Unit,
     onClose: () -> Unit,
 ) {
-    var ai by remember { mutableIntStateOf(draft.aiType) }
-    var r18 by remember { mutableIntStateOf(draft.r18Mode) }
+    var ai by remember { mutableStateOf(draft.aiType) }
+    var r18 by remember { mutableStateOf(draft.r18Mode) }
     var originalOnly by remember { mutableStateOf(draft.isOriginalOnly == true) }
     var replaceableOnly by remember { mutableStateOf(draft.isReplaceableOnly == true) }
     var tool by remember { mutableStateOf(draft.tool) }
     var showToolPicker by remember { mutableStateOf(false) }
+    val isNovel = type == SearchType.NOVEL
 
     if (showToolPicker) {
         val labels = listOf(stringResource(R.string.filter_all_summary)) + toolOptions
@@ -871,9 +875,9 @@ private fun OtherPickerContent(
             SectionTitle(stringResource(R.string.filter_ai))
             // AI 三选一（Expressive 分段选择，与全 App 设置面板口径一致）
             val aiOptions = listOf(
-                0 to R.string.filter_all,
-                1 to R.string.filter_ai_human,
-                2 to R.string.filter_ai_only,
+                AiFilter.ALL to R.string.filter_all,
+                AiFilter.HUMAN_ONLY to R.string.filter_ai_human,
+                AiFilter.AI_ONLY to R.string.filter_ai_only,
             )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 aiOptions.forEachIndexed { index, (value, labelRes) ->
@@ -924,9 +928,9 @@ private fun OtherPickerContent(
             SectionTitle(stringResource(R.string.filter_r18))
             // R18 三选一（Expressive 分段选择）
             val r18Options = listOf(
-                0 to R.string.filter_all,
-                1 to R.string.filter_r18_safe,
-                2 to R.string.filter_r18_only,
+                R18Filter.ALL to R.string.filter_all,
+                R18Filter.SAFE_ONLY to R.string.filter_r18_safe,
+                R18Filter.R18_ONLY to R.string.filter_r18_only,
             )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 r18Options.forEachIndexed { index, (value, labelRes) ->
@@ -1002,8 +1006,9 @@ private fun targetSummary(target: String): String = stringResource(
 )
 
 @Composable
-private fun targetLabels(isNovel: Boolean): List<String> =
-    (if (isNovel) NOVEL_TARGETS else ILLUST_TARGETS).map {
+private fun targetLabels(type: SearchType): List<String> {
+    val isNovel = type == SearchType.NOVEL
+    return (if (isNovel) NOVEL_TARGETS else ILLUST_TARGETS).map {
         stringResource(
             when (it) {
                 "exact_match_for_tags" -> R.string.filter_match_exact
@@ -1014,6 +1019,7 @@ private fun targetLabels(isNovel: Boolean): List<String> =
             },
         )
     }
+}
 
 @Composable
 private fun sortSummary(sort: String): String = stringResource(
@@ -1151,15 +1157,18 @@ private fun rangeText(min: Int?, max: Int?): String = when {
 }
 
 @Composable
-private fun otherSummary(f: SearchFilters, isNovel: Boolean): String {
+private fun otherSummary(f: SearchFilters, type: SearchType): String {
+    val isNovel = type == SearchType.NOVEL
     val flags = mutableListOf<String>()
     when (f.aiType) {
-        1 -> flags += stringResource(R.string.filter_ai_human)
-        2 -> flags += stringResource(R.string.filter_ai_only)
+        AiFilter.HUMAN_ONLY -> flags += stringResource(R.string.filter_ai_human)
+        AiFilter.AI_ONLY -> flags += stringResource(R.string.filter_ai_only)
+        else -> {}
     }
     when (f.r18Mode) {
-        1 -> flags += stringResource(R.string.filter_r18_safe)
-        2 -> flags += stringResource(R.string.filter_r18_only)
+        R18Filter.SAFE_ONLY -> flags += stringResource(R.string.filter_r18_safe)
+        R18Filter.R18_ONLY -> flags += stringResource(R.string.filter_r18_only)
+        else -> {}
     }
     if (!isNovel && f.tool != null) flags += f.tool
     if (isNovel && f.isOriginalOnly == true) flags += stringResource(R.string.filter_original_only)

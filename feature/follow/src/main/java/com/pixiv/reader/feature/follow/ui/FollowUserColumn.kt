@@ -1,6 +1,7 @@
 package com.pixiv.reader.feature.follow.ui
 
 import androidx.compose.foundation.background
+import com.pixiv.reader.core.common.ui.WindowSizeClass
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,10 +55,11 @@ internal fun FollowUserColumn(
     users: List<UserPreview>,
     selectedUserId: Long?,
     isLoadingUsers: Boolean,
-    isCompact: Boolean,
+    windowClass: WindowSizeClass,
     onSelectUser: (Long?) -> Unit,
     onLoadMoreUsers: () -> Unit,
 ) {
+    val isCompact = windowClass == WindowSizeClass.Compact
     val columnWidth = if (isCompact) 60.dp else 168.dp
     Box(
         modifier = Modifier
@@ -79,7 +81,7 @@ internal fun FollowUserColumn(
                     avatarUrl = null,
                     isAll = true,
                     selected = selectedUserId == null,
-                    isCompact = isCompact,
+                    windowClass = windowClass,
                     onClick = { onSelectUser(null) },
                 )
             }
@@ -90,7 +92,7 @@ internal fun FollowUserColumn(
                     avatarUrl = user.profile_image_urls?.best(),
                     isAll = false,
                     selected = selectedUserId == user.id,
-                    isCompact = isCompact,
+                    windowClass = windowClass,
                     onClick = { onSelectUser(user.id) },
                 )
             }
@@ -114,9 +116,11 @@ private fun UserColumnItem(
     avatarUrl: String?,
     isAll: Boolean,
     selected: Boolean,
-    isCompact: Boolean,
+    windowClass: WindowSizeClass,
     onClick: () -> Unit,
 ) {
+    // 布局分化沿用紧凑判定（内部尺寸决策保持局部派生）
+    val isCompact = windowClass == WindowSizeClass.Compact
     val contentColor = if (selected) {
         MaterialTheme.colorScheme.onPrimaryContainer
     } else {

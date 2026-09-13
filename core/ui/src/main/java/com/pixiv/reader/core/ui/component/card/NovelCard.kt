@@ -168,7 +168,7 @@ fun NovelCard(
             Column(
                 modifier = Modifier
                     .padding(Spacing.mdPlus)
-                    .then(if (block.isBlocked) Modifier.blur(12.dp) else Modifier),
+                    .then(if (block.state.isMasked) Modifier.blur(12.dp) else Modifier),
             ) {
             // ── 上部分：左右布局（左封面 | 右信息） ──
             // height(IntrinsicSize.Min)：Row 高度取封面固有高度（104×4/3），
@@ -214,7 +214,7 @@ fun NovelCard(
                             }
                         }
                         // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
-                        if (block.isRevealed) {
+                        if (block.state.isRevealed) {
                             Box(modifier = Modifier.padding(horizontal = Spacing.xsPlus)) {
                                 BlockedRevealBadge()
                             }
@@ -372,7 +372,7 @@ fun NovelCard(
             }
             }
             // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层标签/作者不可点
-            if (block.isBlocked) {
+            if (block.state.isMasked) {
                 BlockedOverlay(
                     modifier = Modifier.matchParentSize(),
                     onClick = block.onClick,

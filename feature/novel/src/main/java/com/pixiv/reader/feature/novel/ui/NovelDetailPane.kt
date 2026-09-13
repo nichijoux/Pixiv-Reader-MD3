@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.network.comment.CommentTarget
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.comment.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
@@ -67,6 +68,8 @@ fun NovelDetailPane(
     val error by viewModel.error.collectAsStateWithLifecycle()
     val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
     val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
+    // 收藏三态（pane 无私密编辑入口，跟随收藏态取 PUBLIC/NONE）
+    val bookmarkPrivacy = if (isBookmarked) BookmarkPrivacy.PUBLIC else BookmarkPrivacy.NONE
     val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
     val isWatchlisting by viewModel.isWatchlisting.collectAsStateWithLifecycle()
     val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
@@ -132,7 +135,7 @@ fun NovelDetailPane(
                         )
                             NovelActionBar(
                                 seriesId = detail.series?.id,
-                                isBookmarked = isBookmarked,
+                                privacy = bookmarkPrivacy,
                                 isBookmarking = isBookmarking,
                                 isWatchlisted = isWatchlisted,
                                 isWatchlisting = isWatchlisting,
@@ -142,7 +145,7 @@ fun NovelDetailPane(
                                 onDownload = { showDownloadDialog = true },
                                 onComments = {
                                     showComments = true
-                                    commentVm.switchTo("novel", currentId)
+                                    commentVm.switchTo(CommentTarget.NOVEL, currentId)
                                 },
                                 // pane 操作条不自行避让导航栏（底边与左栏列表底边一致，
                                 // 直通屏幕底）；导航栏避让由沉浸式页面整体方案处理

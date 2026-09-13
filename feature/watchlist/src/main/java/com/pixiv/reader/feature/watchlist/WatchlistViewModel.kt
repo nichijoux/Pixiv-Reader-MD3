@@ -46,9 +46,9 @@ class WatchlistViewModel @Inject constructor(
         const val TYPE_MANGA = "manga"
     }
 
-    /** 初始类型（路由参数；缺省小说）。 */
-    private val initialType: String =
-        savedStateHandle.get<String>("type")?.takeIf { it == TYPE_MANGA } ?: TYPE_NOVEL
+    /** 初始类型（路由参数解析；缺省小说）。 */
+    private val initialSegment: WatchlistSegment =
+        WatchlistSegment.parse(savedStateHandle.get<String>("type"))
 
     /** 各类型独立分页状态（切分段不重复请求）。 */
     private val pages = mutableMapOf<String, PagedState<WatchlistSeries>>()
@@ -56,8 +56,8 @@ class WatchlistViewModel @Inject constructor(
     /** 已发起过首载的类型集合（防重复请求）。 */
     private val loadedTypes = mutableSetOf<String>()
 
-    /** 当前选中类型。 */
-    private val _type = MutableStateFlow(initialType)
+    /** 当前选中类型（内部沿用路由字符串值，与 pages/loadedTypes 键一致）。 */
+    private val _type = MutableStateFlow(initialSegment.routeValue)
     val type: StateFlow<String> = _type.asStateFlow()
 
     /** 漫画系列封面（seriesId → 封面 URL；列表项不带封面，异步补齐驱动瀑布流刷新）。 */
@@ -69,7 +69,7 @@ class WatchlistViewModel @Inject constructor(
     val novelInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _novelInfos.asStateFlow()
 
     init {
-        ensureLoaded(initialType)
+        ensureLoaded(initialSegment.routeValue)
     }
 
     /**
@@ -238,5 +238,26 @@ class WatchlistViewModel @Inject constructor(
             totalChars = resp.novel_series_detail?.total_character_count ?: 0,
             updatedAt = resp.novel_series_latest_novel?.create_date,
         )
+    }
+}
+
+/**
+ * 追更列表分段（路由参数 watchlist?type= 的类型化表达）。
+ *
+ * @property routeValue 路由 query 值（也是 VM 内部 pages/loadedTypes 的键）
+ */
+enum class WatchlistSegment(val routeValue: String) {
+    NOVEL("novel"),
+    MANGA("manga");
+
+    companion object {
+        /**
+         * 从路由/存储的原始字符串解析。
+         *
+         * @param raw 原始值（null 或未知值回退 [NOVEL]）
+         * @return 解析结果（永不失败）
+         */
+        fun parse(raw: String?): WatchlistSegment =
+            if (raw == MANGA.routeValue) MANGA else NOVEL
     }
 }

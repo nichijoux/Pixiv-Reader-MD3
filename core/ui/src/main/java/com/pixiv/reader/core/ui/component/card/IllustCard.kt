@@ -91,8 +91,7 @@ import kotlin.math.roundToInt
  * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
  * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
  * @param ugoiraLoader 动图加载器；非空且作品为 ugoira 时封面播放动图动画（帧未就绪露出静态封面）；null 恒静态
- * @param progress 下载进度 0~1；非 null 时信息区标题栏显示进度条代替标题（下载管理用）
- * @param failed 下载失败标记（配合 [progress]：进度条与文案变红色）
+ * @param download 下载徽标三态（None=标题正常；Running=进度条+百分比；Failed=红色失败文案；下载管理用）
  */
 // scope 实际用到了（maxWidth 作为 ugoira 解码上限），IDE 误报"scope 未使用"
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -108,8 +107,7 @@ fun IllustCard(
     // 标签点击 → 跳发现页搜索该标签；null 不展示标签行（兼容瀑布流密度）
     onTagClick: ((String) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
-    progress: Float? = null,
-    failed: Boolean = false,
+    download: DownloadBadge = DownloadBadge.None,
 ) {
     // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
     var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
@@ -131,7 +129,7 @@ fun IllustCard(
     ) {
         // 内容层：屏蔽时整体模糊（标题/作者随封面一并打码；点击临时显示）
         Column(
-            modifier = Modifier.then(if (block.isBlocked) Modifier.blur(16.dp) else Modifier),
+            modifier = Modifier.then(if (block.state.isMasked) Modifier.blur(16.dp) else Modifier),
         ) {
         // ── 封面区（Box 内浮层用 align 定位） ──
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -197,7 +195,7 @@ fun IllustCard(
                     }
                 }
                 // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
-                if (block.isRevealed) {
+                if (block.state.isRevealed) {
                     BlockedRevealBadge()
                 }
             }
@@ -254,26 +252,36 @@ fun IllustCard(
         }
         Column(modifier = Modifier.padding(Spacing.smPlus)) {
             // 下载中 / 下载失败：标题栏替换为进度条 + 状态文案（下载管理用）
-            if (progress != null) {
-                val color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    LinearWavyProgressIndicator(
-                        progress = { progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = color,
-                    )
-                    Text(
-                        text = if (failed) {
-                            stringResource(R.string.download_failed_short)
-                        } else {
-                            stringResource(R.string.download_progress, (progress * 100).roundToInt())
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = color,
-                    )
+            when (val badge = download) {
+                is DownloadBadge.Running -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        LinearWavyProgressIndicator(
+                            progress = { badge.progress.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = stringResource(R.string.download_progress, (badge.progress * 100).roundToInt()),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-            } else {
-                Text(
+                DownloadBadge.Failed -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        LinearWavyProgressIndicator(
+                            progress = { 1f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = stringResource(R.string.download_failed_short),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                DownloadBadge.None -> Text(
                     text = illust.title.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -339,7 +347,7 @@ fun IllustCard(
         }
         }
         // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层作者行/收藏不可点
-        if (block.isBlocked) {
+        if (block.state.isMasked) {
             BlockedOverlay(
                 modifier = Modifier.matchParentSize(),
                 onClick = block.onClick,
@@ -351,3 +359,17 @@ fun IllustCard(
 
 /** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */
 private val PAYLOAD_GSON = Gson()
+
+/**
+ * 下载徽标三态（[IllustCard] 信息区标题栏形态；替代 progress: Float? + failed: Boolean 组合）。
+ */
+sealed interface DownloadBadge {
+    /** 无下载语义：正常显示标题。 */
+    data object None : DownloadBadge
+
+    /** 下载中：进度条 + 百分比。 */
+    data class Running(val progress: Float) : DownloadBadge
+
+    /** 失败：进度条停住（红）+ 失败文案。 */
+    data object Failed : DownloadBadge
+}

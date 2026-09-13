@@ -30,6 +30,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.pixiv.reader.app.R
 import com.pixiv.reader.core.common.model.TagType
+import com.pixiv.reader.feature.watchlist.WatchlistSegment
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
@@ -82,10 +83,8 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
  * @param onOpenSeries 打开小说系列详情
  * @param onOpenHistory 打开浏览历史
  * @param onOpenBookmarks 打开我的收藏
- * @param onOpenWatchlist 打开追更列表（小说 Tab / Me 页入口）
+ * @param onOpenWatchlist 打开追更列表（参数为分段：小说 Tab / Me 页传 NOVEL，作品 Tab 顶栏传 MANGA）
  * @param onOpenReadLater 打开稍后再看
- * @param onOpenMangaWatchlist 打开追更列表并定位漫画分段（作品 Tab 顶栏入口；与
- *   [onOpenWatchlist] 指向同一路由，仅 query 参数不同，命名区分语义）
  * @param onOpenPixivision 打开 pixivision 特辑列表
  * @param onOpenUserRanking 打开画师榜
  * @param onOpenAiRanking 打开 AI 榜
@@ -111,9 +110,8 @@ fun MainShell(
     onOpenSeries: (Long) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
-    onOpenWatchlist: () -> Unit,
+    onOpenWatchlist: (WatchlistSegment) -> Unit,
     onOpenReadLater: () -> Unit,
-    onOpenMangaWatchlist: () -> Unit,
     onOpenPixivision: () -> Unit,
     onOpenUserRanking: () -> Unit,
     onOpenAiRanking: () -> Unit,
@@ -315,7 +313,7 @@ fun MainShell(
                         onOpenIllust = onOpenIllust,
                         onOpenMangaRanking = onOpenMangaRanking,
                         onOpenIllustRanking = onOpenIllustRanking,
-                        onOpenWatchlist = onOpenMangaWatchlist,
+                        onOpenWatchlist = { onOpenWatchlist(WatchlistSegment.MANGA) },
                         onOpenUser = onOpenUser,
                         onOpenViewer = onOpenViewer,
                     )
@@ -338,7 +336,7 @@ fun MainShell(
                         onLogout = onLogout,
                         onOpenHistory = onOpenHistory,
                         onOpenBookmarks = onOpenBookmarks,
-                        onOpenWatchlist = onOpenWatchlist,
+                        onOpenWatchlist = { onOpenWatchlist(WatchlistSegment.NOVEL) },
                         onOpenReadLater = onOpenReadLater,
                         onOpenPixivision = onOpenPixivision,
                         onOpenBlocked = onOpenBlocked,

@@ -114,7 +114,7 @@ fun RankingIllustCard(
     ) {
         // 内容层：屏蔽时整体模糊（标题/标签/作者随封面一并打码；点击临时显示）
         Column(
-            modifier = Modifier.then(if (block.isBlocked) Modifier.blur(16.dp) else Modifier),
+            modifier = Modifier.then(if (block.state.isMasked) Modifier.blur(16.dp) else Modifier),
         ) {
         // ── 封面区（Box 内浮层用 align 定位） ──
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -194,7 +194,7 @@ fun RankingIllustCard(
                     }
                 }
                 // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
-                if (block.isRevealed) {
+                if (block.state.isRevealed) {
                     BlockedRevealBadge()
                 }
             }
@@ -312,7 +312,7 @@ fun RankingIllustCard(
         }
         }
         // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层标签/作者/收藏不可点
-        if (block.isBlocked) {
+        if (block.state.isMasked) {
             BlockedOverlay(
                 modifier = Modifier.matchParentSize(),
                 onClick = block.onClick,

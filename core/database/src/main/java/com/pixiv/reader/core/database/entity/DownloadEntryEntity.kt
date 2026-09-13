@@ -76,3 +76,71 @@ data class DownloadEntryEntity(
         const val FORMAT_ZIP = "ZIP"
     }
 }
+
+/**
+ * 下载状态（[DownloadEntryEntity.status] 列的类型化视图，消费方经 [DownloadStatus.from] 解析；
+ * 列仍存字符串，写入方沿用 STATUS_* 常量，无迁移成本）。
+ */
+enum class DownloadStatus(val value: String) {
+    PENDING("pending"),
+    DOWNLOADING("downloading"),
+    DONE("done"),
+    FAILED("failed");
+
+    companion object {
+        /**
+         * 从 status 列原始值解析。
+         *
+         * @param value 列原始值（null / 未知值回退 [PENDING]）
+         * @return 解析结果（永不失败）
+         */
+        fun from(value: String?): DownloadStatus =
+            entries.firstOrNull { it.value == value } ?: PENDING
+    }
+}
+
+/**
+ * 本地文件打开方式（导出格式的行为轴，替代 isParsableLocalFile / isSystemOpenFile 两个布尔判定）。
+ */
+enum class ExportOpenMethod {
+    /** App 内可解析阅读（txt / epub / md）。 */
+    IN_APP,
+
+    /** 需系统应用打开（pdf / docx / mp4 / zip）。 */
+    SYSTEM,
+
+    /** 无本地打开语义（如插画等 format 为空串的条目）。 */
+    NONE,
+}
+
+/**
+ * 导出格式（[DownloadEntryEntity.format] 列的类型化视图，内聚打开方式与 MIME）。
+ *
+ * @property value 列存储值（与 FORMAT_* 常量一致）
+ * @property openMethod 本地文件打开方式
+ * @property mime 系统打开用的 MIME（仅 SYSTEM 类需要；null 时调用方按扩展名回退推断）
+ */
+enum class ExportFormat(
+    val value: String,
+    val openMethod: ExportOpenMethod,
+    val mime: String?,
+) {
+    TXT("TXT", ExportOpenMethod.IN_APP, null),
+    EPUB("EPUB", ExportOpenMethod.IN_APP, null),
+    PDF("PDF", ExportOpenMethod.SYSTEM, "application/pdf"),
+    MARKDOWN("MARKDOWN", ExportOpenMethod.IN_APP, null),
+    DOCX("DOCX", ExportOpenMethod.SYSTEM, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    MP4("MP4", ExportOpenMethod.SYSTEM, "video/mp4"),
+    ZIP("ZIP", ExportOpenMethod.SYSTEM, "application/zip");
+
+    companion object {
+        /**
+         * 从 format 列原始值解析。
+         *
+         * @param value 列原始值（空串 / 未知值返回 null，调用方按无格式处理）
+         * @return 解析结果；无法识别时 null
+         */
+        fun from(value: String?): ExportFormat? =
+            entries.firstOrNull { it.value == value }
+    }
+}

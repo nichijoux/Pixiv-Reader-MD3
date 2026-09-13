@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.network.comment.CommentTarget
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.ui.component.comment.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
@@ -124,7 +125,7 @@ fun IllustDetailPane(
                 onDownload = viewModel::download,
                 onOpenComments = {
                     showComments = true
-                    commentVm.switchTo("illust", currentId)
+                    commentVm.switchTo(CommentTarget.ILLUST, currentId)
                 },
             )
         }

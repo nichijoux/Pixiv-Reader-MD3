@@ -24,6 +24,8 @@ import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.FeedPhase
+import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -68,16 +70,20 @@ internal fun NovelPagedList(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
     ) {
-        when {
+        when (feedPhase(
+            loading = isLoading || isRefreshing,
+            hasItems = items.isNotEmpty(),
+            hasError = error != null,
+        )) {
             // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
-            (isLoading || isRefreshing) && items.isEmpty() -> NovelFeedSkeleton(showBannerHeader = header != null)
-            error != null && items.isEmpty() -> ErrorBox(
+            FeedPhase.LOADING -> NovelFeedSkeleton(showBannerHeader = header != null)
+            FeedPhase.ERROR -> ErrorBox(
                 message = error,
                 onRetry = onRetry,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
-            items.isEmpty() -> EmptyBox(emptyText, modifier = Modifier.verticalScroll(rememberScrollState()))
-            else -> LazyColumn(
+            FeedPhase.EMPTY -> EmptyBox(emptyText, modifier = Modifier.verticalScroll(rememberScrollState()))
+            FeedPhase.CONTENT -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
                 contentPadding = PaddingValues(

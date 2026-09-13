@@ -79,30 +79,42 @@ internal fun NovelActions(
  *   为 true；Master-Detail 右栏内嵌场景为 false（外层 Scaffold padding 已含导航栏避让，
  *   再加会导致操作条比左栏底部高出一个导航栏高度、无法对齐）
  * @param seriesId 所属系列 id（null/非正数表示无系列，追更按钮禁用）
- * @param isBookmarked 是否已收藏（决定收藏按钮图标与文案）
+ * @param privacy 收藏三态（决定收藏按钮图标与文案：未收藏 / 公开 / 私密）
  * @param isBookmarking 收藏请求进行中（进行中禁用收藏按钮防连点）
  * @param isWatchlisted 是否已追更（决定追更按钮图标与文案）
  * @param isWatchlisting 追更请求进行中（进行中禁用追更按钮防连点）
  * @param downloading 下载进行中（进行中禁用下载按钮）
  * @param onBookmark 收藏/取消收藏回调
  * @param onBookmarkLongClick 收藏按钮长按回调（打开收藏设置弹层）；null 不挂长按
- * @param isPrivateBookmark 已收藏且为私密（收藏按钮显示「私密收藏」文案）
  * @param onWatchlist 追更/取消追更回调
  * @param onDownload 打开下载格式选择弹窗回调
  * @param onComments 打开评论区回调
  * @param modifier 外部传入的 Modifier
  */
+/**
+ * 收藏三态（[NovelActionBar] 收藏按钮形态；私密收藏经长按菜单设置）。
+ */
+enum class BookmarkPrivacy {
+    /** 未收藏。 */
+    NONE,
+
+    /** 已收藏（公开）。 */
+    PUBLIC,
+
+    /** 已收藏（私密）。 */
+    PRIVATE,
+}
+
 @Composable
 internal fun NovelActionBar(
     seriesId: Long?,
-    isBookmarked: Boolean,
+    privacy: BookmarkPrivacy,
     isBookmarking: Boolean,
     isWatchlisted: Boolean,
     isWatchlisting: Boolean,
     downloading: Boolean,
     onBookmark: () -> Unit,
     onBookmarkLongClick: (() -> Unit)? = null,
-    isPrivateBookmark: Boolean = false,
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
     onComments: () -> Unit,
@@ -124,14 +136,14 @@ internal fun NovelActionBar(
             horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
             VerticalActionButton(
-                icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                label = when {
+                icon = if (privacy != BookmarkPrivacy.NONE) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                label = when (privacy) {
                     // 私密收藏单独标识（核心文案走 core:ui）
-                    isBookmarked && isPrivateBookmark -> stringResource(CoreUiR.string.bookmark_private_cd)
-                    isBookmarked -> stringResource(R.string.novel_bookmarked)
-                    else -> stringResource(R.string.novel_bookmark)
+                    BookmarkPrivacy.PRIVATE -> stringResource(CoreUiR.string.bookmark_private_cd)
+                    BookmarkPrivacy.PUBLIC -> stringResource(R.string.novel_bookmarked)
+                    BookmarkPrivacy.NONE -> stringResource(R.string.novel_bookmark)
                 },
-                active = isBookmarked,
+                active = privacy != BookmarkPrivacy.NONE,
                 enabled = !isBookmarking,
                 onClick = onBookmark,
                 // 长按打开收藏设置（公开/私密 + 标签）

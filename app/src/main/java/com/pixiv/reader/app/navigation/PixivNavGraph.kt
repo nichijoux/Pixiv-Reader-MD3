@@ -61,6 +61,7 @@ import com.pixiv.reader.feature.user.ui.UserFollowingRoute
 import com.pixiv.reader.feature.user.ui.UserRoute
 import com.pixiv.reader.feature.viewer.ViewerRoute
 import com.pixiv.reader.feature.watchlist.WatchlistRoute
+import com.pixiv.reader.feature.watchlist.WatchlistSegment
 import kotlinx.coroutines.launch
 
 /** 登录页（未登录时的导航起点）。 */
@@ -273,15 +274,12 @@ fun PixivNavGraph(
                 onOpenBookmarks = {
                     navController.navigate(ROUTE_BOOKMARKS)
                 },
-                onOpenWatchlist = {
-                    navController.navigate(ROUTE_WATCHLIST)
+                onOpenWatchlist = { segment ->
+                    // 小说 Tab / Me 页 → 小说分段；作品 Tab 顶栏 → 直达漫画分段
+                    navController.navigate("watchlist?type=${segment.routeValue}")
                 },
                 onOpenReadLater = {
                     navController.navigate(ROUTE_READ_LATER)
-                },
-                onOpenMangaWatchlist = {
-                    // 作品 Tab 顶栏追更入口：直达漫画分段
-                    navController.navigate("watchlist?type=manga")
                 },
                 onOpenPixivision = {
                     navController.navigate(ROUTE_PIXIVISION)
@@ -696,8 +694,8 @@ fun PixivNavGraph(
             ),
         ) { backStackEntry ->
             WatchlistRoute(
-                // VM 侧对非法值回退 novel，这里原样透传
-                initialType = backStackEntry.arguments?.getString("type").orEmpty(),
+                // VM 侧对非法值回退 novel，这里经枚举解析透传
+                initialType = WatchlistSegment.parse(backStackEntry.arguments?.getString("type")),
                 onBack = { navController.safeBack() },
                 onOpenSeries = { seriesId ->
                     navController.navigate("novel_series/$seriesId")

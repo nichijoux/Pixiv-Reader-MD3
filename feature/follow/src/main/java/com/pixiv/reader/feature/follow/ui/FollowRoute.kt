@@ -188,7 +188,7 @@ fun FollowRoute(
                 users = users,
                 selectedUserId = selectedUserId,
                 isLoadingUsers = usersLoading,
-                isCompact = isCompact,
+                windowClass = windowClass,
                 onSelectUser = viewModel::selectUser,
                 onLoadMoreUsers = viewModel::loadMoreUsers,
             )
@@ -250,7 +250,7 @@ fun FollowRoute(
                                             isLoading = isLoading,
                                             isLoadingMore = isLoadingMore,
                                             hasError = feedError,
-                                            isCompact = isCompact,
+                                            windowClass = windowClass,
                                             scrollToTopKey = reselectKey,
                                             onSearchTag = onSearchTag,
                                             onLoadMore = viewModel::loadMoreFeed,

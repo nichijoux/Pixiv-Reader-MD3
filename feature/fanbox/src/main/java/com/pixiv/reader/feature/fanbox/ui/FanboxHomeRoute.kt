@@ -64,6 +64,8 @@ import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.FeedPhase
+import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
@@ -307,20 +309,23 @@ private fun PostsPage(
     onOpenPost: (String) -> Unit,
     onLoginAgain: () -> Unit,
 ) {
+    // 过期引导优先级最高（即使有残留数据也整页替换）；其余按集中判定的互斥四态
     when {
-        sessionExpired && posts.isEmpty() -> SessionExpiredBox(onLoginAgain = onLoginAgain, onRetry = onRetry)
-        isLoading && posts.isEmpty() -> LoadingBox()
-        posts.isEmpty() && error != null -> ErrorBox(message = error, onRetry = onRetry)
-        posts.isEmpty() -> EmptyBox(text = stringResource(R.string.fanbox_empty_posts))
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            items(posts, key = { it.id }) { post -> FanboxPostCard(post = post, onClick = { onOpenPost(post.id) }) }
-            if (hasMore) {
-                item(key = "load_more") {
-                    LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+        sessionExpired -> SessionExpiredBox(onLoginAgain = onLoginAgain, onRetry = onRetry)
+        else -> when (feedPhase(loading = isLoading, hasItems = posts.isNotEmpty(), hasError = error != null)) {
+            FeedPhase.LOADING -> LoadingBox()
+            FeedPhase.ERROR -> ErrorBox(message = error, onRetry = onRetry)
+            FeedPhase.EMPTY -> EmptyBox(text = stringResource(R.string.fanbox_empty_posts))
+            FeedPhase.CONTENT -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                items(posts, key = { it.id }) { post -> FanboxPostCard(post = post, onClick = { onOpenPost(post.id) }) }
+                if (hasMore) {
+                    item(key = "load_more") {
+                        LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+                    }
                 }
             }
         }

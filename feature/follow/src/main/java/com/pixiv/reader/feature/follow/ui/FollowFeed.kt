@@ -1,6 +1,7 @@
 package com.pixiv.reader.feature.follow.ui
 
 import androidx.compose.foundation.background
+import com.pixiv.reader.core.common.ui.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +41,8 @@ import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.FeedPhase
+import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
@@ -56,7 +59,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
 /**
  * 右列单个类型段的动态流。
  *
- * - 手机（[isCompact]）：单列流（LazyColumn，卡片全宽）
+ * - 手机（Compact）：单列流（LazyColumn，卡片全宽）
  * - 平板：masonry 瀑布流（`StaggeredGridCells.Adaptive(240.dp)`：列宽 ≥240dp 时自动多列，
  *   保证 NovelCard 横版信息区不被挤压——用户 v5 确认的宽度下限）
  * - 触底：列表尾部加载 item 自动触发 [onLoadMore]（混合流交替推进两流下一页）
@@ -69,7 +72,7 @@ internal fun FollowFeed(
     isLoading: Boolean,
     isLoadingMore: Boolean,
     hasError: Boolean,
-    isCompact: Boolean,
+    windowClass: WindowSizeClass,
     scrollToTopKey: Int = 0,
     onSearchTag: (String) -> Unit,
     onLoadMore: () -> Unit,
@@ -81,23 +84,25 @@ internal fun FollowFeed(
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
-    when {
-        isLoading && items.isEmpty() -> if (isCompact) FollowFeedListSkeleton() else IllustWaterfallSkeleton(
+    // 布局分化沿用紧凑判定（内部尺寸决策保持局部派生，避免散落比较）
+    val isCompact = windowClass == WindowSizeClass.Compact
+    when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty(), hasError = hasError)) {
+        FeedPhase.LOADING -> if (isCompact) FollowFeedListSkeleton() else IllustWaterfallSkeleton(
             minColumnWidth = 240.dp,
             contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.md, bottom = Spacing.lg),
         )
 
-        hasError && items.isEmpty() -> ErrorBox(
+        FeedPhase.ERROR -> ErrorBox(
             message = null,
             onRetry = onRetry,
             // 可滚动 → 空态也能触发下拉刷新（否则 PullToRefreshBox 收不到嵌套滚动）
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         )
-        items.isEmpty() -> EmptyBox(
+        FeedPhase.EMPTY -> EmptyBox(
             stringResource(R.string.follow_empty),
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         )
-        else -> if (isCompact) {
+        FeedPhase.CONTENT -> if (isCompact) {
             FollowFeedList(
                 items = items,
                 isLoadingMore = isLoadingMore,

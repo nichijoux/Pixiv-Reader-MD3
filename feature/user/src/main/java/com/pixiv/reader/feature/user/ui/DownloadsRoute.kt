@@ -75,6 +75,10 @@ import com.pixiv.reader.feature.user.R
 import com.pixiv.api.model.ImageUrls
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import com.pixiv.reader.core.database.entity.DownloadStatus
+import com.pixiv.reader.core.database.entity.ExportFormat
+import com.pixiv.reader.core.database.entity.ExportOpenMethod
+import com.pixiv.reader.core.ui.component.card.DownloadBadge
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -171,10 +175,11 @@ fun DownloadsRoute(
                             entries = entries.filter { it.targetType == "novel" },
                             context = context,
                             onOpen = { entry ->
-                                when {
-                                    isParsableLocalFile(entry) ->
+                                // 打开方式由导出格式内聚（IN_APP=App 内解析阅读，SYSTEM=系统应用）
+                                when (ExportFormat.from(entry.format)?.openMethod) {
+                                    ExportOpenMethod.IN_APP ->
                                         viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
-                                    isSystemOpenFile(entry) -> openWithSystemApp(context, entry)
+                                    ExportOpenMethod.SYSTEM -> openWithSystemApp(context, entry)
                                     else -> onOpenNovel(entry.targetId)
                                 }
                             },
@@ -239,12 +244,11 @@ private fun IllustDownloadList(
                             else onOpenIllust(entry.targetId)
                         },
                         // 下载中/失败：标题栏显示进度条（failed 停住最后进度 + 红色标记）；待同步不显示进度；done 恢复标题
-                        progress = if (entry.status == DownloadEntryEntity.STATUS_DONE || entry.status == DownloadEntryEntity.STATUS_PENDING) {
-                            null
-                        } else {
-                            entry.progress.coerceIn(0, 100) / 100f
+                        download = when (DownloadStatus.from(entry.status)) {
+                            DownloadStatus.DOWNLOADING -> DownloadBadge.Running(entry.progress.coerceIn(0, 100) / 100f)
+                            DownloadStatus.FAILED -> DownloadBadge.Failed
+                            else -> DownloadBadge.None
                         },
-                        failed = entry.status == DownloadEntryEntity.STATUS_FAILED,
                     )
                     if (entry.status == DownloadEntryEntity.STATUS_FAILED) {
                         RetryOverlay(
@@ -331,14 +335,14 @@ private fun DownloadStatusRow(
     entry: DownloadEntryEntity,
     modifier: Modifier = Modifier,
 ) {
-    when (entry.status) {
-        DownloadEntryEntity.STATUS_PENDING -> Text(
+    when (DownloadStatus.from(entry.status)) {
+        DownloadStatus.PENDING -> Text(
             text = stringResource(R.string.downloads_status_pending),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = modifier.padding(top = Spacing.xs),
         )
-        DownloadEntryEntity.STATUS_DOWNLOADING -> Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.xsPlus)) {
+        DownloadStatus.DOWNLOADING -> Column(modifier = modifier.fillMaxWidth().padding(top = Spacing.xsPlus)) {
             LinearWavyProgressIndicator(
                 progress = { entry.progress.coerceIn(0, 100) / 100f },
                 modifier = Modifier.fillMaxWidth(),
@@ -351,7 +355,7 @@ private fun DownloadStatusRow(
                 modifier = Modifier.padding(top = Spacing.xs),
             )
         }
-        DownloadEntryEntity.STATUS_FAILED -> Text(
+        DownloadStatus.FAILED -> Text(
             text = stringResource(R.string.downloads_failed),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.error,
@@ -536,40 +540,24 @@ private data class FormatInfo(
     val labelRes: Int,
 )
 
-private fun formatInfo(format: String): FormatInfo? = when (format) {
-    DownloadEntryEntity.FORMAT_TXT -> FormatInfo(Icons.Filled.Description, R.string.downloads_format_txt)
-    DownloadEntryEntity.FORMAT_EPUB -> FormatInfo(Icons.AutoMirrored.Filled.MenuBook, R.string.downloads_format_epub)
-    DownloadEntryEntity.FORMAT_PDF -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
-    DownloadEntryEntity.FORMAT_MARKDOWN -> FormatInfo(Icons.AutoMirrored.Filled.Notes, R.string.downloads_format_markdown)
-    DownloadEntryEntity.FORMAT_DOCX -> FormatInfo(Icons.AutoMirrored.Filled.Article, R.string.downloads_format_docx)
-    DownloadEntryEntity.FORMAT_MP4 -> FormatInfo(Icons.Filled.Videocam, R.string.downloads_format_mp4)
-    DownloadEntryEntity.FORMAT_ZIP -> FormatInfo(Icons.Filled.FolderZip, R.string.downloads_format_zip)
-    else -> null
-}
-
-/** 应用内可解析阅读的本地文件格式（txt/epub/md）。 */
-private fun isParsableLocalFile(entry: DownloadEntryEntity): Boolean {
-    // MediaStore uri（content://media/...）不含文件名，不能靠扩展名判断，用索引 format 字段
-    return entry.format == DownloadEntryEntity.FORMAT_TXT || entry.format == DownloadEntryEntity.FORMAT_EPUB || entry.format == DownloadEntryEntity.FORMAT_MARKDOWN
-}
-
-/** 需系统应用打开的本地文件格式（pdf/docx）。 */
-private fun isSystemOpenFile(entry: DownloadEntryEntity): Boolean {
-    return entry.format == DownloadEntryEntity.FORMAT_PDF || entry.format == DownloadEntryEntity.FORMAT_DOCX
+private fun formatInfo(format: String): FormatInfo? = when (ExportFormat.from(format)) {
+    ExportFormat.TXT -> FormatInfo(Icons.Filled.Description, R.string.downloads_format_txt)
+    ExportFormat.EPUB -> FormatInfo(Icons.AutoMirrored.Filled.MenuBook, R.string.downloads_format_epub)
+    ExportFormat.PDF -> FormatInfo(Icons.Filled.PictureAsPdf, R.string.downloads_format_pdf)
+    ExportFormat.MARKDOWN -> FormatInfo(Icons.AutoMirrored.Filled.Notes, R.string.downloads_format_markdown)
+    ExportFormat.DOCX -> FormatInfo(Icons.AutoMirrored.Filled.Article, R.string.downloads_format_docx)
+    ExportFormat.MP4 -> FormatInfo(Icons.Filled.Videocam, R.string.downloads_format_mp4)
+    ExportFormat.ZIP -> FormatInfo(Icons.Filled.FolderZip, R.string.downloads_format_zip)
+    null -> null
 }
 
 /** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx/MP4/ZIP（SAF/MediaStore content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
 private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity) {
     val path = entry.localPath ?: return
     // MediaStore uri（content://media/...）不含文件名，mime 用索引 format 字段推断
-    val mime = when (entry.format) {
-        DownloadEntryEntity.FORMAT_PDF -> "application/pdf"
-        DownloadEntryEntity.FORMAT_DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        DownloadEntryEntity.FORMAT_MP4 -> "video/mp4"
-        DownloadEntryEntity.FORMAT_ZIP -> "application/zip"
-        else -> MimeTypeMap.getSingleton()
+    val mime = ExportFormat.from(entry.format)?.mime
+        ?: MimeTypeMap.getSingleton()
             .getMimeTypeFromExtension(path.substringAfterLast('.', "").lowercase()) ?: "*/*"
-    }
     val intent = Intent(Intent.ACTION_VIEW)
     if (path.startsWith("content://")) {
         intent.setDataAndType(Uri.parse(path), mime)
