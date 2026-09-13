@@ -35,7 +35,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -76,6 +78,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelRoute(
+    reselectKey: Int = 0,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
@@ -215,6 +218,7 @@ fun NovelRoute(
                         ) { page ->
                             when (page) {
                                 0 -> NovelRecommendTab(
+                                    scrollToTopKey = reselectKey,
                                     onOpenNovelRanking = onOpenNovelRanking,
                                     // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
                                     onOpenNovel = { id ->
@@ -230,6 +234,7 @@ fun NovelRoute(
                                     viewModel = viewModel,
                                 )
                                 1 -> NovelFollowTab(
+                                    scrollToTopKey = reselectKey,
                                     onOpenNovel = { id ->
                                         if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
                                     },
@@ -242,6 +247,7 @@ fun NovelRoute(
                                     viewModel = viewModel,
                                 )
                                 else -> NovelWatchlistTab(
+                                    scrollToTopKey = reselectKey,
                                     onOpenSeries = { id ->
                                         if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
                                     },
@@ -311,6 +317,7 @@ fun NovelRoute(
 /** 推荐页：排行榜入口 banner（列表头部，随滚动）+ 推荐流（下拉刷新）。 */
 @Composable
 private fun NovelRecommendTab(
+    scrollToTopKey: Int = 0,
     onOpenNovelRanking: () -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -342,6 +349,7 @@ private fun NovelRecommendTab(
         onSearchTag = onSearchTag,
         onOpenSeries = onOpenSeries,
         onToggleFavorite = onToggleFavorite,
+        scrollToTopKey = scrollToTopKey,
         header = {
             RankingBanner(
                 title = stringResource(R.string.novel_ranking_banner),
@@ -355,6 +363,7 @@ private fun NovelRecommendTab(
 /** 关注页：关注用户的新小说流（下拉刷新）。 */
 @Composable
 private fun NovelFollowTab(
+    scrollToTopKey: Int = 0,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
@@ -385,6 +394,7 @@ private fun NovelFollowTab(
         onSearchTag = onSearchTag,
         onOpenSeries = onOpenSeries,
         onToggleFavorite = onToggleFavorite,
+        scrollToTopKey = scrollToTopKey,
     )
 }
 
@@ -392,6 +402,7 @@ private fun NovelFollowTab(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NovelWatchlistTab(
+    scrollToTopKey: Int = 0,
     onOpenSeries: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     viewModel: NovelFeedViewModel,
@@ -404,6 +415,14 @@ private fun NovelWatchlistTab(
     val isRefreshing by viewModel.isWatchlistRefreshing.collectAsStateWithLifecycle()
     val infos by viewModel.watchlistInfos.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
+    LaunchedEffect(scrollToTopKey) {
+        if (scrollToTopKey != lastScrollKey) {
+            lastScrollKey = scrollToTopKey
+            listState.animateScrollToItem(0)
+        }
+    }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,

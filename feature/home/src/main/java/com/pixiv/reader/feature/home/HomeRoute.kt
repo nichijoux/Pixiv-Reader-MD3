@@ -72,6 +72,8 @@ fun HomeRoute(
     onOpenNotifications: () -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
     modifier: Modifier = Modifier,
+    // 主壳「再次点击当前 Tab」回顶信号（计数 key，变化即滚回顶部）
+    reselectKey: Int = 0,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
@@ -163,10 +165,12 @@ fun HomeRoute(
                             HomeTab.RECOMMEND -> RecommendContent(
                                 viewModel, onOpenIllust, onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
+                                scrollToTopKey = reselectKey,
                             )
                             HomeTab.FOLLOW -> FollowContent(
                                 viewModel, onOpenIllust, onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
+                                scrollToTopKey = reselectKey,
                             )
                         }
                     }
@@ -212,6 +216,7 @@ private fun RecommendContent(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSelectIllust: (Long) -> Unit,
+    scrollToTopKey: Int = 0,
 ) {
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
@@ -245,6 +250,7 @@ private fun RecommendContent(
                 isLoadingMore = isLoadingMore,
                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                 onOpenUser = onOpenUser,
+                scrollToTopKey = scrollToTopKey,
             )
         }
     }
@@ -257,6 +263,7 @@ private fun FollowContent(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSelectIllust: (Long) -> Unit,
+    scrollToTopKey: Int = 0,
 ) {
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
@@ -290,6 +297,7 @@ private fun FollowContent(
                 isLoadingMore = isLoadingMore,
                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                 onOpenUser = onOpenUser,
+                scrollToTopKey = scrollToTopKey,
             )
         }
     }

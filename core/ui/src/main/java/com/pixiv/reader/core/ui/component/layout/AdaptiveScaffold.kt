@@ -14,17 +14,21 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailItem
+import androidx.compose.material3.WideNavigationRailValue
+import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,6 +40,7 @@ import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.common.ui.classifyWindowWidth
 import com.pixiv.reader.core.common.ui.useRail
+import kotlinx.coroutines.launch
 
 /** 底部/侧边导航项（自适应导航壳的数据单元）。 */
 data class AdaptiveNavItem(
@@ -120,11 +125,22 @@ fun AdaptiveNavScaffold(
                 enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
                 exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
             ) {
-                NavigationRail(
-                    modifier = Modifier.width(84.dp).fillMaxHeight().statusBarsPadding(),
+                // Expressive WideNavigationRail：collapsed 窄栏（图标），header 菜单键
+                // 展开为带标签的宽栏（M3 Expressive 大屏导航组件，替代旧 NavigationRail）
+                val railState = rememberWideNavigationRailState()
+                val railScope = rememberCoroutineScope()
+                WideNavigationRail(
+                    state = railState,
+                    modifier = Modifier.fillMaxHeight(),
+                    header = {
+                        IconButton(onClick = { railScope.launch { railState.toggle() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = null)
+                        }
+                    },
                 ) {
+                    val railExpanded = railState.targetValue == WideNavigationRailValue.Expanded
                     items.forEach { item ->
-                        NavigationRailItem(
+                        WideNavigationRailItem(
                             selected = selectedRoute == item.route,
                             onClick = { onSelect(item.route) },
                             icon = {
@@ -134,6 +150,7 @@ fun AdaptiveNavScaffold(
                                 )
                             },
                             label = { Text(item.label) },
+                            railExpanded = railExpanded,
                         )
                     }
                 }

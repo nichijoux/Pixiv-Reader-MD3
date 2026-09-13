@@ -17,12 +17,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +70,7 @@ internal fun FollowFeed(
     isLoadingMore: Boolean,
     hasError: Boolean,
     isCompact: Boolean,
+    scrollToTopKey: Int = 0,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onOpenIllust: (Long) -> Unit,
@@ -91,6 +100,7 @@ internal fun FollowFeed(
             FollowFeedList(
                 items = items,
                 isLoadingMore = isLoadingMore,
+                scrollToTopKey = scrollToTopKey,
                 onLoadMore = onLoadMore,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
@@ -103,6 +113,7 @@ internal fun FollowFeed(
             FollowFeedGrid(
                 items = items,
                 isLoadingMore = isLoadingMore,
+                scrollToTopKey = scrollToTopKey,
                 onLoadMore = onLoadMore,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
@@ -120,6 +131,7 @@ internal fun FollowFeed(
 private fun FollowFeedList(
     items: List<FollowFeedItem>,
     isLoadingMore: Boolean,
+    scrollToTopKey: Int = 0,
     onLoadMore: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
@@ -128,7 +140,17 @@ private fun FollowFeedList(
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
+    LaunchedEffect(scrollToTopKey) {
+        if (scrollToTopKey != lastScrollKey) {
+            lastScrollKey = scrollToTopKey
+            listState.animateScrollToItem(0)
+        }
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         // 沉浸式底部：尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
         contentPadding = PaddingValues(
@@ -161,6 +183,7 @@ private fun FollowFeedList(
 private fun FollowFeedGrid(
     items: List<FollowFeedItem>,
     isLoadingMore: Boolean,
+    scrollToTopKey: Int = 0,
     onLoadMore: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
@@ -169,7 +192,17 @@ private fun FollowFeedGrid(
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
+    val gridState = rememberLazyStaggeredGridState()
+    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
+    LaunchedEffect(scrollToTopKey) {
+        if (scrollToTopKey != lastScrollKey) {
+            lastScrollKey = scrollToTopKey
+            gridState.animateScrollToItem(0)
+        }
+    }
     LazyVerticalStaggeredGrid(
+        state = gridState,
         columns = StaggeredGridCells.Adaptive(240.dp),
         modifier = Modifier.fillMaxSize(),
         // 沉浸式底部：尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -136,11 +137,20 @@ fun MainShell(
     // 待搜索关键词（小说 Tab / 顶层路由标签点击 → 切到发现页搜索）
     var pendingSearch by remember { mutableStateOf<String?>(null) }
 
+    // 再次点击当前 Tab → 对应页面滚回顶部：每个 Tab 一个计数作为 key 下传，
+    // 页面侧比较 key 变化才滚动（首次组合只记录不触发，避免带旧值进入页面误滚）
+    val tabReselectKeys = remember { mutableStateMapOf<String, Int>() }
+
     // 统一 Tab 导航：清栈到 start（保存被弹出的状态）+ launchSingleTop + restoreState。
     // 所有「跳到某 Tab」的导航都必须走这里——否则（如 launchSingleTop 不带 popUpTo）会把目标
     // 压栈到当前 Tab 之上形成非标准栈，再切回原 Tab 时同一 navigate 内 popUpTo(saveState) 弹出
     // 并立即 restoreState 恢复同 destination，触发 Navigation 状态恢复异常（点原 Tab 不跳转）。
     fun navigateToTab(route: String) {
+        // 已在该 Tab：不重复导航，改为发回顶信号
+        if (currentRoute == route) {
+            tabReselectKeys[route] = (tabReselectKeys[route] ?: 0) + 1
+            return
+        }
         navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true
@@ -182,6 +192,7 @@ fun MainShell(
                     exitTransition = { fadeOut(animationSpec = tween(160)) },
                 ) {
                     HomeRoute(
+                        reselectKey = tabReselectKeys["home_tab"] ?: 0,
                         onOpenSearch = {
                             navigateToTab("discover_tab")
                         },
@@ -204,6 +215,7 @@ fun MainShell(
                 }
                 composable("follow_tab") {
                     FollowRoute(
+                        reselectKey = tabReselectKeys["follow_tab"] ?: 0,
                         onOpenIllust = onOpenIllust,
                         onOpenNovel = onOpenNovel,
                         onOpenUser = onOpenUser,
@@ -278,6 +290,7 @@ fun MainShell(
                 }
                 composable("manga_tab") {
                     MangaRoute(
+                        reselectKey = tabReselectKeys["manga_tab"] ?: 0,
                         onOpenIllust = onOpenIllust,
                         onOpenMangaRanking = onOpenMangaRanking,
                         onOpenIllustRanking = onOpenIllustRanking,
@@ -288,6 +301,7 @@ fun MainShell(
                 }
                 composable("novel_tab") {
                     NovelRoute(
+                        reselectKey = tabReselectKeys["novel_tab"] ?: 0,
                         onOpenNovel = onOpenNovel,
                         onOpenUser = onOpenUser,
                         onOpenNovelRanking = onOpenNovelRanking,
@@ -302,6 +316,7 @@ fun MainShell(
                 }
                 composable("me_tab") {
                     MeRoute(
+                        reselectKey = tabReselectKeys["me_tab"] ?: 0,
                         onLogout = onLogout,
                         onOpenHistory = onOpenHistory,
                         onOpenBookmarks = onOpenBookmarks,

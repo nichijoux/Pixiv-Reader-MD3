@@ -7,11 +7,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,6 +49,8 @@ private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp
  * @param onOpenUser 作者行点击回调（参数为作者用户 id；null 则卡片作者行不可点）
  * @param ugoiraLoader 动图加载器；非空时网格内 ugoira 卡片封面播放动画（透传 [IllustCard]）；null 恒静态
  * @param header 网格头部内容（整行跨列，随列表滚动，如排行榜入口 banner）；null 不显示
+ * @param scrollToTopKey 回顶信号：key 相对上次组合变化时网格滚回首项（主壳「再次点击当前 tab」用）；
+ *   首次组合仅记录不触发；默认 0 恒不触发
  */
 @Composable
 fun IllustWaterfallGrid(
@@ -62,8 +71,19 @@ fun IllustWaterfallGrid(
     onOpenUser: ((Long) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
     header: (@Composable () -> Unit)? = null,
+    scrollToTopKey: Int = 0,
 ) {
+    val gridState: LazyStaggeredGridState = rememberLazyStaggeredGridState()
+    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
+    LaunchedEffect(scrollToTopKey) {
+        if (scrollToTopKey != lastScrollKey) {
+            lastScrollKey = scrollToTopKey
+            gridState.animateScrollToItem(0)
+        }
+    }
     LazyVerticalStaggeredGrid(
+        state = gridState,
         columns = StaggeredGridCells.Adaptive(minColumnWidth),
         modifier = modifier.fillMaxSize(),
         contentPadding = contentPadding,

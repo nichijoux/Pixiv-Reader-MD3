@@ -86,6 +86,7 @@ private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLU
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FollowRoute(
+    reselectKey: Int = 0,
     onOpenIllust: (Long) -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -248,6 +249,7 @@ fun FollowRoute(
                                             isLoadingMore = isLoadingMore,
                                             hasError = feedError,
                                             isCompact = isCompact,
+                                            scrollToTopKey = reselectKey,
                                             onLoadMore = viewModel::loadMoreFeed,
                                             onRetry = viewModel::retry,
                                             // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转

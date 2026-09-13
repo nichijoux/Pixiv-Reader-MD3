@@ -14,6 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.ui.component.card.NovelCard
@@ -46,8 +51,17 @@ internal fun NovelPagedList(
     onOpenSeries: (Long) -> Unit,
     onToggleFavorite: (Long, Boolean) -> Unit,
     header: (@Composable () -> Unit)? = null,
+    scrollToTopKey: Int = 0,
 ) {
     val listState = rememberLazyListState()
+    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
+    LaunchedEffect(scrollToTopKey) {
+        if (scrollToTopKey != lastScrollKey) {
+            lastScrollKey = scrollToTopKey
+            listState.animateScrollToItem(0)
+        }
+    }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,

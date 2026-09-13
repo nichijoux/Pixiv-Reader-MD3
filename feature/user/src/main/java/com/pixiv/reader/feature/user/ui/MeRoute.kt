@@ -27,7 +27,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -74,6 +76,8 @@ fun MeRoute(
     onOpenUser: (Long) -> Unit,
     onOpenFanbox: () -> Unit,
     onOpenFanboxWeb: (String, String) -> Unit,
+    // 主壳「再次点击当前 Tab」回顶信号（计数 key，变化即滚回顶部）
+    reselectKey: Int = 0,
     viewModel: MeViewModel = hiltViewModel(),
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
@@ -122,10 +126,19 @@ fun MeRoute(
             // 消费已应用的 padding，内部 navigationBarsPadding 按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
         ) {
+            // 设置页滚动状态提升到路由层：供「再次点击我的 Tab」回顶使用
+            val scrollState = rememberScrollState()
+            var lastScrollKey by remember { mutableIntStateOf(reselectKey) }
+            LaunchedEffect(reselectKey) {
+                if (reselectKey != lastScrollKey) {
+                    lastScrollKey = reselectKey
+                    scrollState.animateScrollTo(0)
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     // 沉浸式底部：内容尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
                     .navigationBarsPadding()
                     .padding(Spacing.lg),
