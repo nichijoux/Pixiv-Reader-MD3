@@ -22,4 +22,16 @@ class PixivRepository @Inject constructor(
     val api: AppApi get() = pixivApi.api
     val webApi: PixivWebApi get() = pixivApi.webApi
     val imageClient: OkHttpClient get() = pixivApi.imageClient
+
+    /**
+     * 从网页 Cookie 解析 csrf_token（pixiv 网页写操作要求 x-csrf-token 头）。
+     *
+     * @return csrf_token 值；无会话或 Cookie 中无该键时返回 null
+     */
+    fun csrfToken(): String? =
+        pixivApi.session.cookie()
+            .split(';')
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("csrf_token=") }
+            ?.substringAfter('=')
 }

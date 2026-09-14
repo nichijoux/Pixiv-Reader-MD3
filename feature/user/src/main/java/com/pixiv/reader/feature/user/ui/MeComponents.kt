@@ -17,16 +17,28 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -191,4 +203,157 @@ internal fun MeValueTrailing(value: String) {
             modifier = Modifier.padding(start = Spacing.xxs),
         )
     }
+}
+
+/**
+ * 分组行尾导航箭头（onSurfaceVariant、无障碍描述置空）：导航行 / 外链行的统一尾随块。
+ *
+ * @param icon 尾随图标（默认 KeyboardArrowRight；外链行传 OpenInNew）
+ * @return 无返回值
+ */
+@Composable
+internal fun MeArrowTrailing(
+    icon: ImageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * 数据驱动的导航分组卡：[MeGroupCard] + 逐行 [MeRow]（行间 [MeRowDivider] 分隔），
+ * 行尾统一 [MeArrowTrailing]。收敛 MeRoute「用户内容管理 / pixiv 生态」两组逐字相同的循环渲染。
+ *
+ * @param items 设置条目列表（icon / title / description / trailingIcon / onClick）
+ * @return 无返回值
+ */
+@Composable
+internal fun MeItemGroup(items: List<SettingsCardItem>) {
+    MeGroupCard {
+        items.forEachIndexed { index, item ->
+            if (index > 0) MeRowDivider()
+            MeRow(
+                icon = item.icon,
+                title = item.title,
+                subtitle = item.description.takeIf { it.isNotBlank() },
+                trailing = { MeArrowTrailing(item.trailingIcon) },
+                onClick = item.onClick,
+            )
+        }
+    }
+}
+
+/**
+ * 宽控件行：标题行（[MeRow]）+ 全宽单选分段选择（Expressive，选项均分占满）。
+ *
+ * @param T 选项值类型（枚举等）
+ * @param icon 标题行前置图标
+ * @param title 标题行文案
+ * @param selected 当前选中值
+ * @param options 选项列表（值 to 文案资源）
+ * @param onSelect 选择回调
+ * @return 无返回值
+ */
+@Composable
+internal fun <T> MeSegmentedRow(
+    icon: ImageVector,
+    title: String,
+    selected: T,
+    options: List<Pair<T, Int>>,
+    onSelect: (T) -> Unit,
+) {
+    MeRow(icon = icon, title = title)
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
+    ) {
+        options.forEachIndexed { index, (value, labelRes) ->
+            SegmentedButton(
+                selected = selected == value,
+                onClick = { onSelect(value) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                modifier = Modifier.weight(1f),
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
+}
+
+/**
+ * 值行 + 下拉菜单：行尾显示当前值（[MeValueTrailing]），点击整行展开选项菜单。
+ * 菜单锚点 = 行尾值区：DropdownMenu 锚定最近父布局的 top-start，包在值区 Box 内
+ * 才会从行尾右对齐展开（包在整行 Box 会从左缘弹出）。
+ * 选中后先回调 [onSelect] 再收起菜单（两者均为同步状态写，先后顺序不影响最终表现）。
+ *
+ * @param T 选项值类型（枚举 / 存储值字符串等）
+ * @param icon 行前置图标
+ * @param title 行标题
+ * @param currentValue 当前值文案（行尾展示）
+ * @param options 选项列表（值 to 文案资源）
+ * @param onSelect 选中回调（收起菜单前触发）
+ * @return 无返回值
+ */
+@Composable
+internal fun <T> MeDropdownRow(
+    icon: ImageVector,
+    title: String,
+    currentValue: String,
+    options: List<Pair<T, Int>>,
+    onSelect: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    MeRow(
+        icon = icon,
+        title = title,
+        trailing = {
+            Box {
+                MeValueTrailing(currentValue)
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    options.forEach { (value, labelRes) ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(labelRes)) },
+                            onClick = {
+                                onSelect(value)
+                                expanded = false
+                            },
+                        )
+                    }
+                }
+            }
+        },
+        onClick = { expanded = true },
+    )
+}
+
+/**
+ * 开关行：行尾 [Switch]，整行可点切换（行点击 = 开关取反，与开关自身点击同效）。
+ *
+ * @param icon 行前置图标
+ * @param title 行标题
+ * @param subtitle 支撑文本（null 不渲染）
+ * @param checked 当前开关状态
+ * @param onCheckedChange 开关切换回调（整行点击传取反值，开关自身传目标值）
+ * @return 无返回值
+ */
+@Composable
+internal fun MeSwitchRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String?,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    MeRow(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+        trailing = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+        onClick = { onCheckedChange(!checked) },
+    )
 }

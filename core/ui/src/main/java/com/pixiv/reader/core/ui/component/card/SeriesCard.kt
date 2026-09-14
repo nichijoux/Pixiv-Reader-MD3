@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -121,17 +120,23 @@ fun SeriesCard(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
                 ) {
-                    CoverStat(
+                    IconCount(
                         icon = Icons.Filled.Collections,
                         text = stringResource(R.string.series_parts, data.partsCount),
+                        tint = Color.White,
+                        iconSize = 12.dp,
+                        style = MaterialTheme.typography.labelSmall,
                     )
                     if (data.totalChars > 0) {
-                        CoverStat(
+                        IconCount(
                             icon = Icons.AutoMirrored.Filled.Notes,
                             text = stringResource(
                                 R.string.series_chars,
                                 formatCountForNovel(data.totalChars),
                             ),
+                            tint = Color.White,
+                            iconSize = 12.dp,
+                            style = MaterialTheme.typography.labelSmall,
                         )
                     }
                 }
@@ -171,7 +176,7 @@ fun SeriesCard(
             ) {
                 val concluded = data.isConcluded
                 if (concluded != null) {
-                    SeriesStatusBadge(
+                    StatusPill(
                         text = stringResource(
                             if (concluded) R.string.series_concluded else R.string.series_ongoing,
                         ),
@@ -188,7 +193,7 @@ fun SeriesCard(
                     )
                 }
                 if (data.watchlisted) {
-                    SeriesStatusBadge(
+                    StatusPill(
                         text = stringResource(R.string.series_watchlisted),
                         container = MaterialTheme.colorScheme.surfaceContainerHigh,
                         content = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -237,45 +242,5 @@ fun SeriesCard(
                 }
             }
         }
-    }
-}
-
-/** MD3 药丸徽章（AssistChip 视觉，扁平无交互；右侧状态行用）。 */
-@Composable
-private fun SeriesStatusBadge(
-    text: String,
-    container: Color,
-    content: Color,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = content,
-        modifier = Modifier
-            .clip(AppShapes.pill)
-            .background(container)
-            .padding(horizontal = Spacing.smPlus, vertical = 3.dp),
-    )
-}
-
-/** 封面信息条单项：小图标 + 白字（叠加在封面上）。 */
-@Composable
-private fun CoverStat(
-    icon: ImageVector,
-    text: String,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(12.dp),
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-            modifier = Modifier.padding(start = Spacing.xxs),
-        )
     }
 }

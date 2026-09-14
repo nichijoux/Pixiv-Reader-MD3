@@ -4,10 +4,10 @@ import com.pixiv.reader.core.novel.model.NovelBlock
 import com.pixiv.reader.core.novel.model.NovelDocument
 import com.pixiv.reader.core.novel.model.assignCharRanges
 import com.pixiv.reader.core.novel.model.buildFullText
+import com.pixiv.reader.core.novel.util.appendStructuredText
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 
 /**
@@ -388,37 +388,13 @@ object NovelParser {
 
     // ── 保留换行的全文提取（任意结构兜底） ───────────────────────────────────
 
-    private val BLOCK_TAGS = setOf(
-        "p", "div", "li", "blockquote", "pre", "section", "article", "figure",
-        "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "header", "footer", "main",
-    )
-
     private fun extractAllText(root: Element): List<String> {
         val sb = StringBuilder()
-        appendNodeText(root, sb)
+        // 递归文本提取复用 util 共享实现（与 htmlToPlainText 同一份换行边界规则）
+        appendStructuredText(root, sb)
         return sb.toString()
             .split(Regex("\\n{2,}"))
             .map { it.replace(Regex("[\\t ]+"), " ").trim() }
             .filter { it.isNotBlank() }
-    }
-
-    private fun appendNodeText(node: Node, sb: StringBuilder) {
-        when (node) {
-            is TextNode -> sb.append(node.text())
-            is Element -> {
-                val tag = node.tagName()
-                if (tag == "script" || tag == "style" || tag == "noscript" || tag == "head" || tag == "iframe") {
-                    return
-                }
-                if (tag == "br") {
-                    if (sb.isNotEmpty() && sb.last() != '\n') sb.append('\n')
-                    return
-                }
-                val isBlock = tag in BLOCK_TAGS
-                if (isBlock && sb.isNotEmpty() && sb.last() != '\n') sb.append('\n')
-                node.childNodes().forEach { appendNodeText(it, sb) }
-                if (isBlock && sb.isNotEmpty() && sb.last() != '\n') sb.append('\n')
-            }
-        }
     }
 }

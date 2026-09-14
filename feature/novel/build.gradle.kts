@@ -23,6 +23,7 @@ android {
 dependencies {
     api(project(":core:ui"))
     api(project(":core:network"))
+    implementation(project(":core:comment"))
     api(project(":core:database"))
     api(project(":core:novel"))
     api(libs.androidx.navigation.compose)

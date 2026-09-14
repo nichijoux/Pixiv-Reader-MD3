@@ -7,13 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -25,18 +22,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,19 +42,18 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.gson.Gson
-import com.pixiv.api.model.ImageUrls
-import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.SegmentedPager
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.feature.user.data.restoreIllust
+import com.pixiv.reader.feature.user.data.restoreNovelCardData
 import com.pixiv.reader.feature.user.state.ReadLaterViewModel
-import kotlinx.coroutines.launch
 
 /**
  * 稍后再看页（Me 页入口）：作品 / 小说 分段控件 + HorizontalPager 左右滑动切换 + 快照卡片列表。
@@ -87,13 +78,8 @@ fun ReadLaterRoute(
     val context = LocalContext.current
     var showClearConfirm by remember { mutableStateOf(false) }
     val gson = remember { Gson() }
-    // 左右滑动切页：分段点击滚动 Pager，滑动落页回写筛选（与历史/下载页的 TabRow+Pager 同范式）
-    val pagerState = rememberPagerState(pageCount = { 2 })
-    val scope = rememberCoroutineScope()
-    // 滑动切页 → 同步筛选（页 0=作品 / 1=小说，与 VM 默认筛选一致）
-    LaunchedEffect(pagerState.currentPage) {
-        viewModel.setFilter(if (pagerState.currentPage == 0) "illust" else "novel")
-    }
+    // 分段页签（值与 VM 筛选一致）：作品 / 小说
+    val readLaterTabs = listOf("illust", "novel")
 
     Scaffold(
         topBar = {
@@ -125,46 +111,30 @@ fun ReadLaterRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：作品 / 小说（Expressive 二选一段控件，与追更页同语汇）；
-                // 选中态跟随 Pager 落页，点击反向滚动 Pager（与历史/下载页 TabRow+Pager 同范式）
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                ) {
-                    SegmentedButton(
-                        selected = pagerState.currentPage == 0,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        modifier = Modifier.weight(1f),
-                        label = { Text(stringResource(R.string.history_filter_illust)) },
-                    )
-                    SegmentedButton(
-                        selected = pagerState.currentPage == 1,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        modifier = Modifier.weight(1f),
-                        label = { Text(stringResource(R.string.history_filter_novel)) },
-                    )
-                }
-                // 左右滑动切换：页 0=作品瀑布流 / 页 1=小说列表，各自持有滚动状态
-                HorizontalPager(state = pagerState) { page ->
-                    when (page) {
-                        0 -> ReadLaterIllustList(
-                            entries = items,
-                            gson = gson,
-                            onOpenIllust = onOpenIllust,
-                            onOpenUser = onOpenUser,
-                        )
-                        else -> ReadLaterNovelList(
-                            entries = items,
-                            gson = gson,
-                            context = context,
-                            onOpenNovel = onOpenNovel,
-                            onOpenUser = onOpenUser,
-                        )
-                    }
-                }
+                // 类型分段（作品 / 小说）+ 左右滑动切换：SegmentedPager 双向同步
+                // （选中态跟 Pager 落页，点击反向滚页；落页回写 VM 筛选，页 0=作品 / 1=小说）
+                SegmentedPager(
+                    tabs = readLaterTabs,
+                    onSelect = viewModel::setFilter,
+                    tabLabel = { if (it == "illust") R.string.history_filter_illust else R.string.history_filter_novel },
+                    pageContent = { page, _ ->
+                        when (page) {
+                            0 -> ReadLaterIllustList(
+                                entries = items,
+                                gson = gson,
+                                onOpenIllust = onOpenIllust,
+                                onOpenUser = onOpenUser,
+                            )
+                            else -> ReadLaterNovelList(
+                                entries = items,
+                                gson = gson,
+                                context = context,
+                                onOpenNovel = onOpenNovel,
+                                onOpenUser = onOpenUser,
+                            )
+                        }
+                    },
+                )
             }
         }
     }
@@ -194,7 +164,7 @@ private fun ReadLaterIllustList(
 ) {
     // payloadJson 解析一次并随 entries 记忆（List<ReadLaterEntity> 不稳定，无 remember 时父级
     // 任何重组都会触发全量 Gson 反序列化）
-    val illusts = remember(entries) { entries.map { it.toIllust(gson) } }
+    val illusts = remember(entries) { entries.map { restoreIllust(it.payloadJson, gson, it.targetId, it.title, it.coverUrl) } }
     if (illusts.isEmpty()) {
         ReadLaterEmpty(
             icon = Icons.Filled.Image,
@@ -236,7 +206,15 @@ private fun ReadLaterNovelList(
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(entries, key = { it.id }) { entry ->
-            val card = entry.toNovelCardData(gson, context)
+            // 快照 id 为 0 视为整体无效（requireValidId 守卫），回退条目最小数据
+            val card = restoreNovelCardData(
+                entry.payloadJson,
+                gson,
+                entry.targetId,
+                entry.title ?: context.getString(R.string.untitled),
+                entry.coverUrl,
+                requireValidId = true,
+            )
             NovelCard(
                 novel = card,
                 onClick = { onOpenNovel(entry.targetId) },
@@ -248,7 +226,7 @@ private fun ReadLaterNovelList(
     }
 }
 
-// ── 快照还原（与浏览历史同范式） ─────────────────────────────────────────────
+// ── 空态（快照还原转换见 SnapshotRestore.kt） ────────────────────────────────
 
 /**
  * Expressive 空态：圆形图标底 + 标题 + 操作提示（稍后再看页专用）。
@@ -300,57 +278,4 @@ private fun ReadLaterEmpty(
             modifier = Modifier.padding(top = Spacing.xs),
         )
     }
-}
-
-/**
- * 快照还原插画：直解完整 `Illust`（Gson 往返安全：字段全为可空/基本类型，缺失落 JVM 默认值）；
- * 解析失败 / id 异常回退最小数据（标题 + 封面）。
- */
-private fun ReadLaterEntity.toIllust(gson: Gson): Illust {
-    val parsed = payloadJson?.let {
-        runCatching { gson.fromJson(it, Illust::class.java) }.getOrNull()
-    }
-    if (parsed != null && parsed.id != 0L) return parsed
-    return Illust(id = targetId, title = title, image_urls = ImageUrls(medium = coverUrl))
-}
-
-/**
- * 快照还原小说卡：逐字段重建（Gson UnsafeAllocator 会给缺失的非空字段塞 null，
- * 直接透传会在 NovelCard 渲染期 NPE——与浏览历史同款防御）；解析失败回退最小数据。
- */
-private fun ReadLaterEntity.toNovelCardData(gson: Gson, context: Context): NovelCardData {
-    val parsed = payloadJson?.let {
-        runCatching { gson.fromJson(it, NovelCardData::class.java) }.getOrNull()
-    }
-    if (parsed != null && parsed.id != 0L) {
-        return NovelCardData(
-            id = parsed.id,
-            title = parsed.title?.takeIf { it.isNotBlank() }
-                ?: (title ?: context.getString(R.string.untitled)),
-            coverUrl = parsed.coverUrl ?: coverUrl,
-            authorId = parsed.authorId,
-            authorName = parsed.authorName.orEmpty(),
-            authorAvatarUrl = parsed.authorAvatarUrl,
-            publishDate = parsed.publishDate,
-            seriesTitle = parsed.seriesTitle,
-            seriesId = parsed.seriesId,
-            favoriteCount = parsed.favoriteCount,
-            wordCount = parsed.wordCount,
-            tags = parsed.tags.orEmpty(),
-            isFavorite = parsed.isFavorite,
-        )
-    }
-    return NovelCardData(
-        id = targetId,
-        title = title ?: context.getString(R.string.untitled),
-        coverUrl = coverUrl,
-        authorId = 0,
-        authorName = "",
-        authorAvatarUrl = null,
-        publishDate = null,
-        seriesTitle = null,
-        seriesId = null,
-        favoriteCount = 0,
-        wordCount = 0,
-    )
 }

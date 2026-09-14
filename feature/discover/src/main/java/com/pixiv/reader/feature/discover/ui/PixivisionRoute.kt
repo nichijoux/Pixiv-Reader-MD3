@@ -39,14 +39,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Article
-import com.pixiv.reader.core.ui.component.feedback.EmptyBox
-import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
@@ -67,11 +64,6 @@ fun PixivisionRoute(
     viewModel: PixivisionViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val items by viewModel.paged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.paged.error.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -117,14 +109,12 @@ fun PixivisionRoute(
                 .fillMaxWidth()
                 .weight(1f),
         ) {
-            when {
-                isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(
-                    message = error.orEmpty(),
-                    onRetry = viewModel::load,
-                )
-                items.isEmpty() -> EmptyBox(stringResource(R.string.pixivision_empty))
-                else -> LazyColumn(
+            PagedFeed(
+                paged = viewModel.paged,
+                emptyText = stringResource(R.string.pixivision_empty),
+                onRetry = viewModel::load,
+            ) { state ->
+                LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = Spacing.lg,
@@ -134,7 +124,7 @@ fun PixivisionRoute(
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
-                    items(items, key = { it.id }) { article ->
+                    items(state.items, key = { it.id }) { article ->
                         PixivisionArticleCard(
                             article = article,
                             onClick = {
@@ -149,11 +139,7 @@ fun PixivisionRoute(
                             },
                         )
                     }
-                    if (hasMore) {
-                        item(key = "load_more") {
-                            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
-                        }
-                    }
+                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
                 }
             }
         }

@@ -122,7 +122,7 @@ class BlockedViewModel @Inject constructor(
     fun unblockUser(muted: MuteUser) {
         val uid = muted.user?.id ?: return
         viewModelScope.launch {
-            val token = csrfToken()
+            val token = pixivRepository.csrfToken()
             if (token.isNullOrBlank()) {
                 sendMessage(UiMessage(R.string.blocked_csrf_unavailable))
                 return@launch
@@ -139,13 +139,5 @@ class BlockedViewModel @Inject constructor(
                 sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
         }
-    }
-
-    private fun csrfToken(): String? {
-        return pixivRepository.pixivApi.session.cookie()
-            .split(';')
-            .map { it.trim() }
-            .firstOrNull { it.startsWith("csrf_token=") }
-            ?.substringAfter('=')
     }
 }

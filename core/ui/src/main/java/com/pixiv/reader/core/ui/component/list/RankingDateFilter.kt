@@ -39,12 +39,13 @@ import java.time.ZoneOffset
 private val MIN_RANKING_DATE: LocalDate = LocalDate.of(2007, 9, 7)
 
 /**
- * yyyy-MM-dd → DatePicker 使用的 UTC 零点毫秒。
+ * yyyy-MM-dd → DatePicker 使用的 UTC 零点毫秒（M3 DatePicker 契约为 UTC 零点，
+ * 禁止用系统时区换算，否则 UTC+ 时区会高亮前一天）。
  *
  * @param date 日期字符串（yyyy-MM-dd）
  * @return 对应 UTC 零点毫秒；格式非法时返回 null
  */
-private fun parseDateMillis(date: String): Long? = runCatching {
+fun parseDatePickerMillis(date: String): Long? = runCatching {
     LocalDate.parse(date).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 }.getOrNull()
 
@@ -54,7 +55,7 @@ private fun parseDateMillis(date: String): Long? = runCatching {
  * @param millis DatePicker 选中值的 UTC 毫秒
  * @return yyyy-MM-dd 日期字符串
  */
-private fun formatDateMillis(millis: Long): String =
+fun formatDatePickerMillis(millis: Long): String =
     Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString()
 
 /**
@@ -195,7 +196,7 @@ private fun RankingDatePickerDialog(
     }
     // 初始选中已选日期、否则回落昨天（最新可查的历史日）
     val initialMillis = remember(selectedDate, lastSelectableMillis) {
-        selectedDate?.let(::parseDateMillis) ?: lastSelectableMillis
+        selectedDate?.let(::parseDatePickerMillis) ?: lastSelectableMillis
     }
     val state = rememberDatePickerState(
         initialSelectedDateMillis = initialMillis,
@@ -206,7 +207,7 @@ private fun RankingDatePickerDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    state.selectedDateMillis?.let { millis -> onSelect(formatDateMillis(millis)) }
+                    state.selectedDateMillis?.let { millis -> onSelect(formatDatePickerMillis(millis)) }
                     onDismiss()
                 },
                 enabled = state.selectedDateMillis != null,

@@ -1,14 +1,11 @@
 package com.pixiv.reader.feature.fanbox.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.pixiv.api.model.FanboxComment
 import com.pixiv.api.model.FanboxPost
+import com.pixiv.reader.core.common.format.formatFileSize
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.core.network.fanbox.FanboxSection
 import com.pixiv.reader.core.ui.component.card.UserAvatar
@@ -66,7 +64,6 @@ import com.pixiv.reader.feature.fanbox.state.FanboxCommentsState
 import com.pixiv.reader.feature.fanbox.state.FanboxPlansState
 import com.pixiv.reader.feature.fanbox.state.FanboxPostState
 import com.pixiv.reader.feature.fanbox.state.FanboxPostViewModel
-import java.util.Locale
 
 /**
  * FANBOX 帖子详情：header（封面 / 标题 / 创作者）→ 正文段（post.info，失败退 post.get
@@ -98,17 +95,8 @@ fun FanboxPostRoute(
     val postUrl = "${FanboxHeaderInterceptor.FANBOX_URL}posts/${viewModel.postId}"
     val title = postState.post?.title.orEmpty().ifEmpty { stringResource(R.string.fanbox_post_title) }
 
-    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器。 */
-    fun openLink(url: String) {
-        val host = runCatching { Uri.parse(url).host }.getOrNull()
-        if (host == "fanbox.cc" || host?.endsWith(".fanbox.cc") == true) {
-            onOpenWeb(url, title)
-        } else {
-            runCatching {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            }
-        }
-    }
+    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器（共享实现见 [openFanboxLink]）。 */
+    fun openLink(url: String) = openFanboxLink(context, url, title, onOpenWeb)
 
     Scaffold(
         topBar = {
@@ -632,34 +620,4 @@ private fun PixvImage16to9(url: String, description: String?) {
         contentDescription = description,
         modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
     )
-}
-
-/**
- * FANBOX ISO 时间截断展示（`2026-08-01T12:34:56+09:00` → `2026-08-01 12:34`）。
- *
- * @param iso 服务端原始时间串
- * @return 截断时间；入参异常原样返回
- */
-private fun formatFanboxDate(iso: String?): String {
-    if (iso.isNullOrBlank()) return ""
-    return runCatching {
-        val t = iso.indexOf('T')
-        if (t <= 0) iso else "${iso.substring(0, t)} ${iso.substring(t + 1, minOf(t + 6, iso.length))}"
-    }.getOrDefault(iso)
-}
-
-/**
- * 附件大小可读化。
- *
- * @param bytes 字节数
- * @return KB/MB/GB 可读串
- */
-private fun formatFileSize(bytes: Long): String {
-    if (bytes <= 0) return ""
-    val kb = bytes / 1024.0
-    return when {
-        kb >= 1024 * 1024 -> String.format(Locale.US, "%.1f GB", kb / (1024 * 1024))
-        kb >= 1024 -> String.format(Locale.US, "%.1f MB", kb / 1024)
-        else -> String.format(Locale.US, "%.0f KB", kb)
-    }
 }

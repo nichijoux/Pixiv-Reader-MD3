@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -31,70 +29,6 @@ import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
-
-/**
- * 插画搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.IllustWaterfallGrid]
- * （自适应 2 列瀑布流）渲染 8 张占位卡
- * ——圆角 14dp 卡片 + 封面块（交替高度模拟瀑布流）+ 标题 2 行 + 作者行（20dp 圆头像 + 名称条）。
- */
-@Composable
-internal fun IllustSearchSkeleton() {
-    val color = skeletonPulseColor()
-    val coverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(160.dp),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = 96.dp),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalItemSpacing = 8.dp,
-    ) {
-        items(count = 8) { index ->
-            Column(
-                modifier = Modifier
-                    .clip(AppShapes.cardLarge)
-                    .background(MaterialTheme.colorScheme.surfaceContainer),
-            ) {
-                SkeletonBlock(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(coverHeights[index % coverHeights.size])
-                        .clip(AppShapes.cardLargeTop),
-                    color = color,
-                )
-                Column(modifier = Modifier.padding(Spacing.smPlus)) {
-                    SkeletonBlock(
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(14.dp)
-                            .clip(AppShapes.tiny),
-                        color = color,
-                    )
-                    SkeletonBlock(
-                        modifier = Modifier
-                            .padding(top = Spacing.sm)
-                            .fillMaxWidth(0.5f)
-                            .height(12.dp)
-                            .clip(AppShapes.tiny),
-                        color = color,
-                    )
-                    Row(
-                        modifier = Modifier.padding(top = Spacing.smPlus),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        SkeletonBlock(
-                            modifier = Modifier.size(Sizes.s20).clip(CircleShape),
-                            color = color,
-                        )
-                        SkeletonBlock(
-                            modifier = Modifier.padding(start = Spacing.xsPlus).width(80.dp).height(10.dp).clip(AppShapes.tiny),
-                            color = color,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 /**
  * 小说搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.NovelCard]（横排卡片列表）渲染 6 张占位卡

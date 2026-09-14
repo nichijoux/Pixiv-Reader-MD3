@@ -3,9 +3,7 @@ package com.pixiv.reader.feature.novel.state
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesDetail
 import com.pixiv.reader.core.common.UiMessage
@@ -22,8 +20,7 @@ import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
-import com.pixiv.reader.feature.novel.data.NovelExportWorker
-import com.pixiv.reader.feature.novel.data.novelScopeKey
+import com.pixiv.reader.feature.novel.data.NovelExportQueue
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -155,21 +152,14 @@ class NovelSeriesViewModel @Inject constructor(
 
     /** 关注 / 取关作者（系列页作者行按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
     fun toggleFollowAuthor() {
-        if (_isAuthorFollowing.value) return
         val userId = _detail.value?.user?.id ?: return
-        viewModelScope.launch {
-            _isAuthorFollowing.value = true
-            val current = _isAuthorFollowed.value
-            favoriteActions.toggleFollowUser(userId, !current)
-                .onSuccess {
-                    _isAuthorFollowed.value = !current
-                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(CoreR.string.core_msg_unfollowed))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
-                }
-            _isAuthorFollowing.value = false
-        }
+        runOptimisticToggle(
+            _isAuthorFollowing,
+            _isAuthorFollowed.value,
+            { _isAuthorFollowed.value = it },
+            CoreR.string.core_msg_followed_author,
+            CoreR.string.core_msg_unfollowed,
+        ) { favoriteActions.toggleFollowUser(userId, it) }
     }
 
     /** 拉取系列全量分册（供「选取部分下载」多选；复用已加载分页数据，避免重复请求）。 */
@@ -201,20 +191,18 @@ class NovelSeriesViewModel @Inject constructor(
         // targetId 用系列首册（全量未加载时用分页已加载的第一本兜底）
         val firstNovel = _allChapters.value.firstOrNull() ?: paged.items.value.firstOrNull()
         val novelId = firstNovel?.id ?: return
-        val scopeKey = novelScopeKey(seriesId, chapterIds.takeIf { it.isNotEmpty() })
         // 入队即建「待同步」条目：卡片立即可见；Worker 起跑后覆写为下载中并补全快照
         viewModelScope.launch {
             runCatching {
                 DownloadQueue.markPending(
                     downloadEntryDao,
-                    DownloadEntryEntity(
-                        targetId = novelId,
-                        targetType = "novel",
-                        title = (_detail.value?.title ?: firstNovel.title)?.let { "$it（${format.name}）" },
-                        coverUrl = firstNovel.image_urls?.medium ?: firstNovel.image_urls?.square_medium,
-                        format = format.name,
-                        scopeKey = scopeKey,
+                    NovelExportQueue.pendingEntry(
+                        novelId = novelId,
                         seriesId = seriesId,
+                        chapterIds = chapterIds,
+                        format = format,
+                        title = _detail.value?.title ?: firstNovel.title,
+                        coverUrl = firstNovel.image_urls?.medium ?: firstNovel.image_urls?.square_medium,
                         seriesTitle = _detail.value?.title,
                         authorName = firstNovel.user?.name,
                         authorAvatarUrl = firstNovel.user?.profile_image_urls?.best(),
@@ -225,19 +213,14 @@ class NovelSeriesViewModel @Inject constructor(
                 )
             }
         }
-        val data = mutableListOf<Pair<String, Any?>>()
-        data += NovelExportWorker.KEY_NOVEL_ID to novelId
-        data += NovelExportWorker.KEY_FORMAT to format.name
-        data += NovelExportWorker.KEY_SERIES_ID to seriesId
-        if (chapterIds.isNotEmpty()) {
-            data += NovelExportWorker.KEY_CHAPTER_IDS to chapterIds.toLongArray()
-        }
-        val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
-            .setInputData(workDataOf(*data.toTypedArray()))
-            .setConstraints(DownloadQueue.networkConstraints())
-            .addTag(DownloadQueue.workTag("novel", novelId, format.name, scopeKey))
-            .build()
-        WorkManager.getInstance(context).enqueue(request)
+        WorkManager.getInstance(context).enqueue(
+            NovelExportQueue.buildRequest(
+                novelId = novelId,
+                seriesId = seriesId,
+                chapterIds = chapterIds,
+                format = format,
+            )
+        )
         _downloading.value = true
         _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
         trySendMessage(UiMessage(R.string.novel_msg_export_queued))

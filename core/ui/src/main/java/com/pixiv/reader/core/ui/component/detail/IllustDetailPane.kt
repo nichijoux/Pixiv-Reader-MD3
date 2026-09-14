@@ -16,10 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.network.comment.CommentListViewModel
-import com.pixiv.reader.core.network.comment.CommentTarget
 import com.pixiv.reader.core.network.illust.IllustViewModel
-import com.pixiv.reader.core.ui.component.comment.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 
@@ -28,9 +25,10 @@ import com.pixiv.reader.core.ui.component.feedback.LoadingBox
  *
  * 复用 [IllustViewModel]（调用方 `hiltViewModel()` 注入，core:ui 不依赖 hilt）——
  * 选中项变化时 [switchTo] 加载；详情内相关作品点击原地替换；三态自管。
- * 评论内嵌：点评论按钮切到 [CommentPane]（右栏限定，不开全屏页），返回键/顶部返回条
+ * 评论内嵌：点评论按钮切到评论区（右栏限定，不开全屏页），返回键/顶部返回条
  * 切回详情；再按返回键关闭 pane（BackHandler 由外层 [ListDetailOverlay] 处理，
  * 本层注册的 BackHandler 先于外层触发——导航链：评论 → 详情 → 列表）。
+ * 评论 UI 经 [comments] 槽位注入（评论竖切在 core:comment 模块，避免 core:ui 反向依赖）；
  * 无内建关闭按钮：pane 关闭由系统返回 / 外层关闭入口承担。
  *
  * @param selectedId 当前选中作品 id（null = 未选中，显示 [placeholder]）
@@ -38,7 +36,10 @@ import com.pixiv.reader.core.ui.component.feedback.LoadingBox
  * @param placeholder 未选中时的占位提示文案
  * @param onOpenUser 点击作者打开用户主页（全屏路由）
  * @param onOpenViewer 点击图片打开全屏查看器（全屏路由，参数为作品 id + 页码）
- * @param commentVm 评论 ViewModel（调用方注入；进入评论区时按当前作品 switchTo）
+ * @param comments 评论区槽位（参数为 onBackToDetail：顶部返回条点击后切回详情；
+ *   通常渲染 core:comment 的 [com.pixiv.reader.core.comment.ui.CommentPane]）
+ * @param onOpenComments 点击评论按钮回调（调用方在此定位评论目标，如
+ *   `commentVm.switchTo(CommentTarget.ILLUST, id)` 后进入评论区）
  * @param viewModel 插画详情 ViewModel（调用方注入）
  * @param onSearchTag 标签点击回调（传标签名，通常跳转标签搜索；默认空实现不跳转）
  */
@@ -49,7 +50,8 @@ fun IllustDetailPane(
     placeholder: String,
     onOpenUser: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
-    commentVm: CommentListViewModel,
+    comments: @Composable (onBackToDetail: () -> Unit) -> Unit,
+    onOpenComments: () -> Unit,
     viewModel: IllustViewModel,
     onSearchTag: (String) -> Unit = {},
 ) {
@@ -98,11 +100,8 @@ fun IllustDetailPane(
                 onRetry = viewModel::load,
             )
 
-            showComments -> CommentPane(
-                commentVm = commentVm,
-                onOpenUser = onOpenUser,
-                onBackToDetail = { showComments = false },
-            )
+            // 进入评论区：槽位参数为 onBackToDetail（评论区顶部返回条点击后切回详情）
+            showComments -> comments { showComments = false }
 
             else -> IllustDetailContent(
                 illust = illust,
@@ -125,7 +124,7 @@ fun IllustDetailPane(
                 onDownload = viewModel::download,
                 onOpenComments = {
                     showComments = true
-                    commentVm.switchTo(CommentTarget.ILLUST, currentId)
+                    onOpenComments()
                 },
             )
         }

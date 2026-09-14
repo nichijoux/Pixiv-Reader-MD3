@@ -5,25 +5,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.network.comment.CommentListViewModel
-import com.pixiv.reader.core.network.comment.CommentTarget
+import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentTarget
 import com.pixiv.reader.core.network.novel.NovelViewModel
-import com.pixiv.reader.core.ui.component.comment.CommentPane
+import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
-import com.pixiv.reader.feature.novel.data.NovelExportFormat
+import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
 
 /**
  * 小说详情 pane（Master-Detail 右栏，小说 Tab / 小说排行页共用；关注页经 app 组合根注入槽位复用）。
@@ -85,16 +83,7 @@ fun NovelDetailPane(
             .background(MaterialTheme.colorScheme.surface),
     ) {
         when {
-            currentId == null -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = placeholder,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            currentId == null -> PanePlaceholder(text = placeholder)
 
             isLoading && novel == null -> LoadingBox()
             error != null && novel == null -> ErrorBox(
@@ -151,17 +140,13 @@ fun NovelDetailPane(
                                 // 直通屏幕底）；导航栏避让由沉浸式页面整体方案处理
                                 navigationBarInset = false,
                             )
-                            // 下载格式选择弹窗（复用详情页 DownloadSheet）
-                            if (showDownloadDialog) {
-                                DownloadSheet(
-                                    config = DownloadSheetConfig.Detail(detail.series?.id?.let { it > 0L } == true),
-                                    onFormat = { format: NovelExportFormat, scope: NovelDownloadScope, _: List<Long> ->
-                                        viewModel.export(format.name, scope == NovelDownloadScope.SERIES)
-                                        showDownloadDialog = false
-                                    },
-                                    onDismiss = { showDownloadDialog = false },
-                                )
-                            }
+                            // 下载格式选择弹窗（详情页 / pane 共用调用块）
+                            NovelDetailDownloadSheet(
+                                visible = showDownloadDialog,
+                                seriesId = detail.series?.id,
+                                onExport = viewModel::export,
+                                onDismiss = { showDownloadDialog = false },
+                            )
                         }
                     }
                 }

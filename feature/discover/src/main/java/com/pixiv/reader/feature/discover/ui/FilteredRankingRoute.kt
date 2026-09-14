@@ -29,9 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentTarget
+import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.network.illust.IllustViewModel
-import com.pixiv.reader.core.ui.component.card.RankingIllustCard
+import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
@@ -155,8 +157,9 @@ private fun FilteredRankingScreen(
                             gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH,
                             listHeader = { EraHeader(selectedDate, eraChips, viewModel) },
                         ) { item, rank ->
-                            RankingIllustCard(
+                            IllustCard(
                                 rank = rank,
+                                coverHeight = 220.dp,
                                 illust = item,
                                 // 双栏 pane 内点击仅选中右侧详情（paneEnabled 恒真分支）
                                 onClick = { selected = item },
@@ -174,7 +177,14 @@ private fun FilteredRankingScreen(
                         placeholder = stringResource(R.string.ranking_preview_placeholder),
                         onOpenUser = onOpenUser,
                         onOpenViewer = onOpenViewer,
-                        commentVm = commentVm,
+                        comments = { onBackToDetail ->
+                            CommentPane(
+                                commentVm = commentVm,
+                                onOpenUser = onOpenUser,
+                                onBackToDetail = onBackToDetail,
+                            )
+                        },
+                        onOpenComments = { selected?.let { commentVm.switchTo(CommentTarget.ILLUST, it.id) } },
                         viewModel = detailVm,
                         onSearchTag = onSearchTag,
                     )
@@ -197,8 +207,9 @@ private fun FilteredRankingScreen(
                 gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH,
                 listHeader = { EraHeader(selectedDate, eraChips, viewModel) },
             ) { item, rank ->
-                RankingIllustCard(
+                IllustCard(
                     rank = rank,
+                    coverHeight = 220.dp,
                     illust = item,
                     onClick = { onOpenIllust(item.id) },
                     onToggleFavorite = { fav -> viewModel.toggleIllustFavorite(item.id, fav) },

@@ -23,8 +23,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TravelExplore
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -162,24 +160,7 @@ fun MeRoute(
                     SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), onClick = onOpenDownloads),
                     SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), onClick = onOpenBlocked),
                 )
-                MeGroupCard {
-                    contentItems.forEachIndexed { index, item ->
-                        if (index > 0) MeRowDivider()
-                        MeRow(
-                            icon = item.icon,
-                            title = item.title,
-                            subtitle = item.description.takeIf { it.isNotBlank() },
-                            trailing = {
-                                Icon(
-                                    imageVector = item.trailingIcon,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            onClick = item.onClick,
-                        )
-                    }
-                }
+                MeItemGroup(contentItems)
 
                 // ── pixiv 生态（FANBOX 原生 / COMIC / 私信 / pixivision） ──
                 SectionSpacer()
@@ -221,22 +202,7 @@ fun MeRoute(
                         onClick = onOpenPixivision,
                     ),
                 )
-                MeGroupCard { ecoItems.forEachIndexed { i, item ->
-                    if (i > 0) MeRowDivider()
-                    MeRow(
-                        icon = item.icon,
-                        title = item.title,
-                        subtitle = item.description.takeIf { it.isNotBlank() },
-                        trailing = {
-                            Icon(
-                                imageVector = item.trailingIcon,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        onClick = item.onClick,
-                    )
-                } }
+                MeItemGroup(ecoItems)
 
                 // ── 外观设置（每项独立卡片：主题模式 / 动态取色 / 语言） ──
                 SectionSpacer()

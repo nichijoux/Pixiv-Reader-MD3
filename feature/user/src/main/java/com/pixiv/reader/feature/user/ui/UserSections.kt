@@ -23,18 +23,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.MangaSeriesItem
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesItem
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
-import com.pixiv.reader.core.ui.component.feedback.EmptyBox
-import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
@@ -52,22 +50,17 @@ internal fun SectionIllust(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
-    val items by paged.items.collectAsStateWithLifecycle()
-    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
-    val error by paged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onRetry)
-        items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_illust))
-        else -> IllustWaterfallGrid(
-            illusts = items,
+    PagedFeed(
+        paged = paged,
+        emptyText = stringResource(R.string.user_empty_illust),
+        onRetry = onRetry,
+    ) { state ->
+        IllustWaterfallGrid(
+            illusts = state.items,
             onItemClick = onOpenIllust,
             onLoadMore = onLoadMore,
-            hasMore = hasMore,
-            isLoadingMore = isLoadingMore,
+            hasMore = state.hasMore,
+            isLoadingMore = state.isLoadingMore,
             // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
             contentPadding = PaddingValues(
                 start = Spacing.md,
@@ -93,17 +86,12 @@ internal fun SectionNovel(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
-    val items by paged.items.collectAsStateWithLifecycle()
-    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
-    val error by paged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onRetry)
-        items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_novel))
-        else -> LazyColumn(
+    PagedFeed(
+        paged = paged,
+        emptyText = stringResource(R.string.user_empty_novel),
+        onRetry = onRetry,
+    ) { state ->
+        LazyColumn(
             modifier = Modifier.fillMaxSize(),
             // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
             contentPadding = PaddingValues(
@@ -114,7 +102,7 @@ internal fun SectionNovel(
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            items(items, key = { it.id }) { novel ->
+            items(state.items, key = { it.id }) { novel ->
                 NovelCard(
                     novel = novel.toCardData(),
                     onClick = { onOpenNovel(novel.id) },
@@ -124,11 +112,7 @@ internal fun SectionNovel(
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
                 )
             }
-            if (hasMore) {
-                item(key = "load_more") {
-                    LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-                }
-            }
+            loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
         }
     }
 }
@@ -202,17 +186,12 @@ private fun NovelSeriesList(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
-    val items by paged.items.collectAsStateWithLifecycle()
-    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
-    val error by paged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onRetry)
-        items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_series))
-        else -> LazyColumn(
+    PagedFeed(
+        paged = paged,
+        emptyText = stringResource(R.string.user_empty_series),
+        onRetry = onRetry,
+    ) { state ->
+        LazyColumn(
             modifier = Modifier.fillMaxSize(),
             // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
             contentPadding = PaddingValues(
@@ -223,7 +202,7 @@ private fun NovelSeriesList(
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            items(items, key = { it.id }) { series ->
+            items(state.items, key = { it.id }) { series ->
                 val info = infos[series.id]
                 SeriesCard(
                     data = SeriesCardData(
@@ -241,11 +220,7 @@ private fun NovelSeriesList(
                     onClick = { onOpenSeries(series.id) },
                 )
             }
-            if (hasMore) {
-                item(key = "load_more") {
-                    LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-                }
-            }
+            loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
         }
     }
 }
@@ -258,17 +233,12 @@ private fun MangaSeriesList(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
-    val items by paged.items.collectAsStateWithLifecycle()
-    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
-    val error by paged.error.collectAsStateWithLifecycle()
-
-    when {
-        isLoading && items.isEmpty() -> LoadingBox()
-        error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = onRetry)
-        items.isEmpty() -> EmptyBox(stringResource(R.string.user_empty_manga_series))
-        else -> LazyColumn(
+    PagedFeed(
+        paged = paged,
+        emptyText = stringResource(R.string.user_empty_manga_series),
+        onRetry = onRetry,
+    ) { state ->
+        LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = Spacing.lg,
@@ -278,7 +248,7 @@ private fun MangaSeriesList(
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            items(items, key = { it.id }) { series ->
+            items(state.items, key = { it.id }) { series ->
                 SeriesCard(
                     data = SeriesCardData(
                         title = series.title.orEmpty(),
@@ -292,9 +262,10 @@ private fun MangaSeriesList(
                     onClick = { onOpenMangaSeries(series.id) },
                 )
             }
-            if (hasMore) {
+            // 保留独立 key「load_more_manga」（与同文件小说系列列表 footer 区分，历史行为不变）
+            if (state.hasMore) {
                 item(key = "load_more_manga") {
-                    LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+                    LoadMoreItem(isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
                 }
             }
         }

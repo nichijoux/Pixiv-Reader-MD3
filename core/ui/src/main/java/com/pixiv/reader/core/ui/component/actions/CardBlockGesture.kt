@@ -62,7 +62,7 @@ class CardBlockGesture(
 )
 
 /**
- * 卡片就地屏蔽手势助手（IllustCard / RankingIllustCard / NovelCard 共用）：
+ * 卡片就地屏蔽手势助手（IllustCard / NovelCard 共用）：
  * 收集全局屏蔽集合（[LocalCardActionsHost]）判断本卡是否被屏蔽，并包装点击/长按行为——
  * 屏蔽态下首次点击改为「临时显示」（不透传原点击），已临时显示后再点击弹
  * 「已屏蔽，无法查看详情」提示（卡片仍在屏蔽名单内，直接打开详情会被拦下），

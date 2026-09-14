@@ -9,18 +9,15 @@ import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
+import com.pixiv.reader.core.network.session.SeriesDetailLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 /**
  * 追更 ViewModel：小说 / 漫画系列追更列表（分页）。
@@ -29,14 +26,14 @@ import kotlinx.coroutines.sync.withPermit
  * 首次选中该类型才发请求；滑动切回已加载类型不重复请求、无过渡动画。
  * 行内取消追更：novel/manga 各自端点删除后重载当前类型列表（简单可靠）。
  *
- * 漫画瀑布流封面：watchlist 列表项不带封面，逐个经 [SeriesDetailCache]（进程缓存 + in-flight 去重）
+ * 漫画瀑布流封面：watchlist 列表项不带封面，逐个经 [SeriesDetailLoader]（进程缓存 + in-flight 去重）
  * 拉 `v1/illust/series` 详情补齐，与漫画系列详情页共享缓存。
  */
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
-    private val seriesDetailCache: SeriesDetailCache,
+    private val seriesDetailLoader: SeriesDetailLoader,
     private val favoriteActions: FavoriteActions,
 ) : MessageViewModel() {
 
@@ -140,90 +137,50 @@ class WatchlistViewModel @Inject constructor(
     }
 
     /**
-     * 补齐漫画系列封面（幂等：已回填/已补齐的跳过；`Semaphore(4)` 限并发防刷）。
-     * 封面经 [SeriesDetailCache] 进程缓存——追更页 → 系列详情页 → 返回，二次进入零请求。
-     * 注意：已缓存条目也要**同步回填** [_mangaCovers]——VM 随页面销毁重建后其本地流为空，
+     * 为漫画追更列表批量补齐封面（[SeriesDetailLoader] 批量管线：缓存回填 → 缺失逐个取，
+     * `Semaphore(4)` 限并发；与漫画系列详情页共享缓存）。
+     * 已缓存条目也要**同步回填** [_mangaCovers]——VM 随页面销毁重建后其本地流为空，
      * 缓存命中 ≠ 无需回填，否则二次进入封面全空白。
      *
      * @param series 当前漫画追更列表（封面缺失的逐个补）
      * @return 无返回值；封面就绪经 [mangaCovers] 流驱动 UI 刷新
      */
     fun loadMangaCovers(series: List<WatchlistSeries>) {
-        // 已在进程缓存的封面先同步回填 VM 状态（零网络、无需起协程）
-        val cached = series.mapNotNull { s ->
-            seriesDetailCache.get(s.id)?.coverUrl
-                ?.takeIf { it.isNotBlank() }
-                ?.let { s.id to it }
-        }
-        if (cached.isNotEmpty()) _mangaCovers.update { it + cached }
-        val pending = series.filter { it.id !in _mangaCovers.value }
-        if (pending.isEmpty()) return
         viewModelScope.launch {
-            val sem = Semaphore(4)
-            pending.forEach { s ->
-                launch {
-                    sem.withPermit {
-                        val info = seriesDetailCache.getOrFetch(s.id) {
-                            runCatching { pixivRepository.api.getIllustSeries(s.id) }
-                                // 取消是调用方生命周期信号，向上重抛（冗余请求可被真正取消）
-                                .onFailure { if (it is CancellationException) throw it }
-                                .getOrNull()?.let { resp ->
-                                    SeriesDetailInfo(
-                                        coverUrl = resp.illust_series_first_illust?.image_urls?.medium
-                                            ?: resp.illust_series_first_illust?.image_urls?.square_medium,
-                                        caption = resp.illust_series_detail?.caption,
-                                        isConcluded = resp.illust_series_detail?.is_concluded,
-                                        updatedAt = resp.illust_series_latest_illust?.create_date,
-                                    )
-                                }
-                        }
-                        val cover = info?.coverUrl
-                        if (!cover.isNullOrBlank()) {
-                            // 并发完成时原子追加，保持集合完整
-                            _mangaCovers.update { it + (s.id to cover) }
-                        }
-                    }
+            seriesDetailLoader.backfillInto(
+                target = _mangaCovers,
+                ids = series.map { it.id },
+                select = { info -> info.coverUrl?.takeIf { it.isNotBlank() } },
+            ) { id ->
+                pixivRepository.api.getIllustSeries(id).let { resp ->
+                    SeriesDetailInfo(
+                        coverUrl = resp.illust_series_first_illust?.image_urls?.medium
+                            ?: resp.illust_series_first_illust?.image_urls?.square_medium,
+                        caption = resp.illust_series_detail?.caption,
+                        isConcluded = resp.illust_series_detail?.is_concluded,
+                        updatedAt = resp.illust_series_latest_illust?.create_date,
+                    )
                 }
             }
         }
     }
 
     /**
-     * 为小说追更列表批量取系列详情（复用 [SeriesDetailCache] 进程缓存，
-     * 与小说 Tab 追更页签 / 用户页系列列表同一缓存；`Semaphore(4)` 限并发）。
+     * 为小说追更列表批量取系列详情（[SeriesDetailLoader] 批量管线；
+     * 与小说 Tab 追更页签 / 用户页系列列表同一缓存）。
      * 已缓存条目先同步回填 [_novelInfos]——VM 随页面销毁重建后其本地流为空，缓存命中
      * 路径也必须把数据送进 UI 流（否则返回后二次进入封面/简介全空白），仅真正缺失的走网络。
-     * 隐藏（masked）系列的 `getNovelSeries` 可能抛异常——逐系列 try-catch，失败项留兜底展示不中断整批。
+     * 隐藏（masked）系列的 `getNovelSeries` 可能抛异常——失败项留兜底展示不中断整批。
      *
      * @param series 当前小说追更列表（缺详情的逐个补）
      * @return 无返回值；详情就绪经 [novelInfos] 流驱动 UI 刷新
      */
     fun loadNovelInfos(series: List<WatchlistSeries>) {
-        // 已在进程缓存的详情先同步回填 VM 状态（零网络）
-        val cached = series.mapNotNull { s ->
-            seriesDetailCache.get(s.id)?.let { s.id to it }
-        }
-        if (cached.isNotEmpty()) _novelInfos.update { it + cached }
-        val missing = series.filter { it.id !in _novelInfos.value }
-        if (missing.isEmpty()) return
         viewModelScope.launch {
-            val sem = Semaphore(4)
-            missing.forEach { s ->
-                launch {
-                    sem.withPermit {
-                        val info = runCatching {
-                            seriesDetailCache.getOrFetch(s.id) { fetchNovelSeriesDetail(s.id) }
-                        }.onFailure { e ->
-                            // 取消是调用方生命周期信号，向上重抛；隐藏系列等请求失败留兜底展示
-                            if (e is CancellationException) throw e
-                        }.getOrNull()
-                        if (info != null) {
-                            // 并发完成时原子追加
-                            _novelInfos.update { it + (s.id to info) }
-                        }
-                    }
-                }
-            }
+            seriesDetailLoader.backfillInfos(
+                target = _novelInfos,
+                ids = series.map { it.id },
+            ) { id -> fetchNovelSeriesDetail(id) }
         }
     }
 

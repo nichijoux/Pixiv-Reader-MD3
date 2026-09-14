@@ -248,6 +248,34 @@ internal fun DownloadSheet(
     }
 }
 
+/**
+ * 小说详情下载格式弹窗（详情全屏页 / 右栏 pane 共用调用块）：
+ * 「单个文件 / 整个系列」范围切换 + 导出格式列表，选择结果经 [onExport] 转发 VM。
+ *
+ * @param visible 弹窗可见性（用户点下载且详情数据就绪才为 true）
+ * @param seriesId 当前小说系列 id（null / 非正 = 无有效系列，隐藏范围切换整行）
+ * @param onExport 导出回调（formatName 格式名；series=true 整系列 / false 单本）
+ * @param onDismiss 关闭弹窗
+ * @return 无返回值（不可见时不渲染任何内容）
+ */
+@Composable
+internal fun NovelDetailDownloadSheet(
+    visible: Boolean,
+    seriesId: Long?,
+    onExport: (formatName: String, series: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (!visible) return
+    DownloadSheet(
+        // 真实系列 id 必为正：过滤 pixiv 空对象（Series(id=0)）误判，无系列时整行隐藏
+        config = DownloadSheetConfig.Detail(seriesId?.let { it > 0L } == true),
+        onFormat = { format: NovelExportFormat, scope: NovelDownloadScope, _: List<Long> ->
+            onExport(format.name, scope == NovelDownloadScope.SERIES)
+        },
+        onDismiss = onDismiss,
+    )
+}
+
 /** 部分下载分册选择行：checkbox + 标题 + 字数。 */
 @Composable
 private fun PartialChapterRow(

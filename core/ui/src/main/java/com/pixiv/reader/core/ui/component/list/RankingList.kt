@@ -96,7 +96,7 @@ private const val CENTERED_TAB_MAX = 4
  *                 默认空串 = 无额外维度（Tab 选中位不受影响，各段旧数据仍在 VM 缓存）
  * @param listHeader 列表头（渲染在 TabRow 上方、限宽内容块内，如日期筛选 chip 行）；null = 无。
  *                   平板 pane 让位时随列表整体移动，与 TabRow/列表左缘对齐
- * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `RankingIllustCard`
+ * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `IllustCard(rank = …)`
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

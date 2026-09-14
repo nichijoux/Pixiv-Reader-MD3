@@ -3,13 +3,16 @@ package com.pixiv.reader.core.network.download
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.Log
-import com.pixiv.api.model.GifFrame
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.media.Mp4FrameEncoder
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.network.R
+import com.pixiv.reader.core.network.model.bestCoverUrl
+import com.pixiv.reader.core.network.model.snapshotPayload
 import com.pixiv.reader.core.network.session.PixivRepository
+import com.pixiv.reader.core.network.ugoira.UgoiraFrame
+import com.pixiv.reader.core.network.ugoira.UgoiraFrameExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -44,9 +47,6 @@ class UgoiraExporter @Inject constructor(
     private val downloadEntryDao: DownloadEntryDao,
 ) {
 
-    /** 解压帧产物：文件 + 延时毫秒。 */
-    private data class FrameEntry(val file: File, val delayMs: Int)
-
     /**
      * 导出动图为 MP4 / ZIP。
      *
@@ -79,9 +79,15 @@ class UgoiraExporter @Inject constructor(
                 updateProgress(illustId, format, (pct * downloadWeight / 100).coerceIn(0, downloadWeight))
             }.getOrThrow()
 
-            // 解压帧（已解压文件跳过，天然断点续解压；损坏 zip 删除待重下）
+            // 解压帧（已解压文件跳过，天然断点续解压；缺 entry / 损坏 zip 删除待重下）
             val frameDir = File(dir, FRAMES_DIR).apply { mkdirs() }
-            val entries = unzipFrames(zipFile, frameDir, frames)
+            val entries = try {
+                UgoiraFrameExtractor.unzip(zipFile, frameDir, frames)
+            } catch (e: Exception) {
+                // 删除损坏/缺帧 zip，下次重试重新下载；异常向上传播 → 外层标记 failed
+                runCatching { zipFile.delete() }
+                throw e
+            }
 
             val resultPath = when (format) {
                 UgoiraExportFormat.ZIP -> {
@@ -117,7 +123,7 @@ class UgoiraExporter @Inject constructor(
     private suspend fun encodeMp4(
         illustId: Long,
         format: UgoiraExportFormat,
-        entries: List<FrameEntry>,
+        entries: List<UgoiraFrame>,
         dir: File,
         illust: Illust?,
     ): String {
@@ -143,30 +149,8 @@ class UgoiraExporter @Inject constructor(
         return out.path
     }
 
-    /** 解压 zip 内各帧（已存在跳过）；缺 entry / zip 损坏时删除 zip 抛错（下次重新下载）。 */
-    private fun unzipFrames(zipFile: File, frameDir: File, frames: List<GifFrame>): List<FrameEntry> {
-        return try {
-            java.util.zip.ZipFile(zipFile).use { zf ->
-                frames.mapNotNull { frame ->
-                    val entryName = frame.file ?: return@mapNotNull null
-                    val out = File(frameDir, entryName.substringAfterLast('/'))
-                    if (!out.exists()) {
-                        // 缺 entry 与损坏 zip 同等对待（抛错 → 外层删 zip 重下），避免静默跳过导致后续缺帧
-                        val entry = zf.getEntry(entryName)
-                            ?: throw IllegalStateException("missing zip entry: $entryName")
-                        zf.getInputStream(entry).use { it.copyTo(out.outputStream()) }
-                    }
-                    FrameEntry(file = out, delayMs = (frame.delay ?: 80).coerceAtLeast(10))
-                }
-            }
-        } catch (e: Exception) {
-            runCatching { zipFile.delete() }
-            throw e
-        }
-    }
-
     /** 延时表 sidecar（帧文件名 + 毫秒），与 zip 同目录。 */
-    private fun writeFrameDelays(dir: File, entries: List<FrameEntry>) {
+    private fun writeFrameDelays(dir: File, entries: List<UgoiraFrame>) {
         val json = org.json.JSONArray().apply {
             entries.forEach { entry ->
                 put(org.json.JSONObject().apply {
@@ -179,7 +163,7 @@ class UgoiraExporter @Inject constructor(
     }
 
     /** 首帧尺寸（卡片按真实比例显示；解码失败回退 0 走结构字段）。 */
-    private fun widthHeightOf(entries: List<FrameEntry>): Pair<Int, Int> = decodeBounds(entries.first().file)
+    private fun widthHeightOf(entries: List<UgoiraFrame>): Pair<Int, Int> = decodeBounds(entries.first().file)
 
     /** 只解析图片尺寸不加载像素（inJustDecodeBounds）。 */
     private fun decodeBounds(file: File): Pair<Int, Int> {
@@ -209,7 +193,7 @@ class UgoiraExporter @Inject constructor(
                     targetId = illustId,
                     targetType = "ugoira",
                     title = illust?.title.orEmpty(),
-                    coverUrl = illust?.image_urls?.medium ?: illust?.image_urls?.square_medium,
+                    coverUrl = illust?.bestCoverUrl,
                     localPath = localPath,
                     status = status,
                     progress = progress,
@@ -217,23 +201,11 @@ class UgoiraExporter @Inject constructor(
                     width = widthHeight.first,
                     height = widthHeight.second,
                     format = format.format,
-                    payloadJson = illust?.let { illustPayload(it) },
+                    payloadJson = illust?.snapshotPayload(),
                 ),
             )
         }.onFailure { Log.w(TAG, "写下载索引失败 illustId=$illustId status=$status", it) }
     }
-
-    /** 完整卡片快照（与插画下载/浏览历史同格式）。 */
-    private fun illustPayload(illust: Illust): String = org.json.JSONObject().apply {
-        put("id", illust.id)
-        put("title", illust.title.orEmpty())
-        put("coverUrl", illust.image_urls?.medium ?: illust.image_urls?.square_medium)
-        put("width", illust.width)
-        put("height", illust.height)
-        put("bookmarks", illust.total_bookmarks ?: 0)
-        put("pageCount", illust.page_count)
-        put("isBookmarked", illust.is_bookmarked == true)
-    }.toString()
 
     private companion object {
         const val TAG = "UgoiraExporter"

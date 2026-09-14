@@ -217,28 +217,20 @@ class NovelViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 收藏 / 取消收藏小说（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。
+     * id 与 [bookmarkEditor] 同源取自当前展示小说（排行右栏内嵌场景路由 novelId=0）；
+     * 成功后编辑器回显当前设置 / 清空回显。
+     */
     fun toggleBookmark() {
-        if (_isBookmarking.value) return
-        viewModelScope.launch {
-            _isBookmarking.value = true
-            val current = _isBookmarked.value
-            favoriteActions.toggleNovelFavorite(novelId, !current)
-                .onSuccess {
-                    _isBookmarked.value = !current
-                    // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
-                    bookmarkEditor.onTargetLoaded(!current)
-                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_bookmarked) else UiMessage(
-                        CoreR.string.core_msg_unbookmarked
-                    ))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isBookmarking.value = false
-        }
+        val id = _novel.value?.id ?: novelId
+        runOptimisticToggle(
+            _isBookmarking,
+            _isBookmarked.value,
+            { _isBookmarked.value = it },
+            CoreR.string.core_msg_bookmarked,
+            CoreR.string.core_msg_unbookmarked,
+        ) { favoriteActions.toggleNovelFavorite(id, it) }
     }
 
     /**
@@ -246,43 +238,26 @@ class NovelViewModel @Inject constructor(
      * 期间复用 [_isBookmarking] 防连点（与一键收藏互斥）。
      */
     fun saveBookmarkEditor() {
-        if (_isBookmarking.value) return
-        viewModelScope.launch {
-            _isBookmarking.value = true
-            bookmarkEditor.save()
-                .onSuccess {
-                    _isBookmarked.value = true
-                    bookmarkEditor.close()
-                    sendMessage(UiMessage(CoreR.string.core_msg_bookmark_updated))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isBookmarking.value = false
-        }
+        runActionNotified(
+            _isBookmarking,
+            CoreR.string.core_msg_bookmark_updated,
+            {
+                _isBookmarked.value = true
+                bookmarkEditor.close()
+            },
+        ) { bookmarkEditor.save() }
     }
 
-    /** 追更 / 取消追更（成功后翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
+    /** 追更 / 取消追更系列（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: return
-        if (_isWatchlisting.value) return
-        viewModelScope.launch {
-            _isWatchlisting.value = true
-            val current = _isWatchlisted.value
-            favoriteActions.toggleNovelWatchlist(seriesId, !current)
-                .onSuccess {
-                    _isWatchlisted.value = !current
-                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_watching_added) else UiMessage(
-                        CoreR.string.core_msg_watching_removed
-                    ))
-                }.onFailure {
-                    sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
-                }
-            _isWatchlisting.value = false
-        }
+        runOptimisticToggle(
+            _isWatchlisting,
+            _isWatchlisted.value,
+            { _isWatchlisted.value = it },
+            CoreR.string.core_msg_watching_added,
+            CoreR.string.core_msg_watching_removed,
+        ) { favoriteActions.toggleNovelWatchlist(seriesId, it) }
     }
 
     // ── 关注作者 ─────────────────────────────────────────────────────────────
@@ -299,21 +274,14 @@ class NovelViewModel @Inject constructor(
 
     /** 关注 / 取关作者（详情页作者名旁按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
     fun toggleFollowAuthor() {
-        if (_isAuthorFollowing.value) return
         val userId = _novel.value?.user?.id ?: return
-        viewModelScope.launch {
-            _isAuthorFollowing.value = true
-            val current = _isAuthorFollowed.value
-            favoriteActions.toggleFollowUser(userId, !current)
-                .onSuccess {
-                    _isAuthorFollowed.value = !current
-                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(CoreR.string.core_msg_unfollowed))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
-                }
-            _isAuthorFollowing.value = false
-        }
+        runOptimisticToggle(
+            _isAuthorFollowing,
+            _isAuthorFollowed.value,
+            { _isAuthorFollowed.value = it },
+            CoreR.string.core_msg_followed_author,
+            CoreR.string.core_msg_unfollowed,
+        ) { favoriteActions.toggleFollowUser(userId, it) }
     }
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────

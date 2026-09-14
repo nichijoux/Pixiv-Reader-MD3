@@ -23,26 +23,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
@@ -89,15 +87,7 @@ fun NovelRankingRoute(
     viewModel: NovelRankingViewModel = hiltViewModel(),
 ) {
     val notificationHostState = rememberNotificationHostState()
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.message.collect { msg ->
-            notificationHostState.show(
-                context.getString(msg.res, *msg.args.toTypedArray()),
-                type = msg.type.toNotificationType()
-            )
-        }
-    }
+    UiMessageEffect(viewModel.message, notificationHostState)
     val languageFilter by viewModel.languageFilter.collectAsStateWithLifecycle()
     // 日期筛选状态（null = 最新榜）：驱动 TopAppBar 入口着色与 TabRow 上方日期 chip 行
     val currentDate by viewModel.selectedDate.collectAsStateWithLifecycle()
@@ -110,6 +100,44 @@ fun NovelRankingRoute(
     // 详情、评论区、下载弹窗全部由 NovelDetailPane 内嵌管理
     val detailVm: NovelViewModel = hiltViewModel()
     val commentVm: CommentListViewModel = hiltViewModel()
+
+    // 单栏/双栏共用的榜单列表：仅 modifier 与点击分流不同，其余参数与条目渲染完全一致
+    val rankingList: @Composable (Modifier, (Novel) -> Unit) -> Unit = { listModifier, onItemClick ->
+        RankingList(
+            modes = viewModel.modes,
+            onModeSelect = viewModel::onPageSelected,
+            stateFor = viewModel::stateFor,
+            onRetry = viewModel::retry,
+            onLoadMore = viewModel::loadMore,
+            modifier = listModifier,
+            emptyText = stringResource(R.string.novel_ranking_empty),
+            filter = { novel -> novel.matchesLanguageFilter(languageFilter) },
+            filteredEmptyText = stringResource(R.string.novel_ranking_filter_empty),
+            skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
+            stateKey = currentDate.orEmpty(),
+            listHeader = {
+                // 日期 chip 行：TabRow 上方、限宽内容块内（pane 让位时随列表移动）
+                currentDate?.let { date ->
+                    RankingDateChipRow(
+                        date = date,
+                        onSelectDate = viewModel::selectDate,
+                        onClear = { viewModel.selectDate(null) },
+                    )
+                }
+            },
+        ) { item, rank ->
+            NovelCard(
+                novel = item.toCardData(),
+                rank = rank,
+                onClick = { onItemClick(item) },
+                onOpenAuthor = { item.user?.id?.let(onOpenUser) },
+                onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(item.id, fav) },
+                onTagClick = onSearchTag,
+                onSeriesClick = { item.series?.id?.let(onOpenSeries) },
+                modifier = Modifier.padding(bottom = Spacing.smPlus),
+            )
+        }
+    }
 
     Scaffold(
         snackbarHost = { NotificationHost(notificationHostState) },
@@ -193,40 +221,8 @@ fun NovelRankingRoute(
                 listContent = { listMax ->
                     // 外层限宽跟随让位值（RankingList 内部还有一层 760 限宽，取较小者生效）
                     AdaptiveContentBox(maxWidth = listMax) {
-                        RankingList(
-                            modes = viewModel.modes,
-                            onModeSelect = viewModel::onPageSelected,
-                            stateFor = viewModel::stateFor,
-                            onRetry = viewModel::retry,
-                            onLoadMore = viewModel::loadMore,
-                            emptyText = stringResource(R.string.novel_ranking_empty),
-                            filter = { novel -> novel.matchesLanguageFilter(languageFilter) },
-                            filteredEmptyText = stringResource(R.string.novel_ranking_filter_empty),
-                            skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
-                            stateKey = currentDate.orEmpty(),
-                            listHeader = {
-                                // 日期 chip 行：TabRow 上方、限宽内容块内（pane 让位时随列表移动）
-                                currentDate?.let { date ->
-                                    RankingDateChipRow(
-                                        date = date,
-                                        onSelectDate = viewModel::selectDate,
-                                        onClear = { viewModel.selectDate(null) },
-                                    )
-                                }
-                            },
-                        ) { item, rank ->
-                            NovelCard(
-                                novel = item.toCardData(),
-                                rank = rank,
-                                // 点击分流：pane 启用 → 进右栏；否则全屏跳转（paneEnabled 顶层捕获）
-                                onClick = { if (paneEnabled) selected = item else onOpenNovel(item.id) },
-                                onOpenAuthor = { item.user?.id?.let(onOpenUser) },
-                                onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(item.id, fav) },
-                                onTagClick = onSearchTag,
-                                onSeriesClick = { item.series?.id?.let(onOpenSeries) },
-                                modifier = Modifier.padding(bottom = Spacing.smPlus),
-                            )
-                        }
+                        // 点击分流：pane 启用 → 进右栏
+                        rankingList(Modifier) { item -> selected = item }
                     }
                 },
                 detailPane = {
@@ -245,40 +241,7 @@ fun NovelRankingRoute(
             )
         } else {
             // 小屏（内容区 < 704dp）：单栏列表，点击行直接跳全屏详情（原行为不变）
-            RankingList(
-                modes = viewModel.modes,
-                onModeSelect = viewModel::onPageSelected,
-                stateFor = viewModel::stateFor,
-                onRetry = viewModel::retry,
-                onLoadMore = viewModel::loadMore,
-                modifier = Modifier.padding(padding),
-                emptyText = stringResource(R.string.novel_ranking_empty),
-                filter = { novel -> novel.matchesLanguageFilter(languageFilter) },
-                filteredEmptyText = stringResource(R.string.novel_ranking_filter_empty),
-                skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
-                stateKey = currentDate.orEmpty(),
-                listHeader = {
-                    // 日期 chip 行：TabRow 上方、限宽内容块内
-                    currentDate?.let { date ->
-                        RankingDateChipRow(
-                            date = date,
-                            onSelectDate = viewModel::selectDate,
-                            onClear = { viewModel.selectDate(null) },
-                        )
-                    }
-                },
-            ) { item, rank ->
-                NovelCard(
-                    novel = item.toCardData(),
-                    rank = rank,
-                    onClick = { onOpenNovel(item.id) },
-                    onOpenAuthor = { item.user?.id?.let(onOpenUser) },
-                    onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(item.id, fav) },
-                    onTagClick = onSearchTag,
-                    onSeriesClick = { item.series?.id?.let(onOpenSeries) },
-                    modifier = Modifier.padding(bottom = Spacing.smPlus),
-                )
-            }
+            rankingList(Modifier.padding(padding)) { onOpenNovel(it.id) }
         }
     }
 }

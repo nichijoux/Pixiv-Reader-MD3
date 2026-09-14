@@ -37,12 +37,12 @@ include(":core:database")
 include(":core:datastore")
 include(":core:ui")
 include(":core:novel")
+include(":core:comment")
 
 // feature 层
 include(":feature:auth")
 include(":feature:home")
 include(":feature:discover")
-include(":feature:comments")
 include(":feature:illust")
 include(":feature:viewer")
 include(":feature:novel")

@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
-import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.common.config.ViewerOrientation
@@ -14,6 +13,8 @@ import com.pixiv.reader.core.database.dao.DownloadEntryDao
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.network.model.bestCoverUrl
+import com.pixiv.reader.core.network.model.snapshotPayload
 import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.download.UgoiraExportFormat
@@ -25,6 +26,7 @@ import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -154,37 +156,38 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** 收藏 / 取消收藏（乐观翻转 + 防连点；断网自动入队待同步）。 */
+    /**
+     * 收藏 / 取消收藏（乐观翻转 + 防连点；断网自动入队待同步）。
+     * 成功静默（查看器收藏图标即时反馈），仅刷新收藏态与编辑器回显/清空；失败发通知。
+     */
     fun toggleBookmark() {
-        if (_isBookmarking.value) return
-        viewModelScope.launch {
-            _isBookmarking.value = true
-            val current = _isBookmarked.value
-            favoriteActions.toggleIllustFavorite(illustId, !current)
-                .onSuccess {
-                    _isBookmarked.value = !current
-                    // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
-                    bookmarkEditor.onTargetLoaded(!current)
-                }
-                .onFailure { sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: ""))) }
-            _isBookmarking.value = false
-        }
+        runOptimisticToggle(
+            _isBookmarking,
+            _isBookmarked.value,
+            { state ->
+                _isBookmarked.value = state
+                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                bookmarkEditor.onTargetLoaded(state)
+            },
+            addedRes = null,
+            removedRes = null,
+        ) { favoriteActions.toggleIllustFavorite(illustId, it) }
     }
 
     /**
      * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 保存中由弹层确认按钮禁用（[BookmarkEditor.saving] 驱动），无需额外防连点。
+     * 期间复用 [_isBookmarking] 防连点（保存中弹层确认按钮另由 [BookmarkEditor.saving] 禁用，
+     * 与一键收藏互斥）。
      */
     fun saveBookmarkEditor() {
-        viewModelScope.launch {
-            bookmarkEditor.save()
-                .onSuccess {
-                    _isBookmarked.value = true
-                    bookmarkEditor.close()
-                    sendMessage(UiMessage(CoreR.string.core_msg_bookmark_updated))
-                }
-                .onFailure { sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: ""))) }
-        }
+        runActionNotified(
+            _isBookmarking,
+            CoreR.string.core_msg_bookmark_updated,
+            {
+                _isBookmarked.value = true
+                bookmarkEditor.close()
+            },
+        ) { bookmarkEditor.save() }
     }
 
     /** 切换预览 / 原图显示。 */
@@ -221,80 +224,58 @@ class ViewerViewModel @Inject constructor(
     /**
      * 下载当前页原图：走 [IllustDownloadWorker] 单页任务（后台执行，切走页面不中断）。
      * 入队即建「待同步」索引条目：断网自动排队，联网自动开始（`.part` 断点语义与整本一致）。
+     *
+     * @param page 待下载的当前页信息（用于定位页序号）
+     * @return 无返回值
      */
     fun download(page: IllustPageInfo) {
         val index = _pages.value.indexOf(page).takeIf { it >= 0 } ?: 0
-        viewModelScope.launch {
-            trySendMessage(UiMessage(R.string.viewer_msg_download_started))
-            // 入队即建「待同步」条目（卡片立即可见；Worker 起跑覆写为下载中）
-            runCatching {
-                DownloadQueue.markPending(
-                    downloadEntryDao,
-                    DownloadEntryEntity(
-                        targetId = illustId,
-                        targetType = "illust",
-                        title = _illust.value?.title,
-                        coverUrl = _illust.value?.image_urls?.medium
-                            ?: _illust.value?.image_urls?.square_medium,
-                        pageCount = _pages.value.size,
-                        width = _illust.value?.width ?: 0,
-                        height = _illust.value?.height ?: 0,
-                        payloadJson = illustPayloadJson(),
+        val illust = _illust.value
+        trySendMessage(UiMessage(R.string.viewer_msg_download_started))
+        enqueueDownload(
+            entry = DownloadEntryEntity(
+                targetId = illustId,
+                targetType = "illust",
+                title = illust?.title,
+                coverUrl = illust?.bestCoverUrl,
+                pageCount = _pages.value.size,
+                width = illust?.width ?: 0,
+                height = illust?.height ?: 0,
+                payloadJson = illust?.snapshotPayload(),
+            ),
+            request = OneTimeWorkRequestBuilder<IllustDownloadWorker>()
+                .setInputData(
+                    workDataOf(
+                        IllustDownloadWorker.KEY_ILLUST_ID to illustId,
+                        IllustDownloadWorker.KEY_PAGE_INDEX to index.toLong(),
                     ),
                 )
-            }
-            WorkManager.getInstance(context).enqueue(
-                OneTimeWorkRequestBuilder<IllustDownloadWorker>()
-                    .setInputData(
-                        workDataOf(
-                            IllustDownloadWorker.KEY_ILLUST_ID to illustId,
-                            IllustDownloadWorker.KEY_PAGE_INDEX to index.toLong(),
-                        ),
-                    )
-                    .setConstraints(DownloadQueue.networkConstraints())
-                    .addTag(DownloadQueue.workTag("illust", illustId, "", ""))
-                    .build(),
-            )
-        }
-    }
-
-    /** 作品卡片快照 JSON（与浏览历史同格式，下载管理页完整显示用；无详情时 null 走结构字段回退）。 */
-    private fun illustPayloadJson(): String? = _illust.value?.let { ill ->
-        org.json.JSONObject().apply {
-            put("id", ill.id)
-            put("title", ill.title.orEmpty())
-            put("coverUrl", ill.image_urls?.medium ?: ill.image_urls?.square_medium)
-            put("width", ill.width)
-            put("height", ill.height)
-            put("bookmarks", ill.total_bookmarks ?: 0)
-            put("pageCount", ill.page_count ?: 0)
-            put("isBookmarked", ill.is_bookmarked == true)
-        }.toString()
+                .setConstraints(DownloadQueue.networkConstraints())
+                .addTag(DownloadQueue.workTag("illust", illustId, "", ""))
+                .build(),
+        )
     }
 
     /** 导出动图（MP4 视频 / ZIP 帧包）：后台 Worker 执行，进度见下载管理页（Range 断点续传 + 有限重试）。
-     * 入队即建「待同步」索引条目：断网自动排队，联网后自动开始。 */
+     * 入队即建「待同步」索引条目：断网自动排队，联网后自动开始。
+     *
+     * @param format 导出格式（MP4 / ZIP）
+     * @return 无返回值
+     */
     fun downloadGif(format: UgoiraExportFormat) {
-        viewModelScope.launch {
-            runCatching {
-                DownloadQueue.markPending(
-                    downloadEntryDao,
-                    DownloadEntryEntity(
-                        targetId = illustId,
-                        targetType = "ugoira",
-                        title = _illust.value?.title,
-                        coverUrl = _illust.value?.image_urls?.medium
-                            ?: _illust.value?.image_urls?.square_medium,
-                        format = format.format,
-                        width = _illust.value?.width ?: 0,
-                        height = _illust.value?.height ?: 0,
-                        payloadJson = illustPayloadJson(),
-                    ),
-                )
-            }
-        }
-        WorkManager.getInstance(context).enqueue(
-            OneTimeWorkRequestBuilder<UgoiraExportWorker>()
+        val illust = _illust.value
+        enqueueDownload(
+            entry = DownloadEntryEntity(
+                targetId = illustId,
+                targetType = "ugoira",
+                title = illust?.title,
+                coverUrl = illust?.bestCoverUrl,
+                format = format.format,
+                width = illust?.width ?: 0,
+                height = illust?.height ?: 0,
+                payloadJson = illust?.snapshotPayload(),
+            ),
+            request = OneTimeWorkRequestBuilder<UgoiraExportWorker>()
                 .setInputData(
                     workDataOf(
                         UgoiraExportWorker.KEY_ILLUST_ID to illustId,
@@ -306,6 +287,23 @@ class ViewerViewModel @Inject constructor(
                 .build(),
         )
         viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_ugoira_export_started)) }
+    }
+
+    /**
+     * 下载入队共享路径（单页下载与动图导出同构收敛）：先写「待同步」索引条目
+     * （卡片立即可见，断网也不丢；Worker 起跑后覆写为下载中），完成后再入队 WorkManager 任务
+     * （网络约束：断网挂起待同步，联网自动开始）。
+     *
+     * @param entry 待写入下载索引的条目快照
+     * @param request 已装配好的 WorkManager 一次性任务
+     * @return 无返回值
+     */
+    private fun enqueueDownload(entry: DownloadEntryEntity, request: OneTimeWorkRequest) {
+        viewModelScope.launch {
+            runCatching { DownloadQueue.markPending(downloadEntryDao, entry) }
+            // 待同步条目落库后再入队，保证 Worker 起跑时条目必已存在
+            WorkManager.getInstance(context).enqueue(request)
+        }
     }
 
     /** 举报占位：P7 接入 /v2/illust/report */

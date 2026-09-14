@@ -1,6 +1,5 @@
 package com.pixiv.reader.feature.reader.ui
 
-import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
@@ -8,10 +7,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,11 +38,10 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderPage
 import com.pixiv.reader.feature.reader.state.ReaderSpread
+import com.pixiv.reader.feature.reader.state.ReaderTapZone
+import com.pixiv.reader.feature.reader.state.readerTapZone
 import com.pixiv.reader.feature.reader.state.spreadIndexForChar
 import kotlinx.coroutines.launch
-
-/** 仿真翻页调试日志 TAG。 */
-private const val TAG = "SimulationPage"
 
 /** 回弹/翻过动画基准时长（ms，按剩余行程比例缩短）。 */
 private const val SETTLE_BASE_MS = 300
@@ -263,7 +259,6 @@ fun SimulationPageContent(
         val remain = (target - from).getDistance()
         val duration = (SETTLE_BASE_MS * (remain / full.coerceAtLeast(1f)))
             .toInt().coerceIn(SETTLE_MIN_MS, SETTLE_BASE_MS)
-        Log.d(TAG, "settle complete=$complete from=${from} target=$target duration=$duration")
         val anim = Animatable(0f)
         anim.animateTo(1f, tween(duration, easing = EaseOutCubic)) {
             // 跳转等外部操作已复位（phase 离开 SETTLING）则放弃本次收尾
@@ -301,29 +296,32 @@ fun SimulationPageContent(
                 detectTapGestures(onTap = { offset ->
                     val w = size.width.toFloat()
                     val h = size.height.toFloat()
-                    val x = offset.x
-                    val y = offset.y
-                    // 井字九宫格：中间格切换工具栏；左右半区翻页（工具栏显示时仅关闭，防误翻）
-                    val centerCell =
-                        x >= w / 3f && x <= 2f * w / 3f && y >= h / 3f && y <= 2f * h / 3f
-                    when {
-                        centerCell -> onToggleBars()
-                        x < w / 2f -> {
+                    // 井字九宫格（与翻页模式共用 readerTapZone 判定）：中间格切换工具栏；
+                    // 左右半区翻页（工具栏显示时仅关闭，防误翻）
+                    when (readerTapZone(offset.x, offset.y, w, h)) {
+                        ReaderTapZone.CENTER -> onToggleBars()
+                        ReaderTapZone.LEFT -> {
                             if (barsVisible) {
                                 onCloseBars()
                             } else if (phase == Phase.IDLE) {
                                 // 首跨页向前区：转交章节切换（系列上一章尾页）
-                                if (canTurnBackward()) startTapTurn(TurnDirection.BACKWARD, offset, w, h)
-                                else onPrevChapterRequest()
+                                if (canTurnBackward()) {
+                                    startTapTurn(TurnDirection.BACKWARD, offset, w, h)
+                                } else {
+                                    onPrevChapterRequest()
+                                }
                             }
                         }
-                        else -> {
+                        ReaderTapZone.RIGHT -> {
                             if (barsVisible) {
                                 onCloseBars()
                             } else if (phase == Phase.IDLE) {
                                 // 末跨页向后区：转交章节切换（系列下一章开头）
-                                if (canTurnForward()) startTapTurn(TurnDirection.FORWARD, offset, w, h)
-                                else onNextChapterRequest()
+                                if (canTurnForward()) {
+                                    startTapTurn(TurnDirection.FORWARD, offset, w, h)
+                                } else {
+                                    onNextChapterRequest()
+                                }
                             }
                         }
                     }
@@ -400,7 +398,6 @@ fun SimulationPageContent(
                     },
                     onDragEnd = {
                         val complete = judgeSettle()
-                        Log.d(TAG, "dragEnd complete=$complete")
                         velocitySamples.clear()
                         scope.launch { settleTurn(complete) }
                     },
@@ -468,162 +465,150 @@ fun SimulationPageContent(
             val foldResult = computeFold(geomNow, corner, turnV.touch)
             // 正面两方向都平铺屏内槽位：零折叠帧（foldResult = null）也必须渲染，
             // 完整盖住静态底层（否则起手瞬间闪现下层页）
-            if (true) {
-                // 书脊坐标 → 屏幕坐标
-                val toScreen: (Offset) -> Offset = { Offset(it.x + spineScreenX, it.y) }
-                // 零折叠帧（A=B）无折痕多边形：正面按完整页面绘制（无裁剪、无阴影）
-                val flatPath = foldResult?.let { polygonToPath(it.flatPolygon.map(toScreen)) }
-                val shadowLen = bookW * FOLD_SHADOW_FRACTION
+            // 书脊坐标 → 屏幕坐标
+            val toScreen: (Offset) -> Offset = { Offset(it.x + spineScreenX, it.y) }
+            // 零折叠帧（A=B）无折痕多边形：正面按完整页面绘制（无裁剪、无阴影）
+            val flatPath = foldResult?.let { polygonToPath(it.flatPolygon.map(toScreen)) }
+            val shadowLen = bookW * FOLD_SHADOW_FRACTION
 
-                // 正面（正在翻的纸的平展部分）与背面（纸翻到位后朝上的那面）内容归属：
-                // 双页向前：正面 = 当前右页（右槽）、背面 = 下一跨页左页（终位左槽）；
-                // 双页向后：正面 = 当前左页（左槽）、背面 = 上一跨页右页（终位右槽）；
-                // 单页向后（去下一页）：当前页从右缘往左翻走，背面 = 下一页（终位左槽屏外）；
-                // 单页向前（回上一页，对齐 e0864dd 卷角）：当前页从书脊左缘向右卷走，
-                //   正面 = 当前页（整宽），背面 = 当前页自身（经折痕反射后呈镜像透字，
-                //   灰化后即纸背隐约透字观感），上一页由底层静态层随卷过区域渐显
-                val frontPage: ReaderPage?
-                val backPage: ReaderPage?
-                var frontAlign = Alignment.CenterStart
-                var backAlign = Alignment.CenterEnd
-                // 背面终位槽位偏移（单页两方向 = 书脊左侧屏外）
-                var backSlotOffsetXDp = 0.dp
-                when {
-                    columns <= 1 -> if (forward) {
-                        frontPage = spreads.getOrNull(i)?.left
-                        backPage = spreads.getOrNull(i + 1)?.left
-                        frontAlign = Alignment.CenterStart
-                        backAlign = Alignment.CenterStart
-                        backSlotOffsetXDp = -slotWidthDp
-                    } else {
-                        frontPage = spreads.getOrNull(i)?.left
-                        backPage = spreads.getOrNull(i)?.left
-                        frontAlign = Alignment.CenterStart
-                        backAlign = Alignment.CenterStart
-                        backSlotOffsetXDp = -slotWidthDp
-                    }
-                    forward -> {
-                        frontPage = spreads.getOrNull(i)?.right
-                        backPage = spreads.getOrNull(i + 1)?.left
-                        frontAlign = Alignment.CenterEnd
-                        backAlign = Alignment.CenterStart
-                    }
-                    else -> {
-                        frontPage = spreads.getOrNull(i)?.left
-                        backPage = spreads.getOrNull(i - 1)?.right
-                        frontAlign = Alignment.CenterStart
-                        backAlign = Alignment.CenterEnd
-                    }
+            // 正面（正在翻的纸的平展部分）与背面（纸翻到位后朝上的那面）内容归属：
+            // 双页向前：正面 = 当前右页（右槽）、背面 = 下一跨页左页（终位左槽）；
+            // 双页向后：正面 = 当前左页（左槽）、背面 = 上一跨页右页（终位右槽）；
+            // 单页向后（去下一页）：当前页从右缘往左翻走，背面 = 下一页（终位左槽屏外）；
+            // 单页向前（回上一页，对齐 e0864dd 卷角）：当前页从书脊左缘向右卷走，
+            //   正面 = 当前页（整宽），背面 = 当前页自身（经折痕反射后呈镜像透字，
+            //   灰化后即纸背隐约透字观感），上一页由底层静态层随卷过区域渐显
+            val frontPage: ReaderPage?
+            val backPage: ReaderPage?
+            var frontAlign = Alignment.CenterStart
+            var backAlign = Alignment.CenterEnd
+            // 背面终位槽位偏移（单页两方向 = 书脊左侧屏外）
+            var backSlotOffsetXDp = 0.dp
+            when {
+                columns <= 1 -> if (forward) {
+                    frontPage = spreads.getOrNull(i)?.left
+                    backPage = spreads.getOrNull(i + 1)?.left
+                    frontAlign = Alignment.CenterStart
+                    backAlign = Alignment.CenterStart
+                    backSlotOffsetXDp = -slotWidthDp
+                } else {
+                    frontPage = spreads.getOrNull(i)?.left
+                    backPage = spreads.getOrNull(i)?.left
+                    frontAlign = Alignment.CenterStart
+                    backAlign = Alignment.CenterStart
+                    backSlotOffsetXDp = -slotWidthDp
                 }
+                forward -> {
+                    frontPage = spreads.getOrNull(i)?.right
+                    backPage = spreads.getOrNull(i + 1)?.left
+                    frontAlign = Alignment.CenterEnd
+                    backAlign = Alignment.CenterStart
+                }
+                else -> {
+                    frontPage = spreads.getOrNull(i)?.left
+                    backPage = spreads.getOrNull(i - 1)?.right
+                    frontAlign = Alignment.CenterStart
+                    backAlign = Alignment.CenterEnd
+                }
+            }
 
-                // ── 层 1：正面静止部分（页矩形 ∩ A 侧半平面）+ 折痕投影阴影 ──
+            // ── 层 1：正面静止部分（页矩形 ∩ A 侧半平面）+ 折痕投影阴影 ──
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        val clip = flatPath
+                        val fold = foldResult
+                        if (clip == null || fold == null) {
+                            // 零折叠起始帧：正面槽位先铺纸再画内容（纸只铺被翻页所在
+                            // 槽位，对侧槽位的静态页保持可见），完全遮住静态下一页
+                            val slotX = if (frontAlign == Alignment.CenterEnd) spineScreenX else 0f
+                            drawRect(
+                                color = backgroundColor,
+                                topLeft = Offset(slotX, 0f),
+                                size = Size(bookW, size.height),
+                            )
+                            this@drawWithContent.drawContent()
+                        } else {
+                            val mid = toScreen(fold.fold.midPoint)
+                            clipPath(clip) {
+                                // 纸底必须先铺：正面文字是透明绘制，
+                                // 不铺纸会把静态底层的下一页文字透出来（两层文字重叠）
+                                drawRect(backgroundColor)
+                                this@drawWithContent.drawContent()
+                                // 折痕阴影：由折痕向 A 侧渐隐
+                                drawRect(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            Color.Black.copy(alpha = 0.18f),
+                                            Color.Transparent,
+                                        ),
+                                        start = mid,
+                                        end = mid - fold.fold.normal * shadowLen,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+            ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .drawWithContent {
-                            val clip = flatPath
-                            val fold = foldResult
-                            if (clip == null || fold == null) {
-                                // 零折叠起始帧：正面槽位先铺纸再画内容（纸只铺被翻页所在
-                                // 槽位，对侧槽位的静态页保持可见），完全遮住静态下一页
-                                val slotX = if (frontAlign == Alignment.CenterEnd) spineScreenX else 0f
-                                drawRect(
-                                    color = backgroundColor,
-                                    topLeft = Offset(slotX, 0f),
-                                    size = Size(bookW, size.height),
-                                )
-                                this@drawWithContent.drawContent()
-                            } else {
-                                val mid = toScreen(fold.fold.midPoint)
-                                clipPath(clip) {
-                                    // 纸底必须先铺：正面文字是透明绘制，
-                                    // 不铺纸会把静态底层的下一页文字透出来（两层文字重叠）
-                                    drawRect(backgroundColor)
-                                    this@drawWithContent.drawContent()
-                                    // 折痕阴影：由折痕向 A 侧渐隐
-                                    drawRect(
-                                        brush = Brush.linearGradient(
-                                            colors = listOf(
-                                                Color.Black.copy(alpha = 0.18f),
-                                                Color.Transparent,
-                                            ),
-                                            start = mid,
-                                            end = mid - fold.fold.normal * shadowLen,
-                                        ),
-                                    )
-                                }
-                            }
-                        },
+                        .align(frontAlign)
+                        .fillMaxHeight()
+                        .width(slotWidthDp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .align(frontAlign)
-                            .fillMaxHeight()
-                            .width(slotWidthDp),
-                    ) {
-                        if (frontPage != null) {
-                            RenderReaderPage(
-                                frontPage,
-                                pageHeight,
-                                onOpenImage,
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(
-                                        start = PAGE_H_PADDING,
-                                        end = PAGE_H_PADDING,
-                                        top = PAGE_V_PADDING + contentTopInset,
-                                        bottom = PAGE_V_PADDING,
-                                    ),
-                            )
-                        }
+                    if (frontPage != null) {
+                        RenderReaderPage(
+                            frontPage,
+                            pageHeight,
+                            onOpenImage,
+                            Modifier
+                                .fillMaxSize()
+                                .pageInsets(contentTopInset),
+                        )
                     }
                 }
+            }
 
-                // ── 层 2：背面翻起部分（页矩形 ∩ B 侧半平面沿折痕反射）──
-                // 双面共享几何（规则九）：背面内容画在「翻完后的阅读位」，
-                // 经 reflect(折痕) ∘ reflect(书脊) 复合变换映射到当前翻起位置；
-                // 全翻时折痕=书脊、复合变换=恒等，背面恰好可读平铺目标页槽。
-                // 零折叠帧无翻起部分，不渲染。
-                if (foldResult != null) {
-                    val flapPath = polygonToPath(foldResult.flapReflected.map(toScreen))
-                    val midScreen = toScreen(foldResult.fold.midPoint)
-                    val dragScreen = toScreen(turnV.touch)
-                    val foldLine = foldResult.fold
-                    val slotOffsetPx = with(density) { backSlotOffsetXDp.toPx() }
-                    Log.d(
-                        TAG,
-                        "draw dir=${turnV.direction} cols=$columns i=$i prog=${foldResult.progress} " +
-                            "flat=${foldResult.flatPolygon.size} flap=${foldResult.flapReflected.size} " +
-                            "back=${backPage != null} par=${foldLine.parallelToSpine} off=$backSlotOffsetXDp",
-                    )
-                    if (columns <= 1) {
-                        // ── 单页（手机端）：独立渲染路径，与双页（平板）互不影响 ──
-                        SingleFoldBackLayer(
-                            foldLine = foldLine,
-                            flapPath = flapPath,
-                            backPage = backPage,
-                            pageHeight = pageHeight,
-                            slotWidthDp = slotWidthDp,
-                            slotTranslatePx = slotOffsetPx,
-                            contentTopInset = contentTopInset,
-                            onOpenImage = onOpenImage,
-                            backgroundColor = backgroundColor,
-                            shadowBrush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.22f),
-                                    Color.Transparent,
-                                ),
-                                start = midScreen,
-                                end = dragScreen,
+            // ── 层 2：背面翻起部分（页矩形 ∩ B 侧半平面沿折痕反射）──
+            // 双面共享几何（规则九）：背面内容画在「翻完后的阅读位」，
+            // 经 reflect(折痕) ∘ reflect(书脊) 复合变换映射到当前翻起位置；
+            // 全翻时折痕=书脊、复合变换=恒等，背面恰好可读平铺目标页槽。
+            // 零折叠帧无翻起部分，不渲染。
+            if (foldResult != null) {
+                val flapPath = polygonToPath(foldResult.flapReflected.map(toScreen))
+                val midScreen = toScreen(foldResult.fold.midPoint)
+                val dragScreen = toScreen(turnV.touch)
+                val foldLine = foldResult.fold
+                val slotOffsetPx = with(density) { backSlotOffsetXDp.toPx() }
+                if (columns <= 1) {
+                    // ── 单页（手机端）：独立渲染路径，与双页（平板）互不影响 ──
+                    SingleFoldBackLayer(
+                        foldLine = foldLine,
+                        flapPath = flapPath,
+                        backPage = backPage,
+                        pageHeight = pageHeight,
+                        slotWidthDp = slotWidthDp,
+                        slotTranslatePx = slotOffsetPx,
+                        contentTopInset = contentTopInset,
+                        onOpenImage = onOpenImage,
+                        backgroundColor = backgroundColor,
+                        shadowBrush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.22f),
+                                Color.Transparent,
                             ),
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        // ── 双页（平板端）：保持现状，不在手机端修复中改动 ──
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .drawWithContent {
+                            start = midScreen,
+                            end = dragScreen,
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    // ── 双页（平板端）：保持现状，不在手机端修复中改动 ──
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .drawWithContent {
                                 clipPath(flapPath) {
                                     // 先铺纸底，保证背面不透明
                                     drawRect(backgroundColor)
@@ -681,16 +666,10 @@ fun SimulationPageContent(
                                     onOpenImage,
                                     Modifier
                                         .fillMaxSize()
-                                        .padding(
-                                            start = PAGE_H_PADDING,
-                                            end = PAGE_H_PADDING,
-                                            top = PAGE_V_PADDING + contentTopInset,
-                                            bottom = PAGE_V_PADDING,
-                                        ),
+                                        .pageInsets(contentTopInset),
                                 )
                             }
                         }
-                    }
                     }
                 }
             }
@@ -772,12 +751,7 @@ private fun SingleFoldBackLayer(
                     onOpenImage,
                     Modifier
                         .fillMaxSize()
-                        .padding(
-                            start = PAGE_H_PADDING,
-                            end = PAGE_H_PADDING,
-                            top = PAGE_V_PADDING + contentTopInset,
-                            bottom = PAGE_V_PADDING,
-                        ),
+                        .pageInsets(contentTopInset),
                 )
             }
         }

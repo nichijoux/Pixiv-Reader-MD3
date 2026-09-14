@@ -19,14 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.UserBookmarksViewModel
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.feedback.EmptyBox
-import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -44,12 +41,6 @@ fun UserBookmarksRoute(
     onOpenUser: (Long) -> Unit,
     viewModel: UserBookmarksViewModel = hiltViewModel(),
 ) {
-    val items by viewModel.paged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.paged.error.collectAsStateWithLifecycle()
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -73,16 +64,17 @@ fun UserBookmarksRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            when {
-                isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
-                items.isEmpty() -> EmptyBox(stringResource(R.string.user_bookmarks_empty))
-                else -> IllustWaterfallGrid(
-                    illusts = items,
+            PagedFeed(
+                paged = viewModel.paged,
+                emptyText = stringResource(R.string.user_bookmarks_empty),
+                onRetry = viewModel::load,
+            ) { state ->
+                IllustWaterfallGrid(
+                    illusts = state.items,
                     onItemClick = onOpenIllust,
                     onLoadMore = viewModel::loadMore,
-                    hasMore = hasMore,
-                    isLoadingMore = isLoadingMore,
+                    hasMore = state.hasMore,
+                    isLoadingMore = state.isLoadingMore,
                     contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
                     onOpenUser = onOpenUser,
                 )

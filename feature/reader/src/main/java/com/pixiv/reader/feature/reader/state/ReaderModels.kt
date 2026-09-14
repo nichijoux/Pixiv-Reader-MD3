@@ -55,14 +55,26 @@ sealed class PageElement {
 }
 
 /**
+ * 具备字符锚点区间的分页对象（[ReaderPage] / [ReaderSpread] 共同实现）：
+ * 供 [indexForChar]（字符偏移 → 页/跨页下标）做统一判定。
+ */
+internal interface CharAnchored {
+    /** 起始字符偏移（无效为负）。 */
+    val startChar: Int
+
+    /** 结束字符偏移（不含，无效为负）。 */
+    val endChar: Int
+}
+
+/**
  * 分页结果：一页由有序的文本行与图片组成。
  * 图片不再独占整页，而是按顺序插入文本流（高度自适应），一页可同时显示图片与文字。
  */
 data class ReaderPage(
-    val startChar: Int,
-    val endChar: Int,
+    override val startChar: Int,
+    override val endChar: Int,
     val elements: List<PageElement>,
-)
+) : CharAnchored
 
 /** 一页里的一行（保留全局字符区间用于进度映射）。 */
 internal data class MeasuredLine(
@@ -87,13 +99,13 @@ data class ReaderSpread(
     val left: ReaderPage?,
     val right: ReaderPage?,
     val columns: Int,
-) {
+) : CharAnchored {
     /** 跨页起始字符偏移（左页起点；空跨页返回 0）。 */
-    val startChar: Int
+    override val startChar: Int
         get() = left?.startChar ?: right?.startChar ?: 0
 
     /** 跨页结束字符偏移（右页终点，无右页则左页终点；空跨页返回 0）。 */
-    val endChar: Int
+    override val endChar: Int
         get() = right?.endChar ?: left?.endChar ?: 0
 }
 
@@ -118,3 +130,27 @@ fun buildSpreads(pages: List<ReaderPage>, columns: Int): List<ReaderSpread> {
         }
     }
 }
+
+/** 触控井字九宫格分区：中间格切换工具栏，左/右半区翻页。 */
+enum class ReaderTapZone { LEFT, CENTER, RIGHT }
+
+/**
+ * 触控井字九宫格分区判定（纯函数）：宽高各三等分，
+ * 中间格（宽、高各 1/3 的正方形）→ [ReaderTapZone.CENTER]；
+ * 其余 8 格沿中间对称轴平分为左/右半区 → [ReaderTapZone.LEFT] / [ReaderTapZone.RIGHT]。
+ * 翻页与仿真两条手势管线共用本判定（各自的手势响应保持独立）。
+ *
+ * @param x 点击 x 坐标（px）
+ * @param y 点击 y 坐标（px）
+ * @param width 容器宽（px）
+ * @param height 容器高（px）
+ * @return 点击落点所属分区
+ */
+fun readerTapZone(x: Float, y: Float, width: Float, height: Float): ReaderTapZone =
+    if (x >= width / 3f && x <= 2f * width / 3f && y >= height / 3f && y <= 2f * height / 3f) {
+        ReaderTapZone.CENTER
+    } else if (x < width / 2f) {
+        ReaderTapZone.LEFT
+    } else {
+        ReaderTapZone.RIGHT
+    }

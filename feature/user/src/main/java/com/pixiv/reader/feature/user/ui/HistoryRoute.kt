@@ -5,34 +5,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,21 +30,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.HistoryFilter
 import com.pixiv.reader.feature.user.state.HistoryViewModel
 import com.pixiv.reader.feature.user.R
-import com.pixiv.api.model.ImageUrls
-import com.pixiv.api.model.Illust
+import com.pixiv.reader.feature.user.data.restoreIllust
+import com.pixiv.reader.feature.user.data.restoreNovelCardData
 import com.google.gson.Gson
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
+import com.pixiv.reader.core.ui.component.layout.SegmentedPager
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.card.CreatorProfile
 import com.pixiv.reader.core.ui.component.card.CreatorProfileCard
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
-import kotlinx.coroutines.launch
 
 /**
  * 阅读历史：TabRow（作品/小说/用户）+ HorizontalPager 滑动切换。
@@ -79,98 +67,66 @@ fun HistoryRoute(
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val history by viewModel.history.collectAsStateWithLifecycle()
-    val pagerState = rememberPagerState(pageCount = { HistoryFilter.entries.size })
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showClearConfirm by remember { mutableStateOf(false) }
 
-    // 滑动切页 → 同步筛选
-    LaunchedEffect(pagerState.currentPage) {
-        val page = pagerState.currentPage
-        if (page in HistoryFilter.entries.indices) {
-            viewModel.selectFilter(HistoryFilter.entries[page])
-        }
-    }
-
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.history_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+            BackTopAppBar(title = stringResource(R.string.history_title), onBack = onBack) {
+                if (history.isNotEmpty()) {
+                    // 清空历史：图标 + 文字（删除色），点击弹确认框
+                    TextButton(onClick = { showClearConfirm = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(Sizes.s18),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = stringResource(R.string.history_clear),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = Spacing.xs),
+                        )
                     }
-                },
-                actions = {
-                    if (history.isNotEmpty()) {
-                        // 清空历史：图标 + 文字（删除色），点击弹确认框
-                        TextButton(onClick = { showClearConfirm = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.DeleteOutline,
-                                contentDescription = null,
-                                modifier = Modifier.size(Sizes.s18),
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                            Text(
-                                text = stringResource(R.string.history_clear),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(start = Spacing.xs),
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+                }
+            }
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：作品 / 小说 / 用户（Expressive 分段控件；选中态跟 Pager 落页，点击反向滚页）
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                ) {
-                    HistoryFilter.entries.forEachIndexed { index, f ->
-                        SegmentedButton(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = HistoryFilter.entries.size),
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(f.labelRes)) },
-                        )
-                    }
-                }
-                // 滑动内容
-                HorizontalPager(state = pagerState) { page ->
-                    when (HistoryFilter.entries.getOrNull(page)) {
-                        HistoryFilter.ILLUST -> IllustHistoryList(
-                            entries = history,
-                            viewModel = viewModel,
-                            onOpenIllust = onOpenIllust,
-                            onOpenUser = onOpenUser,
-                        )
-                        HistoryFilter.NOVEL -> NovelHistoryList(
-                            entries = history,
-                            viewModel = viewModel,
-                            onOpenNovel = onOpenNovel,
-                            onOpenUser = onOpenUser,
-                            onOpenSeries = onOpenSeries,
-                            context = context,
-                        )
-                        HistoryFilter.USER -> UserHistoryList(
-                            entries = history,
-                            viewModel = viewModel,
-                            onOpenUser = onOpenUser,
-                            context = context,
-                        )
-                        null -> {}
-                    }
-                }
+                // 类型分段（作品 / 小说 / 用户）+ 滑动内容：SegmentedPager 双向同步
+                // （选中态跟 Pager 落页，点击反向滚页；落页回调 VM 同步筛选）
+                SegmentedPager(
+                    tabs = HistoryFilter.entries,
+                    onSelect = viewModel::selectFilter,
+                    tabLabel = { it.labelRes },
+                    pageContent = { _, tab ->
+                        when (tab) {
+                            HistoryFilter.ILLUST -> IllustHistoryList(
+                                entries = history,
+                                viewModel = viewModel,
+                                onOpenIllust = onOpenIllust,
+                                onOpenUser = onOpenUser,
+                            )
+                            HistoryFilter.NOVEL -> NovelHistoryList(
+                                entries = history,
+                                viewModel = viewModel,
+                                onOpenNovel = onOpenNovel,
+                                onOpenUser = onOpenUser,
+                                onOpenSeries = onOpenSeries,
+                                context = context,
+                            )
+                            HistoryFilter.USER -> UserHistoryList(
+                                entries = history,
+                                viewModel = viewModel,
+                                onOpenUser = onOpenUser,
+                                context = context,
+                            )
+                        }
+                    },
+                )
             }
         }
     }
@@ -197,7 +153,7 @@ private fun IllustHistoryList(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
 ) {
-    val illusts = entries.map { it.toIllust() }
+    val illusts = entries.map { restoreIllust(it.payloadJson, it.targetId, it.title, it.coverUrl) }
     if (illusts.isEmpty()) {
         EmptyBox(stringResource(R.string.history_empty_illust))
         return
@@ -234,7 +190,13 @@ private fun NovelHistoryList(
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(entries, key = { it.id }) { entry ->
-            val card = entry.toNovelCardData(context)
+            val card = restoreNovelCardData(
+                entry.payloadJson,
+                Gson(),
+                entry.targetId,
+                entry.title ?: context.getString(R.string.untitled),
+                entry.coverUrl,
+            )
             NovelCard(
                 novel = card,
                 onClick = { onOpenNovel(entry.targetId) },
@@ -276,66 +238,7 @@ private fun UserHistoryList(
     }
 }
 
-// ── 数据转换（历史快照 → 通用组件数据） ─────────────────────────────────────
-
-private fun BrowseHistoryEntity.toIllust(): Illust {
-    // 优先解析完整 payloadJson（含宽高，避免固定高度裁剪中间）；旧记录回退最小数据
-    val parsed = payloadJson?.let {
-        runCatching { org.json.JSONObject(it) }.getOrNull()
-    }
-    if (parsed != null) {
-        return Illust(
-            id = parsed.optLong("id", targetId),
-            title = parsed.optString("title").ifEmpty { title.orEmpty() },
-            image_urls = ImageUrls(medium = parsed.optString("coverUrl").ifEmpty { coverUrl.orEmpty() }),
-            width = parsed.optInt("width") ?: 0,
-            height = parsed.optInt("height") ?: 0,
-            total_bookmarks = parsed.optInt("bookmarks").takeIf { it != 0 },
-            page_count = parsed.optInt("pageCount") ?: 0,
-            is_bookmarked = if (parsed.has("isBookmarked")) parsed.optBoolean("isBookmarked") else null,
-        )
-    }
-    return Illust(id = targetId, title = title, image_urls = ImageUrls(medium = coverUrl))
-}
-
-private fun BrowseHistoryEntity.toNovelCardData(context: Context): NovelCardData {
-    // 优先解析完整 payloadJson（新记录）；旧记录/失败回退最小数据。
-    // Gson 对 Kotlin data class 用 UnsafeAllocator 绕过构造器：JSON 缺失的非空字段
-    // 会被置为 null 且不抛异常——必须字段级补默认值，否则 NovelCard 渲染 NPE 闪退
-    val parsed = payloadJson?.let {
-        runCatching { Gson().fromJson(it, NovelCardData::class.java) }.getOrNull()
-    }
-    if (parsed != null) {
-        return NovelCardData(
-            id = if (parsed.id != 0L) parsed.id else targetId,
-            title = parsed.title?.takeIf { it.isNotBlank() }
-                ?: (title ?: context.getString(R.string.untitled)),
-            coverUrl = parsed.coverUrl ?: coverUrl,
-            authorId = parsed.authorId,
-            authorName = parsed.authorName ?: "",
-            authorAvatarUrl = parsed.authorAvatarUrl,
-            publishDate = parsed.publishDate,
-            seriesTitle = parsed.seriesTitle,
-            seriesId = parsed.seriesId,
-            favoriteCount = parsed.favoriteCount,
-            wordCount = parsed.wordCount,
-            tags = parsed.tags.orEmpty(),
-            isFavorite = parsed.isFavorite,
-        )
-    }
-    return NovelCardData(
-        id = targetId,
-        title = title ?: context.getString(R.string.untitled),
-        coverUrl = coverUrl,
-        authorId = 0,
-        authorName = "",
-        authorAvatarUrl = null,
-        publishDate = null,
-        seriesTitle = null,
-        favoriteCount = 0,
-        wordCount = 0,
-    )
-}
+// ── 数据转换（历史快照 → 通用组件数据，插画/小说见 SnapshotRestore.kt） ──────────
 
 private fun BrowseHistoryEntity.toCreatorProfile(context: Context): CreatorProfile = CreatorProfile(
     id = targetId,

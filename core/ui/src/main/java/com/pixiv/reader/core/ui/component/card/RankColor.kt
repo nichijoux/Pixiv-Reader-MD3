@@ -10,7 +10,7 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 
 /**
  * 排名徽标配色：1 金 / 2 橙 / 3 灰，其余返回 null（由调用方回退主题次级色）。
- * 供 [NovelCard]（小说榜排名徽标）与 [RankingIllustCard]（插画/漫画榜排名徽标）复用。
+ * 供 [NovelCard]（小说榜排名徽标）与 [IllustCard]（插画/漫画榜排名徽标，rank 参数）复用。
  */
 internal fun rankColor(rank: Int): Color? = when (rank) {
     1 -> Color(0xFFE8A33D)

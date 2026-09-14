@@ -1,8 +1,12 @@
 package com.pixiv.reader.core.ui.component.list
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
@@ -31,6 +35,48 @@ fun LoadMoreItem(
     ) {
         if (isLoadingMore) {
             LoadingIndicator()
+        }
+    }
+}
+
+/**
+ * 触底加载 footer（[LazyListScope] 扩展）：[hasMore] 时在列表尾部追加自动触发的加载项，
+ * 收敛各页重复的 `if (hasMore) { item(key = "load_more") { LoadMoreItem(...) } }` 壳。
+ *
+ * @param hasMore 是否还有下一页；false 不追加任何 item
+ * @param isLoadingMore 翻页请求进行中（footer 显示转圈）
+ * @param onLoadMore footer 进入可视区时触发一次的翻页回调
+ */
+fun LazyListScope.loadMoreFooter(
+    hasMore: Boolean,
+    isLoadingMore: Boolean,
+    onLoadMore: () -> Unit,
+) {
+    if (hasMore) {
+        item(key = "load_more") {
+            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+        }
+    }
+}
+
+/**
+ * 触底加载 footer（瀑布流 staggered 网格版，语义同 [loadMoreFooter]）。
+ *
+ * @param hasMore 是否还有下一页；false 不追加任何 item
+ * @param isLoadingMore 翻页请求进行中（footer 显示转圈）
+ * @param onLoadMore footer 进入可视区时触发一次的翻页回调
+ * @param span footer 占用的跨列范围（通栏 footer 传 [StaggeredGridItemSpan.FullLine]）
+ */
+@OptIn(ExperimentalFoundationApi::class)
+fun LazyStaggeredGridScope.loadMoreFooter(
+    hasMore: Boolean,
+    isLoadingMore: Boolean,
+    onLoadMore: () -> Unit,
+    span: StaggeredGridItemSpan,
+) {
+    if (hasMore) {
+        item(key = "load_more", span = span) {
+            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
         }
     }
 }

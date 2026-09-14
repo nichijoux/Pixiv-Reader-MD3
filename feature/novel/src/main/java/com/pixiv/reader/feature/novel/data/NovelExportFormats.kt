@@ -56,39 +56,6 @@ private const val DOCX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalo
   </w:style>
 </w:styles>"""
 
-/** DOCX 内嵌插图（字节 + mime + 原始宽高；ref 为 word/media/ 下文件名）。 */
-internal data class DocxImage(
-    val ref: String,
-    val bytes: ByteArray,
-    val mime: String,
-    val width: Int,
-    val height: Int,
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as DocxImage
-
-        if (width != other.width) return false
-        if (height != other.height) return false
-        if (ref != other.ref) return false
-        if (!bytes.contentEquals(other.bytes)) return false
-        if (mime != other.mime) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = width
-        result = 31 * result + height
-        result = 31 * result + ref.hashCode()
-        result = 31 * result + bytes.contentHashCode()
-        result = 31 * result + mime.hashCode()
-        return result
-    }
-}
-
 /**
  * 从图片字节解析原始宽高（PNG/JPEG 文件头，纯 JVM 可测）；无法解析返回 null。
  * 供 PDF/DOCX 内嵌图片按比例缩放用（避免依赖 Android BitmapFactory）。
@@ -204,7 +171,7 @@ internal fun buildTxt(
 internal fun buildMarkdown(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
-    images: List<DocxImage> = emptyList(),
+    images: List<ExportImage> = emptyList(),
 ): String {
     return buildString {
         val first = chapters.first().first
@@ -266,7 +233,7 @@ internal fun buildMarkdown(
 internal fun buildDocx(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
-    images: List<DocxImage> = emptyList(),
+    images: List<ExportImage> = emptyList(),
 ): ByteArray {
     // 图片 relId：rId2 起（文档级 rId1=styles）
     val imageRels = images.mapIndexed { i, img -> img to "rId${2 + i}" }
@@ -351,7 +318,7 @@ $imageRelsXml</Relationships>"""
  * 页面宽 11906 twips - 左右边距 1440×2 = 9026 twips；1 twip = 635 EMU。
  * 像素 → EMU：1px = 9525 EMU（96dpi，1in = 914400 EMU = 96px）。
  */
-internal fun docxImage(img: DocxImage, relId: String): String {
+internal fun docxImage(img: ExportImage, relId: String): String {
     val pxToEmu = 9525L
     val maxCx = 9026L * 635L
     val scale = if (img.width > 0) minOf(1.0, maxCx.toDouble() / (img.width * pxToEmu)) else 1.0
@@ -419,13 +386,13 @@ internal fun docxParagraph(
 
 /**
  * 生成 EPUB3 zip 字节（纯函数，可测）。
- * 图片已由调用方下载为 [EpubImage] 传入（缺失即不内嵌）。
+ * 图片已由调用方下载为 [ExportImage] 传入（缺失即不内嵌）。
  * @param css 合并后的样式表（样书 Main.css 全文，含 @font-face 段），写入 OEBPS/Styles/Main.css。
  */
 internal fun buildEpub(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
-    images: List<EpubImage>,
+    images: List<ExportImage>,
     css: String,
 ): ByteArray {
     val bytes = ByteArrayOutputStream()
@@ -467,7 +434,7 @@ internal fun buildEpub(
 internal fun buildOpf(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
-    images: List<EpubImage>,
+    images: List<ExportImage>,
 ): String {
     val first = chapters.first().first
     val manifest = buildString {
@@ -677,7 +644,7 @@ internal fun buildChapterXhtml(
     novel: Novel,
     document: NovelDocument,
     chapterIndex: Int,
-    images: List<EpubImage>,
+    images: List<ExportImage>,
 ): String {
     val rawTitle = novel.title.orEmpty()
     // 章标题拆「前缀徽标」+ 章题（样书 Title-num/Title-text 结构；前缀如 序章/第N章/后记/番外）

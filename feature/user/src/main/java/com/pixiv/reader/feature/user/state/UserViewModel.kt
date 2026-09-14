@@ -20,12 +20,11 @@ import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.session.SeriesDetailCache
+import com.pixiv.reader.core.network.session.SeriesDetailLoader
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +47,7 @@ enum class UserSection(@param:StringRes val labelRes: Int) {
 class UserViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
-    private val seriesDetailCache: SeriesDetailCache,
+    private val seriesDetailLoader: SeriesDetailLoader,
     private val browseHistoryDao: BrowseHistoryDao,
     private val favoriteActions: FavoriteActions,
 ) : MessageViewModel() {
@@ -91,7 +90,7 @@ class UserViewModel @Inject constructor(
     /** 漫画系列列表（系列分区漫画段用；随系列分区首载一起拉取，单页 + 翻页）。 */
     val mangaSeriesPaged = PagedState<MangaSeriesItem>()
 
-    /** 系列详情缓存（seriesId → 封面/简介/连载状态/字数/更新时间）；列表项无这些字段，逐个经 SeriesDetailCache 取。 */
+    /** 系列详情（seriesId → 封面/简介/连载状态/字数/更新时间）；列表项无这些字段，经 SeriesDetailLoader 批量补齐。 */
     private val _seriesInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
     val seriesInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _seriesInfos.asStateFlow()
 
@@ -231,43 +230,31 @@ class UserViewModel @Inject constructor(
     }
 
     /**
-     * 为系列列表批量取详情（SeriesDetailCache 内存缓存 + in-flight 去重，
-     * 封面/简介/连载状态/字数/更新时间同源自一次 getNovelSeries）。
+     * 为系列列表批量取详情（[SeriesDetailLoader] 批量管线：SeriesDetailCache 内存缓存 +
+     * in-flight 去重，封面/简介/连载状态/字数/更新时间同源自一次 getNovelSeries）。
      * 列表项无这些字段；并发限 6，避免首屏一批详情请求打满连接池。
      * 已缓存条目先同步回填 [_seriesInfos]——VM 随页面销毁重建后其本地流为空，缓存命中
      * 路径也必须把数据送进 UI 流（否则返回后二次进入封面/简介全空白），仅真正缺失的走网络。
      */
     private fun loadSeriesInfos(seriesIds: List<Long>) {
-        // 已在进程缓存的详情先同步回填 VM 状态（零网络）
-        val cached = seriesIds.mapNotNull { id -> seriesDetailCache.get(id)?.let { id to it } }
-        if (cached.isNotEmpty()) _seriesInfos.value = _seriesInfos.value + cached
-        val missing = seriesIds.filter { it !in _seriesInfos.value }
-        if (missing.isEmpty()) return
         viewModelScope.launch {
-            missing.chunked(6).forEach { batch ->
-                val results = batch.map { id ->
-                    id to runCatching {
-                        seriesDetailCache.getOrFetch(id) {
-                            pixivRepository.api.getNovelSeries(id).let { resp ->
-                                SeriesDetailInfo(
-                                    coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
-                                    caption = resp.novel_series_detail?.caption,
-                                    isConcluded = resp.novel_series_detail?.is_concluded,
-                                    totalChars = resp.novel_series_detail?.total_character_count ?: 0,
-                                    updatedAt = resp.novel_series_latest_novel?.create_date,
-                                )
-                            }
-                        }
-                    }.getOrElse { e ->
-                        // 取消是调用方生命周期信号，向上重抛；隐藏系列等请求失败视为无详情（卡片兜底展示）
-                        if (e is CancellationException) throw e
-                        Log.e(TAG, "loadSeriesInfos: series=$id 详情获取失败: ${e.message}")
-                        null
-                    }
+            seriesDetailLoader.backfillInfos(
+                target = _seriesInfos,
+                ids = seriesIds,
+                concurrency = 6,
+                onError = { id, e ->
+                    Log.e(TAG, "loadSeriesInfos: series=$id 详情获取失败: ${e.message}")
+                },
+            ) { id ->
+                pixivRepository.api.getNovelSeries(id).let { resp ->
+                    SeriesDetailInfo(
+                        coverUrl = resp.novel_series_first_novel?.image_urls?.medium,
+                        caption = resp.novel_series_detail?.caption,
+                        isConcluded = resp.novel_series_detail?.is_concluded,
+                        totalChars = resp.novel_series_detail?.total_character_count ?: 0,
+                        updatedAt = resp.novel_series_latest_novel?.create_date,
+                    )
                 }
-                val newMap = _seriesInfos.value.toMutableMap()
-                results.forEach { (id, info) -> if (info != null) newMap[id] = info }
-                _seriesInfos.value = newMap
             }
         }
     }
@@ -308,7 +295,7 @@ class UserViewModel @Inject constructor(
         if (_isBlocking.value) return
         viewModelScope.launch {
             _isBlocking.value = true
-            val token = csrfToken()
+            val token = pixivRepository.csrfToken()
             if (token.isNullOrBlank()) {
                 sendMessage(UiMessage(R.string.user_csrf_unavailable))
                 _isBlocking.value = false
@@ -331,15 +318,6 @@ class UserViewModel @Inject constructor(
             }
             _isBlocking.value = false
         }
-    }
-
-    /** 从网页 Cookie 中解析 csrf_token（pixiv 网页写操作要求 x-csrf-token 头）。 */
-    private fun csrfToken(): String? {
-        return pixivRepository.pixivApi.session.cookie()
-            .split(';')
-            .map { it.trim() }
-            .firstOrNull { it.startsWith("csrf_token=") }
-            ?.substringAfter('=')
     }
 
     /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */

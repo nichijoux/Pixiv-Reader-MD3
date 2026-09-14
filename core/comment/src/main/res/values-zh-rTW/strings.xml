@@ -1,0 +1,22 @@
+<resources>
+    <!-- 通用评论列表页（novel / illust 共用） -->
+    <string name="core_comment_title">評論（%1$d）</string>
+    <!-- 评论 pane：返回详情 / 空评论 -->
+    <string name="core_comment_back_to_detail">返回詳情</string>
+    <string name="core_comment_empty">暫無評論</string>
+    <string name="comment_placeholder">說點什麼…</string>
+    <string name="comment_send">釋出</string>
+    <string name="comment_emoji_panel">表情</string>
+    <string name="comment_emoji_title">文字表情</string>
+    <string name="comment_stamp_title">貼紙</string>
+    <string name="comment_stamp_cd">貼紙</string>
+    <string name="comment_stamp_empty">暫無貼紙</string>
+    <string name="comment_anonymous_user">匿名用戶</string>
+    <string name="comment_reply">回覆</string>
+    <string name="comment_reply_expand">查看全部 %1$d 條回覆</string>
+    <string name="comment_reply_prefix">回覆 @%1$s：</string>
+    <!-- 删除自己的评论（长按确认框） -->
+    <string name="comment_delete_title">刪除這條評論？</string>
+    <string name="comment_delete_message">刪除後無法復原。</string>
+    <string name="comment_emoji_cd">評論表情</string>
+</resources>

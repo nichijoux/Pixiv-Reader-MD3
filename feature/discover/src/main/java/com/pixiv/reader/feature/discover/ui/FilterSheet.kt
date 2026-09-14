@@ -59,11 +59,10 @@ import com.pixiv.reader.feature.discover.state.AiFilter
 import com.pixiv.reader.feature.discover.state.R18Filter
 import com.pixiv.reader.feature.discover.state.SearchFilters
 import com.pixiv.reader.feature.discover.state.SearchType
+import com.pixiv.reader.core.ui.component.list.formatDatePickerMillis
+import com.pixiv.reader.core.ui.component.list.parseDatePickerMillis
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
 /** 筛选面板二级页面（对齐 Pixiv-Shaft V3：主 sheet 行式列表，点击行切到对应 picker）。 */
 private sealed interface Picker {
@@ -673,13 +672,13 @@ private fun DateRangeContent(
 
     if (showDialog) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = (if (pickingStart) draftStart else draftEnd)?.let(::parseDateMillis),
+            initialSelectedDateMillis = (if (pickingStart) draftStart else draftEnd)?.let(::parseDatePickerMillis),
         )
         DatePickerDialog(
             onDismissRequest = { showDialog = false },
             confirmButton = {
                 TextButton(onClick = {
-                    val date = pickerState.selectedDateMillis?.let(::formatDateMillis)
+                    val date = pickerState.selectedDateMillis?.let(::formatDatePickerMillis)
                     if (pickingStart) draftStart = date else draftEnd = date
                     showDialog = false
                 }) { Text(stringResource(R.string.common_confirm)) }
@@ -717,13 +716,6 @@ private fun DateFieldRow(label: String, value: String?, onClick: () -> Unit) {
     }
     HorizontalDivider(thickness = 0.5.dp)
 }
-
-private fun parseDateMillis(date: String): Long? = runCatching {
-    LocalDate.parse(date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-}.getOrNull()
-
-private fun formatDateMillis(millis: Long): String =
-    Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
 
 // ──────────────────────────────────────────────────────────────────────────
 // 正文长度 picker（对齐 Shaft：一段单选列表，文字数/单词数/阅读用时三组 × 4 预设 + 指定）

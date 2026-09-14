@@ -436,17 +436,17 @@ class NovelExporter @Inject constructor(
     ): String {
         val first = chapters.first().first
         val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.epub"
-        val images = mutableListOf<EpubImage>()
+        val images = mutableListOf<ExportImage>()
         // 封面
         val coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium
         if (!coverUrl.isNullOrBlank()) {
-            downloadImage(coverUrl)?.let { images += EpubImage("cover.jpg", it) }
+            downloadImage(coverUrl)?.let { images += ExportImage("cover.jpg", it) }
         }
         // 正文内嵌图片（按章节/序号命名；未解析的 pixivimage 标记或失败图片直接跳过）
         chapters.forEachIndexed { ci, (_, document) ->
             document.blocks.filterIsInstance<NovelBlock.Image>().forEachIndexed { ii, img ->
                 if (img.url.startsWith("pixivimage:") || img.url.startsWith("uploadedimage:")) return@forEachIndexed
-                downloadImage(img.url)?.let { images += EpubImage("img_${ci}_${ii}.jpg", it) }
+                downloadImage(img.url)?.let { images += ExportImage("img_${ci}_${ii}.jpg", it) }
             }
         }
         // 合并样式表（assets/epub/Main.css，样书 Main.css 全文；读取失败则导出无样式文件）
@@ -548,8 +548,8 @@ class NovelExporter @Inject constructor(
     /** 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与失败跳过）。 */
     private fun downloadImages(
         chapters: List<Pair<Novel, NovelDocument>>,
-    ): List<DocxImage> {
-        val images = mutableListOf<DocxImage>()
+    ): List<ExportImage> {
+        val images = mutableListOf<ExportImage>()
         chapters.forEachIndexed { ci, (_, document) ->
             document.blocks.filterIsInstance<NovelBlock.Image>()
                 .forEachIndexed { ii, img ->
@@ -571,7 +571,7 @@ class NovelExporter @Inject constructor(
                         "image/webp" -> "webp"
                         else -> "jpg"
                     }
-                    images += DocxImage(
+                    images += ExportImage(
                         ref = "image${ci * 100 + ii + 1}.$ext",
                         bytes = bytes,
                         mime = mime,

@@ -2,26 +2,7 @@
     <string name="load_failed">載入失敗</string>
     <!-- Master-Detail 詳情 pane 關閉按鈕 -->
     <string name="core_pane_close">關閉詳情</string>
-    <!-- 評論 pane：返回詳情 / 空評論 -->
-    <string name="core_comment_back_to_detail">返回詳情</string>
-    <string name="core_comment_empty">暫無評論</string>
     <string name="retry">重試</string>
-    <string name="comment_placeholder">說點什麼…</string>
-    <string name="comment_send">釋出</string>
-    <string name="comment_emoji_panel">表情</string>
-    <string name="comment_emoji_title">文字表情</string>
-    <string name="comment_stamp_title">貼紙</string>
-    <string name="comment_stamp_cd">貼紙</string>
-    <string name="comment_stamp_empty">暫無貼紙</string>
-    <string name="comment_emoji_remove">刪除表情</string>
-    <string name="comment_anonymous_user">匿名用戶</string>
-    <string name="comment_reply">回覆</string>
-    <string name="comment_reply_expand">查看全部 %1$d 條回覆</string>
-    <string name="comment_reply_prefix">回覆 @%1$s：</string>
-    <!-- 刪除自己的評論（長按確認框） -->
-    <string name="comment_delete_title">刪除這條評論？</string>
-    <string name="comment_delete_message">刪除後無法復原。</string>
-    <string name="comment_emoji_cd">評論表情</string>
     <!-- 收藏編輯彈層（BookmarkEditSheet：公開/私密 + 標籤） -->
     <string name="bookmark_edit_title">收藏設定</string>
     <string name="bookmark_restrict_public">公開收藏</string>
@@ -50,6 +31,7 @@
     <string name="favorite">收藏</string>
     <string name="unfavorite">取消收藏</string>
     <string name="fullscreen_image_cd_back">返回</string>
+    <string name="core_cd_back">返回</string>
     <string name="common_cancel">取消</string>
     <string name="common_delete">刪除</string>
     <string name="download_progress">%1$d%%</string>

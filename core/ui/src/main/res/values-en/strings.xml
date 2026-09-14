@@ -2,26 +2,8 @@
     <string name="load_failed">Failed to load</string>
     <!-- Master-Detail pane close button -->
     <string name="core_pane_close">Close detail</string>
-    <!-- Comment pane: back to detail / empty -->
-    <string name="core_comment_back_to_detail">Back to detail</string>
-    <string name="core_comment_empty">No comments yet</string>
     <string name="retry">Retry</string>
-    <string name="comment_placeholder">Say something…</string>
-    <string name="comment_send">Send</string>
-    <string name="comment_emoji_panel">Emoji</string>
-    <string name="comment_emoji_title">Text emoji</string>
-    <string name="comment_stamp_title">Stamps</string>
-    <string name="comment_stamp_cd">Stamp</string>
-    <string name="comment_stamp_empty">No stamps</string>
-    <string name="comment_emoji_remove">Remove emoji</string>
-    <string name="comment_anonymous_user">Anonymous</string>
-    <string name="comment_reply">Reply</string>
-    <string name="comment_reply_expand">View all %1$d replies</string>
-    <string name="comment_reply_prefix">Reply to @%1$s: </string>
     <!-- Delete own comment (long-press confirm dialog) -->
-    <string name="comment_delete_title">Delete this comment?</string>
-    <string name="comment_delete_message">This action cannot be undone.</string>
-    <string name="comment_emoji_cd">Comment emoji</string>
     <!-- Bookmark editor sheet (BookmarkEditSheet: restrict + tags) -->
     <string name="bookmark_edit_title">Bookmark settings</string>
     <string name="bookmark_restrict_public">Public</string>
@@ -40,7 +22,6 @@
     <!-- Long-press action success messages -->
     <string name="card_msg_read_later_added">Added to read later</string>
     <string name="card_msg_read_later_removed">Removed from read later</string>
-    <string name="card_msg_blocked">Work blocked; its cover will be blurred</string>
     <string name="card_msg_unblocked">Block removed</string>
     <!-- Tapping a temporarily revealed blocked card again: still on the block list, no detail view -->
     <string name="card_msg_blocked_no_detail">This work is blocked, details are unavailable</string>
@@ -50,6 +31,7 @@
     <string name="favorite">Favorite</string>
     <string name="unfavorite">Unfavorite</string>
     <string name="fullscreen_image_cd_back">Back</string>
+    <string name="core_cd_back">Back</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_delete">Delete</string>
     <string name="download_progress">%1$d%%</string>

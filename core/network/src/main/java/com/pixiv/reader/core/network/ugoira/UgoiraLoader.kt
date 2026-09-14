@@ -103,29 +103,12 @@ class UgoiraLoader @Inject constructor(
         }
         if (!zipFile.exists()) return@withContext null
 
-        // 解压阶段独立 try：zip 损坏（下载中断残留半截文件 / 磁盘异常）时删除该 zip，
+        // 解压阶段独立 try：zip 损坏（下载中断残留半截文件 / 磁盘异常）/ 缺 entry 时删除该 zip，
         // 下次 prepare 重新下载——避免损坏 zip 被"exists && length>0"判定永久缓存，
         // 否则该动图每次进入都加载失败（直到用户手动清缓存）。
-        // 已解压出的帧文件保留（zip 重下后 `!out.exists()` 跳过），天然断点续解压。
+        // 已解压出的帧文件保留（zip 重下后跳过已存在帧），天然断点续解压。
         try {
-            java.util.zip.ZipFile(zipFile).use { zf ->
-                frames.forEach { frame ->
-                    val entryName = frame.file ?: return@forEach
-                    val name = entryName.substringAfterLast('/')
-                    val out = File(dir, name)
-                    if (!out.exists()) {
-                        zf.getInputStream(zf.getEntry(entryName)).use { it.copyTo(out.outputStream()) }
-                    }
-                }
-            }
-
-            frames.mapNotNull { frame ->
-                val entryName = frame.file ?: return@mapNotNull null
-                UgoiraFrame(
-                    file = File(dir, entryName.substringAfterLast('/')),
-                    delayMs = (frame.delay ?: 80).coerceAtLeast(10),
-                )
-            }
+            UgoiraFrameExtractor.unzip(zipFile, dir, frames)
         } catch (e: Exception) {
             Log.w(TAG, "ugoira 解压失败，删除损坏 zip（下次重新下载）illustId=$illustId", e)
             runCatching { zipFile.delete() }

@@ -92,7 +92,7 @@ dependencies {
     implementation(project(":feature:auth"))
     implementation(project(":feature:home"))
     implementation(project(":feature:discover"))
-    implementation(project(":feature:comments"))
+    implementation(project(":core:comment"))
     implementation(project(":feature:illust"))
     implementation(project(":feature:viewer"))
     implementation(project(":feature:novel"))

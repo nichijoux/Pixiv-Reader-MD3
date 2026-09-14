@@ -12,8 +12,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -29,7 +27,7 @@ import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
-import com.pixiv.reader.feature.comments.ui.CommentListRoute
+import com.pixiv.reader.core.comment.ui.CommentListRoute
 import com.pixiv.reader.feature.discover.ui.AiRankingRoute
 import com.pixiv.reader.feature.discover.ui.EraRankingRoute
 import com.pixiv.reader.feature.discover.ui.PixivisionRoute
@@ -44,12 +42,9 @@ import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
 import com.pixiv.reader.feature.notification.NotificationGroupRoute
 import com.pixiv.reader.feature.notification.NotificationRoute
-import com.pixiv.reader.feature.novel.ui.NovelDetailPane
 import com.pixiv.reader.feature.novel.ui.NovelDetailRoute
 import com.pixiv.reader.feature.novel.ui.NovelRankingRoute
-import com.pixiv.reader.feature.novel.ui.NovelSeriesPane
 import com.pixiv.reader.feature.novel.ui.NovelSeriesRoute
-import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import com.pixiv.reader.feature.onboarding.ui.OnboardingRoute
 import com.pixiv.reader.feature.reader.ui.ReaderRoute
 import com.pixiv.reader.feature.user.ui.BlockedRoute
@@ -530,34 +525,27 @@ fun PixivNavGraph(
                     navController.navigate("user_following/$userId")
                 },
                 // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
-                // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款）
+                // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款；
+                //   VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
                 novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
-                    NovelDetailPane(
+                    NovelDetailPaneSlot(
                         selectedId = selectedId,
-                        placeholder = stringResource(
-                            com.pixiv.reader.feature.novel.R.string.novel_ranking_preview_placeholder
-                        ),
+                        novelVm = novelVm,
+                        commentVm = commentVm,
+                        onOpenSeries = onOpenSeries,
                         onOpenReader = { novelId ->
                             navController.navigate("reader/$novelId")
                         },
                         onOpenUser = { target ->
                             navController.navigate("user/$target")
                         },
-                        // 「查看完整系列」由宿主分流（pane 内切换系列 pane / 全屏）
-                        onOpenSeries = onOpenSeries,
-                        commentVm = commentVm,
-                        viewModel = novelVm,
                     )
                 },
                 // 平板 pane：系列卡点击 → 注入 feature:novel 的小说系列 pane
-                //（槽位签名不暴露 feature:novel 类型，VM 由本槽位内 hiltViewModel 创建）
+                //（VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
                 seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
-                    val seriesVm: NovelSeriesViewModel = hiltViewModel()
-                    NovelSeriesPane(
+                    NovelSeriesPaneSlot(
                         selectedId = selectedId,
-                        placeholder = stringResource(
-                            com.pixiv.reader.feature.novel.R.string.novel_series_pane_placeholder
-                        ),
                         onOpenNovel = onOpenNovel,
                         onOpenSeries = onOpenSeries,
                         onOpenUser = { target ->
@@ -568,7 +556,6 @@ fun PixivNavGraph(
                         },
                         // 系列页签内的小说标签 → 搜小说
                         onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
-                        viewModel = seriesVm,
                     )
                 },
             )
@@ -991,13 +978,6 @@ private fun NavHostController.safeBack() {
     }
 }
 
-/**
- * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词重建 main 壳，
- * 清栈到旧 main（inclusive）+ launchSingleTop，避免旧 main 残留在栈底。
- *
- * @param tag 搜索标签词（内部 Uri 编码）
- * @return 无返回值
- */
 /**
  * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词重建 main 壳，
  * 清栈到旧 main（inclusive）+ launchSingleTop，避免旧 main 残留在栈底。

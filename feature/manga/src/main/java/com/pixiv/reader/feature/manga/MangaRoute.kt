@@ -48,7 +48,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentTarget
+import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
@@ -290,7 +292,14 @@ fun MangaRoute(
                     placeholder = stringResource(R.string.manga_ranking_preview_placeholder),
                     onOpenUser = onOpenUser,
                     onOpenViewer = onOpenViewer,
-                    commentVm = commentVm,
+                    comments = { onBackToDetail ->
+                        CommentPane(
+                            commentVm = commentVm,
+                            onOpenUser = onOpenUser,
+                            onBackToDetail = onBackToDetail,
+                        )
+                    },
+                    onOpenComments = { selectedIllustId?.let { commentVm.switchTo(CommentTarget.ILLUST, it) } },
                     viewModel = detailVm,
                 )
             },

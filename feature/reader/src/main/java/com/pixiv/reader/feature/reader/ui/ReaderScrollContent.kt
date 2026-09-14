@@ -1,13 +1,8 @@
 package com.pixiv.reader.feature.reader.ui
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,8 +12,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.TextUnit
 import com.pixiv.reader.feature.reader.state.PageElement
 
 /**
@@ -115,42 +108,8 @@ internal fun ScrollReaderContent(
         contentPadding = PaddingValues(horizontal = PAGE_H_PADDING, vertical = PAGE_V_PADDING),
     ) {
         items(count = items.size, key = { items[it].key }) { index ->
-            when (val element = items[index].element) {
-                is PageElement.TextLine -> {
-                    // 行元素高度由 Box 显式撑起（= 分页行高）：单行 Text 的测量高度只到字形底
-                    // （Compose 最后一行语义，不含 lineHeight）；Text 去掉 lineHeight 后
-                    // 字形顶贴 Box 顶，行距 = Box 高度，随「行距」设置变化。
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(with(density) { element.heightPx.toDp() }),
-                    ) {
-                        Text(
-                            // 两端对齐与分页模式同源：中间行按富余宽度拉伸，末行自然排布
-                            text = if (element.justifyExtraPx > 1f) {
-                                justifyLine(element, density)
-                            } else {
-                                AnnotatedString(element.text)
-                            },
-                            style = element.style.copy(lineHeight = TextUnit.Unspecified),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-
-                is PageElement.Gap -> Spacer(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(with(density) { element.heightPx.toDp() }),
-                )
-
-                is PageElement.Image -> ReaderImageBlock(
-                    url = element.url,
-                    caption = element.caption,
-                    height = with(density) { element.heightPx.toDp() },
-                    onOpenImage = onOpenImage,
-                )
-            }
+            // 行元素渲染与翻页模式共用同一实现（PageElementView）
+            PageElementView(items[index].element, density, onOpenImage)
         }
     }
 }

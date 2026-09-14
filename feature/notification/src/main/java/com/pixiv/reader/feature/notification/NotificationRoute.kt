@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
 import android.content.Intent
@@ -24,12 +23,9 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -42,16 +38,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.NotificationItem
 import com.pixiv.reader.core.ui.component.card.UserAvatar
-import com.pixiv.reader.core.ui.component.feedback.EmptyBox
-import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.list.RankingBanner
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -80,41 +74,19 @@ fun NotificationRoute(
     onOpenGroup: (groupId: Long, title: String?) -> Unit,
     viewModel: NotificationViewModel = hiltViewModel(),
 ) {
-    val items by viewModel.paged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.paged.error.collectAsStateWithLifecycle()
-
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.notification_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            BackTopAppBar(title = stringResource(R.string.notification_title), onBack = onBack)
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            when {
-                isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(
-                    message = error.orEmpty(),
-                    onRetry = viewModel::load,
-                )
-
-                items.isEmpty() -> EmptyBox(stringResource(R.string.notification_empty))
-                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+            PagedFeed(
+                paged = viewModel.paged,
+                emptyText = stringResource(R.string.notification_empty),
+                onRetry = viewModel::load,
+            ) { state ->
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     // 顶部快捷入口：私信（跳系统浏览器消息页，与 Me 页生态分区一致）
                     item(key = "talk_entry") {
                         val context = LocalContext.current
@@ -135,7 +107,7 @@ fun NotificationRoute(
                             },
                         )
                     }
-                    itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+                    itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
                         if (item.view_more != null) {
                             NotificationGroupCard(
                                 item = item,
@@ -149,21 +121,14 @@ fun NotificationRoute(
                                 },
                             )
                         }
-                        if (index != items.lastIndex) {
+                        if (index != state.items.lastIndex) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                                 modifier = Modifier.padding(start = 76.dp),
                             )
                         }
                     }
-                    if (hasMore) {
-                        item(key = "load_more") {
-                            LoadMoreItem(
-                                isLoadingMore = isLoadingMore,
-                                onLoadMore = viewModel::loadMore,
-                            )
-                        }
-                    }
+                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
                 }
             }
         }

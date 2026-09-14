@@ -22,12 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.ui.component.feedback.EmptyBox
-import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 
 /**
  * 通知分组子列表（/v1/notification/view-more）。
@@ -45,12 +42,6 @@ fun NotificationGroupRoute(
     onOpenNovel: (Long) -> Unit,
     viewModel: NotificationGroupViewModel = hiltViewModel(),
 ) {
-    val items by viewModel.paged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.paged.error.collectAsStateWithLifecycle()
-
     // 顶栏标题：优先用入口传入的组名，缺省回退通用文案
     val passedTitle = viewModel.groupTitle
     val title = passedTitle?.takeIf { it.isNotBlank() }
@@ -76,37 +67,27 @@ fun NotificationGroupRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-            when {
-                isLoading && items.isEmpty() -> LoadingBox()
-                error != null && items.isEmpty() -> ErrorBox(
-                    message = error.orEmpty(),
-                    onRetry = viewModel::load,
-                )
-
-                items.isEmpty() -> EmptyBox(stringResource(R.string.notification_empty))
-                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+            PagedFeed(
+                paged = viewModel.paged,
+                emptyText = stringResource(R.string.notification_empty),
+                onRetry = viewModel::load,
+            ) { state ->
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
                         NotificationRow(
                             item = item,
                             onClick = {
                                 openNotificationTarget(item, onOpenUser, onOpenIllust, onOpenNovel)
                             },
                         )
-                        if (index != items.lastIndex) {
+                        if (index != state.items.lastIndex) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                                 modifier = Modifier.padding(start = 76.dp),
                             )
                         }
                     }
-                    if (hasMore) {
-                        item(key = "load_more") {
-                            LoadMoreItem(
-                                isLoadingMore = isLoadingMore,
-                                onLoadMore = viewModel::loadMore,
-                            )
-                        }
-                    }
+                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
                 }
             }
         }

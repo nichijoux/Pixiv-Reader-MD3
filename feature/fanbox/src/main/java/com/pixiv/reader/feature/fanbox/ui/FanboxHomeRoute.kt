@@ -1,11 +1,8 @@
 package com.pixiv.reader.feature.fanbox.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Row
@@ -20,9 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.ModeComment
@@ -31,17 +26,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,8 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +50,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.FanboxCreator
 import com.pixiv.api.model.FanboxPost
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
+import com.pixiv.reader.core.ui.component.card.IconCount
+import com.pixiv.reader.core.ui.component.card.StatusPill
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
@@ -72,9 +63,11 @@ import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.fanbox.R
@@ -152,15 +145,7 @@ fun FanboxHomeRoute(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.fanbox_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.fanbox_cd_back))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
+            BackTopAppBar(title = stringResource(R.string.fanbox_title), onBack = onBack)
         },
         snackbarHost = { NotificationHost(notificationHost) },
         modifier = Modifier.fillMaxSize(),
@@ -258,13 +243,7 @@ private fun FanboxPostPane(
         if (id != null && id != viewModel.postId) viewModel.loadPost(id)
     }
     if (selectedPostId == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                text = stringResource(R.string.fanbox_pane_placeholder),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        PanePlaceholder(text = stringResource(R.string.fanbox_pane_placeholder))
         return
     }
     val postState by viewModel.post.collectAsStateWithLifecycle()
@@ -272,15 +251,8 @@ private fun FanboxPostPane(
     val commentsState by viewModel.comments.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器。 */
-    fun openLink(url: String) {
-        val target = runCatching { Uri.parse(url).host }.getOrNull()
-        if (target == "fanbox.cc" || target?.endsWith(".fanbox.cc") == true) {
-            onOpenWeb(url, postState.post?.title.orEmpty())
-        } else {
-            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-        }
-    }
+    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器（共享实现见 [openFanboxLink]）。 */
+    fun openLink(url: String) = openFanboxLink(context, url, postState.post?.title.orEmpty(), onOpenWeb)
 
     FanboxPostContent(
         postState = postState,
@@ -322,11 +294,7 @@ private fun PostsPage(
                 verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 items(posts, key = { it.id }) { post -> FanboxPostCard(post = post, onClick = { onOpenPost(post.id) }) }
-                if (hasMore) {
-                    item(key = "load_more") {
-                        LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-                    }
-                }
+                loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
             }
         }
     }
@@ -446,81 +414,52 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit) {
                     modifier = Modifier.padding(top = Spacing.sm),
                 ) {
                     when {
-                        post.feeRequired > 0 -> FanboxBadge(
+                        post.feeRequired > 0 -> StatusPill(
                             text = stringResource(R.string.fanbox_fee_required, post.feeRequired),
                             container = MaterialTheme.colorScheme.primaryContainer,
                             content = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelSmall,
+                            horizontalPadding = Spacing.xsPlus,
+                            verticalPadding = Spacing.xxs,
                         )
-                        post.isRestricted -> FanboxBadge(
+                        post.isRestricted -> StatusPill(
                             text = stringResource(R.string.fanbox_restricted_badge),
                             container = MaterialTheme.colorScheme.surfaceVariant,
                             content = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                            horizontalPadding = Spacing.xsPlus,
+                            verticalPadding = Spacing.xxs,
                         )
-                        else -> FanboxBadge(
+                        else -> StatusPill(
                             text = stringResource(R.string.fanbox_fee_free),
                             container = MaterialTheme.colorScheme.surfaceVariant,
                             content = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                            horizontalPadding = Spacing.xsPlus,
+                            verticalPadding = Spacing.xxs,
                         )
                     }
                     if (post.hasAdultContent) {
-                        FanboxBadge(
+                        StatusPill(
                             text = stringResource(R.string.fanbox_r18),
                             container = MaterialTheme.colorScheme.errorContainer,
                             content = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.labelSmall,
+                            horizontalPadding = Spacing.xsPlus,
+                            verticalPadding = Spacing.xxs,
                             modifier = Modifier.padding(start = Spacing.xs),
                         )
                     }
                     Spacer(Modifier.weight(1f))
-                    MetaCount(icon = Icons.Filled.FavoriteBorder, count = post.likeCount)
-                    MetaCount(
+                    IconCount(icon = Icons.Filled.FavoriteBorder, text = post.likeCount.toString())
+                    IconCount(
                         icon = Icons.Filled.ModeComment,
-                        count = post.commentCount,
+                        text = post.commentCount.toString(),
                         modifier = Modifier.padding(start = Spacing.md),
                     )
                 }
             }
         }
-    }
-}
-
-/** 小型 tonal 徽标（费用 / 受限 / R-18 / 支持关系），胶囊形 + labelSmall。 */
-@Composable
-private fun FanboxBadge(
-    text: String,
-    container: Color,
-    content: Color,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = container,
-        modifier = modifier,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = content,
-            modifier = Modifier.padding(horizontal = Spacing.xsPlus, vertical = Spacing.xxs),
-        )
-    }
-}
-
-/** 计数元信息（点赞 / 评论）：小图标 + 数值，次级色。 */
-@Composable
-private fun MetaCount(icon: ImageVector, count: Int, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(Sizes.s16),
-        )
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = Spacing.xxs),
-        )
     }
 }
 
@@ -586,17 +525,23 @@ private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit) {
                             overflow = TextOverflow.Ellipsis,
                         )
                         if (creator.isSupported) {
-                            FanboxBadge(
+                            StatusPill(
                                 text = stringResource(R.string.fanbox_supported),
                                 container = MaterialTheme.colorScheme.primaryContainer,
                                 content = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.labelSmall,
+                                horizontalPadding = Spacing.xsPlus,
+                                verticalPadding = Spacing.xxs,
                                 modifier = Modifier.padding(start = Spacing.xs),
                             )
                         } else if (creator.isFollowed) {
-                            FanboxBadge(
+                            StatusPill(
                                 text = stringResource(R.string.fanbox_followed),
                                 container = MaterialTheme.colorScheme.surfaceVariant,
                                 content = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall,
+                                horizontalPadding = Spacing.xsPlus,
+                                verticalPadding = Spacing.xxs,
                                 modifier = Modifier.padding(start = Spacing.xs),
                             )
                         }
@@ -651,18 +596,4 @@ private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit) {
             }
         }
     }
-}
-
-/**
- * FANBOX ISO 时间截断展示（`2026-08-01T12:34:56+09:00` → `2026-08-01 12:34`）。
- *
- * @param iso 服务端原始时间串
- * @return 截断时间；入参异常原样返回
- */
-private fun formatFanboxDate(iso: String?): String {
-    if (iso.isNullOrBlank()) return ""
-    return runCatching {
-        val t = iso.indexOf('T')
-        if (t <= 0) iso else "${iso.substring(0, t)} ${iso.substring(t + 1, minOf(t + 6, iso.length))}"
-    }.getOrDefault(iso)
 }

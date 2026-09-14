@@ -8,6 +8,7 @@ import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
+import com.pixiv.reader.core.common.format.formatFileSize
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.datastore.UserPreferences
@@ -102,10 +103,6 @@ class MeViewModel @Inject constructor(
     /** 远程最新 Release（非 null 时「我的」页显示更新对话框）。 */
     private val _updateDialog = MutableStateFlow<AppRelease?>(null)
     val updateDialog: StateFlow<AppRelease?> = _updateDialog.asStateFlow()
-
-    /** 屏蔽标签（本地偏好，用于推荐/搜索过滤）。 */
-    val mutedTags: StateFlow<List<String>> =
-        userPreferences.mutedTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 主题模式：跟随系统 / 浅色 / 深色。 */
     val themeMode: StateFlow<ThemeMode> =
@@ -312,25 +309,12 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    fun addMutedTag(tag: String) {
-        val t = tag.trim()
-        if (t.isBlank()) return
-        viewModelScope.launch {
-            runCatching {
-                if (t !in mutedTags.value) userPreferences.setMutedTags(mutedTags.value + t)
-            }
-        }
-    }
-
-    fun removeMutedTag(tag: String) {
-        viewModelScope.launch {
-            runCatching { userPreferences.setMutedTags(mutedTags.value - tag) }
-        }
-    }
-
-    private fun formatSize(bytes: Long): String = when {
-        bytes >= 1024 * 1024 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1024f / 1024f)
-        bytes >= 1024 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1024f)
-        else -> "$bytes B"
-    }
+    /**
+     * 缓存占用大小格式化：一行委托 core:common [formatFileSize]
+     * （KB/MB/GB 固定 US 单位）；缓存行为空值兜底 "0 B"（与 FANBOX「无大小不展示」语义不同）。
+     *
+     * @param bytes 字节数
+     * @return 可读大小串
+     */
+    private fun formatSize(bytes: Long): String = formatFileSize(bytes).ifEmpty { "0 B" }
 }

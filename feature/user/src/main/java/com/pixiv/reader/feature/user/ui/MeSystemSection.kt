@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -72,12 +71,12 @@ internal fun MeSystemSection(
     }
     MeGroupCard {
         // 自动更新（开关行：整行可点切换）
-        MeRow(
+        MeSwitchRow(
             icon = Icons.Filled.SystemUpdateAlt,
             title = stringResource(R.string.me_auto_update),
             subtitle = stringResource(R.string.me_auto_update_desc),
-            trailing = { Switch(checked = autoUpdate, onCheckedChange = onSetAutoUpdate) },
-            onClick = { onSetAutoUpdate(!autoUpdate) },
+            checked = autoUpdate,
+            onCheckedChange = onSetAutoUpdate,
         )
         MeRowDivider()
         // 下载位置（导航行：点击打开 SAF 选择器；已配置时尾随「重置」行内动作）

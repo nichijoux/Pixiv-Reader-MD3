@@ -30,6 +30,24 @@ fun formatCount(count: Long, locale: Locale = Locale.getDefault()): String {
 fun formatCountForNovel(count: Int, locale: Locale = Locale.getDefault()): String =
     formatCount(count.toLong(), locale)
 
+/**
+ * 文件大小可读化（固定 US 单位，不随 locale 变化）：
+ * ≥1GB 显示 GB、≥1MB 显示 MB（一位小数），其余显示整数 KB；非正输入返回空串
+ * （与 FANBOX 附件「无大小不展示」语义一致）。
+ *
+ * @param bytes 字节数
+ * @return KB/MB/GB 可读串；非正输入返回空串
+ */
+fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0) return ""
+    val kb = bytes / 1024.0
+    return when {
+        kb >= 1024 * 1024 -> String.format(Locale.US, "%.1f GB", kb / (1024 * 1024))
+        kb >= 1024 -> String.format(Locale.US, "%.1f MB", kb / 1024)
+        else -> String.format(Locale.US, "%.0f KB", kb)
+    }
+}
+
 private data class CompactUnit(val threshold: Long, val suffix: String)
 
 private fun compactUnits(locale: Locale): List<CompactUnit> =

@@ -1,6 +1,5 @@
 package com.pixiv.reader.feature.user.ui
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -8,20 +7,10 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.pixiv.reader.core.common.config.AppLanguage
@@ -61,35 +50,26 @@ internal fun MeAppearanceSection(
 ) {
     MeGroupCard {
         // 主题模式：宽控件行（标题行 + 全宽分段选择）
-        MeRow(icon = Icons.Filled.Palette, title = stringResource(R.string.me_theme_mode))
         val themeModes = listOf(
             ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
             ThemeMode.LIGHT to R.string.me_theme_light,
             ThemeMode.DARK to R.string.me_theme_dark,
         )
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
-        ) {
-            themeModes.forEachIndexed { index, (mode, labelRes) ->
-                SegmentedButton(
-                    selected = themeMode == mode,
-                    onClick = { onSetThemeMode(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themeModes.size),
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(labelRes)) },
-                )
-            }
-        }
+        MeSegmentedRow(
+            icon = Icons.Filled.Palette,
+            title = stringResource(R.string.me_theme_mode),
+            selected = themeMode,
+            options = themeModes,
+            onSelect = onSetThemeMode,
+        )
         MeRowDivider()
         // 动态取色（开关行：整行可点切换）
-        MeRow(
+        MeSwitchRow(
             icon = Icons.Filled.AutoAwesome,
             title = stringResource(R.string.me_dynamic_color),
             subtitle = stringResource(R.string.me_dynamic_color_desc),
-            trailing = { Switch(checked = dynamicColor, onCheckedChange = onSetDynamicColor) },
-            onClick = { onSetDynamicColor(!dynamicColor) },
+            checked = dynamicColor,
+            onCheckedChange = onSetDynamicColor,
         )
         MeRowDivider()
         // 字号缩放（滑杆行：标题 + 当前百分比，滑杆全宽）
@@ -118,35 +98,17 @@ internal fun MeAppearanceSection(
         )
         MeRowDivider()
         // 语言（值行 + 下拉菜单；切换写入落盘后由调用方重建 Activity 生效）
-        var languageExpanded by remember { mutableStateOf(false) }
-        MeRow(
+        MeDropdownRow(
             icon = Icons.Filled.Translate,
             title = stringResource(R.string.me_language),
-            trailing = {
-                // 菜单锚点 = 行尾「值 + 箭头」：DropdownMenu 锚定最近父布局的 top-start，
-                // 包在值区 Box 内才会从行尾右对齐展开（包在整行 Box 会从左缘弹出）
-                Box {
-                    MeValueTrailing(languageLabel(appLanguage))
-                    DropdownMenu(
-                        expanded = languageExpanded,
-                        onDismissRequest = { languageExpanded = false },
-                    ) {
-                        LANG_OPTIONS.forEach { (value, labelRes) ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(labelRes)) },
-                                onClick = {
-                                    languageExpanded = false
-                                    // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
-                                    if (!switchingLanguage && appLanguage != value) {
-                                        onSetAppLanguage(value, onLanguageApplied)
-                                    }
-                                },
-                            )
-                        }
-                    }
+            currentValue = languageLabel(appLanguage),
+            options = LANG_OPTIONS,
+            onSelect = { value ->
+                // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
+                if (!switchingLanguage && appLanguage != value) {
+                    onSetAppLanguage(value, onLanguageApplied)
                 }
             },
-            onClick = { languageExpanded = true },
         )
     }
 }

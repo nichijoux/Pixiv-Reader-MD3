@@ -72,23 +72,14 @@ class MangaSeriesViewModel @Inject constructor(
         viewModelScope.launch { paged.loadMore() }
     }
 
-    /** 追更 / 取消追更（成功后翻转 + 防连点；成功经消息通道提示；断网自动入队待同步）。 */
+    /** 追更 / 取消追更（乐观翻转 + 防连点；成功经消息通道提示；断网自动入队待同步）。 */
     fun toggleWatchlist() {
-        if (_isWatchlisting.value) return
-        viewModelScope.launch {
-            _isWatchlisting.value = true
-            val current = _isWatchlisted.value
-            favoriteActions.toggleMangaWatchlist(seriesId, !current)
-            .onSuccess {
-                _isWatchlisted.value = !current
-                sendMessage(
-                    if (!current) UiMessage(CoreR.string.core_msg_watching_added)
-                    else UiMessage(CoreR.string.core_msg_watching_removed)
-                )
-            }.onFailure {
-                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
-            }
-            _isWatchlisting.value = false
-        }
+        runOptimisticToggle(
+            _isWatchlisting,
+            _isWatchlisted.value,
+            { _isWatchlisted.value = it },
+            CoreR.string.core_msg_watching_added,
+            CoreR.string.core_msg_watching_removed,
+        ) { favoriteActions.toggleMangaWatchlist(seriesId, it) }
     }
 }

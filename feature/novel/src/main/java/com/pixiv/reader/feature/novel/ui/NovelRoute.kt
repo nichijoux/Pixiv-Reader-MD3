@@ -50,12 +50,12 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.component.list.RankingBanner
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
@@ -217,7 +217,8 @@ fun NovelRoute(
                             modifier = Modifier.weight(1f),
                         ) { page ->
                             when (page) {
-                                0 -> NovelRecommendTab(
+                                0 -> NovelFeedTab(
+                                    kind = NovelFeedTabKind.RECOMMEND,
                                     scrollToTopKey = reselectKey,
                                     onOpenNovelRanking = onOpenNovelRanking,
                                     // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
@@ -233,7 +234,8 @@ fun NovelRoute(
                                     onToggleFavorite = viewModel::toggleNovelFavorite,
                                     viewModel = viewModel,
                                 )
-                                1 -> NovelFollowTab(
+                                1 -> NovelFeedTab(
+                                    kind = NovelFeedTabKind.FOLLOW,
                                     scrollToTopKey = reselectKey,
                                     onOpenNovel = { id ->
                                         if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
@@ -314,11 +316,30 @@ fun NovelRoute(
     }
 }
 
-/** 推荐页：排行榜入口 banner（列表头部，随滚动）+ 推荐流（下拉刷新）。 */
+/** 推荐 / 关注共用 tab 种类（差异：数据源、刷新回调、空态文案、推荐页排行榜 banner）。 */
+private enum class NovelFeedTabKind { RECOMMEND, FOLLOW }
+
+/**
+ * 推荐页 / 关注页共用 tab：三态 + 下拉刷新 + 触底加载（[NovelPagedList]）。
+ * 双胞胎实现（原 NovelRecommendTab / NovelFollowTab）按 [kind] 收敛差异：
+ * 数据源（feed/follow 分页状态）、刷新/重试/加载更多回调、空态文案；推荐页列表头有排行榜入口 banner。
+ *
+ * @param kind tab 种类（RECOMMEND 推荐 / FOLLOW 关注）
+ * @param scrollToTopKey 回顶信号（当前 tab 被再次点击时变化，滚回首项）
+ * @param onOpenNovelRanking 打开小说排行榜（仅推荐页 banner 使用）
+ * @param onOpenNovel 打开小说详情
+ * @param onOpenUser 打开用户主页
+ * @param onSearchTag 标签搜索
+ * @param onOpenSeries 打开系列详情
+ * @param onToggleFavorite 收藏 / 取消收藏（目标状态由卡片回调）
+ * @param viewModel 小说信息流 ViewModel
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
-private fun NovelRecommendTab(
+private fun NovelFeedTab(
+    kind: NovelFeedTabKind,
     scrollToTopKey: Int = 0,
-    onOpenNovelRanking: () -> Unit,
+    onOpenNovelRanking: () -> Unit = {},
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
@@ -326,57 +347,34 @@ private fun NovelRecommendTab(
     onToggleFavorite: (Long, Boolean) -> Unit,
     viewModel: NovelFeedViewModel,
 ) {
-    val items by viewModel.feed.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.feed.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.feed.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.feed.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.feed.error.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-
-    NovelPagedList(
-        items = items,
-        isLoading = isLoading,
-        isLoadingMore = isLoadingMore,
-        hasMore = hasMore,
-        error = error,
-        emptyText = stringResource(R.string.novel_feed_empty),
-        isRefreshing = isRefreshing,
-        onRefresh = viewModel::pullRefresh,
-        onRetry = viewModel::refresh,
-        onLoadMore = viewModel::loadMore,
-        onOpenNovel = onOpenNovel,
-        onOpenUser = onOpenUser,
-        onSearchTag = onSearchTag,
-        onOpenSeries = onOpenSeries,
-        onToggleFavorite = onToggleFavorite,
-        scrollToTopKey = scrollToTopKey,
-        header = {
+    // 差异收敛：数据源分页状态 / 刷新中状态（推荐 → feed，关注 → follow）
+    val paged = when (kind) {
+        NovelFeedTabKind.RECOMMEND -> viewModel.feed
+        NovelFeedTabKind.FOLLOW -> viewModel.follow
+    }
+    val refreshingState = when (kind) {
+        NovelFeedTabKind.RECOMMEND -> viewModel.isRefreshing
+        NovelFeedTabKind.FOLLOW -> viewModel.isFollowRefreshing
+    }
+    val items by paged.items.collectAsStateWithLifecycle()
+    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
+    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
+    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
+    val error by paged.error.collectAsStateWithLifecycle()
+    val isRefreshing by refreshingState.collectAsStateWithLifecycle()
+    val isRecommend = kind == NovelFeedTabKind.RECOMMEND
+    // 排行榜入口 banner 仅推荐页有（列表头部，随滚动）
+    val header: (@Composable () -> Unit)? = if (isRecommend) {
+        {
             RankingBanner(
                 title = stringResource(R.string.novel_ranking_banner),
                 desc = stringResource(R.string.novel_ranking_banner_desc),
                 onClick = onOpenNovelRanking,
             )
-        },
-    )
-}
-
-/** 关注页：关注用户的新小说流（下拉刷新）。 */
-@Composable
-private fun NovelFollowTab(
-    scrollToTopKey: Int = 0,
-    onOpenNovel: (Long) -> Unit,
-    onOpenUser: (Long) -> Unit,
-    onSearchTag: (String) -> Unit,
-    onOpenSeries: (Long) -> Unit,
-    onToggleFavorite: (Long, Boolean) -> Unit,
-    viewModel: NovelFeedViewModel,
-) {
-    val items by viewModel.follow.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.follow.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.follow.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.follow.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.follow.error.collectAsStateWithLifecycle()
-    val isFollowRefreshing by viewModel.isFollowRefreshing.collectAsStateWithLifecycle()
+        }
+    } else {
+        null
+    }
 
     NovelPagedList(
         items = items,
@@ -384,17 +382,18 @@ private fun NovelFollowTab(
         isLoadingMore = isLoadingMore,
         hasMore = hasMore,
         error = error,
-        emptyText = stringResource(R.string.novel_follow_empty),
-        isRefreshing = isFollowRefreshing,
-        onRefresh = viewModel::pullRefreshFollow,
-        onRetry = viewModel::refreshFollow,
-        onLoadMore = viewModel::loadMoreFollow,
+        emptyText = stringResource(if (isRecommend) R.string.novel_feed_empty else R.string.novel_follow_empty),
+        isRefreshing = isRefreshing,
+        onRefresh = if (isRecommend) viewModel::pullRefresh else viewModel::pullRefreshFollow,
+        onRetry = if (isRecommend) viewModel::refresh else viewModel::refreshFollow,
+        onLoadMore = if (isRecommend) viewModel::loadMore else viewModel::loadMoreFollow,
         onOpenNovel = onOpenNovel,
         onOpenUser = onOpenUser,
         onSearchTag = onSearchTag,
         onOpenSeries = onOpenSeries,
         onToggleFavorite = onToggleFavorite,
         scrollToTopKey = scrollToTopKey,
+        header = header,
     )
 }
 
@@ -483,14 +482,7 @@ private fun NovelWatchlistTab(
                         onOpenAuthor = { series.user?.id?.let(onOpenUser) },
                     )
                 }
-                if (hasMore) {
-                    item(key = "load_more") {
-                        LoadMoreItem(
-                            isLoadingMore = isLoadingMore,
-                            onLoadMore = viewModel::loadMoreWatchlist,
-                        )
-                    }
-                }
+                loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMoreWatchlist)
             }
         }
     }

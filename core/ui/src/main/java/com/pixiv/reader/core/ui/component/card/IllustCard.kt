@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -63,7 +64,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import kotlin.math.roundToInt
 
 /**
- * 插画瀑布流卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史共用）。
+ * 插画卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史 / 排行榜共用）。
  *
  * ## UI 设计方式
  * 纵向 Column 分两段：
@@ -71,7 +72,7 @@ import kotlin.math.roundToInt
  *   （`ContentScale.Crop` + 比例匹配即不裁剪）；无宽高时回退 [coverHeight] 固定高度，
  *   可能只显示中间部分——调用方应尽量提供宽高（历史/下载实体已存）。
  *   浮层统一用 `Modifier.align` 定位，黑底白字中性风：
- *   - 左上角：AI 标识 + 页码（多 P 时 `xP`）
+ *   - 左上角：排名徽标（[rank] 非空时，1金/2橙/3灰）+ AI 标识 + 页码（多 P 时 `xP`）
  *   - 右上角：收藏切换按钮（[onToggleFavorite] 非空才显示）
  *   - 右下角：收藏数角标
  * - **信息区**（Column，10dp 内边距）：标题（最多 2 行省略号）+ 作者行（20dp 小头像 + 名称）。
@@ -88,6 +89,8 @@ import kotlin.math.roundToInt
  * @param onClick 整卡点击回调（通常打开作品详情）
  * @param modifier 外部传入的 Modifier（瀑布流网格通常传 `fillMaxWidth`）
  * @param coverHeight 无宽高数据时的回退封面高度
+ * @param rank 排名序号（排行榜用；非 null 时封面左上角显示排名徽标：前三名 Expressive
+ *   有机形底 + 金/橙/灰斜体加粗，其余名次白色小圆角矩形）
  * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
  * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
  * @param ugoiraLoader 动图加载器；非空且作品为 ugoira 时封面播放动图动画（帧未就绪露出静态封面）；null 恒静态
@@ -102,6 +105,7 @@ fun IllustCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     coverHeight: Dp = 150.dp,
+    rank: Int? = null,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
     onOpenAuthor: () -> Unit = {},
     // 标签点击 → 跳发现页搜索该标签；null 不展示标签行（兼容瀑布流密度）
@@ -162,12 +166,29 @@ fun IllustCard(
                     modifier = Modifier.matchParentSize(),
                 )
             }
-            // 左上角：AI 标识 + 页码（多 P），中性黑底白字（与收藏角标统一，不鲜艳）
+            // 左上角：排名徽标（排行榜专用）+ AI 标识 + 页码（多 P），中性黑底白字
             Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
+                // 排名徽标：前三名用 Expressive 有机多边形底形（1金/2橙/3灰，斜体加粗），
+                // 其余名次小圆角矩形白字（与 NovelCard 排名徽标同语言）
+                if (rank != null) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.45f),
+                        shape = rankBadgeShape(rank),
+                    ) {
+                        Text(
+                            text = "$rank",
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            fontStyle = FontStyle.Italic,
+                            color = rankColor(rank) ?: Color.White,
+                        )
+                    }
+                }
                 if (illust.isAi()) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.45f),

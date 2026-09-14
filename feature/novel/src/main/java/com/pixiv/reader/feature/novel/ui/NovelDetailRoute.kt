@@ -24,16 +24,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.Novel
-import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
-import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -45,14 +41,13 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
-import com.pixiv.reader.feature.novel.data.NovelExportWorker
-import com.pixiv.reader.feature.novel.data.novelScopeKey
+import com.pixiv.reader.feature.novel.data.NovelExportQueue
 
 /**
  * 小说详情（第六十四轮完全重写，对齐 design/novel-detail-ui.html）：
  * 沉浸式封面 banner（仅作背景、无视差）+ 标题 / 作者 / 发布时间 / 统计 / 标签 / 简介（首行缩进 + 展开全文）+
  * 阅读 / 收藏 / 追更 / 下载 / 评论（竖排卡片按钮）+ 系列目录（手机限高滚动 / 平板左栏固定、滚动互不影响）+ 查看完整系列。
- * 评论区走通用页 `comments/novel/{id}`（feature:comments）。
+ * 评论区走通用页 `comments/novel/{id}`（core:comment）。
  */
 @Composable
 fun NovelDetailRoute(
@@ -95,43 +90,40 @@ fun NovelDetailRoute(
 
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
-    // 导出触发接线：core VM 只转发事件，Worker 入队（feature 层实现）在此
+    // 导出触发接线：core VM 只转发事件，入队装配走共享 NovelExportQueue（feature 层实现）在此
     val context = LocalContext.current
     LaunchedEffect(viewModel) {
         viewModel.exportRequest = { novelId, seriesId, formatName ->
             val format = runCatching {
                 NovelExportFormat.valueOf(formatName)
             }.getOrDefault(NovelExportFormat.TXT)
-            val scopeKey = novelScopeKey(seriesId, null)
             // 入队即建「待同步」索引条目：断网停留待同步（Worker 网络约束），联网自动开始
             val novel = viewModel.novel.value
             viewModel.markDownloadPending(
-                DownloadEntryEntity(
-                    targetId = novelId,
-                    targetType = "novel",
-                    title = novel?.title?.let { "$it（${format.name}）" },
+                NovelExportQueue.pendingEntry(
+                    novelId = novelId,
+                    seriesId = seriesId,
+                    // 单本详情无「选取部分」：chapterIds 恒空（scopeKey 由 helper 依 seriesId 推导）
+                    chapterIds = emptyList(),
+                    format = format,
+                    title = novel?.title,
                     coverUrl = novel?.image_urls?.medium,
-                    format = format.name,
-                    scopeKey = scopeKey,
-                    seriesId = seriesId?.takeIf { it > 0L },
+                    seriesTitle = novel?.series?.title,
                     authorName = novel?.user?.name,
                     authorAvatarUrl = novel?.user?.profile_image_urls?.best(),
                     wordCount = novel?.text_length ?: 0,
                     favoriteCount = novel?.total_bookmarks ?: 0,
                     publishDate = novel?.create_date,
-                    seriesTitle = novel?.series?.title,
                 ),
             )
-            val data = mutableListOf<Pair<String, Any?>>()
-            data += NovelExportWorker.KEY_NOVEL_ID to novelId
-            data += NovelExportWorker.KEY_FORMAT to format.name
-            seriesId?.let { data += NovelExportWorker.KEY_SERIES_ID to it }
-            val request = OneTimeWorkRequestBuilder<NovelExportWorker>()
-                .setInputData(workDataOf(*data.toTypedArray()))
-                .setConstraints(DownloadQueue.networkConstraints())
-                .addTag(DownloadQueue.workTag("novel", novelId, format.name, scopeKey))
-                .build()
-            WorkManager.getInstance(context).enqueue(request)
+            WorkManager.getInstance(context).enqueue(
+                NovelExportQueue.buildRequest(
+                    novelId = novelId,
+                    seriesId = seriesId,
+                    chapterIds = emptyList(),
+                    format = format,
+                )
+            )
         }
     }
 
@@ -196,17 +188,12 @@ fun NovelDetailRoute(
             }
         }
         val dialogNovel = novel
-        if (showDownloadDialog && dialogNovel != null) {
-            DownloadSheet(
-                // 真实系列 id 必为正：过滤 pixiv 空对象（Series(id=0)）误判，无系列时整行隐藏
-                config = DownloadSheetConfig.Detail(dialogNovel.series?.id?.let { it > 0L } == true),
-                onFormat = { format: NovelExportFormat, scope: NovelDownloadScope, _: List<Long> ->
-                    viewModel.export(format.name, scope == NovelDownloadScope.SERIES)
-                    showDownloadDialog = false
-                },
-                onDismiss = { showDownloadDialog = false },
-            )
-        }
+        NovelDetailDownloadSheet(
+            visible = showDownloadDialog && dialogNovel != null,
+            seriesId = dialogNovel?.series?.id,
+            onExport = viewModel::export,
+            onDismiss = { showDownloadDialog = false },
+        )
     }
 
     // 收藏编辑弹层：公开/私密 + 标签多选，保存走 viewModel.saveBookmarkEditor
@@ -290,12 +277,14 @@ internal fun NovelDetailContent(
                     .align(Alignment.TopStart)
                     .padding(top = NOVEL_BANNER_TABLET_HEIGHT, start = Spacing.lg),
             ) {
-                NovelTocPanel(
+                NovelTocList(
                     seriesNovels = seriesNovels,
                     currentId = detail.id,
                     seriesId = seriesId,
                     onOpenNovel = onOpenNovel,
                     onOpenSeries = onOpenSeries,
+                    // maxHeight=null：平板左栏形态（weight 填充整卡）
+                    maxHeight = null,
                     modifier = Modifier
                         .width(NOVEL_TOC_PANEL_WIDTH)
                         .fillMaxHeight(),
@@ -379,12 +368,13 @@ private fun PhoneNovelDetail(
             if (seriesNovels.isNotEmpty()) {
                 item(key = "series_toc") {
                     NovelCenteredBox {
-                        NovelTocScroll(
+                        NovelTocList(
                             seriesNovels = seriesNovels,
                             currentId = detail.id,
                             seriesId = seriesId,
                             onOpenNovel = onOpenNovel,
                             onOpenSeries = onOpenSeries,
+                            // 限高形态：手机端列表内部滚动（不随分册数量增高）
                             maxHeight = tocMaxHeight,
                         )
                     }

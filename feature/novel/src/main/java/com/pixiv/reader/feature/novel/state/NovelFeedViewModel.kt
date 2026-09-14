@@ -14,11 +14,10 @@ import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.feed.FeedSnapshotStore
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.session.SeriesDetailCache
 import com.pixiv.reader.core.network.session.SeriesDetailInfo
+import com.pixiv.reader.core.network.session.SeriesDetailLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +35,7 @@ import kotlinx.coroutines.launch
 class NovelFeedViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
     private val userPreferences: UserPreferences,
-    private val seriesDetailCache: SeriesDetailCache,
+    private val seriesDetailLoader: SeriesDetailLoader,
     private val favoriteActions: FavoriteActions,
     private val snapshotStore: FeedSnapshotStore,
 ) : MessageViewModel() {
@@ -64,7 +63,7 @@ class NovelFeedViewModel @Inject constructor(
     /** 追更流是否已触发首次加载（防切回重复请求）。 */
     private var watchlistInitialized = false
 
-    /** 追更列表系列详情：seriesId → 封面/简介/连载状态（SeriesDetailCache 内存缓存 + in-flight 去重）。 */
+    /** 追更列表系列详情：seriesId → 封面/简介/连载状态（SeriesDetailLoader 批量补齐，内存缓存 + in-flight 去重）。 */
     private val _watchlistInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
     val watchlistInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _watchlistInfos.asStateFlow()
 
@@ -241,45 +240,24 @@ class NovelFeedViewModel @Inject constructor(
     }
 
     /**
-     * 为追更列表批量取系列详情（复用 SeriesDetailCache 内存缓存 + in-flight 去重，
-     * 与用户页系列列表同一缓存；封面/简介/连载状态同源自一次 `getNovelSeries`）。
+     * 为追更列表批量取系列详情（[SeriesDetailLoader] 批量管线：SeriesDetailCache 内存缓存 +
+     * in-flight 去重，与用户页系列列表同一缓存；封面/简介/连载状态同源自一次 `getNovelSeries`）。
      * 列表项无这些字段；并发限 6，避免首屏一批详情请求打满连接池。
      * 已缓存条目先同步回填 [_watchlistInfos]——VM 随 Tab 切换销毁重建后其本地流为空，
      * 缓存命中路径也必须把数据送进 UI 流（否则二次进入追更页签封面全空白），仅真正缺失的走网络。
      *
-     * 隐藏（masked）系列：`getNovelSeries` 可能抛异常（非 2xx 等），此前异常经
-     * `getOrFetch` 重抛到本函数再上抛到 launch 未捕获 → 闪退。现逐系列 try-catch：
-     * 失败打 Log.e 留痕并视为无详情（UI 空兜底），不再中断整批/崩溃。
+     * 隐藏（masked）系列：`getNovelSeries` 可能抛异常（非 2xx 等），此前异常上抛到 launch
+     * 未捕获 → 闪退。批量管线内逐系列捕获：失败打 Log.e 留痕并视为无详情（UI 空兜底），
+     * 不再中断整批/崩溃。
      */
     private suspend fun loadWatchlistInfos() {
-        // 已在进程缓存的详情先同步回填 VM 状态（零网络）
         val ids = watchlist.items.value.map { it.id }
-        val cached = ids.mapNotNull { id -> seriesDetailCache.get(id)?.let { id to it } }
-        if (cached.isNotEmpty()) _watchlistInfos.value = _watchlistInfos.value + cached
-        val missing = ids.filter { it !in _watchlistInfos.value }
-        if (missing.isEmpty()) return
-        Log.d(TAG, "loadWatchlistInfos: 待取详情 ${missing.size} 个: $missing")
-        missing.chunked(6).forEach { batch ->
-            val results = batch.map { id ->
-                id to runCatching {
-                    seriesDetailCache.getOrFetch(id) { fetchSeriesDetail(id) }
-                }.getOrElse { e ->
-                    // 取消是调用方生命周期信号，向上重抛；隐藏系列等请求失败视为无详情（卡片兜底展示）
-                    if (e is CancellationException) throw e
-                    Log.e(TAG, "getOrFetch(series=$id) 异常: ${e.message}", e)
-                    null
-                }
-            }
-            val newMap = _watchlistInfos.value.toMutableMap()
-            results.forEach { (id, info) ->
-                if (info != null) {
-                    newMap[id] = info
-                } else {
-                    Log.w(TAG, "loadWatchlistInfos: series=$id 详情为 null（跳过，卡片用兜底展示）")
-                }
-            }
-            _watchlistInfos.value = newMap
-        }
+        seriesDetailLoader.backfillInfos(
+            target = _watchlistInfos,
+            ids = ids,
+            concurrency = 6,
+            onError = { id, e -> Log.e(TAG, "getOrFetch(series=$id) 异常: ${e.message}", e) },
+        ) { id -> fetchSeriesDetail(id) }
     }
 
     /**

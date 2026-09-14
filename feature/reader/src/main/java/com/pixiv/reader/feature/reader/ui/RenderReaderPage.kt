@@ -62,6 +62,78 @@ internal fun bottomJustifyGapPx(
     }
 
 /**
+ * 页面统一内边距（水平 [PAGE_H_PADDING]、垂直 [PAGE_V_PADDING]，顶部叠加 [contentTopInset]）：
+ * 滚动外的翻页 / 仿真 / 渲染路径共 6 处调用点收敛为同一惯式。
+ *
+ * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度）
+ * @return 附加了页面内边距的 [Modifier]
+ */
+internal fun Modifier.pageInsets(contentTopInset: Dp): Modifier = padding(
+    start = PAGE_H_PADDING,
+    end = PAGE_H_PADDING,
+    top = PAGE_V_PADDING + contentTopInset,
+    bottom = PAGE_V_PADDING,
+)
+
+/**
+ * 页面行元素渲染（滚动/翻页两种容器共用的单一实现）：
+ * - [PageElement.TextLine]：Box 撑高 + Text 去 lineHeight + 两端对齐拉伸
+ * - [PageElement.Gap]：按原高度渲染为空隙
+ * - [PageElement.Image]：插图块（含说明文字，点击全屏）
+ *
+ * @param element 页面行元素（文本行 / 段距空隙 / 图片）
+ * @param density Density（行高 px → dp 换算，与分页/排版所用保持一致）
+ * @param onOpenImage 点击图片回调（全屏查看）
+ * @param modifier 修饰符
+ * @return 无返回值（UI 渲染）
+ */
+@Composable
+internal fun PageElementView(
+    element: PageElement,
+    density: Density,
+    onOpenImage: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when (element) {
+        is PageElement.TextLine -> {
+            // 行元素高度由 Box 显式撑起（= 分页行高）：单行 Text 的测量高度只到字形底
+            // （Compose 最后一行语义，不含 lineHeight）；不显式控高则行距设置对逐行渲染
+            // 完全无效、分页也会失真（行距高时内容堆在顶部、负行距时溢出）。
+            // Text 自身去掉 lineHeight：字形顶贴 Box 顶，行与行之间距离 = Box 高度。
+            Box(
+                modifier
+                    .fillMaxWidth()
+                    .height(with(density) { element.heightPx.toDp() }),
+            ) {
+                Text(
+                    // 两端对齐与分页模式同源：中间行按富余宽度拉伸，末行自然排布
+                    text = if (element.justifyExtraPx > 1f) {
+                        justifyLine(element, density)
+                    } else {
+                        AnnotatedString(element.text)
+                    },
+                    style = element.style.copy(lineHeight = TextUnit.Unspecified),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        is PageElement.Gap -> Spacer(
+            modifier
+                .fillMaxWidth()
+                .height(with(density) { element.heightPx.toDp() }),
+        )
+
+        is PageElement.Image -> ReaderImageBlock(
+            url = element.url,
+            caption = element.caption,
+            height = with(density) { element.heightPx.toDp() },
+            onOpenImage = onOpenImage,
+        )
+    }
+}
+
+/**
  * 渲染单页内容（文本行 + 段距空隙 + 图片混合排版）。
  * 供翻页模式与仿真模式共用（图片高度来自分页器自适应值，图片块含说明文字）。
  *
@@ -105,51 +177,19 @@ internal fun RenderReaderPage(
     Column(modifier = modifier) {
         var textLineIndex = 0
         page.elements.forEach { el ->
-            when (el) {
-                is PageElement.TextLine -> {
-                    // 行间空隙微调（legado：行 top 递增 tj×i 的等效实现）
-                    if (textLineIndex > 0 && extraPerGapPx > 0f) {
-                        Spacer(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(with(density) { extraPerGapPx.toDp() }),
-                        )
-                    }
-                    textLineIndex++
-                    // 行元素高度由 Box 显式撑起（= 分页行高）：单行 Text 的测量高度只到字形底
-                    // （Compose 最后一行语义，不含 lineHeight），若不显式控高，行距设置对
-                    // 逐行渲染完全无效、分页也会失真（行距高时内容堆在顶部、负行距时溢出）。
-                    // Text 自身去掉 lineHeight：字形顶贴 Box 顶，行与行之间距离 = Box 高度。
-                    Box(
+            // 行间空隙微调（legado：行 top 递增 tj×i 的等效实现）
+            if (el is PageElement.TextLine) {
+                if (textLineIndex > 0 && extraPerGapPx > 0f) {
+                    Spacer(
                         Modifier
                             .fillMaxWidth()
-                            .height(with(density) { el.heightPx.toDp() }),
-                    ) {
-                        Text(
-                            text = if (el.justifyExtraPx > 1f) {
-                                justifyLine(el, density)
-                            } else {
-                                AnnotatedString(el.text)
-                            },
-                            style = el.style.copy(lineHeight = TextUnit.Unspecified),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+                            .height(with(density) { extraPerGapPx.toDp() }),
+                    )
                 }
-
-                is PageElement.Gap -> Spacer(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(with(density) { el.heightPx.toDp() }),
-                )
-
-                is PageElement.Image -> ReaderImageBlock(
-                    url = el.url,
-                    caption = el.caption,
-                    height = with(density) { el.heightPx.toDp() },
-                    onOpenImage = onOpenImage,
-                )
+                textLineIndex++
             }
+            // 行元素渲染与滚动模式共用同一实现（PageElementView）
+            PageElementView(el, density, onOpenImage)
         }
     }
 }
@@ -192,12 +232,7 @@ internal fun RenderSpreadColumns(
                 onOpenImage,
                 modifier
                     .fillMaxSize()
-                    .padding(
-                        start = PAGE_H_PADDING,
-                        end = PAGE_H_PADDING,
-                        top = PAGE_V_PADDING + contentTopInset,
-                        bottom = PAGE_V_PADDING,
-                    ),
+                    .pageInsets(contentTopInset),
             )
         }
         return
@@ -213,12 +248,7 @@ internal fun RenderSpreadColumns(
                         onOpenImage,
                         Modifier
                             .fillMaxSize()
-                            .padding(
-                                start = PAGE_H_PADDING,
-                                end = PAGE_H_PADDING,
-                                top = PAGE_V_PADDING + contentTopInset,
-                                bottom = PAGE_V_PADDING,
-                            ),
+                            .pageInsets(contentTopInset),
                     )
                 }
             }
@@ -230,12 +260,7 @@ internal fun RenderSpreadColumns(
                         onOpenImage,
                         Modifier
                             .fillMaxSize()
-                            .padding(
-                                start = PAGE_H_PADDING,
-                                end = PAGE_H_PADDING,
-                                top = PAGE_V_PADDING + contentTopInset,
-                                bottom = PAGE_V_PADDING,
-                            ),
+                            .pageInsets(contentTopInset),
                     )
                 }
             }

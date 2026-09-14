@@ -153,33 +153,19 @@ fun ReaderSettingsSheet(
                     modifier = Modifier.weight(1f),
                 )
             }
-            // 字重自定义：跨行滑条 100~900
+            // 字重自定义：跨行滑条 100~900（复用 SliderCard 形态）
             val customWeight = fontWeight !in FONT_WEIGHT_PRESETS
             AnimatedVisibility(visible = customWeight) {
-                TypographyCard(
+                SliderCard(
                     title = stringResource(R.string.reader_settings_font_weight_custom_desc),
                     valueText = fontWeight.toString(),
+                    value = fontWeight.toFloat(),
+                    valueRange = 100f..900f,
+                    onValueChange = { onFontWeightChange(it.roundToInt()) },
+                    minLabel = "100",
+                    maxLabel = "900",
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Slider(
-                        value = fontWeight.toFloat(),
-                        onValueChange = { onFontWeightChange(it.roundToInt()) },
-                        valueRange = 100f..900f,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(28.dp)
-                            .padding(horizontal = Spacing.xxs),
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("100", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("900", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+                )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
@@ -248,18 +234,14 @@ fun ReaderSettingsSheet(
             )
 
             SectionLabel(stringResource(R.string.reader_settings_section_font))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                READER_FONT_FAMILY_KEYS.forEachIndexed { index, key ->
-                    SegmentedButton(
-                        selected = fontFamilyKey == key,
-                        onClick = { onFontFamilyChange(key) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = READER_FONT_FAMILY_KEYS.size
-                        ),
-                    ) { Text(stringResource(READER_FONT_FAMILY_NAME_RES[index])) }
-                }
-            }
+            SettingSegmentedRow(
+                options = READER_FONT_FAMILY_KEYS,
+                selected = fontFamilyKey,
+                label = { key ->
+                    stringResource(READER_FONT_FAMILY_NAME_RES[READER_FONT_FAMILY_KEYS.indexOf(key)])
+                },
+                onSelect = onFontFamilyChange,
+            )
             // 自定义字体：导入 / 清除
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
@@ -277,20 +259,16 @@ fun ReaderSettingsSheet(
             }
 
             SectionLabel(stringResource(R.string.reader_settings_section_theme))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                READER_THEME_NAME_RES.forEachIndexed { index, res ->
-                    val mode = ReaderThemeMode.entries.getOrNull(index) ?: ReaderThemeMode.PAPER
-                    SegmentedButton(
-                        selected = theme == mode,
-                        onClick = { onThemeChange(mode) },
-                        enabled = !followSystem,
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = READER_THEME_NAME_RES.size
-                        ),
-                    ) { Text(stringResource(res)) }
-                }
-            }
+            SettingSegmentedRow(
+                options = ReaderThemeMode.entries.toList(),
+                selected = theme,
+                // 跟随系统深色模式时四档主题锁定不可选
+                enabled = { !followSystem },
+                label = { mode ->
+                    stringResource(READER_THEME_NAME_RES[ReaderThemeMode.entries.indexOf(mode)])
+                },
+                onSelect = onThemeChange,
+            )
             // 跟随系统深色模式
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
@@ -308,52 +286,37 @@ fun ReaderSettingsSheet(
             }
 
             SectionLabel(stringResource(R.string.reader_settings_section_page_mode))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                READER_PAGE_MODE_NAME_RES.forEachIndexed { index, res ->
-                    val mode = ReaderPageMode.entries.getOrNull(index) ?: ReaderPageMode.SCROLL
-                    SegmentedButton(
-                        selected = pageMode == mode,
-                        onClick = { onPageModeChange(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = READER_PAGE_MODE_NAME_RES.size
-                        ),
-                    ) { Text(stringResource(res)) }
-                }
-            }
+            SettingSegmentedRow(
+                options = ReaderPageMode.entries.toList(),
+                selected = pageMode,
+                label = { mode ->
+                    stringResource(READER_PAGE_MODE_NAME_RES[ReaderPageMode.entries.indexOf(mode)])
+                },
+                onSelect = onPageModeChange,
+            )
 
             // 双页显示：翻页/仿真模式下按视口宽度对半分页并排成跨页（滑动模式不生效）
             SectionLabel(stringResource(R.string.reader_settings_dual_page))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                READER_DUAL_PAGE_NAME_RES.forEachIndexed { index, res ->
-                    val mode = ReaderDualPageMode.entries.getOrNull(index)
-                        ?: ReaderDualPageMode.LANDSCAPE_OR_TABLET
-                    SegmentedButton(
-                        selected = dualPageMode == mode,
-                        onClick = { onDualPageModeChange(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = READER_DUAL_PAGE_NAME_RES.size
-                        ),
-                    ) { Text(stringResource(res)) }
-                }
-            }
+            SettingSegmentedRow(
+                options = ReaderDualPageMode.entries.toList(),
+                selected = dualPageMode,
+                label = { mode ->
+                    stringResource(READER_DUAL_PAGE_NAME_RES[ReaderDualPageMode.entries.indexOf(mode)])
+                },
+                onSelect = onDualPageModeChange,
+            )
 
             // 简繁转换（仅应用语言为中文时显示；OpenCC 转换正文文本块）
             if (showChineseConvert) {
                 SectionLabel(stringResource(R.string.reader_settings_chinese_convert))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    CHINESE_CONVERT_OPTIONS.forEachIndexed { index, (value, labelRes) ->
-                        SegmentedButton(
-                            selected = chineseConvert == value,
-                            onClick = { onChineseConvertChange(value) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = CHINESE_CONVERT_OPTIONS.size
-                            ),
-                        ) { Text(stringResource(labelRes)) }
-                    }
-                }
+                SettingSegmentedRow(
+                    options = CHINESE_CONVERT_OPTIONS.map { it.first },
+                    selected = chineseConvert,
+                    label = { value ->
+                        stringResource(CHINESE_CONVERT_OPTIONS.first { it.first == value }.second)
+                    },
+                    onSelect = onChineseConvertChange,
+                )
             }
         }
     }
@@ -510,6 +473,41 @@ private fun SliderCard(
 /** 浮点值按步进拍平（避免滑条中间值抖动）。 */
 private fun roundStep(value: Float, step: Float): Float =
     Math.round(value / step) * step
+
+/**
+ * 通用分段选择行：SingleChoiceSegmentedButtonRow + SegmentedButton 惯式收敛
+ * （字体 / 主题 / 翻页模式 / 双页显示 / 简繁转换五处共用）。
+ *
+ * @param T 选项类型
+ * @param options 选项列表（顺序 = 分段顺序）
+ * @param selected 当前选中项
+ * @param enabled 各选项是否可点（默认全部可用）
+ * @param label 选项文案（Composable 上下文，可直接 stringResource）
+ * @param onSelect 选项点击回调
+ * @return 无返回值（UI 渲染）
+ */
+@Composable
+private fun <T> SettingSegmentedRow(
+    options: List<T>,
+    selected: T,
+    enabled: (T) -> Boolean = { true },
+    label: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, option ->
+            SegmentedButton(
+                selected = selected == option,
+                onClick = { onSelect(option) },
+                enabled = enabled(option),
+                shape = SegmentedButtonDefaults.itemShape(
+                    index = index,
+                    count = options.size
+                ),
+            ) { Text(label(option)) }
+        }
+    }
+}
 
 /** em 值格式化：0 → "0"；+0.05 → "+0.05"；-0.05 → "-0.05"。 */
 private fun formatEm(value: Float): String {

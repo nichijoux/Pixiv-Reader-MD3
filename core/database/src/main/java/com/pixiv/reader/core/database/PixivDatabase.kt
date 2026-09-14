@@ -18,9 +18,10 @@ import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 /**
  * 数据库结构（version = 7）。
  *
- * 历史迁移（原 v1→v7 六条，含 download_entry 字段演进与主键重构）已全部清理，
- * 新装用户直接按此 schema 建库；旧版本（v7）数据经 `fallbackToDestructiveMigration` 重建。
- * 后续新增实体/字段：升 version 并从这里开始写新迁移。
+ * 迁移链 [MIGRATION_1_2]～[MIGRATION_6_7] 全部保留并在 DatabaseModule 注册，
+ * 旧版本安装经迁移升级到当前 schema；新装用户直接按 version=7 建库。
+ * 后续新增实体/字段：升 version 并接续写新 Migration（列定义须与实体逐列一致，
+ * Room 启动时校验 schema）。
  *
  * v2：download_entry 新增 payloadJson（完整卡片快照 JSON，下载管理页完整展示用）。
  * v3：download_entry 主键扩为 (targetType, targetId, format, scopeKey)，区分同一小说的

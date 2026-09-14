@@ -27,7 +27,7 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.FeedPhase
 import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -107,14 +107,7 @@ internal fun NovelPagedList(
                         onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
                     )
                 }
-                if (hasMore) {
-                    item(key = "load_more") {
-                        LoadMoreItem(
-                            isLoadingMore = isLoadingMore,
-                            onLoadMore = onLoadMore,
-                        )
-                    }
-                }
+                loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
             }
         }
     }

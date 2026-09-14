@@ -71,6 +71,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.feature.reader.state.ReaderTapZone
 import com.pixiv.reader.feature.reader.state.ReaderViewModel
 import com.pixiv.reader.feature.reader.state.ReaderPage
 import com.pixiv.reader.feature.reader.state.ReaderSpread
@@ -80,6 +81,7 @@ import com.pixiv.reader.feature.reader.state.rememberReaderFontFamily
 import com.pixiv.reader.feature.reader.state.rememberReaderPages
 import com.pixiv.reader.feature.reader.state.rememberReaderTextStyle
 import com.pixiv.reader.feature.reader.state.readerImageHeight
+import com.pixiv.reader.feature.reader.state.readerTapZone
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -129,8 +131,8 @@ private fun Modifier.quickTap(onTap: (Offset, Size) -> Unit): Modifier =
     }
 
 /**
- * 触控井字九宫格分区（quickTap 之上）：宽高各三等分，
- * 中间格（宽、高各 1/3 的正方形）点击切换工具栏（[onToggleBars]）；
+ * 触控井字九宫格分区（quickTap 之上）：分区判定与仿真模式共用 [readerTapZone]，
+ * 中间格点击切换工具栏（[onToggleBars]）；
  * 其余 8 格沿中间对称轴分为左右两半——工具栏显示时点击关闭（[onCloseBars]，避免误翻页），
  * 隐藏时左半区触发 [onPrevPage]、右半区触发 [onNextPage]（翻页/仿真模式翻页，滑动模式为空操作）。
  *
@@ -143,21 +145,11 @@ private fun Modifier.tapZones(
     onPrevPage: () -> Unit,
     onNextPage: () -> Unit,
 ): Modifier = quickTap { offset, containerSize ->
-    val w = containerSize.width
-    val h = containerSize.height
-    val x = offset.x
-    val y = offset.y
-    // 井字九宫格中间格：宽、高各 1/3 的正方形
-    val centerCell = x >= w / 3f && x <= 2f * w / 3f && y >= h / 3f && y <= 2f * h / 3f
-    if (centerCell) {
-        onToggleBars()
-        return@quickTap
-    }
-    // 其余 8 格沿中间对称轴平分：左半区 / 右半区
-    if (x < w / 2f) {
-        if (isBarsVisible()) onCloseBars() else onPrevPage()
-    } else {
-        if (isBarsVisible()) onCloseBars() else onNextPage()
+    // 井字九宫格分区（纯函数，与仿真模式同源）：中间格切换工具栏，左右半区翻页/关闭
+    when (readerTapZone(offset.x, offset.y, containerSize.width, containerSize.height)) {
+        ReaderTapZone.CENTER -> onToggleBars()
+        ReaderTapZone.LEFT -> if (isBarsVisible()) onCloseBars() else onPrevPage()
+        ReaderTapZone.RIGHT -> if (isBarsVisible()) onCloseBars() else onNextPage()
     }
 }
 

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,14 +16,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,13 +40,16 @@ import androidx.compose.ui.unit.Constraints
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.PixivConstants
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentTarget
+import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
+import com.pixiv.reader.core.ui.component.layout.SegmentedPager
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
@@ -61,7 +59,6 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
 import com.pixiv.reader.feature.user.state.UserViewModel
-import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -178,19 +175,12 @@ fun UserRoute(
     val detailPaneEnabled = isDetailPaneEnabled(subtractRail = false)
 
     val sections = UserSection.entries
+    // Pager 状态外提持有：统计格点击（onScrollToSection）直接滚动分区；SegmentedPager 复用同一状态
     val pagerState = rememberPagerState(
         initialPage = sections.indexOf(section).coerceAtLeast(0),
         pageCount = { sections.size },
     )
     val scope = rememberCoroutineScope()
-
-    // 滑动切页 → 同步分区（未加载则加载该段）
-    LaunchedEffect(pagerState.currentPage) {
-        val page = pagerState.currentPage
-        if (page in sections.indices) {
-            viewModel.selectSection(sections[page])
-        }
-    }
 
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
@@ -317,81 +307,69 @@ fun UserRoute(
                                     )
                                 }
                             }
-                            // 分区分段：插画 / 漫画 / 小说 / 系列（Expressive 分段控件均分占满，
-                            // 4 个短标签手机/平板一致；选中态跟 Pager 落页，点击反向滚页）
-                            SingleChoiceSegmentedButtonRow(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                            ) {
-                                for (index in sections.indices) {
-                                    SegmentedButton(
-                                        selected = pagerState.currentPage == index,
-                                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = sections.size),
-                                        modifier = Modifier.weight(1f),
-                                        label = { Text(stringResource(sections[index].labelRes)) },
-                                    )
-                                }
-                            }
-                            // 分区内容（Pager 每页只 collect 自己段的状态）
-                            HorizontalPager(
+                            // 分区分段（插画 / 漫画 / 小说 / 系列）+ 分区内容：SegmentedPager 双向同步
+                            // （选中态跟 Pager 落页，点击反向滚页；滑动落页同步分区，未加载则加载该段；
+                            //   Pager 每页只 collect 自己段的状态）
+                            SegmentedPager(
+                                tabs = sections,
                                 state = pagerState,
-                                modifier = Modifier.weight(1f),
-                            ) { page ->
-                                when (sections.getOrNull(page)) {
-                                    UserSection.ILLUST -> SectionIllust(
-                                        paged = viewModel.illustPaged,
-                                        // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
-                                        onOpenIllust = { id ->
-                                            if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
-                                        },
-                                        onOpenUser = onOpenUser,
-                                        onToggleFavorite = viewModel::toggleIllustFavorite,
-                                        onRetry = viewModel::load,
-                                        onLoadMore = viewModel::loadMore,
-                                    )
-                                    UserSection.MANGA -> SectionIllust(
-                                        paged = viewModel.mangaPaged,
-                                        onOpenIllust = { id ->
-                                            if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
-                                        },
-                                        onOpenUser = onOpenUser,
-                                        onToggleFavorite = viewModel::toggleIllustFavorite,
-                                        onRetry = viewModel::load,
-                                        onLoadMore = viewModel::loadMore,
-                                    )
-                                    UserSection.NOVEL -> SectionNovel(
-                                        paged = viewModel.novelPaged,
-                                        onOpenNovel = { id ->
-                                            if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
-                                        },
-                                        onOpenUser = onOpenUser,
-                                        // 系列 pane 启用 → 进右栏；否则全屏路由
-                                        onOpenSeries = { id ->
-                                            if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
-                                        },
-                                        onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
-                                        onTagClick = onNovelSearchTag ?: onSearchTag,
-                                        onRetry = viewModel::load,
-                                        onLoadMore = viewModel::loadMore,
-                                    )
-                                    UserSection.SERIES -> SectionSeries(
-                                        paged = viewModel.seriesPaged,
-                                        infos = seriesInfos,
-                                        mangaPaged = viewModel.mangaSeriesPaged,
-                                        onOpenSeries = { id ->
-                                            if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
-                                        },
-                                        onOpenMangaSeries = onOpenMangaSeries,
-                                        onRetry = viewModel::load,
-                                        onLoadMore = viewModel::loadMore,
-                                        onRetryManga = viewModel::retryMangaSeries,
-                                        onLoadMoreManga = viewModel::loadMoreMangaSeries,
-                                    )
-                                    null -> EmptyBox("")
-                                }
-                            }
+                                onSelect = viewModel::selectSection,
+                                tabLabel = { it.labelRes },
+                                pagerModifier = Modifier.weight(1f),
+                                pageContent = { _, tab ->
+                                    when (tab) {
+                                        UserSection.ILLUST -> SectionIllust(
+                                            paged = viewModel.illustPaged,
+                                            // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                                            onOpenIllust = { id ->
+                                                if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                            },
+                                            onOpenUser = onOpenUser,
+                                            onToggleFavorite = viewModel::toggleIllustFavorite,
+                                            onRetry = viewModel::load,
+                                            onLoadMore = viewModel::loadMore,
+                                        )
+                                        UserSection.MANGA -> SectionIllust(
+                                            paged = viewModel.mangaPaged,
+                                            onOpenIllust = { id ->
+                                                if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                            },
+                                            onOpenUser = onOpenUser,
+                                            onToggleFavorite = viewModel::toggleIllustFavorite,
+                                            onRetry = viewModel::load,
+                                            onLoadMore = viewModel::loadMore,
+                                        )
+                                        UserSection.NOVEL -> SectionNovel(
+                                            paged = viewModel.novelPaged,
+                                            onOpenNovel = { id ->
+                                                if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
+                                            },
+                                            onOpenUser = onOpenUser,
+                                            // 系列 pane 启用 → 进右栏；否则全屏路由
+                                            onOpenSeries = { id ->
+                                                if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                            },
+                                            onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
+                                            onTagClick = onNovelSearchTag ?: onSearchTag,
+                                            onRetry = viewModel::load,
+                                            onLoadMore = viewModel::loadMore,
+                                        )
+                                        UserSection.SERIES -> SectionSeries(
+                                            paged = viewModel.seriesPaged,
+                                            infos = seriesInfos,
+                                            mangaPaged = viewModel.mangaSeriesPaged,
+                                            onOpenSeries = { id ->
+                                                if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                            },
+                                            onOpenMangaSeries = onOpenMangaSeries,
+                                            onRetry = viewModel::load,
+                                            onLoadMore = viewModel::loadMore,
+                                            onRetryManga = viewModel::retryMangaSeries,
+                                            onLoadMoreManga = viewModel::loadMoreMangaSeries,
+                                        )
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -456,7 +434,14 @@ fun UserRoute(
                         placeholder = stringResource(R.string.user_pane_placeholder),
                         onOpenUser = onOpenUser,
                         onOpenViewer = onOpenViewer,
-                        commentVm = commentVm,
+                        comments = { onBackToDetail ->
+                            CommentPane(
+                                commentVm = commentVm,
+                                onOpenUser = onOpenUser,
+                                onBackToDetail = onBackToDetail,
+                            )
+                        },
+                        onOpenComments = { selectedIllustId?.let { commentVm.switchTo(CommentTarget.ILLUST, it) } },
                         viewModel = illustDetailVm,
                     )
                 }

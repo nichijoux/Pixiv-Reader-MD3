@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -151,15 +152,28 @@ internal fun TocTitle(count: Int, modifier: Modifier = Modifier) {
     }
 }
 
-/** 系列目录（手机端单列）：标题 + 限高内部滚动列表 + 查看完整系列（不随分册数量增高）。 */
+/**
+ * 系列目录（手机 / 平板两种容器形态合一）：
+ * [maxHeight] 非 null = 手机单列形态（标题 + 限高卡片列表，装饰在列表容器上，「查看完整系列」在卡片外）；
+ * null = 平板左栏形态（整卡装饰 + 列表 weight 撑满，「查看完整系列」在卡片内）。
+ *
+ * @param seriesNovels 系列分册列表
+ * @param currentId 当前打开的小说 id（高亮 + 自动滚动定位）
+ * @param seriesId 系列 id（null 不显示「查看完整系列」）
+ * @param onOpenNovel 分册点击
+ * @param onOpenSeries 「查看完整系列」点击
+ * @param maxHeight 列表最大高度（手机限高内部滚动）；null = 平板左栏 weight 填充
+ * @param modifier 外部 Modifier
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
-internal fun NovelTocScroll(
+internal fun NovelTocList(
     seriesNovels: List<Novel>,
     currentId: Long,
     seriesId: Long?,
     onOpenNovel: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
-    maxHeight: Dp,
+    maxHeight: Dp?,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -168,76 +182,85 @@ internal fun NovelTocScroll(
         val index = seriesNovels.indexOfFirst { it.id == currentId }
         if (index >= 0) listState.scrollToItem(index)
     }
-    Column(modifier = modifier) {
-        TocTitle(
-            count = seriesNovels.size,
-            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
-        )
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxHeight)
-                .clip(AppShapes.card)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow),
-        ) {
-            itemsIndexed(seriesNovels) { index, chapter ->
-                ChapterRow(
-                    novel = chapter,
-                    index = index,
-                    isCurrent = chapter.id == currentId,
-                    onClick = { onOpenNovel(chapter.id) },
-                )
-            }
+    if (maxHeight != null) {
+        // 手机端：标题在卡片外，列表自身限高 + 卡片装饰（不随分册数量增高）
+        Column(modifier = modifier) {
+            TocTitle(
+                count = seriesNovels.size,
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+            )
+            TocRows(
+                listState = listState,
+                seriesNovels = seriesNovels,
+                currentId = currentId,
+                onOpenNovel = onOpenNovel,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight)
+                    .tocCardDecoration(),
+            )
+            SeriesMoreRow(seriesId, onOpenSeries)
         }
-        SeriesMoreRow(seriesId, onOpenSeries)
+    } else {
+        // 平板左栏：整卡装饰（标题/查看完整系列都在卡片内），列表 weight 撑满内部滚动
+        Column(
+            modifier = modifier
+                .tocCardDecoration()
+                .padding(vertical = Spacing.xs),
+        ) {
+            TocTitle(
+                count = seriesNovels.size,
+                modifier = Modifier.padding(horizontal = Spacing.mdPlus, vertical = Spacing.smPlus),
+            )
+            TocRows(
+                listState = listState,
+                seriesNovels = seriesNovels,
+                currentId = currentId,
+                onOpenNovel = onOpenNovel,
+                modifier = Modifier.weight(1f),
+            )
+            SeriesMoreRow(seriesId, onOpenSeries)
+        }
     }
 }
 
-/** 系列目录（平板左栏卡片）：固定于 banner 下方（sticky 等效），列表内部滚动。 */
+/**
+ * 目录分册行列表（两种容器形态共用的 LazyColumn 内容）。
+ *
+ * @param listState 调用方创建并驱动自动滚动的列表状态
+ * @param seriesNovels 系列分册列表
+ * @param currentId 当前打开的小说 id（高亮）
+ * @param onOpenNovel 分册点击
+ * @param modifier 列表 Modifier（限高装饰 / weight 由调用方传入）
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
-internal fun NovelTocPanel(
+private fun TocRows(
+    listState: LazyListState,
     seriesNovels: List<Novel>,
     currentId: Long,
-    seriesId: Long?,
     onOpenNovel: (Long) -> Unit,
-    onOpenSeries: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val listState = rememberLazyListState()
-    // 自动滚动定位到当前章节（首次加载 / 系列数据更新时），当前章不在列表中则不滚动
-    LaunchedEffect(seriesNovels, currentId) {
-        val index = seriesNovels.indexOfFirst { it.id == currentId }
-        if (index >= 0) listState.scrollToItem(index)
-    }
-    Column(
-        modifier = modifier
-            .clip(AppShapes.card)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(vertical = Spacing.xs),
-    ) {
-        TocTitle(
-            count = seriesNovels.size,
-            modifier = Modifier.padding(horizontal = Spacing.mdPlus, vertical = Spacing.smPlus),
-        )
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f),
-        ) {
-            itemsIndexed(seriesNovels) { index, chapter ->
-                ChapterRow(
-                    novel = chapter,
-                    index = index,
-                    isCurrent = chapter.id == currentId,
-                    onClick = { onOpenNovel(chapter.id) },
-                )
-            }
+    LazyColumn(state = listState, modifier = modifier) {
+        itemsIndexed(seriesNovels) { index, chapter ->
+            ChapterRow(
+                novel = chapter,
+                index = index,
+                isCurrent = chapter.id == currentId,
+                onClick = { onOpenNovel(chapter.id) },
+            )
         }
-        SeriesMoreRow(seriesId, onOpenSeries)
     }
 }
+
+/** 目录卡片装饰：圆角 + 描边 + 浅底（手机列表容器 / 平板整卡共用）。 */
+@Composable
+private fun Modifier.tocCardDecoration(): Modifier =
+    this
+        .clip(AppShapes.card)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
+        .background(MaterialTheme.colorScheme.surfaceContainerLow)
 
 /** 「查看完整系列 ›」行（HTML `.tocmore`，无系列 id 时不渲染）。 */
 @Composable

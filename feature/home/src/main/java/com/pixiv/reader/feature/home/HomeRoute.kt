@@ -38,9 +38,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.api.model.Illust
 import com.pixiv.api.model.TrendingTag
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentTarget
+import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.network.illust.IllustViewModel
+import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
@@ -162,14 +166,14 @@ fun HomeRoute(
                         }
 
                         when (tab) {
-                            HomeTab.RECOMMEND -> RecommendContent(
-                                viewModel, onOpenIllust, onOpenUser,
+                            HomeTab.RECOMMEND -> HomeFeedContent(
+                                viewModel.recommendPaged, viewModel, onOpenIllust, onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
                                 scrollToTopKey = reselectKey,
                                 onSearchTag = onSearchTag,
                             )
-                            HomeTab.FOLLOW -> FollowContent(
-                                viewModel, onOpenIllust, onOpenUser,
+                            HomeTab.FOLLOW -> HomeFeedContent(
+                                viewModel.followingPaged, viewModel, onOpenIllust, onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
                                 scrollToTopKey = reselectKey,
                                 onSearchTag = onSearchTag,
@@ -203,7 +207,14 @@ fun HomeRoute(
                     placeholder = stringResource(R.string.home_pane_placeholder),
                     onOpenUser = onOpenUser,
                     onOpenViewer = onOpenViewer,
-                    commentVm = commentVm,
+                    comments = { onBackToDetail ->
+                        CommentPane(
+                            commentVm = commentVm,
+                            onOpenUser = onOpenUser,
+                            onBackToDetail = onBackToDetail,
+                        )
+                    },
+                    onOpenComments = { selectedIllustId?.let { commentVm.switchTo(CommentTarget.ILLUST, it) } },
                     viewModel = detailVm,
                 )
             },
@@ -211,9 +222,23 @@ fun HomeRoute(
     }
 }
 
+/**
+ * 首页信息流（推荐 / 关注两个 Tab 共用，原双胞胎实现合并）：
+ * 下拉刷新 + 三态（骨架 / 错误重试 / 瀑布流）+ 触底加载。
+ *
+ * @param paged 当前 Tab 的分页状态（推荐流 [HomeViewModel.recommendPaged] 或关注流 followingPaged）
+ * @param viewModel 首页 ViewModel（刷新/重试/触底/收藏按当前 Tab 内部分派）
+ * @param onOpenIllust 点击作品卡打开详情（手机端全屏路由）
+ * @param onOpenUser 点击作者行打开用户主页
+ * @param onSelectIllust 平板详情 pane 选中作品
+ * @param scrollToTopKey 主壳「再次点击当前 Tab」回顶信号（计数 key）
+ * @param onSearchTag 点击作品标签跳发现页搜索
+ * @return 无返回值（Composable 渲染 UI）
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RecommendContent(
+private fun HomeFeedContent(
+    paged: PagedState<Illust>,
     viewModel: HomeViewModel,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -223,60 +248,11 @@ private fun RecommendContent(
 ) {
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
-    val items by viewModel.recommendPaged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.recommendPaged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.recommendPaged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.recommendPaged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.recommendPaged.error.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = viewModel::pullRefresh,
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        when {
-            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
-            (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton()
-            error != null && items.isEmpty() -> ErrorBox(
-                message = error.orEmpty(),
-                onRetry = viewModel::retry,
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            )
-
-            else -> IllustWaterfallGrid(
-                illusts = items,
-                // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
-                onItemClick = { id -> if (detailPaneEnabled) onSelectIllust(id) else onOpenIllust(id) },
-                onLoadMore = viewModel::loadMore,
-                hasMore = hasMore,
-                isLoadingMore = isLoadingMore,
-                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-                onOpenUser = onOpenUser,
-                onTagClick = onSearchTag,
-                scrollToTopKey = scrollToTopKey,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FollowContent(
-    viewModel: HomeViewModel,
-    onOpenIllust: (Long) -> Unit,
-    onOpenUser: (Long) -> Unit,
-    onSelectIllust: (Long) -> Unit,
-    scrollToTopKey: Int = 0,
-    onSearchTag: (String) -> Unit = {},
-) {
-    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
-    val detailPaneEnabled = isDetailPaneEnabled()
-    val items by viewModel.followingPaged.items.collectAsStateWithLifecycle()
-    val isLoading by viewModel.followingPaged.isLoading.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.followingPaged.isLoadingMore.collectAsStateWithLifecycle()
-    val hasMore by viewModel.followingPaged.hasMore.collectAsStateWithLifecycle()
-    val error by viewModel.followingPaged.error.collectAsStateWithLifecycle()
+    val items by paged.items.collectAsStateWithLifecycle()
+    val isLoading by paged.isLoading.collectAsStateWithLifecycle()
+    val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
+    val hasMore by paged.hasMore.collectAsStateWithLifecycle()
+    val error by paged.error.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     PullToRefreshBox(

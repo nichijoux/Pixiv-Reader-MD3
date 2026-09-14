@@ -18,7 +18,8 @@ import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 
@@ -36,7 +37,7 @@ internal fun IllustSearchResults(
     val error by viewModel.illustPaged.error.collectAsStateWithLifecycle()
 
     when {
-        isLoading && items.isEmpty() -> IllustSearchSkeleton()
+        isLoading && items.isEmpty() -> IllustWaterfallSkeleton()
         error != null && items.isEmpty() -> ErrorBox(
             message = error.orEmpty(),
             onRetry = viewModel::retry
@@ -98,11 +99,7 @@ internal fun NovelSearchResults(
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
                 )
             }
-            if (hasMore) {
-                item(key = "load_more") {
-                    LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
-                }
-            }
+            loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
         }
     }
 }

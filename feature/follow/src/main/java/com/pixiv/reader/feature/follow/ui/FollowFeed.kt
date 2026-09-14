@@ -47,7 +47,7 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -182,9 +182,8 @@ private fun FollowFeedList(
                 onToggleNovelFavorite = onToggleNovelFavorite,
             )
         }
-        item(key = "load_more") {
-            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-        }
+        // 关注流无 hasMore 概念（三态经 feedPhase 判定），恒挂触底项自动续载
+        loadMoreFooter(hasMore = true, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
     }
 }
 
@@ -239,9 +238,8 @@ private fun FollowFeedGrid(
                 onToggleNovelFavorite = onToggleNovelFavorite,
             )
         }
-        item(span = StaggeredGridItemSpan.FullLine, key = "load_more") {
-            LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-        }
+        // 关注流无 hasMore 概念（三态经 feedPhase 判定），恒挂触底项自动续载
+        loadMoreFooter(hasMore = true, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore, span = StaggeredGridItemSpan.FullLine)
     }
 }
 

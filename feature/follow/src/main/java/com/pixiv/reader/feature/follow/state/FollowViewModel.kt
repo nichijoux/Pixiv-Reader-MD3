@@ -2,6 +2,7 @@ package com.pixiv.reader.feature.follow.state
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pixiv.api.Pageable
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.UserPreview
@@ -82,6 +83,33 @@ class FollowViewModel @Inject constructor(
     private val _selectedUserId = MutableStateFlow<Long?>(null)
     val selectedUserId: StateFlow<Long?> = _selectedUserId.asStateFlow()
 
+    // ── 全部模式三流请求 lambda（loadInitial 需同时传首页与后续页请求，
+    //    loadAll/retry/pullRefresh 多处复用，收敛为属性避免复制粘贴漂移） ──
+
+    /** 左列关注用户列表（首页请求）。 */
+    private val fetchFollowUsers: suspend () -> Pageable<UserPreview> =
+        { pixivRepository.api.getFollowingUsers(loggedInUid, "public", null) }
+
+    /** 左列关注用户列表（后续页请求）。 */
+    private val fetchFollowUsersNext: suspend (String) -> Pageable<UserPreview> =
+        { pixivRepository.api.getNextUsers(it) }
+
+    /** 关注新作品流——插画（首页请求）。 */
+    private val fetchFollowIllust: suspend () -> Pageable<Illust> =
+        { pixivRepository.api.getFollowingIllusts("all") }
+
+    /** 关注新作品流——插画（后续页请求）。 */
+    private val fetchFollowIllustNext: suspend (String) -> Pageable<Illust> =
+        { pixivRepository.api.getNextIllusts(it) }
+
+    /** 关注新作品流——小说（首页请求）。 */
+    private val fetchFollowNovel: suspend () -> Pageable<Novel> =
+        { pixivRepository.api.getFollowingNovels("all") }
+
+    /** 关注新作品流——小说（后续页请求）。 */
+    private val fetchFollowNovelNext: suspend (String) -> Pageable<Novel> =
+        { pixivRepository.api.getNextNovels(it) }
+
     /** 当前正在加载作品的用户（幂等：重复点击同用户不重载）。 */
     private var currentUserWorksId: Long? = null
 
@@ -150,36 +178,10 @@ class FollowViewModel @Inject constructor(
         viewModelScope.launch {
             _contentLoading.value = true
             coroutineScope {
-                launch {
-                    runCatching {
-                        usersPaged.loadInitial(
-                            fetch = {
-                                pixivRepository.api.getFollowingUsers(
-                                    loggedInUid,
-                                    "public",
-                                    null
-                                )
-                            },
-                            fetchNext = { pixivRepository.api.getNextUsers(it) },
-                        )
-                    }
-                }
-                launch {
-                    runCatching {
-                        illustPaged.loadInitial(
-                            fetch = { pixivRepository.api.getFollowingIllusts("all") },
-                            fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                        )
-                    }
-                }
-                launch {
-                    runCatching {
-                        novelPaged.loadInitial(
-                            fetch = { pixivRepository.api.getFollowingNovels("all") },
-                            fetchNext = { pixivRepository.api.getNextNovels(it) },
-                        )
-                    }
-                }
+                // loadInitial 内部已 try/catch 置 error 并重抛取消，无需外层再兜
+                launch { usersPaged.loadInitial(fetchFollowUsers, fetchFollowUsersNext) }
+                launch { illustPaged.loadInitial(fetchFollowIllust, fetchFollowIllustNext) }
+                launch { novelPaged.loadInitial(fetchFollowNovel, fetchFollowNovelNext) }
             }
             _contentLoading.value = false
         }
@@ -194,40 +196,13 @@ class FollowViewModel @Inject constructor(
                 coroutineScope {
                     // 左列关注用户与右侧流首屏并行加载，失败时一并重试（否则左列永远空白）
                     if (usersPaged.items.value.isEmpty() && usersPaged.error.value != null) {
-                        launch {
-                            runCatching {
-                                usersPaged.loadInitial(
-                                    fetch = {
-                                        pixivRepository.api.getFollowingUsers(
-                                            loggedInUid,
-                                            "public",
-                                            null
-                                        )
-                                    },
-                                    fetchNext = { pixivRepository.api.getNextUsers(it) },
-                                )
-                            }
-                        }
+                        launch { usersPaged.loadInitial(fetchFollowUsers, fetchFollowUsersNext) }
                     }
                     if (illustPaged.items.value.isEmpty() && illustPaged.error.value != null) {
-                        launch {
-                            runCatching {
-                                illustPaged.loadInitial(
-                                    fetch = { pixivRepository.api.getFollowingIllusts("all") },
-                                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                                )
-                            }
-                        }
+                        launch { illustPaged.loadInitial(fetchFollowIllust, fetchFollowIllustNext) }
                     }
                     if (novelPaged.items.value.isEmpty() && novelPaged.error.value != null) {
-                        launch {
-                            runCatching {
-                                novelPaged.loadInitial(
-                                    fetch = { pixivRepository.api.getFollowingNovels("all") },
-                                    fetchNext = { pixivRepository.api.getNextNovels(it) },
-                                )
-                            }
-                        }
+                        launch { novelPaged.loadInitial(fetchFollowNovel, fetchFollowNovelNext) }
                     }
                 }
                 _contentLoading.value = false
@@ -267,31 +242,26 @@ class FollowViewModel @Inject constructor(
         listOf(userIllustPaged, userMangaPaged, userNovelPaged).forEach { it.reset() }
         _contentLoading.value = true
         coroutineScope {
+            // loadInitial 内部已 try/catch 置 error 并重抛取消，无需外层再兜
             launch {
-                runCatching {
-                    userIllustPaged.loadInitial(
-                        fetch = { pixivRepository.api.getUserIllusts(userId, "illust") },
-                        fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                    )
-                }
+                userIllustPaged.loadInitial(
+                    fetch = { pixivRepository.api.getUserIllusts(userId, "illust") },
+                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                )
                 if (generation != userWorksGeneration) userIllustPaged.reset()
             }
             launch {
-                runCatching {
-                    userMangaPaged.loadInitial(
-                        fetch = { pixivRepository.api.getUserIllusts(userId, "manga") },
-                        fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                    )
-                }
+                userMangaPaged.loadInitial(
+                    fetch = { pixivRepository.api.getUserIllusts(userId, "manga") },
+                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
+                )
                 if (generation != userWorksGeneration) userMangaPaged.reset()
             }
             launch {
-                runCatching {
-                    userNovelPaged.loadInitial(
-                        fetch = { pixivRepository.api.getUserNovels(userId) },
-                        fetchNext = { pixivRepository.api.getNextNovels(it) },
-                    )
-                }
+                userNovelPaged.loadInitial(
+                    fetch = { pixivRepository.api.getUserNovels(userId) },
+                    fetchNext = { pixivRepository.api.getNextNovels(it) },
+                )
                 if (generation != userWorksGeneration) userNovelPaged.reset()
             }
         }
@@ -314,22 +284,12 @@ class FollowViewModel @Inject constructor(
                     _contentLoading.value = true
                     coroutineScope {
                         launch {
-                            runCatching {
-                                illustPaged.reset()
-                                illustPaged.loadInitial(
-                                    fetch = { pixivRepository.api.getFollowingIllusts("all") },
-                                    fetchNext = { pixivRepository.api.getNextIllusts(it) },
-                                )
-                            }
+                            illustPaged.reset()
+                            illustPaged.loadInitial(fetchFollowIllust, fetchFollowIllustNext)
                         }
                         launch {
-                            runCatching {
-                                novelPaged.reset()
-                                novelPaged.loadInitial(
-                                    fetch = { pixivRepository.api.getFollowingNovels("all") },
-                                    fetchNext = { pixivRepository.api.getNextNovels(it) },
-                                )
-                            }
+                            novelPaged.reset()
+                            novelPaged.loadInitial(fetchFollowNovel, fetchFollowNovelNext)
                         }
                     }
                     _contentLoading.value = false

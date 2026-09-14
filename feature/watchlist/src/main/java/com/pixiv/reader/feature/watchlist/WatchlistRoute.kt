@@ -23,11 +23,9 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -35,8 +33,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,7 +59,8 @@ import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -118,20 +115,7 @@ fun WatchlistRoute(
     Scaffold(
         snackbarHost = { NotificationHost(notificationHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.watchlist_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            BackTopAppBar(title = stringResource(R.string.watchlist_title), onBack = onBack)
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
@@ -245,11 +229,7 @@ private fun NovelWatchlistList(
                 onClick = { onOpenSeries(series.id) },
             )
         }
-        if (hasMore) {
-            item(key = "load_more") {
-                LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-            }
-        }
+        loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
     }
 }
 
@@ -282,11 +262,7 @@ private fun MangaWatchlistGrid(
                 onRemove = { onRemove(series) },
             )
         }
-        if (hasMore) {
-            item(key = "load_more", span = StaggeredGridItemSpan.FullLine) {
-                LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-            }
-        }
+        loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore, span = StaggeredGridItemSpan.FullLine)
     }
 }
 

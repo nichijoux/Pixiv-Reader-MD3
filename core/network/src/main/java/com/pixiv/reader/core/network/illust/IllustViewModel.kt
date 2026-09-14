@@ -21,6 +21,8 @@ import com.pixiv.reader.core.network.download.UgoiraExportFormat
 import com.pixiv.reader.core.network.download.UgoiraExportWorker
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.network.model.bestCoverUrl
+import com.pixiv.reader.core.network.model.snapshotPayload
 import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
@@ -181,24 +183,14 @@ class IllustViewModel @Inject constructor(
     private fun recordHistory(ill: Illust) {
         viewModelScope.launch {
             runCatching {
-                val payload = org.json.JSONObject().apply {
-                    put("id", ill.id)
-                    put("title", ill.title.orEmpty())
-                    put("coverUrl", ill.image_urls?.medium ?: ill.image_urls?.square_medium)
-                    put("width", ill.width)
-                    put("height", ill.height)
-                    put("bookmarks", ill.total_bookmarks ?: 0)
-                    put("pageCount", ill.page_count)
-                    put("isBookmarked", ill.is_bookmarked == true)
-                }.toString()
                 browseHistoryDao.deleteByTarget("illust", ill.id)
                 browseHistoryDao.upsert(
                     BrowseHistoryEntity(
                         targetType = "illust",
                         targetId = ill.id,
                         title = ill.title,
-                        coverUrl = ill.image_urls?.medium ?: ill.image_urls?.square_medium,
-                        payloadJson = payload,
+                        coverUrl = ill.bestCoverUrl,
+                        payloadJson = ill.snapshotPayload(),
                     ),
                 )
             }
@@ -217,26 +209,14 @@ class IllustViewModel @Inject constructor(
 
     /** 关注 / 取关作者（作者行胶囊，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
     fun toggleFollowAuthor() {
-        if (_isAuthorFollowing.value) return
         val userId = _illust.value?.user?.id ?: return
-        viewModelScope.launch {
-            _isAuthorFollowing.value = true
-            val current = _isAuthorFollowed.value
-            favoriteActions.toggleFollowUser(userId, !current)
-                .onSuccess {
-                    _isAuthorFollowed.value = !current
-                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_followed_author) else UiMessage(
-                        CoreR.string.core_msg_unfollowed
-                    ))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isAuthorFollowing.value = false
-        }
+        runOptimisticToggle(
+            _isAuthorFollowing,
+            _isAuthorFollowed.value,
+            { _isAuthorFollowed.value = it },
+            CoreR.string.core_msg_followed_author,
+            CoreR.string.core_msg_unfollowed,
+        ) { favoriteActions.toggleFollowUser(userId, it) }
     }
 
     /** 加载所属漫画系列的追更态（v1/illust/series 的 detail.watchlist_added；失败保留默认未追更）。 */
@@ -251,27 +231,14 @@ class IllustViewModel @Inject constructor(
 
     /** 追更 / 取消追更所属漫画系列（详情页追更按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleSeriesWatchlist() {
-        if (_isSeriesWatchlisting.value) return
         val seriesId = _illust.value?.series?.id ?: return
-        viewModelScope.launch {
-            _isSeriesWatchlisting.value = true
-            val current = _isSeriesWatchlisted.value
-            favoriteActions.toggleMangaWatchlist(seriesId, !current)
-                .onSuccess {
-                    _isSeriesWatchlisted.value = !current
-                    sendMessage(
-                        if (!current) UiMessage(CoreR.string.core_msg_watching_added)
-                        else UiMessage(CoreR.string.core_msg_watching_removed)
-                    )
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isSeriesWatchlisting.value = false
-        }
+        runOptimisticToggle(
+            _isSeriesWatchlisting,
+            _isSeriesWatchlisted.value,
+            { _isSeriesWatchlisted.value = it },
+            CoreR.string.core_msg_watching_added,
+            CoreR.string.core_msg_watching_removed,
+        ) { favoriteActions.toggleMangaWatchlist(seriesId, it) }
     }
 
     /** 网页接口补齐每 P 真实宽高（app-api 不提供） */
@@ -318,25 +285,22 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch { relatedPaged.loadMore() }
     }
 
+    /**
+     * 收藏 / 取消收藏插画（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。
+     * 成功静默（详情页收藏图标即时反馈），仅刷新收藏态与编辑器回显/清空；失败发通知。
+     */
     fun toggleBookmark() {
-        if (_isBookmarking.value) return
-        viewModelScope.launch {
-            _isBookmarking.value = true
-            val current = _isBookmarked.value
-            favoriteActions.toggleIllustFavorite(_illustId.value, !current)
-                .onSuccess {
-                    _isBookmarked.value = !current
-                    // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
-                    bookmarkEditor.onTargetLoaded(!current)
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isBookmarking.value = false
-        }
+        runOptimisticToggle(
+            _isBookmarking,
+            _isBookmarked.value,
+            { state ->
+                _isBookmarked.value = state
+                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                bookmarkEditor.onTargetLoaded(state)
+            },
+            addedRes = null,
+            removedRes = null,
+        ) { favoriteActions.toggleIllustFavorite(_illustId.value, it) }
     }
 
     /**
@@ -344,23 +308,14 @@ class IllustViewModel @Inject constructor(
      * 期间复用 [_isBookmarking] 防连点（与一键收藏互斥）。
      */
     fun saveBookmarkEditor() {
-        if (_isBookmarking.value) return
-        viewModelScope.launch {
-            _isBookmarking.value = true
-            bookmarkEditor.save()
-                .onSuccess {
-                    _isBookmarked.value = true
-                    bookmarkEditor.close()
-                    sendMessage(UiMessage(CoreR.string.core_msg_bookmark_updated))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isBookmarking.value = false
-        }
+        runActionNotified(
+            _isBookmarking,
+            CoreR.string.core_msg_bookmark_updated,
+            {
+                _isBookmarked.value = true
+                bookmarkEditor.close()
+            },
+        ) { bookmarkEditor.save() }
     }
 
     /**
@@ -398,7 +353,7 @@ class IllustViewModel @Inject constructor(
                         targetId = _illustId.value,
                         targetType = targetType,
                         title = illust?.title,
-                        coverUrl = illust?.image_urls?.medium ?: illust?.image_urls?.square_medium,
+                        coverUrl = illust?.bestCoverUrl,
                         format = format,
                         pageCount = illust?.page_count ?: 0,
                         width = illust?.width ?: 0,

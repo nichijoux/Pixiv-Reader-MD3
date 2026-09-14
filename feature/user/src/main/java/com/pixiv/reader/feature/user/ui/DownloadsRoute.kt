@@ -22,11 +22,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Notes
@@ -42,18 +39,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Alignment
@@ -72,25 +62,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.DownloadFilter
 import com.pixiv.reader.feature.user.state.DownloadsViewModel
 import com.pixiv.reader.feature.user.R
-import com.pixiv.api.model.ImageUrls
-import com.pixiv.api.model.Illust
+import com.pixiv.reader.feature.user.data.restoreIllust
+import com.pixiv.reader.feature.user.data.restoreNovelCardData
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.database.entity.DownloadStatus
 import com.pixiv.reader.core.database.entity.ExportFormat
 import com.pixiv.reader.core.database.entity.ExportOpenMethod
 import com.pixiv.reader.core.ui.component.card.DownloadBadge
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
+import com.pixiv.reader.core.ui.component.layout.SegmentedPager
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.card.NovelCard
-import com.pixiv.reader.core.ui.component.card.NovelCardData
 import com.google.gson.Gson
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import java.io.File
-import kotlinx.coroutines.launch
 
 /**
  * 下载管理：分段控件（作品 / 小说）+ HorizontalPager 滑动切换。
@@ -113,82 +103,52 @@ fun DownloadsRoute(
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
-    val pagerState = rememberPagerState(pageCount = { DownloadFilter.entries.size })
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // 待删除确认的下载条目（非 null 时弹出确认框）
     var pendingDelete by remember { mutableStateOf<DownloadEntryEntity?>(null) }
 
-    // 滑动切页 → 同步筛选
-    LaunchedEffect(pagerState.currentPage) {
-        val page = pagerState.currentPage
-        if (page in DownloadFilter.entries.indices) {
-            viewModel.selectFilter(DownloadFilter.entries[page])
-        }
-    }
-
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.downloads_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            BackTopAppBar(title = stringResource(R.string.downloads_title), onBack = onBack)
         },
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：作品 / 小说（Expressive 分段控件；选中态跟 Pager 落页，点击反向滚页）
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                ) {
-                    DownloadFilter.entries.forEachIndexed { index, f ->
-                        SegmentedButton(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = DownloadFilter.entries.size),
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(f.labelRes)) },
-                        )
-                    }
-                }
-                HorizontalPager(state = pagerState) { page ->
-                    when (DownloadFilter.entries.getOrNull(page)) {
-                        DownloadFilter.ILLUST -> IllustDownloadList(
-                            // 插画 + 动图（ugoira MP4/ZIP 导出）共用瀑布流卡片
-                            entries = entries.filter { it.targetType == "illust" || it.targetType == "ugoira" },
-                            onOpenIllust = onOpenIllust,
-                            onOpenFile = { entry -> openWithSystemApp(context, entry) },
-                            onRetry = onRetry,
-                            onDelete = { pendingDelete = it },
-                        )
-                        DownloadFilter.NOVEL -> NovelDownloadList(
-                            entries = entries.filter { it.targetType == "novel" },
-                            context = context,
-                            onOpen = { entry ->
-                                // 打开方式由导出格式内聚（IN_APP=App 内解析阅读，SYSTEM=系统应用）
-                                when (ExportFormat.from(entry.format)?.openMethod) {
-                                    ExportOpenMethod.IN_APP ->
-                                        viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
-                                    ExportOpenMethod.SYSTEM -> openWithSystemApp(context, entry)
-                                    else -> onOpenNovel(entry.targetId)
-                                }
-                            },
-                            onRetry = onRetry,
-                            onDelete = { pendingDelete = it },
-                        )
-                        null -> {}
-                    }
-                }
+                // 类型分段（作品 / 小说）+ 滑动切换：SegmentedPager 双向同步
+                // （选中态跟 Pager 落页，点击反向滚页；落页回调 VM 同步筛选）
+                SegmentedPager(
+                    tabs = DownloadFilter.entries,
+                    onSelect = viewModel::selectFilter,
+                    tabLabel = { it.labelRes },
+                    pageContent = { _, tab ->
+                        when (tab) {
+                            DownloadFilter.ILLUST -> IllustDownloadList(
+                                // 插画 + 动图（ugoira MP4/ZIP 导出）共用瀑布流卡片
+                                entries = entries.filter { it.targetType == "illust" || it.targetType == "ugoira" },
+                                onOpenIllust = onOpenIllust,
+                                onOpenFile = { entry -> openWithSystemApp(context, entry) },
+                                onRetry = onRetry,
+                                onDelete = { pendingDelete = it },
+                            )
+                            DownloadFilter.NOVEL -> NovelDownloadList(
+                                entries = entries.filter { it.targetType == "novel" },
+                                context = context,
+                                onOpen = { entry ->
+                                    // 打开方式由导出格式内聚（IN_APP=App 内解析阅读，SYSTEM=系统应用）
+                                    when (ExportFormat.from(entry.format)?.openMethod) {
+                                        ExportOpenMethod.IN_APP ->
+                                            viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
+                                        ExportOpenMethod.SYSTEM -> openWithSystemApp(context, entry)
+                                        else -> onOpenNovel(entry.targetId)
+                                    }
+                                },
+                                onRetry = onRetry,
+                                onDelete = { pendingDelete = it },
+                            )
+                        }
+                    },
+                )
             }
         }
     }
@@ -238,7 +198,14 @@ private fun IllustDownloadList(
             Column {
                 Box {
                     IllustCard(
-                        illust = entry.toDownloadIllust(),
+                        illust = restoreIllust(
+                            entry.payloadJson,
+                            entry.targetId,
+                            entry.title,
+                            entry.coverUrl,
+                            entry.width,
+                            entry.height,
+                        ),
                         onClick = {
                             if (entry.targetType == "ugoira" && entry.status == DownloadEntryEntity.STATUS_DONE) onOpenFile(entry)
                             else onOpenIllust(entry.targetId)
@@ -300,7 +267,21 @@ private fun NovelDownloadList(
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}_${it.scopeKey}" }) { entry ->
             Column {
                 Box {
-                    val card = entry.toDownloadNovelCard(context)
+                    val card = restoreNovelCardData(
+                        entry.payloadJson,
+                        Gson(),
+                        entry.targetId,
+                        entry.title ?: context.getString(R.string.untitled),
+                        entry.coverUrl,
+                        // 快照缺键回填实体旧字段（旧条目 payloadJson 为 null 时的结构字段快照）
+                        fallbackAuthorName = entry.authorName,
+                        fallbackAuthorAvatarUrl = entry.authorAvatarUrl,
+                        fallbackPublishDate = entry.publishDate,
+                        fallbackSeriesTitle = entry.seriesTitle,
+                        fallbackSeriesId = entry.seriesId,
+                        fallbackFavoriteCount = entry.favoriteCount,
+                        fallbackWordCount = entry.wordCount,
+                    )
                     NovelCard(
                         novel = card,
                         onClick = { onOpen(entry) },
@@ -439,73 +420,7 @@ private fun OverlayCircleButton(
     }
 }
 
-// ── 数据转换 ────────────────────────────────────────────────────────────────
-
-private fun DownloadEntryEntity.toDownloadIllust(): Illust {
-    // 优先解析完整 payloadJson（含宽高，避免固定高度裁剪中间）；旧条目回退结构字段
-    val parsed = payloadJson?.let {
-        runCatching { org.json.JSONObject(it) }.getOrNull()
-    }
-    if (parsed != null) {
-        return Illust(
-            id = parsed.optLong("id", targetId),
-            title = parsed.optString("title").ifEmpty { title.orEmpty() },
-            image_urls = ImageUrls(medium = parsed.optString("coverUrl").ifEmpty { coverUrl.orEmpty() }),
-            width = parsed.optInt("width") ?: 0,
-            height = parsed.optInt("height") ?: 0,
-            total_bookmarks = parsed.optInt("bookmarks").takeIf { it != 0 },
-            page_count = parsed.optInt("pageCount") ?: 0,
-            is_bookmarked = if (parsed.has("isBookmarked")) parsed.optBoolean("isBookmarked") else null,
-        )
-    }
-    return Illust(
-        id = targetId,
-        title = title,
-        image_urls = ImageUrls(medium = coverUrl),
-        width = width,
-        height = height,
-    )
-}
-
-private fun DownloadEntryEntity.toDownloadNovelCard(context: Context): NovelCardData {
-    // 优先解析完整 payloadJson（新记录）；旧条目/失败回退结构字段。
-    // Gson 对 Kotlin data class 用 UnsafeAllocator 绕过构造器：JSON 缺失的非空字段
-    // 会被置为 null 且不抛异常——必须字段级补默认值，否则 NovelCard 渲染 NPE 闪退
-    val parsed = payloadJson?.let {
-        runCatching { Gson().fromJson(it, NovelCardData::class.java) }.getOrNull()
-    }
-    if (parsed != null) {
-        return NovelCardData(
-            id = if (parsed.id != 0L) parsed.id else targetId,
-            title = parsed.title?.takeIf { it.isNotBlank() }
-                ?: (title ?: context.getString(R.string.untitled)),
-            coverUrl = parsed.coverUrl ?: coverUrl,
-            authorId = parsed.authorId,
-            authorName = parsed.authorName ?: authorName ?: "",
-            authorAvatarUrl = parsed.authorAvatarUrl ?: authorAvatarUrl,
-            publishDate = parsed.publishDate ?: publishDate,
-            seriesTitle = parsed.seriesTitle ?: seriesTitle,
-            seriesId = parsed.seriesId ?: seriesId,
-            favoriteCount = parsed.favoriteCount,
-            wordCount = parsed.wordCount,
-            tags = parsed.tags.orEmpty(),
-            isFavorite = parsed.isFavorite,
-        )
-    }
-    return NovelCardData(
-        id = targetId,
-        title = title ?: context.getString(R.string.untitled),
-        coverUrl = coverUrl,
-        authorId = 0,
-        authorName = authorName ?: "",
-        authorAvatarUrl = authorAvatarUrl,
-        publishDate = publishDate,
-        seriesTitle = seriesTitle,
-        seriesId = seriesId,
-        favoriteCount = favoriteCount,
-        wordCount = wordCount,
-    )
-}
+// ── 数据转换（见 SnapshotRestore.kt） ────────────────────────────────────────
 
 /** 下载类型胶囊（封面右上角浮层）：图标 + 格式文字，深色半透明底 + 白色内容（浅色封面上可读）。 */
 @Composable

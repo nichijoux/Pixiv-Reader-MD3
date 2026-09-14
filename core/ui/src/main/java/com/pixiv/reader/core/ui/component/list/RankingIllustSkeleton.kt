@@ -36,7 +36,7 @@ private val COVER_RATIOS = listOf(3f / 4f, 4f / 3f, 1f, 2f / 3f)
 /**
  * 插画/漫画排行榜加载骨架：与真实榜单同款**瀑布流网格**（`LazyVerticalStaggeredGrid` +
  * `StaggeredGridCells.Adaptive([gridMinColumnWidth])`，列数/内容边距/间距与 [RankingList]
- * 完全一致），每张占位卡对齐 [RankingIllustCard]——封面（比例交替制造错落高度）+
+ * 完全一致），每张占位卡对齐 [IllustCard]（rank 参数渲染排名徽标）——封面（比例交替制造错落高度）+
  * 左上排名徽标胶囊 + 右下收藏数胶囊 + 标题条/作者行。渲染 12 张占位卡，
  * 1s 缓慢呼吸脉冲，数据到位后淡入真实列表。
  *

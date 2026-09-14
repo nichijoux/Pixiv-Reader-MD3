@@ -6,8 +6,7 @@ import com.pixiv.reader.core.common.format.renderNovelFileName
 import com.pixiv.reader.core.common.format.sanitizeFileName
 import com.pixiv.reader.core.novel.model.NovelBlock
 import com.pixiv.reader.core.novel.model.NovelDocument
-import com.pixiv.reader.feature.novel.data.DocxImage
-import com.pixiv.reader.feature.novel.data.EpubImage
+import com.pixiv.reader.feature.novel.data.ExportImage
 import com.pixiv.reader.feature.novel.data.buildDocx
 import com.pixiv.reader.feature.novel.data.buildEpub
 import com.pixiv.reader.feature.novel.data.buildMarkdown
@@ -289,7 +288,7 @@ p { text-indent: 2em; }"""
         val bytes = buildEpub(
             chapters = chapters,
             seriesTitle = null,
-            images = listOf(EpubImage("cover.jpg", byteArrayOf(1, 2, 3))),
+            images = listOf(ExportImage("cover.jpg", byteArrayOf(1, 2, 3))),
             css = sampleCss,
         )
 
@@ -331,7 +330,7 @@ p { text-indent: 2em; }"""
         val bytes = buildEpub(
             chapters = chapters,
             seriesTitle = null,
-            images = listOf(EpubImage("img_0_1.jpg", byteArrayOf(9))),
+            images = listOf(ExportImage("img_0_1.jpg", byteArrayOf(9))),
             css = sampleCss,
         )
         val xhtml = readChapter(bytes, 1)
@@ -577,12 +576,12 @@ p { text-indent: 2em; }"""
     fun `docxImage 生成 drawing 与缩放`() {
         val maxCx = 9026L * 635L
         // 1000×500px → 像素×9525 EMU 后超可用宽 → 缩放到可用宽，cy 等比例
-        val img = DocxImage("image1.jpg", ByteArray(4), "image/jpeg", 1000, 500)
+        val img = ExportImage("image1.jpg", ByteArray(4), "image/jpeg", 1000, 500)
         val xml = docxImage(img, "rId2")
         assertTrue(xml.contains("""r:embed="rId2""""))
         assertTrue(xml.contains("""<wp:extent cx="$maxCx" cy="${maxCx / 2}""""))
         // 小图（20×10px）不缩放：cx = 20×9525
-        val small = DocxImage("image2.jpg", ByteArray(4), "image/jpeg", 20, 10)
+        val small = ExportImage("image2.jpg", ByteArray(4), "image/jpeg", 20, 10)
         val xmlSmall = docxImage(small, "rId3")
         assertTrue(xmlSmall.contains("""<wp:extent cx="${20L * 9525L}" cy="${10L * 9525L}""""))
     }
@@ -595,7 +594,7 @@ p { text-indent: 2em; }"""
                 NovelBlock.Image("https://example.com/1.jpg"),
             ),
         )
-        val img = DocxImage("image1.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte()), "image/jpeg", 100, 50)
+        val img = ExportImage("image1.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte()), "image/jpeg", 100, 50)
         val bytes = buildDocx(chapters, seriesTitle = null, images = listOf(img))
         var docXml = ""
         var docRels = ""
@@ -629,7 +628,7 @@ p { text-indent: 2em; }"""
                 NovelBlock.Paragraph("第二段。"),
             ),
         )
-        val img = DocxImage("image1.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte()), "image/jpeg", 10, 5)
+        val img = ExportImage("image1.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte()), "image/jpeg", 10, 5)
         val md = buildMarkdown(chapters, seriesTitle = null, images = listOf(img))
         assertTrue("md 应含 data URI 图片", md.contains("""![插图](data:image/jpeg;base64,/9g=)"""))
         // 无图片时不输出 data URI

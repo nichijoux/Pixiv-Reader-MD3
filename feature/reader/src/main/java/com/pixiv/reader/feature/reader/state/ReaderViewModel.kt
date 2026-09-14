@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -232,75 +233,50 @@ class ReaderViewModel @Inject constructor(
     }
 
     /**
-     * 收集阅读偏好。每个收集器独立包裹 runCatching，
+     * 收集阅读偏好。每个收集器在 [bindPref] 内独立包裹 runCatching，
      * 避免 DataStore 读取异常在 viewModelScope 里变成未捕获异常导致闪退。
      */
     private fun collectPreferences() {
+        _fontSize.bindPref(userPreferences.readerFontSize)
+        _lineHeight.bindPref(userPreferences.readerLineSpacing)
+        _fontFamily.bindPref(userPreferences.readerFontFamily)
+        _readerTheme.bindPref(userPreferences.readerTheme)
+        _pageMode.bindPref(userPreferences.readerPageMode)
+        _dualPageMode.bindPref(userPreferences.readerDualPageMode)
+        _brightness.bindPref(userPreferences.readerBrightness)
+        _followSystem.bindPref(userPreferences.readerFollowSystem)
+        _customFontPath.bindPref(userPreferences.readerCustomFontPath)
+        _fontWeight.bindPref(userPreferences.readerFontWeight)
+        _paragraphIndent.bindPref(userPreferences.readerParagraphIndent)
+        _paragraphSpacing.bindPref(userPreferences.readerParagraphSpacing)
+        _letterSpacing.bindPref(userPreferences.readerLetterSpacing)
+        _chineseConvert.bindPref(userPreferences.readerChineseConvert)
+        _appLanguage.bindPref(userPreferences.appLanguage)
+    }
+
+    /**
+     * 订阅偏好流 → 内存态（DataStore 变更驱动 UI）。
+     * 收集器独立包裹 runCatching：DataStore 读取异常不冒泡为未捕获异常。
+     *
+     * @param flow DataStore 偏好流
+     * @return 无返回值（收集协程挂在 viewModelScope，随 ViewModel 销毁结束）
+     */
+    private fun <T> MutableStateFlow<T>.bindPref(flow: Flow<T>) {
         viewModelScope.launch {
-            runCatching { userPreferences.readerFontSize.collect { _fontSize.value = it } }
+            runCatching { flow.collect { value = it } }
         }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerLineSpacing.collect { _lineHeight.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerFontFamily.collect { _fontFamily.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerTheme.collect { _readerTheme.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerPageMode.collect { _pageMode.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerDualPageMode.collect { _dualPageMode.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerBrightness.collect { _brightness.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerFollowSystem.collect { _followSystem.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching {
-                userPreferences.readerCustomFontPath.collect {
-                    _customFontPath.value = it
-                }
-            }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.readerFontWeight.collect { _fontWeight.value = it } }
-        }
-        viewModelScope.launch {
-            runCatching {
-                userPreferences.readerParagraphIndent.collect {
-                    _paragraphIndent.value = it
-                }
-            }
-        }
-        viewModelScope.launch {
-            runCatching {
-                userPreferences.readerParagraphSpacing.collect {
-                    _paragraphSpacing.value = it
-                }
-            }
-        }
-        viewModelScope.launch {
-            runCatching {
-                userPreferences.readerLetterSpacing.collect {
-                    _letterSpacing.value = it
-                }
-            }
-        }
-        viewModelScope.launch {
-            runCatching {
-                userPreferences.readerChineseConvert.collect {
-                    _chineseConvert.value = it
-                }
-            }
-        }
-        viewModelScope.launch {
-            runCatching { userPreferences.appLanguage.collect { _appLanguage.value = it } }
-        }
+    }
+
+    /**
+     * 写内存态并持久化到 DataStore（先同步写内存让 UI 即时响应，再异步落盘）。
+     *
+     * @param value 新偏好值
+     * @param setter DataStore 持久化挂起函数
+     * @return 无返回值（持久化协程挂在 viewModelScope）
+     */
+    private fun <T> MutableStateFlow<T>.persist(value: T, setter: suspend (T) -> Unit) {
+        this.value = value
+        viewModelScope.launch { runCatching { setter(value) } }
     }
 
     fun load() {
@@ -487,8 +463,12 @@ class ReaderViewModel @Inject constructor(
         markerJob = viewModelScope.launch {
             delay(3000.milliseconds)
             val document = _document.value ?: return@launch
-            val ratio = offset.toFloat() / document.textLength.coerceAtLeast(1)
-            val page = (ratio * pageCount).toInt().coerceIn(1, pageCount)
+            // 按字符比例换算官方页码（与书签换算共用同一纯函数；pageCount 已保证 >= 1）
+            val page = estimateOfficialPage(
+                charOffset = offset,
+                textLength = document.textLength,
+                officialPageCount = pageCount,
+            )
             runCatching { pixivRepository.api.addNovelMarker(novelId, page) }
         }
     }
@@ -496,44 +476,36 @@ class ReaderViewModel @Inject constructor(
     // ── 阅读偏好写入 ──
 
     fun onFontSizeChange(value: Float) {
-        _fontSize.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderFontSize(value) } }
+        _fontSize.persist(value) { userPreferences.setReaderFontSize(it) }
     }
 
     fun onLineHeightChange(value: Float) {
-        _lineHeight.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderLineSpacing(value) } }
+        _lineHeight.persist(value) { userPreferences.setReaderLineSpacing(it) }
     }
 
     fun onFontFamilyChange(value: String) {
-        _fontFamily.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderFontFamily(value) } }
+        _fontFamily.persist(value) { userPreferences.setReaderFontFamily(it) }
     }
 
     fun onFontWeightChange(value: Int) {
-        _fontWeight.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderFontWeight(value) } }
+        _fontWeight.persist(value) { userPreferences.setReaderFontWeight(it) }
     }
 
     fun onParagraphIndentChange(value: Int) {
-        _paragraphIndent.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderParagraphIndent(value) } }
+        _paragraphIndent.persist(value) { userPreferences.setReaderParagraphIndent(it) }
     }
 
     fun onParagraphSpacingChange(value: Float) {
-        _paragraphSpacing.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderParagraphSpacing(value) } }
+        _paragraphSpacing.persist(value) { userPreferences.setReaderParagraphSpacing(it) }
     }
 
     fun onLetterSpacingChange(value: Float) {
-        _letterSpacing.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderLetterSpacing(value) } }
+        _letterSpacing.persist(value) { userPreferences.setReaderLetterSpacing(it) }
     }
 
     /** 简繁转换切换：0 关闭 / 1 简体→繁体 / 2 繁体→简体。 */
     fun onChineseConvertChange(value: Int) {
-        _chineseConvert.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderChineseConvert(value) } }
+        _chineseConvert.persist(value) { userPreferences.setReaderChineseConvert(it) }
     }
 
     /** 转换结果缓存：文档实例 + 模式 → 转换后文档（VM 存活期内避免重复全章转换）。 */
@@ -579,23 +551,19 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun onReaderThemeChange(value: ReaderThemeMode) {
-        _readerTheme.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderTheme(value) } }
+        _readerTheme.persist(value) { userPreferences.setReaderTheme(it) }
     }
 
     fun onPageModeChange(value: ReaderPageMode) {
-        _pageMode.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderPageMode(value) } }
+        _pageMode.persist(value) { userPreferences.setReaderPageMode(it) }
     }
 
     fun onDualPageModeChange(value: ReaderDualPageMode) {
-        _dualPageMode.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderDualPageMode(value) } }
+        _dualPageMode.persist(value) { userPreferences.setReaderDualPageMode(it) }
     }
 
     fun onBrightnessChange(value: Float) {
-        _brightness.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderBrightness(value) } }
+        _brightness.persist(value) { userPreferences.setReaderBrightness(it) }
     }
 
     // ── 目录 / 搜索 ──
@@ -730,25 +698,32 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun clearCustomFont() {
-        _customFontPath.value = ""
-        viewModelScope.launch { runCatching { userPreferences.setReaderCustomFontPath("") } }
+        _customFontPath.persist("") { userPreferences.setReaderCustomFontPath(it) }
         trySendMessage(UiMessage(R.string.reader_msg_font_cleared))
     }
 
     fun onFollowSystemChange(value: Boolean) {
-        _followSystem.value = value
-        viewModelScope.launch { runCatching { userPreferences.setReaderFollowSystem(value) } }
+        _followSystem.persist(value) { userPreferences.setReaderFollowSystem(it) }
     }
 
     // ── 阅读书签 / 收藏 / 追更 ──
 
+    /** 书签请求进行中（防连点：双击重复提交书签接口）。 */
+    private val _isMarking = MutableStateFlow(false)
+
+    /**
+     * 添加 / 移除阅读书签（乐观翻转 + 防连点）：添加时按当前阅读位置换算官方页码。
+     */
     fun toggleMark() {
-        viewModelScope.launch {
-            val current = _isMarked.value
+        runOptimisticToggle(
+            _isMarking,
+            _isMarked.value,
+            { _isMarked.value = it },
+            R.string.reader_msg_mark_added,
+            R.string.reader_msg_mark_removed,
+        ) { target ->
             runCatching {
-                if (current) {
-                    pixivRepository.api.removeNovelMarker(novelId)
-                } else {
+                if (target) {
                     val offset = _charOffset.value
                     val pageCount = (_novel.value?.page_count ?: 1).coerceAtLeast(1)
                     val page = estimateOfficialPage(
@@ -757,68 +732,44 @@ class ReaderViewModel @Inject constructor(
                         officialPageCount = pageCount,
                     )
                     pixivRepository.api.addNovelMarker(novelId, page)
+                } else {
+                    pixivRepository.api.removeNovelMarker(novelId)
                 }
-            }.onSuccess {
-                _isMarked.value = !current
-                sendMessage(if (!current) UiMessage(R.string.reader_msg_mark_added) else UiMessage(
-                    R.string.reader_msg_mark_removed
-                ))
-            }.onFailure {
-                sendMessage(UiMessage(
-                    CoreR.string.core_msg_action_failed,
-                    listOf(it.message ?: "")
-                ))
             }
         }
     }
 
+    /** 收藏请求进行中（防连点：双击重复提交收藏接口）。 */
+    private val _isBookmarking = MutableStateFlow(false)
+
+    /** 收藏 / 取消收藏小说（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleBookmark() {
-        viewModelScope.launch {
-            val current = _isBookmarked.value
-            favoriteActions.toggleNovelFavorite(novelId, !current)
-                .onSuccess {
-                    _isBookmarked.value = !current
-                    sendMessage(if (!current) UiMessage(CoreR.string.core_msg_bookmarked) else UiMessage(
-                        CoreR.string.core_msg_unbookmarked
-                    ))
-                }
-                .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-        }
+        runOptimisticToggle(
+            _isBookmarking,
+            _isBookmarked.value,
+            { _isBookmarked.value = it },
+            CoreR.string.core_msg_bookmarked,
+            CoreR.string.core_msg_unbookmarked,
+        ) { favoriteActions.toggleNovelFavorite(novelId, it) }
     }
 
     /** 追更请求进行中（防连点：双击重复提交追更接口）。 */
     private val _isWatchlisting = MutableStateFlow(false)
     val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
 
-    /** 追更 / 取消追更（成功后翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
+    /** 追更 / 取消追更（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: run {
             trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
             return
         }
-        if (_isWatchlisting.value) return
-        viewModelScope.launch {
-            _isWatchlisting.value = true
-            val current = _isWatchlisted.value
-            favoriteActions.toggleNovelWatchlist(seriesId, !current)
-                .onSuccess {
-                    _isWatchlisted.value = !current
-                    sendMessage(if (!current) UiMessage(R.string.reader_msg_watching_added) else UiMessage(
-                        R.string.reader_msg_watching_removed
-                    ))
-                }.onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
-            _isWatchlisting.value = false
-        }
+        runOptimisticToggle(
+            _isWatchlisting,
+            _isWatchlisted.value,
+            { _isWatchlisted.value = it },
+            R.string.reader_msg_watching_added,
+            R.string.reader_msg_watching_removed,
+        ) { favoriteActions.toggleNovelWatchlist(seriesId, it) }
     }
 
     private companion object {

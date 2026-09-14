@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -108,11 +106,7 @@ internal fun MeAboutSection(
             subtitle = OPEN_SOURCE_URL_DISPLAY,
             subtitleMaxLines = 1,
             trailing = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                MeArrowTrailing(Icons.AutoMirrored.Filled.OpenInNew)
             },
             onClick = {
                 runCatching {
@@ -127,11 +121,7 @@ internal fun MeAboutSection(
             title = stringResource(R.string.me_open_source_license),
             subtitle = stringResource(R.string.me_open_source_license_desc),
             trailing = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                MeArrowTrailing(Icons.AutoMirrored.Filled.OpenInNew)
             },
             onClick = {
                 runCatching {
@@ -144,13 +134,7 @@ internal fun MeAboutSection(
         MeRow(
             icon = Icons.Filled.SystemUpdate,
             title = stringResource(R.string.me_check_update),
-            trailing = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
+            trailing = { MeArrowTrailing() },
             onClick = onCheckUpdate,
         )
     }

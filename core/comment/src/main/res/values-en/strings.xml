@@ -1,0 +1,22 @@
+<resources>
+    <!-- 通用评论列表页（novel / illust 共用） -->
+    <string name="core_comment_title">Comments (%1$d)</string>
+    <!-- 评论 pane：返回详情 / 空评论 -->
+    <string name="core_comment_back_to_detail">Back to detail</string>
+    <string name="core_comment_empty">No comments yet</string>
+    <string name="comment_placeholder">Say something…</string>
+    <string name="comment_send">Send</string>
+    <string name="comment_emoji_panel">Emoji</string>
+    <string name="comment_emoji_title">Text emoji</string>
+    <string name="comment_stamp_title">Stamps</string>
+    <string name="comment_stamp_cd">Stamp</string>
+    <string name="comment_stamp_empty">No stamps</string>
+    <string name="comment_anonymous_user">Anonymous</string>
+    <string name="comment_reply">Reply</string>
+    <string name="comment_reply_expand">View all %1$d replies</string>
+    <string name="comment_reply_prefix">Reply to @%1$s: </string>
+    <!-- 删除自己的评论（长按确认框） -->
+    <string name="comment_delete_title">Delete this comment?</string>
+    <string name="comment_delete_message">This action cannot be undone.</string>
+    <string name="comment_emoji_cd">Comment emoji</string>
+</resources>

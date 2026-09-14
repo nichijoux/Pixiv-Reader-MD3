@@ -31,7 +31,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.common.ui.classifyWindowWidth
-import com.pixiv.reader.core.network.comment.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentTarget
+import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
@@ -336,7 +338,14 @@ fun FollowRoute(
                                     placeholder = stringResource(R.string.follow_detail_placeholder),
                                     onOpenUser = onOpenUser,
                                     onOpenViewer = onOpenViewer,
-                                    commentVm = commentVm,
+                                    comments = { onBackToDetail ->
+                                        CommentPane(
+                                            commentVm = commentVm,
+                                            onOpenUser = onOpenUser,
+                                            onBackToDetail = onBackToDetail,
+                                        )
+                                    },
+                                    onOpenComments = { selectedIllustId?.let { commentVm.switchTo(CommentTarget.ILLUST, it) } },
                                     viewModel = illustDetailVm,
                                 )
                             }
