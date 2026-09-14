@@ -42,7 +42,7 @@ import com.pixiv.api.model.NotificationItem
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.image.PixivImage
-import com.pixiv.reader.core.ui.component.list.RankingBanner
+import com.pixiv.reader.core.ranking.ui.RankingBanner
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter

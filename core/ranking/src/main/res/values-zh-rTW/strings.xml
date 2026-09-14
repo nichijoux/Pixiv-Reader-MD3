@@ -1,0 +1,6 @@
+<resources>
+    <!-- 日期筛选入口 / chip（RankingDatePickerButton / RankingDateChipRow） -->
+    <string name="core_ranking_pick_date">選擇日期</string>
+    <string name="core_ranking_back_to_latest">回到最新榜單</string>
+    <string name="core_ranking_history_hint">的歷史榜單 · 點擊可修改</string>
+</resources>

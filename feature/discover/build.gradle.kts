@@ -19,6 +19,7 @@ android {
 dependencies {
     api(project(":core:ui"))
     api(project(":core:network"))
+    implementation(project(":core:ranking"))
     implementation(project(":core:comment"))
     api(project(":core:database"))
     api(project(":core:datastore"))

@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.ui.component.list
+package com.pixiv.reader.core.ranking.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

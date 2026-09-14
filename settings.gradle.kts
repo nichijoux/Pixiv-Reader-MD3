@@ -38,6 +38,7 @@ include(":core:datastore")
 include(":core:ui")
 include(":core:novel")
 include(":core:comment")
+include(":core:ranking")
 
 // feature 层
 include(":feature:auth")

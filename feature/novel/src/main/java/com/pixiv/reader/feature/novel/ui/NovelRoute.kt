@@ -51,7 +51,7 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
-import com.pixiv.reader.core.ui.component.list.RankingBanner
+import com.pixiv.reader.core.ranking.ui.RankingBanner
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect

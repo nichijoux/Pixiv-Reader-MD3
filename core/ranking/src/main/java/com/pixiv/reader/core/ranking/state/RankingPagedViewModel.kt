@@ -1,8 +1,9 @@
-package com.pixiv.reader.core.network.paging
+package com.pixiv.reader.core.ranking.state
 
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.common.UiMessage
-import com.pixiv.reader.core.common.ui.RankingModeInfo
+import com.pixiv.reader.core.network.paging.PagedState
+import com.pixiv.reader.core.ranking.state.RankingModeInfo
 import com.pixiv.reader.core.network.message.MessageViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

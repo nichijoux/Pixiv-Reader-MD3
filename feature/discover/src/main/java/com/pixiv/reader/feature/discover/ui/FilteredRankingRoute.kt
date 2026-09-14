@@ -43,11 +43,11 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
-import com.pixiv.reader.core.ui.component.list.RANKING_GRID_MIN_COLUMN_WIDTH
-import com.pixiv.reader.core.ui.component.list.RankingDateChipRow
-import com.pixiv.reader.core.ui.component.list.RankingDatePickerButton
-import com.pixiv.reader.core.ui.component.list.RankingIllustSkeleton
-import com.pixiv.reader.core.ui.component.list.RankingList
+import com.pixiv.reader.core.ranking.ui.RANKING_GRID_MIN_COLUMN_WIDTH
+import com.pixiv.reader.core.ranking.ui.RankingDateChipRow
+import com.pixiv.reader.core.ranking.ui.RankingDatePickerButton
+import com.pixiv.reader.core.ranking.ui.RankingIllustSkeleton
+import com.pixiv.reader.core.ranking.ui.RankingList
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R

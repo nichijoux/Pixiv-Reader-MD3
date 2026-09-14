@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.ui.component.list
+package com.pixiv.reader.core.ranking.ui
 
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes

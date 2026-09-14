@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.common.ui
+package com.pixiv.reader.core.ranking.state
 
 import androidx.annotation.StringRes
 

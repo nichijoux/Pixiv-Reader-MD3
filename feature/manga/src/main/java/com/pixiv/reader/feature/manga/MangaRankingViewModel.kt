@@ -1,7 +1,7 @@
 package com.pixiv.reader.feature.manga
 
 import com.pixiv.api.model.Illust
-import com.pixiv.reader.core.common.ui.RankingModeInfo
+import com.pixiv.reader.core.ranking.state.RankingModeInfo
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

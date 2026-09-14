@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.ui.component.list
+package com.pixiv.reader.core.ranking.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -29,7 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ranking.R
+import com.pixiv.reader.core.ui.R as UiR
+import com.pixiv.reader.core.ui.component.list.parseDatePickerMillis
+import com.pixiv.reader.core.ui.component.list.formatDatePickerMillis
 import com.pixiv.reader.core.ui.theme.Spacing
 import java.time.Instant
 import java.time.LocalDate
@@ -37,26 +40,6 @@ import java.time.ZoneOffset
 
 /** 排行榜可查询的最早日期（pixiv 榜单起点，更早日期接口返回空榜单）。 */
 private val MIN_RANKING_DATE: LocalDate = LocalDate.of(2007, 9, 7)
-
-/**
- * yyyy-MM-dd → DatePicker 使用的 UTC 零点毫秒（M3 DatePicker 契约为 UTC 零点，
- * 禁止用系统时区换算，否则 UTC+ 时区会高亮前一天）。
- *
- * @param date 日期字符串（yyyy-MM-dd）
- * @return 对应 UTC 零点毫秒；格式非法时返回 null
- */
-fun parseDatePickerMillis(date: String): Long? = runCatching {
-    LocalDate.parse(date).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-}.getOrNull()
-
-/**
- * DatePicker 的 UTC 零点毫秒 → yyyy-MM-dd。
- *
- * @param millis DatePicker 选中值的 UTC 毫秒
- * @return yyyy-MM-dd 日期字符串
- */
-fun formatDatePickerMillis(millis: Long): String =
-    Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString()
 
 /**
  * TopAppBar 日期筛选入口：日历图标按钮 + 日期选择弹窗（漫画/插画/小说排行榜共用）。
@@ -211,10 +194,10 @@ private fun RankingDatePickerDialog(
                     onDismiss()
                 },
                 enabled = state.selectedDateMillis != null,
-            ) { Text(stringResource(R.string.common_ok)) }
+            ) { Text(stringResource(UiR.string.common_ok)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(UiR.string.common_cancel)) }
         },
     ) {
         DatePicker(state = state, showModeToggle = false)

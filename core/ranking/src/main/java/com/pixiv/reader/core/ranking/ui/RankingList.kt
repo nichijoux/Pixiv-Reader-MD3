@@ -1,4 +1,4 @@
-package com.pixiv.reader.core.ui.component.list
+package com.pixiv.reader.core.ranking.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -34,7 +34,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pixiv.reader.core.common.ui.RankingModeInfo
+import com.pixiv.reader.core.ranking.state.RankingModeInfo
+import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
