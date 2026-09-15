@@ -84,6 +84,7 @@ internal fun NovelPagedList(
             )
             FeedPhase.EMPTY -> EmptyBox(emptyText, modifier = Modifier.verticalScroll(rememberScrollState()))
             FeedPhase.CONTENT -> LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
                 contentPadding = PaddingValues(
