@@ -37,6 +37,10 @@ import com.pixiv.reader.feature.illust.IllustDetailRoute
 import com.pixiv.reader.feature.fanbox.ui.FanboxHomeRoute
 import com.pixiv.reader.feature.fanbox.ui.FanboxPostRoute
 import com.pixiv.reader.feature.fanbox.ui.FanboxWebRoute
+import com.pixiv.reader.feature.comic.ui.ComicHomeRoute
+import com.pixiv.reader.feature.comic.ui.ComicReaderRoute
+import com.pixiv.reader.feature.comic.ui.ComicSearchRoute
+import com.pixiv.reader.feature.comic.ui.ComicWorkDetailRoute
 import com.pixiv.reader.feature.manga.IllustRankingRoute
 import com.pixiv.reader.feature.manga.MangaRankingRoute
 import com.pixiv.reader.feature.manga.MangaSeriesRoute
@@ -166,6 +170,18 @@ const val ROUTE_FANBOX_POST = "fanbox_post/{postId}"
 
 /** FANBOX 内置网页（登录 / 创作者主页 / 方案页；仅放行 *.fanbox.cc，站外转系统浏览器）。 */
 const val ROUTE_FANBOX_WEB = "fanbox_web?url={url}&title={title}"
+
+/** pixiv COMIC 原生首页（更新 banner + 最近更新 / 排行榜双页签；免费内容无需登录）。 */
+const val ROUTE_COMIC_HOME = "comic_home"
+
+/** pixiv COMIC 作品详情（作品信息 + 章节列表，免费章节直达阅读器）。 */
+const val ROUTE_COMIC_WORK = "comic_work/{workId}"
+
+/** pixiv COMIC 阅读器（read_v4 + gridshuffle 去扰原生渲染）。 */
+const val ROUTE_COMIC_READER = "comic_reader/{episodeId}"
+
+/** pixiv COMIC 搜索（关键词页号分页）。 */
+const val ROUTE_COMIC_SEARCH = "comic_search"
 
 /**
  * 应用根导航。
@@ -316,6 +332,10 @@ fun PixivNavGraph(
                 onOpenFanboxWeb = { url, title ->
                     // FANBOX 内置网页（登录引导 / 创作者主页等）
                     navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                },
+                onOpenComic = {
+                    // 我的页 COMIC 入口（免费内容无需登录，直达原生首页）
+                    navController.navigate(ROUTE_COMIC_HOME)
                 },
                 onOpenViewer = { id, page ->
                     // 全屏查看器：Tab 内详情 pane 图片点击（定位到指定页）
@@ -957,6 +977,51 @@ fun PixivNavGraph(
                 url = backStackEntry.arguments?.getString("url"),
                 title = backStackEntry.arguments?.getString("title"),
                 onBack = { navController.safeBack() },
+            )
+        }
+        // pixiv COMIC 首页：更新（banner + 最近更新）/ 排行榜双页签（免费无需登录）
+        composable(ROUTE_COMIC_HOME) {
+            ComicHomeRoute(
+                onBack = { navController.safeBack() },
+                onOpenWork = { workId ->
+                    navController.navigate("comic_work/$workId")
+                },
+                onOpenSearch = { navController.navigate(ROUTE_COMIC_SEARCH) },
+            )
+        }
+        // pixiv COMIC 作品详情：作品信息 + 章节列表（免费章节点进阅读器）
+        composable(
+            route = ROUTE_COMIC_WORK,
+            arguments = listOf(navArgument("workId") { type = NavType.LongType }),
+        ) { _ ->
+            ComicWorkDetailRoute(
+                onBack = { navController.safeBack() },
+                onOpenReader = { episodeId ->
+                    navController.navigate("comic_reader/$episodeId")
+                },
+            )
+        }
+        // pixiv COMIC 阅读器：read_v4 原生渲染；下一话替换当前栈（避免阅读器无限压栈）
+        composable(
+            route = ROUTE_COMIC_READER,
+            arguments = listOf(navArgument("episodeId") { type = NavType.LongType }),
+        ) { _ ->
+            ComicReaderRoute(
+                onBack = { navController.safeBack() },
+                onOpenNext = { episodeId ->
+                    navController.navigate("comic_reader/$episodeId") {
+                        popUpTo(ROUTE_COMIC_READER) { inclusive = true }
+                    }
+                },
+            )
+        }
+        // pixiv COMIC 搜索：关键词页号分页
+        composable(ROUTE_COMIC_SEARCH) {
+            ComicSearchRoute(
+                onBack = { navController.safeBack() },
+                onOpenWork = { workId ->
+                    navController.navigate("comic_work/$workId")
+                },
             )
         }
     }

@@ -74,6 +74,8 @@ fun MeRoute(
     onOpenUser: (Long) -> Unit,
     onOpenFanbox: () -> Unit,
     onOpenFanboxWeb: (String, String) -> Unit,
+    /** 打开 pixiv COMIC 原生首页（免费内容无需登录，不做登录分流） */
+    onOpenComic: () -> Unit,
     // 主壳「再次点击当前 Tab」回顶信号（计数 key，变化即滚回顶部）
     reselectKey: Int = 0,
     viewModel: MeViewModel = hiltViewModel(),
@@ -183,12 +185,13 @@ fun MeRoute(
                             }
                         },
                     ),
-                    SettingsCardItem(
-                        Icons.Filled.AutoStories,
-                        stringResource(R.string.me_comic_title),
-                        stringResource(R.string.me_comic_desc),
-                        onClick = { viewModel.openEcosystemPage("https://comic.pixiv.net/") },
-                    ),
+    SettingsCardItem(
+        Icons.Filled.AutoStories,
+        stringResource(R.string.me_comic_title),
+        stringResource(R.string.me_comic_desc),
+        // COMIC 免费内容无需登录，直达原生首页（排行/详情/阅读器全原生）
+        onClick = onOpenComic,
+    ),
                     SettingsCardItem(
                         Icons.Filled.Email,
                         stringResource(R.string.me_talk_title),

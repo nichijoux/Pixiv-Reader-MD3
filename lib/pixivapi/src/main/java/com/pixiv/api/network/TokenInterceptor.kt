@@ -57,13 +57,21 @@ class TokenInterceptor(
 /**
  * 图片 CDN 拦截器：pximg.net 各子域必须带 Referer 否则 403
  * （i.pximg.net 作品图 / s.pximg.net 贴纸等静态资源）。
+ *
+ * pixiv COMIC 的封面 / 正文图 CDN（img-comic.pximg.net、public-img-comic.pximg.net）
+ * 只认 `comic.pixiv.net` 的 Referer，需按域名分流；正文打乱图另需按页签名头，
+ * 由 core:network 的 ComicPageLoader 自行下载，不经过本拦截器。
  */
 class ImageInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
         if (original.url.host.endsWith(".pximg.net")) {
+            val referer = when (original.url.host) {
+                "img-comic.pximg.net", "public-img-comic.pximg.net" -> "https://comic.pixiv.net/"
+                else -> "https://app-api.pixiv.net/"
+            }
             val builder = original.newBuilder()
-                .header("Referer", "https://app-api.pixiv.net/")
+                .header("Referer", referer)
                 .header("User-Agent", com.pixiv.api.PixivConstants.APP_USER_AGENT)
             return chain.proceed(builder.build())
         }

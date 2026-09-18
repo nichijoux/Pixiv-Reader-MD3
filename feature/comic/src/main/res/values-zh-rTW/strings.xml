@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 通用 -->
+    <string name="comic_title">pixiv 漫畫</string>
+    <string name="comic_cd_back">返回</string>
+    <string name="comic_load_failed_reason">載入失敗：%1$s</string>
+    <string name="comic_load_failed">載入失敗，請稍後重試</string>
+    <string name="comic_locked_toast">該話為付費章節，暫不支援在應用內閱讀</string>
+
+    <!-- 首頁 -->
+    <string name="comic_tab_top">更新</string>
+    <string name="comic_tab_ranking">排行</string>
+    <string name="comic_cd_search">搜尋</string>
+    <string name="comic_cd_banner">活動橫幅</string>
+    <string name="comic_ranking_mode_weekly">週榜</string>
+    <string name="comic_ranking_mode_popularity">人氣</string>
+    <string name="comic_section_recent">最近更新</string>
+    <string name="comic_stories_count">%1$d 話</string>
+    <string name="comic_empty_recent">暫無更新</string>
+    <string name="comic_empty_ranking">暫無作品</string>
+
+    <!-- 作品詳情 -->
+    <string name="comic_work_episodes">章節</string>
+    <string name="comic_work_order_asc">第 1 話在前</string>
+    <string name="comic_work_order_desc">最新話在前</string>
+    <string name="comic_work_order_cd">切換排序</string>
+    <string name="comic_likes_count">%1$s 讚</string>
+    <string name="comic_locked_badge">付費</string>
+    <string name="comic_not_publishing">未公開</string>
+    <string name="comic_work_read_first">從第 1 話開始讀</string>
+    <string name="comic_empty_episodes">暫無章節</string>
+
+    <!-- 閱讀器 -->
+    <string name="comic_reader_page_error">本頁載入失敗</string>
+    <string name="comic_reader_page_retry">重試本頁</string>
+    <string name="comic_reader_page_indicator">%1$d / %2$d</string>
+    <string name="comic_reader_next_episode">下一話：%1$s</string>
+    <string name="comic_reader_ended">已是最新一話</string>
+
+    <!-- 搜尋 -->
+    <string name="comic_search_hint">搜尋 pixiv 漫畫作品</string>
+    <string name="comic_search_action">搜尋</string>
+    <string name="comic_search_empty">沒有找到相關作品</string>
+    <string name="comic_search_cd_clear">清空</string>
+</resources>

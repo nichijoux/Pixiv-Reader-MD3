@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="comic_title">pixiv Comics</string>
+    <string name="comic_cd_back">Back</string>
+    <string name="comic_load_failed_reason">Load failed: %1$s</string>
+    <string name="comic_load_failed">Load failed, please try again later</string>
+    <string name="comic_locked_toast">This is a paid episode and cannot be read in-app yet</string>
+
+    <!-- Home -->
+    <string name="comic_tab_top">Updates</string>
+    <string name="comic_tab_ranking">Ranking</string>
+    <string name="comic_cd_search">Search</string>
+    <string name="comic_cd_banner">Promo banner</string>
+    <string name="comic_ranking_mode_weekly">Weekly</string>
+    <string name="comic_ranking_mode_popularity">Popular</string>
+    <string name="comic_section_recent">Recently updated</string>
+    <string name="comic_stories_count">%1$d episodes</string>
+    <string name="comic_empty_recent">No updates yet</string>
+    <string name="comic_empty_ranking">No works</string>
+
+    <!-- Work detail -->
+    <string name="comic_work_episodes">Episodes</string>
+    <string name="comic_work_order_asc">Oldest first</string>
+    <string name="comic_work_order_desc">Newest first</string>
+    <string name="comic_work_order_cd">Toggle order</string>
+    <string name="comic_likes_count">%1$s likes</string>
+    <string name="comic_locked_badge">Paid</string>
+    <string name="comic_not_publishing">Unavailable</string>
+    <string name="comic_work_read_first">Start from episode 1</string>
+    <string name="comic_empty_episodes">No episodes</string>
+
+    <!-- Reader -->
+    <string name="comic_reader_page_error">Failed to load this page</string>
+    <string name="comic_reader_page_retry">Retry this page</string>
+    <string name="comic_reader_page_indicator">%1$d / %2$d</string>
+    <string name="comic_reader_next_episode">Next: %1$s</string>
+    <string name="comic_reader_ended">You are up to date</string>
+
+    <!-- Search -->
+    <string name="comic_search_hint">Search pixiv Comics</string>
+    <string name="comic_search_action">Search</string>
+    <string name="comic_search_empty">No matching works</string>
+    <string name="comic_search_cd_clear">Clear</string>
+</resources>
