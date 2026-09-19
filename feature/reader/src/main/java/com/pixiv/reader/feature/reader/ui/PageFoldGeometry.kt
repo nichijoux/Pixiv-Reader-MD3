@@ -197,11 +197,6 @@ internal fun reflectAcrossFold(p: Offset, mid: Offset, nx: Float, ny: Float): Of
 }
 
 /**
- * 点沿书脊（x=0 竖直线）反射。
- */
-internal fun reflectAcrossSpine(p: Offset): Offset = Offset(-p.x, p.y)
-
-/**
  * 凸多边形单边半平面裁剪（Sutherland–Hodgman）：按带符号侧值保留折线一侧，
  * 边界穿越处按侧值线性插值补交点。
  *

@@ -65,12 +65,16 @@ fun NovelDetailRoute(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
-    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
-    val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
-    val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
-    val isWatchlisting by viewModel.isWatchlisting.collectAsStateWithLifecycle()
-    val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
-    val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
+    // 三对开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
+    val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
+    val isBookmarked = bookmarkState.isOn
+    val isBookmarking = bookmarkState.inFlight
+    val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
+    val isWatchlisted = watchlistState.isOn
+    val isWatchlisting = watchlistState.inFlight
+    val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
+    val isAuthorFollowed = authorFollowState.isOn
+    val isAuthorFollowing = authorFollowState.inFlight
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     // 收藏编辑器状态（公开/私密 + 标签弹层）
@@ -79,7 +83,7 @@ fun NovelDetailRoute(
     val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
-    val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
+    val editorSaving by viewModel.isEditorSaving.collectAsStateWithLifecycle()
     // 收藏三态（已收藏且为私密 → PRIVATE；底部收藏按钮图标与文案随之切换）
     val bookmarkPrivacy = when {
         !isBookmarked -> BookmarkPrivacy.NONE

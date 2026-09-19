@@ -61,8 +61,7 @@ fun MangaSeriesRoute(
     viewModel: MangaSeriesViewModel = hiltViewModel(),
 ) {
     val detail by viewModel.detail.collectAsStateWithLifecycle()
-    val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
-    val isWatchlisting by viewModel.isWatchlisting.collectAsStateWithLifecycle()
+    val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
     val items by viewModel.paged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.paged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
@@ -104,8 +103,8 @@ fun MangaSeriesRoute(
                         authorName = detail?.user?.name.orEmpty(),
                         authorAvatarUrl = detail?.user?.profile_image_urls?.best(),
                         chapters = detail?.series_work_count ?: 0,
-                        isWatchlisted = isWatchlisted,
-                        isWatchlisting = isWatchlisting,
+                        isWatchlisted = watchlistState.isOn,
+                        isWatchlisting = watchlistState.inFlight,
                         onToggleWatchlist = viewModel::toggleWatchlist,
                         onOpenUser = onOpenUser,
                     )

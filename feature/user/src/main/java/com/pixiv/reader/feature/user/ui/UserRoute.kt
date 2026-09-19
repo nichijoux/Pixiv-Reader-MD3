@@ -127,10 +127,13 @@ fun UserRoute(
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val isFollowed by viewModel.isFollowed.collectAsStateWithLifecycle()
-    val isFollowing by viewModel.isFollowing.collectAsStateWithLifecycle()
-    val isBlocked by viewModel.isBlocked.collectAsStateWithLifecycle()
-    val isBlocking by viewModel.isBlocking.collectAsStateWithLifecycle()
+    // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
+    val followState by viewModel.followState.collectAsStateWithLifecycle()
+    val isFollowed = followState.isOn
+    val isFollowing = followState.inFlight
+    val blockState by viewModel.blockState.collectAsStateWithLifecycle()
+    val isBlocked = blockState.isOn
+    val isBlocking = blockState.inFlight
     val section by viewModel.section.collectAsStateWithLifecycle()
     val seriesInfos by viewModel.seriesInfos.collectAsStateWithLifecycle()
 

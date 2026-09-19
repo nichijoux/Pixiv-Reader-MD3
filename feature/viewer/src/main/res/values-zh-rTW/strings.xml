@@ -18,9 +18,7 @@
     <string name="viewer_msg_wallpaper_setting">正在設定桌布…</string>
     <string name="viewer_msg_wallpaper_set">已設為桌布</string>
     <string name="viewer_msg_wallpaper_failed">設定桌布失敗：%1$s</string>
-    <string name="viewer_msg_saved_to_downloads">已儲存到下載目錄</string>
     <string name="viewer_msg_download_started">開始下載…</string>
-    <string name="viewer_msg_download_failed">下載失敗：%1$s</string>
     <string name="viewer_msg_switched_preview">已切換預覽</string>
     <string name="viewer_msg_loaded_original">已載入原圖</string>
     <string name="viewer_msg_ugoira_export_started">動圖匯出已開始，進度請見下載管理頁</string>

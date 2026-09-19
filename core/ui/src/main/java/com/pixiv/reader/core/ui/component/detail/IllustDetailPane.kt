@@ -71,10 +71,13 @@ fun IllustDetailPane(
     val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
-    val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
-    val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
-    val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
+    // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
+    val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
+    val isBookmarked = bookmarkState.isOn
+    val isBookmarking = bookmarkState.inFlight
+    val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
+    val isAuthorFollowed = authorFollowState.isOn
+    val isAuthorFollowing = authorFollowState.inFlight
     val relatedItems by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
 
     Box(

@@ -15,7 +15,7 @@ interface DownloadEntryDao {
     @Query("SELECT * FROM download_entry ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<DownloadEntryEntity>>
 
-    /** 查询所有已完成的下载（status='done'）。 */
+    /** 查询所有已完成的下载（status='done'；主代码未用，仅测试 fake 覆写保持接口一致）。 */
     @Query("SELECT * FROM download_entry WHERE status = 'done'")
     suspend fun getDone(): List<DownloadEntryEntity>
 

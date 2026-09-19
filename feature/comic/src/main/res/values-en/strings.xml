@@ -21,8 +21,6 @@
 
     <!-- Work detail -->
     <string name="comic_work_episodes">Episodes</string>
-    <string name="comic_work_order_asc">Oldest first</string>
-    <string name="comic_work_order_desc">Newest first</string>
     <string name="comic_work_order_cd">Toggle order</string>
     <string name="comic_likes_count">%1$s likes</string>
     <string name="comic_locked_badge">Paid</string>

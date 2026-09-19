@@ -13,6 +13,7 @@ import com.pixiv.api.model.NovelSeriesItem
 import com.pixiv.api.model.Profile
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.R as CoreR
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.BrowseHistoryDao
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
@@ -66,21 +67,16 @@ class UserViewModel @Inject constructor(
     private val _error = MutableStateFlow<UiMessage?>(null)
     val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
-    private val _isFollowed = MutableStateFlow(false)
-    val isFollowed: StateFlow<Boolean> = _isFollowed.asStateFlow()
-
-    private val _isFollowing = MutableStateFlow(false)
-    val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
+    /** 关注状态机（getUserDetail 内嵌 is_followed 初始化；[toggleFollow] 驱动转移）。 */
+    private val _followState = MutableStateFlow(ToggleUiState.OFF)
+    val followState: StateFlow<ToggleUiState> = _followState.asStateFlow()
 
     private val _section = MutableStateFlow(UserSection.ILLUST)
     val section: StateFlow<UserSection> = _section.asStateFlow()
 
-    /** 是否已拉黑该用户（通过网页版用户详情 isBlocking 初始化） */
-    private val _isBlocked = MutableStateFlow(false)
-    val isBlocked: StateFlow<Boolean> = _isBlocked.asStateFlow()
-
-    private val _isBlocking = MutableStateFlow(false)
-    val isBlocking: StateFlow<Boolean> = _isBlocking.asStateFlow()
+    /** 拉黑状态机（网页版用户详情 isBlocking 初始化；[toggleBlock] 驱动转移）。 */
+    private val _blockState = MutableStateFlow(ToggleUiState.OFF)
+    val blockState: StateFlow<ToggleUiState> = _blockState.asStateFlow()
 
     val illustPaged = PagedState<Illust>()
     val mangaPaged = PagedState<Illust>()
@@ -106,7 +102,7 @@ class UserViewModel @Inject constructor(
                 .onSuccess { resp ->
                     _user.value = resp.user
                     _profile.value = resp.profile
-                    _isFollowed.value = resp.user?.is_followed == true
+                    _followState.value = if (resp.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
                     recordHistory(resp.user)
                     loadSection(_section.value)
                     loadBlockState()
@@ -142,7 +138,9 @@ class UserViewModel @Inject constructor(
             runCatching {
                 pixivRepository.webApi.getWebUserDetail(userId).body?.isBlocking
             }.onSuccess { blocked ->
-                if (blocked != null) _isBlocked.value = blocked
+                if (blocked != null) {
+                    _blockState.value = if (blocked) ToggleUiState.ON else ToggleUiState.OFF
+                }
             }
         }
     }
@@ -260,63 +258,58 @@ class UserViewModel @Inject constructor(
     }
 
     /**
-     * 关注 / 取关（即时反馈）。
+     * 关注 / 取关（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚）。
+     * 私密关注成功时单独提示（让用户确认生效路径）。
      *
      * @param restrict 关注可见性：public（默认公开）/ private（私密关注，仅自己可见）
+     * @return 无返回值（操作完成后结束的协程）
      */
     fun toggleFollow(restrict: String = PixivConstants.RESTRICT_PUBLIC) {
-        if (_isFollowing.value) return
-        viewModelScope.launch {
-            _isFollowing.value = true
-            val current = _isFollowed.value
-            favoriteActions.toggleFollowUser(userId, !current, restrict).onSuccess {
-                _isFollowed.value = !current
-                sendMessage(
-                    if (!current) {
-                        // 私密关注单独提示，让用户确认生效路径
-                        if (restrict == PixivConstants.RESTRICT_PRIVATE) {
-                            UiMessage(CoreR.string.core_msg_followed_private)
-                        } else {
-                            UiMessage(CoreR.string.core_msg_followed)
-                        }
-                    } else {
-                        UiMessage(CoreR.string.core_msg_unfollowed)
-                    }
-                )
-            }.onFailure {
-                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
-            }
-            _isFollowing.value = false
-        }
+        runToggle(
+            _followState,
+            // 置位成功文案按可见性分流：私密关注单独提示
+            if (restrict == PixivConstants.RESTRICT_PRIVATE) {
+                CoreR.string.core_msg_followed_private
+            } else {
+                CoreR.string.core_msg_followed
+            },
+            CoreR.string.core_msg_unfollowed,
+        ) { favoriteActions.toggleFollowUser(userId, it, restrict) }
     }
 
-    /** 拉黑 / 取消拉黑（网页接口 saveBlock，需要 CSRF token）。 */
+    /**
+     * 拉黑 / 取消拉黑（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
+     * 网页接口 saveBlock 需要 CSRF token，不可用时发专用提示且不发网络请求）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleBlock() {
-        if (_isBlocking.value) return
-        viewModelScope.launch {
-            _isBlocking.value = true
+        runToggle(
+            _blockState,
+            R.string.user_blocked,
+            R.string.user_unblocked_user,
+            failedMessage = { e ->
+                if (e is CsrfUnavailableException) {
+                    UiMessage(R.string.user_csrf_unavailable)
+                } else {
+                    UiMessage(CoreR.string.core_msg_action_failed, listOf(e.message ?: ""))
+                }
+            },
+        ) { target ->
+            // CSRF token 预检：不可用直接失败（专用文案），不发网络请求
             val token = pixivRepository.csrfToken()
             if (token.isNullOrBlank()) {
-                sendMessage(UiMessage(R.string.user_csrf_unavailable))
-                _isBlocking.value = false
-                return@launch
+                return@runToggle Result.failure(CsrfUnavailableException())
             }
-            val current = _isBlocked.value
             runCatching {
                 pixivRepository.webApi.saveBlock(
                     token,
                     BlockSaveRequest(
                         user_id = userId.toString(),
-                        action = if (current) "unblock" else "block",
+                        action = if (target) "block" else "unblock",
                     ),
                 )
-            }.onSuccess {
-                _isBlocked.value = !current
-                sendMessage(UiMessage(if (!current) R.string.user_blocked else R.string.user_unblocked_user))
-            }.onFailure {
-                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")))
             }
-            _isBlocking.value = false
         }
     }
 
@@ -327,4 +320,7 @@ class UserViewModel @Inject constructor(
     /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
+
+    /** CSRF token 不可用标记异常（[toggleBlock] 失败提示分流：专用文案而非通用 action_failed）。 */
+    private class CsrfUnavailableException : IllegalStateException("csrf token unavailable")
 }

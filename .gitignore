@@ -47,6 +47,7 @@ DESIGN.md
 .codegraph
 dist/
 .zcode/
+.v2c/
 
 # 发布页本地预览截图（临时产物）
 .preview/

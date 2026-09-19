@@ -1,7 +1,5 @@
 <resources>
     <string name="load_failed">Failed to load</string>
-    <!-- Master-Detail pane close button -->
-    <string name="core_pane_close">Close detail</string>
     <string name="retry">Retry</string>
     <!-- Delete own comment (long-press confirm dialog) -->
     <!-- Bookmark editor sheet (BookmarkEditSheet: restrict + tags) -->

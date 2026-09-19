@@ -5,7 +5,6 @@ import com.pixiv.reader.feature.reader.ui.BookGeometry
 import com.pixiv.reader.feature.reader.ui.TurnDirection
 import com.pixiv.reader.feature.reader.ui.clampDragPoint
 import com.pixiv.reader.feature.reader.ui.computeFold
-import com.pixiv.reader.feature.reader.ui.reflectAcrossSpine
 import com.pixiv.reader.feature.reader.ui.turnCorner
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -124,8 +123,8 @@ class PageFoldGeometryTest {
         // 折痕中点镜像
         assertEquals(-fw.fold.midPoint.x, bw.fold.midPoint.x, 1e-3f)
         assertEquals(fw.fold.midPoint.y, bw.fold.midPoint.y, 1e-3f)
-        // 向前的正面（A 侧）镜像后 = 向后的正面
-        val fwFlatMirrored = fw.flatPolygon.map { reflectAcrossSpine(it) }
+        // 向前的正面（A 侧）镜像后 = 向后的正面（沿书脊 x=0 反射）
+        val fwFlatMirrored = fw.flatPolygon.map { Offset(-it.x, it.y) }
         assertEquals(fwFlatMirrored.size, bw.flatPolygon.size)
         // 顶点集合一致（顺序可能因裁剪起点不同而不同）：逐一找最近点
         for (p in fwFlatMirrored) {

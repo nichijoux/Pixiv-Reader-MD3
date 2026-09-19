@@ -4,8 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.NovelSeriesDetail
-import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.paging.PagedState
@@ -39,13 +39,9 @@ class MangaSeriesViewModel @Inject constructor(
     /** 系列内作品分页（PagedState 累积，触底加载）。 */
     val paged = PagedState<Illust>()
 
-    /** 是否已追更（detail.watchlist_added 初始化；toggle 成功后翻转）。 */
-    private val _isWatchlisted = MutableStateFlow(false)
-    val isWatchlisted: StateFlow<Boolean> = _isWatchlisted.asStateFlow()
-
-    /** 追更请求进行中（防连点）。 */
-    private val _isWatchlisting = MutableStateFlow(false)
-    val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
+    /** 追更状态机（detail.watchlist_added 初始化为 ON/OFF；[toggleWatchlist] 驱动转移）。 */
+    private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
+    val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
     init {
         // 路由必有 seriesId；无参构造（=0）不预载
@@ -59,7 +55,10 @@ class MangaSeriesViewModel @Inject constructor(
                 fetch = {
                     pixivRepository.api.getIllustSeries(seriesId).also { resp ->
                         _detail.value = resp.illust_series_detail
-                        _isWatchlisted.value = resp.illust_series_detail?.watchlist_added == true
+                        // 追更态以服务端返回为准（重试 / 重新加载时同步刷新）
+                        _watchlistState.value =
+                            if (resp.illust_series_detail?.watchlist_added == true) ToggleUiState.ON
+                            else ToggleUiState.OFF
                     }
                 },
                 fetchNext = { pixivRepository.api.getNextIllustSeries(it) },
@@ -72,12 +71,15 @@ class MangaSeriesViewModel @Inject constructor(
         viewModelScope.launch { paged.loadMore() }
     }
 
-    /** 追更 / 取消追更（乐观翻转 + 防连点；成功经消息通道提示；断网自动入队待同步）。 */
+    /**
+     * 追更 / 取消追更（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，
+     * 失败回滚；成功经消息通道提示；断网自动入队待同步）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleWatchlist() {
-        runOptimisticToggle(
-            _isWatchlisting,
-            _isWatchlisted.value,
-            { _isWatchlisted.value = it },
+        runToggle(
+            _watchlistState,
             CoreR.string.core_msg_watching_added,
             CoreR.string.core_msg_watching_removed,
         ) { favoriteActions.toggleMangaWatchlist(seriesId, it) }

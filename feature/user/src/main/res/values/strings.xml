@@ -75,7 +75,6 @@
     <string name="me_follow_sort_name_desc">名称降序</string>
     <string name="me_follow_sort_latest_work">最新发布</string>
     <string name="me_novel_file_name_template">小说下载命名</string>
-    <string name="me_file_name_template_hint">文件名模板</string>
     <string name="me_file_name_placeholder_desc">点击下方占位符插入：{title} 标题 · {author} 作者 · {id} 作品ID · {date} 发布日期 · {favcount} 收藏数；{series} 为系列名，无系列时直接留空。缺失的项会留下空段</string>
     <string name="me_file_name_help_toggle">占位符说明</string>
     <string name="me_file_name_preview">预览：</string>
@@ -118,9 +117,7 @@
     <string name="me_export_dir">下载位置</string>
     <string name="me_export_dir_value">当前：%1$s</string>
     <string name="me_export_dir_default">下载/PixivReader</string>
-    <string name="me_export_dir_pick">选择目录</string>
     <string name="me_export_dir_reset">恢复默认</string>
-    <string name="me_storage_title">存储</string>
     <string name="me_clear_cache">清除缓存</string>
     <string name="me_cache_size">当前占用 %1$s（图片/调试文件）</string>
     <string name="me_cache_calculating">计算中…</string>
@@ -213,7 +210,6 @@
     <string name="user_empty_illust">暂无作品</string>
     <string name="user_empty_novel">暂无小说</string>
     <string name="user_empty_series">暂无系列小说</string>
-    <string name="user_stat_series">系列</string>
     <string name="user_bookmarks_title">该用户的收藏</string>
     <string name="user_bookmarks_empty">暂无公开收藏</string>
     <string name="user_following_title">该用户的关注</string>

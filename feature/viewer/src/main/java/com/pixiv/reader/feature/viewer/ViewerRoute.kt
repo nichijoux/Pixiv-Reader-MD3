@@ -99,7 +99,9 @@ fun ViewerRoute(
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val isGif by viewModel.isGif.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
-    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
+    // 收藏状态机：单流收集，派生展示态供下游使用
+    val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
+    val isBookmarked = bookmarkState.isOn
     val isOriginal by viewModel.isOriginal.collectAsStateWithLifecycle()
     val orientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
     // 收藏编辑器状态（公开/私密 + 标签弹层）
@@ -108,7 +110,7 @@ fun ViewerRoute(
     val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
-    val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
+    val editorSaving by viewModel.isEditorSaving.collectAsStateWithLifecycle()
 
     // 初始页在 pages 加载前 pageCount 可能为 1，直接传 initialPage>0 会越界崩溃；
     // 因此从第 0 页开始，待 pages 就绪后再滚动到目标页（钳制在合法范围）。

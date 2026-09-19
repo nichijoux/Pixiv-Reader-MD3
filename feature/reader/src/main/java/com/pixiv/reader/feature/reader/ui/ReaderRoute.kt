@@ -216,9 +216,13 @@ fun ReaderRoute(
     val charOffset by viewModel.charOffset.collectAsStateWithLifecycle()
     val progressRestored by viewModel.progressRestored.collectAsStateWithLifecycle()
     val percentage by viewModel.percentage.collectAsStateWithLifecycle()
-    val isMarked by viewModel.isMarked.collectAsStateWithLifecycle()
-    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
-    val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
+    // 开关状态机：单流收集，派生展示态供下游（ReaderBars 菜单）使用
+    val markState by viewModel.markState.collectAsStateWithLifecycle()
+    val isMarked = markState.isOn
+    val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
+    val isBookmarked = bookmarkState.isOn
+    val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
+    val isWatchlisted = watchlistState.isOn
 
     // P4 增强：目录 / 搜索 / 自定义字体 / 跟随系统
     val toc by viewModel.toc.collectAsStateWithLifecycle()

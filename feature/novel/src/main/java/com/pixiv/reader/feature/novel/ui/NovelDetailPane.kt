@@ -64,14 +64,18 @@ fun NovelDetailPane(
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
-    val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
+    // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
+    val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
+    val isBookmarked = bookmarkState.isOn
+    val isBookmarking = bookmarkState.inFlight
     // 收藏三态（pane 无私密编辑入口，跟随收藏态取 PUBLIC/NONE）
     val bookmarkPrivacy = if (isBookmarked) BookmarkPrivacy.PUBLIC else BookmarkPrivacy.NONE
-    val isWatchlisted by viewModel.isWatchlisted.collectAsStateWithLifecycle()
-    val isWatchlisting by viewModel.isWatchlisting.collectAsStateWithLifecycle()
-    val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
-    val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
+    val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
+    val isWatchlisted = watchlistState.isOn
+    val isWatchlisting = watchlistState.inFlight
+    val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
+    val isAuthorFollowed = authorFollowState.isOn
+    val isAuthorFollowing = authorFollowState.inFlight
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     // 下载格式弹窗（复用详情页 DownloadSheet）

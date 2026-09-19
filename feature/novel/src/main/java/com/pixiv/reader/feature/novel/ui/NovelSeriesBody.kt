@@ -119,8 +119,13 @@ internal fun NovelSeriesList(
     val isLoadingMore by viewModel.paged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.paged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.paged.error.collectAsStateWithLifecycle()
-    val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
-    val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
+    // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
+    val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
+    val isAuthorFollowed = authorFollowState.isOn
+    val isAuthorFollowing = authorFollowState.inFlight
+    val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
+    val isWatchlisted = watchlistState.isOn
+    val isWatchlisting = watchlistState.inFlight
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
 
     when {
@@ -143,6 +148,9 @@ internal fun NovelSeriesList(
                         isAuthorFollowed = isAuthorFollowed,
                         isAuthorFollowing = isAuthorFollowing,
                         onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                        isWatchlisted = isWatchlisted,
+                        isWatchlisting = isWatchlisting,
+                        onToggleWatchlist = viewModel::toggleWatchlist,
                         downloading = downloading,
                         onDownload = {
                             // 打开下载弹窗前先拉取全量分册（供「选取部分」）

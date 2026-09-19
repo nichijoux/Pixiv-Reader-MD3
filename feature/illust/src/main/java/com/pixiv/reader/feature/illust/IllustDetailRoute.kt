@@ -82,23 +82,27 @@ fun IllustDetailRoute(
     val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
-    val isBookmarking by viewModel.isBookmarking.collectAsStateWithLifecycle()
-    val isAuthorFollowed by viewModel.isAuthorFollowed.collectAsStateWithLifecycle()
-    val isAuthorFollowing by viewModel.isAuthorFollowing.collectAsStateWithLifecycle()
+    // 三对开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
+    val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
+    val isBookmarked = bookmarkState.isOn
+    val isBookmarking = bookmarkState.inFlight
+    val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
+    val isAuthorFollowed = authorFollowState.isOn
+    val isAuthorFollowing = authorFollowState.inFlight
     // 收藏编辑器状态（公开/私密 + 标签弹层）
     val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
     val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
     val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
-    val editorSaving by viewModel.bookmarkEditor.saving.collectAsStateWithLifecycle()
+    val editorSaving by viewModel.isEditorSaving.collectAsStateWithLifecycle()
     // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
     val isPrivateBookmark = isBookmarked && editorRestrict == PixivConstants.RESTRICT_PRIVATE
     // 所属漫画系列追更态（illust.series 非空才显示追更按钮）
     val seriesId = illust?.series?.id?.takeIf { it > 0L }
-    val isSeriesWatchlisted by viewModel.isSeriesWatchlisted.collectAsStateWithLifecycle()
-    val isSeriesWatchlisting by viewModel.isSeriesWatchlisting.collectAsStateWithLifecycle()
+    val seriesWatchlistState by viewModel.seriesWatchlistState.collectAsStateWithLifecycle()
+    val isSeriesWatchlisted = seriesWatchlistState.isOn
+    val isSeriesWatchlisting = seriesWatchlistState.inFlight
 
     var currentPage by remember { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }

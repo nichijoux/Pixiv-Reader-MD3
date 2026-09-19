@@ -75,7 +75,6 @@
     <string name="me_follow_sort_name_desc">Z–A</string>
     <string name="me_follow_sort_latest_work">Newest</string>
     <string name="me_novel_file_name_template">Novel download naming</string>
-    <string name="me_file_name_template_hint">File name template</string>
     <string name="me_file_name_placeholder_desc">Tap placeholders to insert: {title} title · {author} author · {id} work ID · {date} publish date · {favcount} bookmarks; {series} is the series name, left empty when none. Missing values leave an empty segment</string>
     <string name="me_file_name_help_toggle">Placeholder guide</string>
     <string name="me_file_name_preview">Preview:</string>
@@ -118,9 +117,7 @@
     <string name="me_export_dir">Download location</string>
     <string name="me_export_dir_value">Current: %1$s</string>
     <string name="me_export_dir_default">Downloads/PixivReader</string>
-    <string name="me_export_dir_pick">Choose folder</string>
     <string name="me_export_dir_reset">Reset</string>
-    <string name="me_storage_title">Storage</string>
     <string name="me_clear_cache">Clear cache</string>
     <string name="me_cache_size">Currently using %1$s (images / debug files)</string>
     <string name="me_cache_calculating">Calculating…</string>
@@ -213,7 +210,6 @@
     <string name="user_empty_illust">No works yet</string>
     <string name="user_empty_novel">No novels yet</string>
     <string name="user_empty_series">No novel series yet</string>
-    <string name="user_stat_series">Series</string>
     <string name="user_bookmarks_title">User\'s bookmarks</string>
     <string name="user_bookmarks_empty">No public bookmarks</string>
     <string name="user_following_title">User\'s following</string>

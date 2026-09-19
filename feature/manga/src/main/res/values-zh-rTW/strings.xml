@@ -35,9 +35,7 @@
     <string name="manga_ranking_empty">暫無榜單資料</string>
     <string name="manga_cd_back">返回</string>
     <string name="manga_cd_watchlist">追更</string>
-    <string name="manga_cd_more">更多</string>
     <string name="manga_ranking_preview_placeholder">選擇左側任意作品查看預覽</string>
-    <string name="manga_ranking_preview_open_detail">查看詳情</string>
     <!-- 排行榜右欄詳情塊（IllustDetailStrings，與 feature:illust 文案一致） -->
     <string name="manga_illust_load_retry">載入失敗，點擊重試</string>
     <string name="manga_illust_fullscreen">全螢幕</string>

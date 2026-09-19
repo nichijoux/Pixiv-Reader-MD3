@@ -1,7 +1,6 @@
 <resources>
     <!-- 小说 Tab 推荐流 -->
     <string name="novel_title">小说</string>
-    <string name="novel_cd_refresh">刷新</string>
     <string name="novel_cd_ranking">排行榜</string>
     <string name="novel_feed_empty">暂时没有推荐小说</string>
 
@@ -29,8 +28,6 @@
     <string name="novel_ranking_filter_empty">该分类下暂无作品</string>
     <string name="novel_ranking_preview_placeholder">选择左侧任意作品查看预览</string>
     <string name="novel_series_pane_placeholder">选择系列查看详情</string>
-    <string name="novel_ranking_preview_open_detail">查看详情</string>
-    <string name="novel_ranking_preview_word_count">约 %1$s 字</string>
 
     <!-- 小说详情 -->
     <string name="novel_not_found">没有找到该小说</string>
@@ -44,8 +41,6 @@
 
     <!-- 小说系列详情页 -->
     <string name="novel_series_title">系列</string>
-    <string name="novel_series_eyebrow">系列作品</string>
-    <string name="novel_series_empty">系列暂无分册</string>
     <string name="novel_series_parts">%1$d 篇</string>
     <string name="novel_series_ongoing">连载中</string>
     <string name="novel_series_concluded">已完结</string>
@@ -57,7 +52,6 @@
     <string name="novel_chapter_word">字数 %1$s</string>
     <string name="novel_chapter_bookmark">收藏 %1$s</string>
     <string name="novel_chapter_current">当前</string>
-    <string name="novel_continue_reading">继续阅读 %1$d%%</string>
     <string name="novel_start_reading">开始阅读</string>
     <string name="novel_follow">关注</string>
     <string name="novel_following">已关注</string>
@@ -86,12 +80,6 @@
     <string name="novel_download_docx_current_desc">Office 文档，可编辑排版</string>
 
     <!-- ViewModel 消息 / 错误 -->
-    <string name="novel_error_load_failed">加载失败</string>
-    <string name="novel_error_load_failed_reason">加载失败：%1$s</string>
-    <string name="novel_msg_watching_added">已加入追更</string>
-    <string name="novel_msg_watching_removed">已取消追更</string>
-    <string name="novel_msg_downloading">正在下载…</string>
-    <string name="novel_msg_preparing">准备中…</string>
     <string name="novel_msg_export_queued">已加入导出队列</string>
 
     <!-- 导出引擎错误（NovelExporter） -->

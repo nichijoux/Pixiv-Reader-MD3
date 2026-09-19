@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesDetail
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
@@ -34,6 +35,7 @@ import kotlinx.coroutines.launch
  * 小说系列详情页 ViewModel：系列信息 + 分册列表（`/v2/novel/series` 分页）。
  * 系列封面（第一册 medium）走 [SeriesDetailCache]，与用户主页系列列表共享缓存。
  * 关注作者：内嵌 `user.is_followed` 初始 + `getUserDetail` 权威刷新（与详情页一致）。
+ * 追更：detail.watchlist_added 初始 + [toggleWatchlist] 乐观翻转（与漫画系列页/小说详情页同模式）。
  * 导出（worker）：整系列 / 部分分册（合并为一个文件），完成/失败观察下载索引发应用内通知。
  */
 @HiltViewModel
@@ -58,13 +60,15 @@ class NovelSeriesViewModel @Inject constructor(
 
     val paged = PagedState<Novel>()
 
-    // ── 关注作者 ─────────────────────────────────────────────────────────────
+    // ── 关注作者 / 追更（ToggleUiState 状态机） ────────────────────────────────
 
-    private val _isAuthorFollowed = MutableStateFlow(false)
-    val isAuthorFollowed: StateFlow<Boolean> = _isAuthorFollowed.asStateFlow()
+    /** 作者关注状态机（内嵌 is_followed 初始 + getUserDetail 权威刷新；[toggleFollowAuthor] 驱动）。 */
+    private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
+    val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
-    private val _isAuthorFollowing = MutableStateFlow(false)
-    val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
+    /** 追更状态机（detail.watchlist_added 初始化；[toggleWatchlist] 驱动转移）。 */
+    private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
+    val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
@@ -93,11 +97,11 @@ class NovelSeriesViewModel @Inject constructor(
     fun switchTo(id: Long) {
         if (id == seriesId && _detail.value != null) return
         seriesId = id
-        // 重置状态：详情 / 封面 / 作者关注态 / 全量分册清空，分页游标重置防旧系列数据串页
+        // 重置状态：详情 / 封面 / 关注与追更状态机 / 全量分册清空，分页游标重置防旧系列数据串页
         _detail.value = null
         _firstNovelCover.value = null
-        _isAuthorFollowed.value = false
-        _isAuthorFollowing.value = false
+        _authorFollowState.value = ToggleUiState.OFF
+        _watchlistState.value = ToggleUiState.OFF
         _allChapters.value = emptyList()
         paged.reset()
         load()
@@ -109,6 +113,10 @@ class NovelSeriesViewModel @Inject constructor(
                 fetch = {
                     pixivRepository.api.getNovelSeries(seriesId).also { resp ->
                         _detail.value = resp.novel_series_detail
+                        // 追更态以服务端返回为准（重试 / 重新加载时同步刷新）
+                        _watchlistState.value =
+                            if (resp.novel_series_detail?.watchlist_added == true) ToggleUiState.ON
+                            else ToggleUiState.OFF
                         // 走进程级缓存：用户主页列表已取过系列详情则零请求
                         _firstNovelCover.value = seriesDetailCache.getOrFetch(seriesId) {
                             SeriesDetailInfo(
@@ -122,7 +130,9 @@ class NovelSeriesViewModel @Inject constructor(
                         }?.coverUrl
                         val seriesDetail = resp.novel_series_detail
                         seriesDetail?.user?.id?.let { userId ->
-                            _isAuthorFollowed.value = seriesDetail.user?.is_followed == true
+                            _authorFollowState.value =
+                                if (seriesDetail.user?.is_followed == true) ToggleUiState.ON
+                                else ToggleUiState.OFF
                             loadAuthorFollowState(userId)
                         }
                     }
@@ -145,21 +155,40 @@ class NovelSeriesViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { pixivRepository.api.getUserDetail(userId) }
                 .onSuccess { resp ->
-                    resp.user?.is_followed?.let { _isAuthorFollowed.value = it }
+                    resp.user?.is_followed?.let {
+                        _authorFollowState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
+                    }
                 }
         }
     }
 
-    /** 关注 / 取关作者（系列页作者行按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
+    /**
+     * 关注 / 取关作者（系列页作者行按钮，[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，
+     * 失败回滚；经 FavoriteActions 统一收口）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleFollowAuthor() {
         val userId = _detail.value?.user?.id ?: return
-        runOptimisticToggle(
-            _isAuthorFollowing,
-            _isAuthorFollowed.value,
-            { _isAuthorFollowed.value = it },
+        runToggle(
+            _authorFollowState,
             CoreR.string.core_msg_followed_author,
             CoreR.string.core_msg_unfollowed,
         ) { favoriteActions.toggleFollowUser(userId, it) }
+    }
+
+    /**
+     * 追更 / 取消追更当前系列（信息头按钮，[ToggleUiState] 状态机：进行中保留旧文案
+     * 禁用防连点，失败回滚；成功经消息通道提示；经 FavoriteActions 统一收口，断网自动入队待同步）。
+     *
+     * @return 无返回值（操作完成后结束）
+     */
+    fun toggleWatchlist() {
+        runToggle(
+            _watchlistState,
+            CoreR.string.core_msg_watching_added,
+            CoreR.string.core_msg_watching_removed,
+        ) { favoriteActions.toggleNovelWatchlist(seriesId, it) }
     }
 
     /** 拉取系列全量分册（供「选取部分下载」多选；复用已加载分页数据，避免重复请求）。 */

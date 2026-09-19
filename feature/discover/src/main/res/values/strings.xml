@@ -20,12 +20,7 @@
     <string name="search_no_hot">暂无热门作品</string>
 
     <!-- 筛选面板 -->
-    <string name="filter_title_user">筛选 · 用户</string>
-    <string name="filter_title_illust">高级筛选 · 插画</string>
-    <string name="filter_title_novel">高级筛选 · 小说</string>
     <string name="filter_title_default">高级筛选</string>
-    <string name="filter_user_hint">用户搜索仅支持关键词匹配，暂无高级筛选条件。</string>
-    <string name="filter_popular_preview">热门预览</string>
     <string name="filter_latest">最新</string>
     <string name="filter_oldest">最旧</string>
     <string name="filter_popular">收藏多</string>
@@ -87,8 +82,6 @@
     <string name="filter_all_summary">不限</string>
     <string name="filter_date_start">开始日期</string>
     <string name="filter_date_end">结束日期</string>
-    <string name="filter_min_hint">最小</string>
-    <string name="filter_max_hint">最大</string>
     <string name="filter_resolution_above_3000">3000px 以上</string>
     <string name="filter_resolution_1000_2999">1000~2999px</string>
     <string name="filter_resolution_below_1000">999px 以下</string>

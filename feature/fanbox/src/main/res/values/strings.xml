@@ -6,7 +6,6 @@
     <!-- 首页 -->
     <string name="fanbox_tab_posts">投稿</string>
     <string name="fanbox_tab_creators">推荐创作者</string>
-    <string name="fanbox_loading">加载中…</string>
     <string name="fanbox_retry">点击重试</string>
     <string name="fanbox_empty_posts">暂无投稿</string>
     <string name="fanbox_empty_creators">暂无推荐创作者</string>
@@ -33,7 +32,6 @@
     <string name="fanbox_comments_empty">暂无评论</string>
     <string name="fanbox_file_badge">附件</string>
     <string name="fanbox_embed_open">打开嵌入内容</string>
-    <string name="fanbox_msg_login_done">登录成功，返回即可继续</string>
     <string name="fanbox_pane_placeholder">选择左侧帖子查看详情</string>
 
     <!-- 内置网页 -->

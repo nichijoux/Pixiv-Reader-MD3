@@ -1,7 +1,5 @@
 <resources>
     <string name="load_failed">載入失敗</string>
-    <!-- Master-Detail 詳情 pane 關閉按鈕 -->
-    <string name="core_pane_close">關閉詳情</string>
     <string name="retry">重試</string>
     <!-- 收藏編輯彈層（BookmarkEditSheet：公開/私密 + 標籤） -->
     <string name="bookmark_edit_title">收藏設定</string>

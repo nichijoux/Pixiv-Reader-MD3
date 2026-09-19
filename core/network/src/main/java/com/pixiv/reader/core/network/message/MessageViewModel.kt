@@ -3,6 +3,7 @@ package com.pixiv.reader.core.network.message
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixiv.reader.core.common.R as CoreR
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +18,8 @@ import kotlinx.coroutines.launch
  * UI 侧配合 core:ui 的 `UiMessageEffect` 一行收集显示到 NotificationHost。
  *
  * 子类发通知：[sendMessage]（挂起，缓冲 BUFFERED）/ [trySendMessage]（非挂起，无法挂起的
- * 回调里用，缓冲满时丢弃）。收藏/关注/追更类乐观翻转动作用 [runActionNotified] /
- * [runOptimisticToggle] 骨架。
+ * 回调里用，缓冲满时丢弃）。收藏/关注/追更类布尔开关动作用 [runToggle]（[ToggleUiState]
+ * 状态机骨架）；非开关型单次动作用 [runActionNotified]。
  */
 abstract class MessageViewModel : ViewModel() {
 
@@ -66,28 +67,46 @@ abstract class MessageViewModel : ViewModel() {
     }
 
     /**
-     * 乐观翻转动作通用骨架（[runActionNotified] 的翻转包装）：防连点 → 以 `!current` 为目标态
-     * 调用动作 → 成功回写翻转态并按方向发置位/复位文案（null = 静默成功）、失败发
-     * action_failed + 原因（状态保持原值）；无论成败结束都复位防连点标志。
+     * 布尔开关动作状态机骨架（[ToggleUiState] 驱动）：防连点 → 写入 TURNING_* → 以目标态调用
+     * 动作 → 成功写终态（ON/OFF）并按方向发置位/复位文案（null = 静默成功）、失败回滚原终态并
+     * 发 [failedMessage]（null = 默认 action_failed + 原因）；进行中状态保留旧展示值（[ToggleUiState.isOn]）。
      *
-     * @param inFlight 防连点标志流；调用时已为 true 则忽略本次
-     * @param current 当前状态值（翻转基准；动作目标态 = 取反）
-     * @param onState 成功后的状态回写（参数为翻转后的值）
-     * @param addedRes 置位成功文案（false → true）；null 静默
-     * @param removedRes 复位成功文案（true → false）；null 静默
+     * @param state 开关状态流（VM 持有的唯一事实源，取代「状态 + 进行中」两个布尔）
+     * @param addedRes 置位成功文案（OFF → ON）；null 静默
+     * @param removedRes 复位成功文案（ON → OFF）；null 静默
+     * @param failedMessage 失败文案构造器（参数为失败异常；null = 默认 action_failed + 原因。
+     *   需按失败种类分文案的场景——如 CSRF 不可用专用提示——传自定义构造器）
      * @param action 动作本体，参数为目标状态
      * @return 无返回值（操作完成后结束的协程）
      */
-    protected fun runOptimisticToggle(
-        inFlight: MutableStateFlow<Boolean>,
-        current: Boolean,
-        onState: (Boolean) -> Unit,
+    protected fun runToggle(
+        state: MutableStateFlow<ToggleUiState>,
         addedRes: Int?,
         removedRes: Int?,
-        action: suspend (Boolean) -> Result<Unit>,
-    ) = runActionNotified(
-        inFlight,
-        successRes = if (!current) addedRes else removedRes,
-        onSuccess = { onState(!current) },
-    ) { action(!current) }
+        failedMessage: ((Throwable) -> UiMessage)? = null,
+        action: suspend (target: Boolean) -> Result<Unit>,
+    ) {
+        // 防连点：进行中（TURNING_*）忽略本次
+        if (state.value.inFlight) return
+        viewModelScope.launch {
+            // 目标态取反；先写 TURNING_*（UI 保留旧文案、禁用按钮）
+            val target = !state.value.isOn
+            state.value = if (target) ToggleUiState.TURNING_ON else ToggleUiState.TURNING_OFF
+            action(target)
+                .onSuccess {
+                    // 成功：落终态 + 按方向提示
+                    state.value = if (target) ToggleUiState.ON else ToggleUiState.OFF
+                    val successRes = if (target) addedRes else removedRes
+                    successRes?.let { sendMessage(UiMessage(it)) }
+                }
+                .onFailure {
+                    // 失败：回滚原终态（UI 无感）+ 专用或默认失败文案
+                    state.value = if (target) ToggleUiState.OFF else ToggleUiState.ON
+                    sendMessage(
+                        failedMessage?.invoke(it)
+                            ?: UiMessage(CoreR.string.core_msg_action_failed, listOf(it.message ?: "")),
+                    )
+                }
+        }
+    }
 }

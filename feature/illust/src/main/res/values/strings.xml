@@ -4,8 +4,6 @@
     <string name="illust_cd_more">更多</string>
     <string name="illust_cd_download">下载</string>
     <string name="illust_cd_comments">评论</string>
-    <string name="illust_btn_fullscreen">全屏查看</string>
-    <string name="illust_cd_fullscreen">全屏查看</string>
     <string name="illust_load_retry">加载失败，点击重试</string>
     <string name="illust_menu_download_original">下载原图</string>
     <string name="illust_menu_unbookmark">取消收藏</string>
@@ -20,14 +18,6 @@
     <string name="illust_stat_view">浏览</string>
     <string name="illust_stat_bookmark">收藏</string>
     <string name="illust_section_related">相关作品</string>
-    <string name="illust_error_load_failed">加载失败</string>
-    <string name="illust_error_load_failed_reason">加载失败：%1$s</string>
-    <string name="illust_msg_saved_to_downloads">已保存到下载目录</string>
-    <string name="illust_msg_download_started">开始下载…</string>
-
-    <!-- 下载 worker 错误（IllustDownloadWorker） -->
-    <string name="illust_error_work_not_found">作品不存在</string>
-    <string name="illust_error_page_no_image">该页无图片地址</string>
 
     <!-- 漫画系列追更（详情页底部栏，作品属于漫画系列时显示） -->
     <string name="illust_watchlist">追更</string>

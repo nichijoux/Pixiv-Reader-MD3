@@ -4,8 +4,6 @@
     <string name="illust_cd_more">More</string>
     <string name="illust_cd_download">Download</string>
     <string name="illust_cd_comments">Comments</string>
-    <string name="illust_btn_fullscreen">Open fullscreen</string>
-    <string name="illust_cd_fullscreen">Open fullscreen</string>
     <string name="illust_load_retry">Load failed, tap to retry</string>
     <string name="illust_menu_download_original">Download original</string>
     <string name="illust_menu_unbookmark">Remove bookmark</string>
@@ -20,14 +18,6 @@
     <string name="illust_stat_view">Views</string>
     <string name="illust_stat_bookmark">Bookmarks</string>
     <string name="illust_section_related">Related works</string>
-    <string name="illust_error_load_failed">Failed to load</string>
-    <string name="illust_error_load_failed_reason">Failed to load: %1$s</string>
-    <string name="illust_msg_saved_to_downloads">Saved to Downloads</string>
-    <string name="illust_msg_download_started">Downloading…</string>
-
-    <!-- Download worker errors (IllustDownloadWorker) -->
-    <string name="illust_error_work_not_found">Work not found</string>
-    <string name="illust_error_page_no_image">No image URL for this page</string>
 
     <!-- Manga series watchlist (detail bottom bar, shown when work belongs to a series) -->
     <string name="illust_watchlist">Watch</string>

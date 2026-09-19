@@ -1,7 +1,6 @@
 <resources>
     <!-- 小说 Tab 推荐流 -->
     <string name="novel_title">小說</string>
-    <string name="novel_cd_refresh">重新整理</string>
     <string name="novel_cd_ranking">排行榜</string>
     <string name="novel_feed_empty">暫時沒有推薦小說</string>
 
@@ -29,8 +28,6 @@
     <string name="novel_ranking_filter_empty">該分類下暫無作品</string>
     <string name="novel_ranking_preview_placeholder">選擇左側任意作品查看預覽</string>
     <string name="novel_series_pane_placeholder">選擇系列查看詳情</string>
-    <string name="novel_ranking_preview_open_detail">查看詳情</string>
-    <string name="novel_ranking_preview_word_count">約 %1$s 字</string>
 
     <!-- 小说详情 -->
     <string name="novel_not_found">沒有找到該小說</string>
@@ -44,8 +41,6 @@
 
     <!-- 小说系列详情页 -->
     <string name="novel_series_title">系列</string>
-    <string name="novel_series_eyebrow">系列作品</string>
-    <string name="novel_series_empty">系列暫無分冊</string>
     <string name="novel_series_parts">%1$d 篇</string>
     <string name="novel_series_ongoing">連載中</string>
     <string name="novel_series_concluded">已完結</string>
@@ -57,7 +52,6 @@
     <string name="novel_chapter_word">字數 %1$s</string>
     <string name="novel_chapter_bookmark">收藏 %1$s</string>
     <string name="novel_chapter_current">當前</string>
-    <string name="novel_continue_reading">繼續閱讀 %1$d%%</string>
     <string name="novel_start_reading">開始閱讀</string>
     <string name="novel_follow">關注</string>
     <string name="novel_following">已關注</string>
@@ -86,12 +80,6 @@
     <string name="novel_download_docx_current_desc">Office 文件，可編輯排版</string>
 
     <!-- ViewModel 消息 / 错误 -->
-    <string name="novel_error_load_failed">載入失敗</string>
-    <string name="novel_error_load_failed_reason">載入失敗：%1$s</string>
-    <string name="novel_msg_watching_added">已加入追更</string>
-    <string name="novel_msg_watching_removed">已取消追更</string>
-    <string name="novel_msg_downloading">正在下載…</string>
-    <string name="novel_msg_preparing">準備中…</string>
     <string name="novel_msg_export_queued">已加入匯出佇列</string>
 
     <!-- 导出引擎错误（NovelExporter） -->

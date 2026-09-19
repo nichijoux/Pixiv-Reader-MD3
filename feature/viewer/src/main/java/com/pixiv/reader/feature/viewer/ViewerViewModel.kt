@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.common.config.ViewerOrientation
@@ -74,12 +75,13 @@ class ViewerViewModel @Inject constructor(
     private val _ugoiraFrames = MutableStateFlow<List<UgoiraFrame>>(emptyList())
     val ugoiraFrames: StateFlow<List<UgoiraFrame>> = _ugoiraFrames.asStateFlow()
 
-    private val _isBookmarked = MutableStateFlow(false)
-    val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
+    /** 收藏状态机（一键收藏；详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移）。 */
+    private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
+    val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    /** 收藏请求进行中（防连点：在线双击重复提交收藏接口）。 */
-    private val _isBookmarking = MutableStateFlow(false)
-    val isBookmarking: StateFlow<Boolean> = _isBookmarking.asStateFlow()
+    /** 收藏编辑器保存进行中（防连点 + 弹层确认按钮禁用；一键收藏走 [_bookmarkState] 独立防连点）。 */
+    private val _isEditorSaving = MutableStateFlow(false)
+    val isEditorSaving: StateFlow<Boolean> = _isEditorSaving.asStateFlow()
 
     /** 是否显示原图（false 显示预览图 displayUrl，true 显示原图 originalUrl）。 */
     private val _isOriginal = MutableStateFlow(false)
@@ -114,7 +116,7 @@ class ViewerViewModel @Inject constructor(
                     val ill = resp.illust ?: return@onSuccess
                     _illust.value = ill
                     _pages.value = ill.toPages()
-                    _isBookmarked.value = ill.is_bookmarked == true
+                    _bookmarkState.value = if (ill.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
                     bookmarkEditor.onTargetLoaded(ill.is_bookmarked == true)
                     if (ill.isGif()) {
                         _isGif.value = true
@@ -157,34 +159,33 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 收藏 / 取消收藏（乐观翻转 + 防连点；断网自动入队待同步）。
-     * 成功静默（查看器收藏图标即时反馈），仅刷新收藏态与编辑器回显/清空；失败发通知。
+     * 收藏 / 取消收藏（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
+     * 断网自动入队待同步）。成功静默（查看器收藏图标即时反馈），
+     * 仅刷新收藏态与编辑器回显/清空；失败发通知。
      */
     fun toggleBookmark() {
-        runOptimisticToggle(
-            _isBookmarking,
-            _isBookmarked.value,
-            { state ->
-                _isBookmarked.value = state
-                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
-                bookmarkEditor.onTargetLoaded(state)
-            },
+        runToggle(
+            _bookmarkState,
             addedRes = null,
             removedRes = null,
-        ) { favoriteActions.toggleIllustFavorite(illustId, it) }
+        ) { target ->
+            favoriteActions.toggleIllustFavorite(illustId, target).onSuccess {
+                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                bookmarkEditor.onTargetLoaded(target)
+            }
+        }
     }
 
     /**
      * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 期间复用 [_isBookmarking] 防连点（保存中弹层确认按钮另由 [BookmarkEditor.saving] 禁用，
-     * 与一键收藏互斥）。
+     * 期间以 [_isEditorSaving] 防连点（弹层确认按钮禁用同一标志）。
      */
     fun saveBookmarkEditor() {
         runActionNotified(
-            _isBookmarking,
+            _isEditorSaving,
             CoreR.string.core_msg_bookmark_updated,
             {
-                _isBookmarked.value = true
+                _bookmarkState.value = ToggleUiState.ON
                 bookmarkEditor.close()
             },
         ) { bookmarkEditor.save() }

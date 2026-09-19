@@ -1,7 +1,6 @@
 <resources>
     <!-- Novel tab feed -->
     <string name="novel_title">Novels</string>
-    <string name="novel_cd_refresh">Refresh</string>
     <string name="novel_cd_ranking">Ranking</string>
     <string name="novel_feed_empty">No recommended novels yet</string>
 
@@ -29,8 +28,6 @@
     <string name="novel_ranking_filter_empty">No works in this category</string>
     <string name="novel_ranking_preview_placeholder">Select an item on the left to preview</string>
     <string name="novel_series_pane_placeholder">Select a series to view details</string>
-    <string name="novel_ranking_preview_open_detail">Open detail</string>
-    <string name="novel_ranking_preview_word_count">~%1$s words</string>
 
     <!-- Novel detail -->
     <string name="novel_not_found">Novel not found</string>
@@ -44,8 +41,6 @@
 
     <!-- Novel series detail page -->
     <string name="novel_series_title">Series</string>
-    <string name="novel_series_eyebrow">Novel series</string>
-    <string name="novel_series_empty">No volumes in this series</string>
     <string name="novel_series_parts">%1$d parts</string>
     <string name="novel_series_ongoing">Ongoing</string>
     <string name="novel_series_concluded">Completed</string>
@@ -57,7 +52,6 @@
     <string name="novel_chapter_word">Words %1$s</string>
     <string name="novel_chapter_bookmark">Bookmarks %1$s</string>
     <string name="novel_chapter_current">Current</string>
-    <string name="novel_continue_reading">Continue %1$d%%</string>
     <string name="novel_start_reading">Start reading</string>
     <string name="novel_follow">Follow</string>
     <string name="novel_following">Following</string>
@@ -86,12 +80,6 @@
     <string name="novel_download_docx_current_desc">Office document, editable</string>
 
     <!-- ViewModel messages / errors -->
-    <string name="novel_error_load_failed">Failed to load</string>
-    <string name="novel_error_load_failed_reason">Failed to load: %1$s</string>
-    <string name="novel_msg_watching_added">Added to watchlist</string>
-    <string name="novel_msg_watching_removed">Removed from watchlist</string>
-    <string name="novel_msg_downloading">Downloading…</string>
-    <string name="novel_msg_preparing">Preparing…</string>
     <string name="novel_msg_export_queued">Export queued</string>
 
     <!-- NovelExporter errors -->

@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,7 +40,24 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
-/** 系列信息头：大封面（真实图/图标兜底）+ 标题/简介 + 篇数/连载态徽章 + 作者行（头像/名称/关注）+ 下载按钮 + 总字数。 */
+/**
+ * 系列信息头：大封面（真实图/图标兜底）+ 标题/简介 + 篇数/连载态徽章 + 作者行（头像/名称/关注）
+ * + 操作行（追更 + 下载）+ 总字数。
+ *
+ * @param detail 系列详情（标题/徽章/作者/简介等）
+ * @param onOpenAuthor 点击作者名打开主页（参数为作者 id）
+ * @param coverUrl 系列封面 URL（首册 medium；null 走书本图标兜底）
+ * @param onOpenCover 点击封面打开全屏大图
+ * @param isAuthorFollowed 作者是否已关注
+ * @param isAuthorFollowing 关注请求进行中（进行中禁用关注按钮防连点）
+ * @param onToggleFollowAuthor 关注/取关作者回调
+ * @param isWatchlisted 本系列是否已追更
+ * @param isWatchlisting 追更请求进行中（进行中禁用追更按钮防连点）
+ * @param onToggleWatchlist 追更/取消追更回调
+ * @param downloading 下载进行中（进行中禁用下载按钮）
+ * @param onDownload 点击下载按钮（先拉全量分册后由调用方打开下载弹窗）
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
 internal fun SeriesHeader(
     detail: NovelSeriesDetail,
@@ -47,6 +67,9 @@ internal fun SeriesHeader(
     isAuthorFollowed: Boolean = false,
     isAuthorFollowing: Boolean = false,
     onToggleFollowAuthor: () -> Unit = {},
+    isWatchlisted: Boolean = false,
+    isWatchlisting: Boolean = false,
+    onToggleWatchlist: () -> Unit = {},
     downloading: Boolean = false,
     onDownload: () -> Unit = {},
 ) {
@@ -158,19 +181,37 @@ internal fun SeriesHeader(
                 )
             }
         }
-        // 下载按钮：整行主题色（整系列 / 选取部分由弹窗决定）
-        Button(
-            onClick = onDownload,
-            enabled = !downloading,
+        // 操作行：追更（铃铛图标，已追更切换实心/文案）+ 下载（整系列 / 选取部分由弹窗决定）
+        Row(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Icon(
-                imageVector = Icons.Filled.Download,
-                contentDescription = null,
-                modifier = Modifier.size(Sizes.s18),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.novel_download))
+            FilledTonalButton(
+                onClick = onToggleWatchlist,
+                enabled = !isWatchlisting,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    imageVector = if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
+                    contentDescription = null,
+                    modifier = Modifier.size(Sizes.s18),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(if (isWatchlisted) R.string.novel_watchlisted else R.string.novel_watch))
+            }
+            Button(
+                onClick = onDownload,
+                enabled = !downloading,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(Sizes.s18),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.novel_download))
+            }
         }
     }
 }

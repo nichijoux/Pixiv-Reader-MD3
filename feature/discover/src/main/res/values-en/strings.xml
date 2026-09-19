@@ -20,12 +20,7 @@
     <string name="search_no_hot">No trending works</string>
 
     <!-- Filter sheet -->
-    <string name="filter_title_user">Filters · Users</string>
-    <string name="filter_title_illust">Advanced filters · Illustrations</string>
-    <string name="filter_title_novel">Advanced filters · Novels</string>
     <string name="filter_title_default">Advanced filters</string>
-    <string name="filter_user_hint">User search only supports keyword matching; no advanced filters available.</string>
-    <string name="filter_popular_preview">Popular preview</string>
     <string name="filter_latest">Latest</string>
     <string name="filter_oldest">Oldest</string>
     <string name="filter_popular">Most bookmarked</string>
@@ -87,8 +82,6 @@
     <string name="filter_all_summary">Any</string>
     <string name="filter_date_start">Start date</string>
     <string name="filter_date_end">End date</string>
-    <string name="filter_min_hint">Min</string>
-    <string name="filter_max_hint">Max</string>
     <string name="filter_resolution_above_3000">3000px or more</string>
     <string name="filter_resolution_1000_2999">1000~2999px</string>
     <string name="filter_resolution_below_1000">999px or less</string>

@@ -28,7 +28,7 @@ import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 
 /**
- * 小说系列详情页：系列信息头（标题/简介/篇数/连载态/作者行+关注/下载）+ 分册 NovelCard 列表。
+ * 小说系列详情页：系列信息头（标题/简介/篇数/连载态/作者行+关注/追更+下载）+ 分册 NovelCard 列表。
  * 底部沉浸式：Scaffold 不消耗系统栏 insets，列表内容背景延伸覆盖导航栏（列表底 padding 避让手势条）。
  * 内容区与下载弹窗/通知宿主复用 [NovelSeriesBody] + [NovelSeriesList]（右栏 pane 同款）。
  *

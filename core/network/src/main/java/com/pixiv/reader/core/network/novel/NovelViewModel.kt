@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
@@ -65,25 +66,21 @@ class NovelViewModel @Inject constructor(
     private val _progress = MutableStateFlow<ReadingProgressEntity?>(null)
     val progress: StateFlow<ReadingProgressEntity?> = _progress.asStateFlow()
 
-    private val _isBookmarked = MutableStateFlow(false)
-    val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
+    /** 收藏状态机（一键收藏；详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移）。 */
+    private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
+    val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    private val _isBookmarking = MutableStateFlow(false)
-    val isBookmarking: StateFlow<Boolean> = _isBookmarking.asStateFlow()
+    /** 收藏编辑器保存进行中（防连点 + 弹层确认按钮禁用；一键收藏走 [_bookmarkState] 独立防连点）。 */
+    private val _isEditorSaving = MutableStateFlow(false)
+    val isEditorSaving: StateFlow<Boolean> = _isEditorSaving.asStateFlow()
 
-    private val _isWatchlisted = MutableStateFlow(false)
-    val isWatchlisted: StateFlow<Boolean> = _isWatchlisted.asStateFlow()
+    /** 所属系列追更状态机（getNovelSeries 的 watchlist_added 初始化；详情页追更按钮）。 */
+    private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
+    val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
-    private val _isWatchlisting = MutableStateFlow(false)
-    val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
-
-    /** 作者是否已关注（详情页作者名旁关注按钮）。 */
-    private val _isAuthorFollowed = MutableStateFlow(false)
-    val isAuthorFollowed: StateFlow<Boolean> = _isAuthorFollowed.asStateFlow()
-
-    /** 作者关注操作进行中（防连点）。 */
-    private val _isAuthorFollowing = MutableStateFlow(false)
-    val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
+    /** 作者关注状态机（详情页作者名旁关注按钮；user/detail 权威刷新）。 */
+    private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
+    val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
     /** 下载/导出进行中 */
     private val _downloading = MutableStateFlow(false)
@@ -136,13 +133,12 @@ class NovelViewModel @Inject constructor(
         _novel.value = null
         _seriesNovels.value = emptyList()
         _error.value = null
-        _isBookmarked.value = false
-        _isBookmarking.value = false
+        // 三对开关状态机 + 编辑器保存标志整体复位（成对生命周期：一条流清一条）
+        _bookmarkState.value = ToggleUiState.OFF
+        _isEditorSaving.value = false
         bookmarkEditor.onTargetLoaded(false)
-        _isWatchlisted.value = false
-        _isWatchlisting.value = false
-        _isAuthorFollowed.value = false
-        _isAuthorFollowing.value = false
+        _watchlistState.value = ToggleUiState.OFF
+        _authorFollowState.value = ToggleUiState.OFF
         _downloading.value = false
         _downloadProgress.value = null
         load(id)
@@ -162,10 +158,10 @@ class NovelViewModel @Inject constructor(
                     if (requestedId != id) return@onSuccess
                     val detail = resp.novel ?: return@onSuccess
                     _novel.value = detail
-                    _isBookmarked.value = detail.is_bookmarked == true
+                    _bookmarkState.value = if (detail.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
                     bookmarkEditor.onTargetLoaded(detail.is_bookmarked == true)
                     // 详情内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
-                    _isAuthorFollowed.value = detail.user?.is_followed == true
+                    _authorFollowState.value = if (detail.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
                     detail.user?.id?.let { loadAuthorFollowState(it) }
                     recordHistory(detail)
                     loadProgress(id)
@@ -212,22 +208,22 @@ class NovelViewModel @Inject constructor(
             runCatching { pixivRepository.api.getNovelSeries(seriesId) }
                 .onSuccess { resp ->
                     _seriesNovels.value = resp.novels.orEmpty()
-                    _isWatchlisted.value = resp.novel_series_detail?.watchlist_added == true
+                    _watchlistState.value =
+                        if (resp.novel_series_detail?.watchlist_added == true) ToggleUiState.ON
+                        else ToggleUiState.OFF
                 }
         }
     }
 
     /**
-     * 收藏 / 取消收藏小说（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。
-     * id 与 [bookmarkEditor] 同源取自当前展示小说（排行右栏内嵌场景路由 novelId=0）；
-     * 成功后编辑器回显当前设置 / 清空回显。
+     * 收藏 / 取消收藏小说（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
+     * 经 FavoriteActions 统一收口，断网自动入队）。id 与 [bookmarkEditor] 同源取自当前展示小说
+     * （排行右栏内嵌场景路由 novelId=0）。
      */
     fun toggleBookmark() {
         val id = _novel.value?.id ?: novelId
-        runOptimisticToggle(
-            _isBookmarking,
-            _isBookmarked.value,
-            { _isBookmarked.value = it },
+        runToggle(
+            _bookmarkState,
             CoreR.string.core_msg_bookmarked,
             CoreR.string.core_msg_unbookmarked,
         ) { favoriteActions.toggleNovelFavorite(id, it) }
@@ -235,26 +231,29 @@ class NovelViewModel @Inject constructor(
 
     /**
      * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 期间复用 [_isBookmarking] 防连点（与一键收藏互斥）。
+     * 期间以 [_isEditorSaving] 防连点（弹层确认按钮禁用同一标志）。
      */
     fun saveBookmarkEditor() {
         runActionNotified(
-            _isBookmarking,
+            _isEditorSaving,
             CoreR.string.core_msg_bookmark_updated,
             {
-                _isBookmarked.value = true
+                _bookmarkState.value = ToggleUiState.ON
                 bookmarkEditor.close()
             },
         ) { bookmarkEditor.save() }
     }
 
-    /** 追更 / 取消追更系列（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
+    /**
+     * 追更 / 取消追更系列（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
+     * 经 FavoriteActions 统一收口，断网自动入队）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: return
-        runOptimisticToggle(
-            _isWatchlisting,
-            _isWatchlisted.value,
-            { _isWatchlisted.value = it },
+        runToggle(
+            _watchlistState,
             CoreR.string.core_msg_watching_added,
             CoreR.string.core_msg_watching_removed,
         ) { favoriteActions.toggleNovelWatchlist(seriesId, it) }
@@ -267,18 +266,18 @@ class NovelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { pixivRepository.api.getUserDetail(userId) }
                 .onSuccess { resp ->
-                    resp.user?.is_followed?.let { _isAuthorFollowed.value = it }
+                    resp.user?.is_followed?.let {
+                        _authorFollowState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
+                    }
                 }
         }
     }
 
-    /** 关注 / 取关作者（详情页作者名旁按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
+    /** 关注 / 取关作者（详情页作者名旁按钮，[ToggleUiState] 状态机防连点；经 FavoriteActions 统一收口）。 */
     fun toggleFollowAuthor() {
         val userId = _novel.value?.user?.id ?: return
-        runOptimisticToggle(
-            _isAuthorFollowing,
-            _isAuthorFollowed.value,
-            { _isAuthorFollowed.value = it },
+        runToggle(
+            _authorFollowState,
             CoreR.string.core_msg_followed_author,
             CoreR.string.core_msg_unfollowed,
         ) { favoriteActions.toggleFollowUser(userId, it) }

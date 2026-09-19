@@ -7,6 +7,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.pixiv.api.model.Illust
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
@@ -82,27 +83,21 @@ class IllustViewModel @Inject constructor(
     private val _error = MutableStateFlow<UiMessage?>(null)
     val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
-    private val _isBookmarked = MutableStateFlow(false)
-    val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
+    /** 收藏状态机（一键收藏按钮；详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移）。 */
+    private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
+    val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    private val _isBookmarking = MutableStateFlow(false)
-    val isBookmarking: StateFlow<Boolean> = _isBookmarking.asStateFlow()
+    /** 收藏编辑器保存进行中（防连点 + 弹层确认按钮禁用；一键收藏走 [_bookmarkState] 独立防连点）。 */
+    private val _isEditorSaving = MutableStateFlow(false)
+    val isEditorSaving: StateFlow<Boolean> = _isEditorSaving.asStateFlow()
 
-    /** 作者是否已关注（作者行关注胶囊；用 user/detail 权威刷新）。 */
-    private val _isAuthorFollowed = MutableStateFlow(false)
-    val isAuthorFollowed: StateFlow<Boolean> = _isAuthorFollowed.asStateFlow()
+    /** 作者关注状态机（作者行关注胶囊；用 user/detail 权威刷新）。 */
+    private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
+    val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
-    /** 作者关注操作进行中（防连点）。 */
-    private val _isAuthorFollowing = MutableStateFlow(false)
-    val isAuthorFollowing: StateFlow<Boolean> = _isAuthorFollowing.asStateFlow()
-
-    /** 所属漫画系列是否已追更（illust.series 非空时经系列详情加载；详情页追更按钮）。 */
-    private val _isSeriesWatchlisted = MutableStateFlow(false)
-    val isSeriesWatchlisted: StateFlow<Boolean> = _isSeriesWatchlisted.asStateFlow()
-
-    /** 系列追更操作进行中（防连点）。 */
-    private val _isSeriesWatchlisting = MutableStateFlow(false)
-    val isSeriesWatchlisting: StateFlow<Boolean> = _isSeriesWatchlisting.asStateFlow()
+    /** 所属漫画系列追更状态机（illust.series 非空时经系列详情加载；详情页追更按钮）。 */
+    private val _seriesWatchlistState = MutableStateFlow(ToggleUiState.OFF)
+    val seriesWatchlistState: StateFlow<ToggleUiState> = _seriesWatchlistState.asStateFlow()
 
     val relatedPaged = PagedState<Illust>()
 
@@ -132,13 +127,12 @@ class IllustViewModel @Inject constructor(
         _ugoiraFrames.value = emptyList()
         _ugoiraProgress.value = null
         _error.value = null
-        _isBookmarked.value = false
-        _isBookmarking.value = false
+        // 三对开关状态机 + 编辑器保存标志整体复位（成对生命周期：一条流清一条）
+        _bookmarkState.value = ToggleUiState.OFF
+        _isEditorSaving.value = false
         bookmarkEditor.onTargetLoaded(false)
-        _isAuthorFollowed.value = false
-        _isAuthorFollowing.value = false
-        _isSeriesWatchlisted.value = false
-        _isSeriesWatchlisting.value = false
+        _authorFollowState.value = ToggleUiState.OFF
+        _seriesWatchlistState.value = ToggleUiState.OFF
         relatedPaged.reset()
         load()
     }
@@ -154,10 +148,10 @@ class IllustViewModel @Inject constructor(
                     if (_illustId.value != requestedId) return@onSuccess
                     val ill = resp.illust ?: return@onSuccess
                     _illust.value = ill
-                    _isBookmarked.value = ill.is_bookmarked == true
+                    _bookmarkState.value = if (ill.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
                     bookmarkEditor.onTargetLoaded(ill.is_bookmarked == true)
                     // 内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
-                    _isAuthorFollowed.value = ill.user?.is_followed == true
+                    _authorFollowState.value = if (ill.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
                     ill.user?.id?.let { loadAuthorFollowState(it) }
                     // 漫画系列作品：拉系列详情回填追更态（详情页追更按钮）
                     ill.series?.id?.takeIf { it > 0L }?.let { loadSeriesWatchlistState(it) }
@@ -202,18 +196,23 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { pixivRepository.api.getUserDetail(userId) }
                 .onSuccess { resp ->
-                    resp.user?.is_followed?.let { _isAuthorFollowed.value = it }
+                    resp.user?.is_followed?.let {
+                        _authorFollowState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
+                    }
                 }
         }
     }
 
-    /** 关注 / 取关作者（作者行胶囊，乐观翻转 + 防连点；经 FavoriteActions 统一收口）。 */
+    /**
+     * 关注 / 取关作者（作者行胶囊，[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，
+     * 失败回滚；经 FavoriteActions 统一收口）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleFollowAuthor() {
         val userId = _illust.value?.user?.id ?: return
-        runOptimisticToggle(
-            _isAuthorFollowing,
-            _isAuthorFollowed.value,
-            { _isAuthorFollowed.value = it },
+        runToggle(
+            _authorFollowState,
             CoreR.string.core_msg_followed_author,
             CoreR.string.core_msg_unfollowed,
         ) { favoriteActions.toggleFollowUser(userId, it) }
@@ -224,18 +223,23 @@ class IllustViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { pixivRepository.api.getIllustSeries(seriesId) }
                 .onSuccess { resp ->
-                    resp.illust_series_detail?.watchlist_added?.let { _isSeriesWatchlisted.value = it }
+                    resp.illust_series_detail?.watchlist_added?.let {
+                        _seriesWatchlistState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
+                    }
                 }
         }
     }
 
-    /** 追更 / 取消追更所属漫画系列（详情页追更按钮，乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
+    /**
+     * 追更 / 取消追更所属漫画系列（详情页追更按钮，[ToggleUiState] 状态机：进行中保留旧文案
+     * 禁用防连点，失败回滚；经 FavoriteActions 统一收口，断网自动入队）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleSeriesWatchlist() {
         val seriesId = _illust.value?.series?.id ?: return
-        runOptimisticToggle(
-            _isSeriesWatchlisting,
-            _isSeriesWatchlisted.value,
-            { _isSeriesWatchlisted.value = it },
+        runToggle(
+            _seriesWatchlistState,
             CoreR.string.core_msg_watching_added,
             CoreR.string.core_msg_watching_removed,
         ) { favoriteActions.toggleMangaWatchlist(seriesId, it) }
@@ -281,38 +285,34 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    fun loadMoreRelated() {
-        viewModelScope.launch { relatedPaged.loadMore() }
-    }
-
     /**
-     * 收藏 / 取消收藏插画（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。
-     * 成功静默（详情页收藏图标即时反馈），仅刷新收藏态与编辑器回显/清空；失败发通知。
+     * 收藏 / 取消收藏插画（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
+     * 经 FavoriteActions 统一收口，断网自动入队）。成功静默（详情页收藏图标即时反馈），
+     * 仅刷新收藏态与编辑器回显/清空；失败发通知。
      */
     fun toggleBookmark() {
-        runOptimisticToggle(
-            _isBookmarking,
-            _isBookmarked.value,
-            { state ->
-                _isBookmarked.value = state
-                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
-                bookmarkEditor.onTargetLoaded(state)
-            },
+        runToggle(
+            _bookmarkState,
             addedRes = null,
             removedRes = null,
-        ) { favoriteActions.toggleIllustFavorite(_illustId.value, it) }
+        ) { target ->
+            favoriteActions.toggleIllustFavorite(_illustId.value, target).onSuccess {
+                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
+                bookmarkEditor.onTargetLoaded(target)
+            }
+        }
     }
 
     /**
      * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 期间复用 [_isBookmarking] 防连点（与一键收藏互斥）。
+     * 期间以 [_isEditorSaving] 防连点（弹层确认按钮禁用同一标志）。
      */
     fun saveBookmarkEditor() {
         runActionNotified(
-            _isBookmarking,
+            _isEditorSaving,
             CoreR.string.core_msg_bookmark_updated,
             {
-                _isBookmarked.value = true
+                _bookmarkState.value = ToggleUiState.ON
                 bookmarkEditor.close()
             },
         ) { bookmarkEditor.save() }

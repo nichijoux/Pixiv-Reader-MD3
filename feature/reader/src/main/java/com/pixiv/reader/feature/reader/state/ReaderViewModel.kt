@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
+import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.common.R as CoreR
@@ -213,15 +214,18 @@ class ReaderViewModel @Inject constructor(
     private val _progressRestored = MutableStateFlow(false)
     val progressRestored: StateFlow<Boolean> = _progressRestored.asStateFlow()
 
-    // ── 服务端状态 ──
-    private val _isMarked = MutableStateFlow(false)
-    val isMarked: StateFlow<Boolean> = _isMarked.asStateFlow()
+    // ── 服务端状态（ToggleUiState 状态机：阅读书签 / 收藏 / 追更） ──
+    /** 阅读书签状态机（服务端 marker 初始化；[toggleMark] 驱动转移）。 */
+    private val _markState = MutableStateFlow(ToggleUiState.OFF)
+    val markState: StateFlow<ToggleUiState> = _markState.asStateFlow()
 
-    private val _isBookmarked = MutableStateFlow(false)
-    val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
+    /** 收藏状态机（详情 is_bookmarked 初始化；[toggleBookmark] 驱动转移）。 */
+    private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
+    val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    private val _isWatchlisted = MutableStateFlow(false)
-    val isWatchlisted: StateFlow<Boolean> = _isWatchlisted.asStateFlow()
+    /** 追更状态机（getNovelSeries 的 watchlist_added 初始化；[toggleWatchlist] 驱动转移）。 */
+    private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
+    val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
 
     private var saveJob: Job? = null
@@ -375,7 +379,7 @@ class ReaderViewModel @Inject constructor(
         return runCatching {
             val marker = pixivRepository.api.getNovelMarkers().marked_novels
                 .firstOrNull { it.novel?.id == novelId }?.novel_marker ?: return 0
-            _isMarked.value = true
+            _markState.value = ToggleUiState.ON
             estimateCharFromOfficialPage(
                 page = marker.page,
                 textLength = document.textLength,
@@ -387,10 +391,13 @@ class ReaderViewModel @Inject constructor(
     private fun loadServerState() {
         viewModelScope.launch {
             try {
-                _isBookmarked.value = _novel.value?.is_bookmarked == true
+                _bookmarkState.value =
+                    if (_novel.value?.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
                 val seriesId = _novel.value?.series?.id ?: return@launch
                 val resp = pixivRepository.api.getNovelSeries(seriesId)
-                _isWatchlisted.value = resp.novel_series_detail?.watchlist_added == true
+                _watchlistState.value =
+                    if (resp.novel_series_detail?.watchlist_added == true) ToggleUiState.ON
+                    else ToggleUiState.OFF
             } catch (e: Exception) {
                 Log.w(TAG, "loadServerState failed", e)
             }
@@ -706,19 +713,17 @@ class ReaderViewModel @Inject constructor(
         _followSystem.persist(value) { userPreferences.setReaderFollowSystem(it) }
     }
 
-    // ── 阅读书签 / 收藏 / 追更 ──
-
-    /** 书签请求进行中（防连点：双击重复提交书签接口）。 */
-    private val _isMarking = MutableStateFlow(false)
+    // ── 阅读书签 / 收藏 / 追更（ToggleUiState 状态机驱动） ──
 
     /**
-     * 添加 / 移除阅读书签（乐观翻转 + 防连点）：添加时按当前阅读位置换算官方页码。
+     * 添加 / 移除阅读书签（[ToggleUiState] 状态机：进行中防连点，失败回滚）：
+     * 添加时按当前阅读位置换算官方页码。
+     *
+     * @return 无返回值（操作完成后结束的协程）
      */
     fun toggleMark() {
-        runOptimisticToggle(
-            _isMarking,
-            _isMarked.value,
-            { _isMarked.value = it },
+        runToggle(
+            _markState,
             R.string.reader_msg_mark_added,
             R.string.reader_msg_mark_removed,
         ) { target ->
@@ -739,34 +744,33 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    /** 收藏请求进行中（防连点：双击重复提交收藏接口）。 */
-    private val _isBookmarking = MutableStateFlow(false)
-
-    /** 收藏 / 取消收藏小说（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
+    /**
+     * 收藏 / 取消收藏小说（[ToggleUiState] 状态机：进行中防连点，失败回滚；
+     * 经 FavoriteActions 统一收口，断网自动入队）。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleBookmark() {
-        runOptimisticToggle(
-            _isBookmarking,
-            _isBookmarked.value,
-            { _isBookmarked.value = it },
+        runToggle(
+            _bookmarkState,
             CoreR.string.core_msg_bookmarked,
             CoreR.string.core_msg_unbookmarked,
         ) { favoriteActions.toggleNovelFavorite(novelId, it) }
     }
 
-    /** 追更请求进行中（防连点：双击重复提交追更接口）。 */
-    private val _isWatchlisting = MutableStateFlow(false)
-    val isWatchlisting: StateFlow<Boolean> = _isWatchlisting.asStateFlow()
-
-    /** 追更 / 取消追更（乐观翻转 + 防连点；经 FavoriteActions 统一收口，断网自动入队）。 */
+    /**
+     * 追更 / 取消追更（[ToggleUiState] 状态机：进行中防连点，失败回滚；
+     * 经 FavoriteActions 统一收口，断网自动入队）。不在系列内时提示并忽略。
+     *
+     * @return 无返回值（操作完成后结束的协程）
+     */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: run {
             trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
             return
         }
-        runOptimisticToggle(
-            _isWatchlisting,
-            _isWatchlisted.value,
-            { _isWatchlisted.value = it },
+        runToggle(
+            _watchlistState,
             R.string.reader_msg_watching_added,
             R.string.reader_msg_watching_removed,
         ) { favoriteActions.toggleNovelWatchlist(seriesId, it) }

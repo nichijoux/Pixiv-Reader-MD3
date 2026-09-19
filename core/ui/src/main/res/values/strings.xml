@@ -1,7 +1,5 @@
 <resources>
     <string name="load_failed">加载失败</string>
-    <!-- Master-Detail 详情 pane 关闭按钮 -->
-    <string name="core_pane_close">关闭详情</string>
     <string name="retry">重试</string>
     <!-- 收藏编辑弹层（BookmarkEditSheet：公开/私密 + 标签） -->
     <string name="bookmark_edit_title">收藏设置</string>

@@ -55,14 +55,6 @@ class BookmarkEditor(
     private val _tagsLoading = MutableStateFlow(false)
     val tagsLoading: StateFlow<Boolean> = _tagsLoading.asStateFlow()
 
-    /** 收藏保存中（防连点）。 */
-    private val _saving = MutableStateFlow(false)
-    val saving: StateFlow<Boolean> = _saving.asStateFlow()
-
-    /** 编辑目标当前是否已收藏（详情加载回填；保存成功置 true）。 */
-    private val _bookmarked = MutableStateFlow(false)
-    val bookmarked: StateFlow<Boolean> = _bookmarked.asStateFlow()
-
     /** 打开编辑弹层；标签目录未拉过时按当前 restrict 拉取。 */
     fun open() {
         _isOpen.value = true
@@ -115,7 +107,6 @@ class BookmarkEditor(
      * @param isBookmarked 目标作品当前收藏态
      */
     fun onTargetLoaded(isBookmarked: Boolean) {
-        _bookmarked.value = isBookmarked
         _savedTags.value = emptyList()
         _restrict.value = PixivConstants.RESTRICT_PUBLIC
         _allTags.value = emptyList()
@@ -151,8 +142,6 @@ class BookmarkEditor(
         }
         // 协程取消向上传播（不误报为保存失败）
         result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
-        // 仅成功后置收藏态（失败交由 VM 提示，弹层保持打开可重试）
-        if (result.isSuccess) _bookmarked.value = true
         return result
     }
 

@@ -21,8 +21,6 @@
 
     <!-- 作品详情 -->
     <string name="comic_work_episodes">章节</string>
-    <string name="comic_work_order_asc">第 1 话在前</string>
-    <string name="comic_work_order_desc">最新话在前</string>
     <string name="comic_work_order_cd">切换排序</string>
     <string name="comic_likes_count">%1$s 赞</string>
     <string name="comic_locked_badge">付费</string>

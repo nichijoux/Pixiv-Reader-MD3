@@ -91,7 +91,6 @@ class UserPreferences @Inject constructor(
     val readerLetterSpacing: Flow<Float> = context.dataStore.data.map { it[KEY_LETTER_SPACING] ?: 0f }
 
     // ── 图片 / 外观 ──
-    val imageQuality: Flow<String> = context.dataStore.data.map { it[KEY_IMAGE_QUALITY] ?: "medium" }
     val dynamicColor: Flow<Boolean> = context.dataStore.data.map { it[KEY_DYNAMIC_COLOR] ?: true }
     /** 应用主题模式：跟随系统 / 浅色 / 深色 */
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.from(it[KEY_THEME_MODE] ?: ThemeMode.FOLLOW_SYSTEM.value) }
@@ -174,7 +173,6 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderParagraphIndent(value: Int) = context.dataStore.edit { it[KEY_PARAGRAPH_INDENT] = value }
     suspend fun setReaderParagraphSpacing(value: Float) = context.dataStore.edit { it[KEY_PARAGRAPH_SPACING] = value }
     suspend fun setReaderLetterSpacing(value: Float) = context.dataStore.edit { it[KEY_LETTER_SPACING] = value }
-    suspend fun setImageQuality(value: String) = context.dataStore.edit { it[KEY_IMAGE_QUALITY] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
     suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
     suspend fun setAppFontScale(value: Float) = context.dataStore.edit { it[KEY_APP_FONT_SCALE] = value }
@@ -237,7 +235,6 @@ class UserPreferences @Inject constructor(
         val KEY_PARAGRAPH_INDENT = intPreferencesKey("reader_paragraph_indent")
         val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
         val KEY_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")
-        val KEY_IMAGE_QUALITY = stringPreferencesKey("image_quality")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")

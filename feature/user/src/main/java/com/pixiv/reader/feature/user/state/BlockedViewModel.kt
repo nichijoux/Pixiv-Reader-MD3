@@ -105,19 +105,6 @@ class BlockedViewModel @Inject constructor(
         }
     }
 
-    /** 清空全部本地屏蔽作品。 */
-    fun clearLocalBlockedWorks() {
-        viewModelScope.launch {
-            runCatching {
-                localBlockedWorks.value.forEach { key ->
-                    val parts = key.split(':')
-                    val id = parts.getOrNull(1)?.toLongOrNull() ?: return@forEach
-                    userPreferences.removeBlockedTarget(parts[0], id)
-                }
-            }
-        }
-    }
-
     /** 取消屏蔽用户（网页接口 saveBlock action=unblock）。 */
     fun unblockUser(muted: MuteUser) {
         val uid = muted.user?.id ?: return

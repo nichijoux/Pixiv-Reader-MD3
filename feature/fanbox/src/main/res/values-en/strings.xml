@@ -6,7 +6,6 @@
     <!-- Home -->
     <string name="fanbox_tab_posts">Posts</string>
     <string name="fanbox_tab_creators">Recommended Creators</string>
-    <string name="fanbox_loading">Loading…</string>
     <string name="fanbox_retry">Tap to retry</string>
     <string name="fanbox_empty_posts">No posts yet</string>
     <string name="fanbox_empty_creators">No recommended creators</string>
@@ -33,7 +32,6 @@
     <string name="fanbox_comments_empty">No comments yet</string>
     <string name="fanbox_file_badge">File</string>
     <string name="fanbox_embed_open">Open embedded content</string>
-    <string name="fanbox_msg_login_done">Signed in, you can go back now</string>
     <string name="fanbox_pane_placeholder">Select a post to view details</string>
 
     <!-- Embedded web -->

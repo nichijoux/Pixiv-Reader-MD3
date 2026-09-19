@@ -89,16 +89,6 @@ class ComicPageLoader @Inject constructor(
         }
 
     /**
-     * 清除某话的还原页缓存（章节退出 / 缓存维护时调用；不调用也由系统回收）。
-     *
-     * @param episodeId 章节 id
-     */
-    fun clearEpisode(episodeId: Long) {
-        cacheRoot.listFiles { f -> f.isDirectory && f.name == episodeId.toString() }
-            ?.forEach { it.deleteRecursively() }
-    }
-
-    /**
      * 下载一页打乱图（带 Referer + 每页 gridshuffle 签名头）。
      *
      * @param page 页数据
