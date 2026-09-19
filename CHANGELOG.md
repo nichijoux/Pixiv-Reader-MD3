@@ -1,15 +1,10 @@
 ### 新增
-- 原生 FANBOX 支持：投稿流 + 推荐创作者双页签、帖子详情异构列表（正文/赞助方案/评论楼中楼）、内置 WebView 登录（走完整 SSO 回调、登录模式零拦截防凭证落浏览器、完成后自动回原生），平板 Master-Detail 详情右栏；post.info 被 CF 封锁改经无屏 WebView 桥（懒建/超时/子资源拦截/空闲释放）获取正文、失败退元数据兜底，401 过期引导重登并在返回时自动重试
-- pixiv COMIC 原生阅读：首页更新/排行双页签、作品详情、沉浸式竖向阅读器（单页重试）、搜索；阅读两步流经 viewer 页提取随机 salt 生成 X-Client-Hash 签名调 read_v4，正文 CDN 图按 XorShift128+ gridshuffle 逐行置换去扰后落盘缓存，WAF 头三件套拦截器绕过 403；免费内容免登录直达，付费章节锁定提示
-- 卡片标签点击按类型跳转搜索：作品标签搜作品、小说标签搜小说，IllustCard 新增紧凑标签行（每标签独立可点，最多 3 个 + N），小说卡标签跨页接线；跨 Tab 搜索与深链通道带类型标记
-- 平板侧栏升级 Expressive WideNavigationRail；底部导航再次点击回顶
+- 小说系列页追更按钮：信息头改「追更 + 下载」双按钮行，追更态由系列详情 watchlist_added 初始化、乐观防连点、失败回滚，全屏路由与平板右栏 pane 共享
 
 ### 优化
-- 新增 core:ranking / core:comment 领域模块，全库约 60 处重复收敛为共享设施（排行榜三胞胎、IllustCard 重复卡、三态视图、toggle 开关等归位）
-- 互斥模式 Boolean 全面枚举化（11 处：CardMaskState / CommentTarget / WatchlistSegment / DownloadStatus / ExportFormat / AiFilter / R18Filter / DownloadBadge / BookmarkPrivacy / FeedPhase 等），消除布尔组合状态机
-- 标签类型 bool 改 TagType 枚举，搜索链路按枚举传递便于扩展
+- 「状态 + 请求进行中」布尔对全面收敛为 ToggleUiState 四态状态机（15 对 / 7 个 ViewModel）：单一流承载状态与防连点，进行中保留旧文案禁用按钮、失败回滚；MessageViewModel 新增 runToggle 骨架（支持按失败种类分文案，如 CSRF 不可用专用提示），UserViewModel 关注/拉黑手写样板收编，删除旧 runOptimisticToggle 骨架
+- 死代码清理：ReadingProgressDao 三个零调用方法、COMIC 页缓存清理与本地屏蔽清空等零调用方法、图片质量设置死链（从未生效）、BookmarkEditor 只写不读状态、仅测试使用的 reflectAcrossSpine 内联进测试
+- 清理 40 组死字符串资源（×3 语言）：旧筛选面板、旧加载失败文案、排行预览副本、被 reader_msg 取代的追更提示等重构孤儿
 
 ### 修复
-- 小说 Tab 再次点击回顶失效（listState 创建后未挂到 LazyColumn，回顶信号滚动的是脱缰状态）
-- 排行右栏收藏 id 与日期时区两处错误
-- 平板端小说 Tab 页签改等宽居中（对齐排行页约定）
+- 收藏编辑器弹层确认按钮保存中不禁用（BookmarkEditor._saving 从未写入恒为 false）——改由 ViewModel 侧真实保存标志驱动
