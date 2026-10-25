@@ -34,6 +34,8 @@
     'hero.meta.local': 'Data stays on device',
     'hero.phone.label': 'Phone',
     'hero.tablet.label': 'Tablet',
+    'hero.chip.split': 'Split view',
+    'hero.chip.m3': 'M3 waterfall',
     'trust.1': 'Open source & auditable (GPL-2.0)',
     'trust.2': 'No ads · No in-app purchases',
     'trust.3': 'Data stays on your device',
@@ -72,12 +74,24 @@
     'ui.desc': 'The UI adapts to window width: bottom navigation on phones, a side rail on tablets, and novels and rankings expanding into a list + detail split view on wide screens.',
     'ui.tab.phone': 'Home',
     'ui.tab.ranking': 'Rankings',
+    'ui.tab.discover': 'Discover',
+    'ui.tab.illust': 'Artwork',
+    'ui.tab.reader': 'Reader',
     'ui.tab.tablet': 'Tablet',
     'ui.slot.hint': 'Screenshot coming soon',
     'ui.slot.file': 'Expected size',
     'ui.an.p1': 'Bottom navigation with 5 tabs: Home / Artworks / Novels / Following / Me',
     'ui.an.p2': 'Cards keep each artwork\'s original aspect ratio — nothing is cropped',
     'ui.an.p3': 'Fullscreen viewer with pinch-to-zoom and frame-by-frame ugoira playback',
+    'ui.an.d1': 'Search illustrations and novels, with one-tap trending tags',
+    'ui.an.d2': 'Browse pixivision editorial specials',
+    'ui.an.d3': 'FANBOX, COMIC and messages hand off to your browser',
+    'ui.an.i1': 'Lossless viewing with pinch and double-tap zoom',
+    'ui.an.i2': 'Related-works rail for more from the series',
+    'ui.an.i3': 'Comments with emoji tags and official stickers',
+    'ui.an.rd1': 'Four reading themes for comfortable, immersive text',
+    'ui.an.rd2': 'Chapter and line progress is remembered — reopen and continue',
+    'ui.an.rd3': 'Jump chapters from the series index; export to PDF or TXT',
     'ui.an.r1': 'Daily / weekly / monthly / rookie / R18 segments swipe independently, each paging on its own',
     'ui.an.r2': 'Gold, orange and grey rank badges mark the top three',
     'ui.an.r3': '≥704dp: rankings expand into a list + detail / comments split view',
@@ -156,6 +170,9 @@
   const SLOT_ALT = {
     'phone-home': { zh: '应用首页截图', en: 'App home screenshot' },
     'phone-ranking': { zh: '漫画排行榜截图', en: 'Manga rankings screenshot' },
+    'phone-discover': { zh: '发现页截图', en: 'Discover screen' },
+    'phone-illust': { zh: '插画详情页截图', en: 'Illustration detail screen' },
+    'phone-reader': { zh: '小说阅读器截图', en: 'Novel reader screen' },
     'tablet-novel': { zh: '平板端小说详情双栏截图', en: 'Novel detail split view on tablet' }
   };
 
@@ -448,34 +465,150 @@
     });
   }
 
-  /** 首页 / 排行榜 / 平板预览切换（原生 tab 语义：role + aria-selected + hidden） */
+  /**
+   * 界面预览 Tab 切换（原生 tab 语义：role + aria-selected + hidden）。
+   * 不硬编码 tab 数量：按 DOM 顺序收集 .ui-tab，每个 tab 通过 aria-controls
+   * 找到对应面板，找不到面板的 tab 自动跳过，便于后续继续加截图。
+   * @returns {void} 无返回值，仅绑定事件
+   */
   function initUiTabs() {
-    const tabs = [$('#tab-phone'), $('#tab-ranking'), $('#tab-tablet')];
-    const panels = [$('#panel-phone'), $('#panel-ranking'), $('#panel-tablet')];
+    // 只保留「tab 与其面板都存在」的配对，避免残缺结构导致切换错位
+    const pairs = $$('.ui-tab').reduce((acc, tab) => {
+      const panelId = tab.getAttribute('aria-controls');
+      const panel = panelId ? document.getElementById(panelId) : null;
+      if (panel) acc.push({ tab, panel });
+      return acc;
+    }, []);
+    if (!pairs.length) return;
+
+    /**
+     * 激活第 i 组 tab/panel：切换选中样式、ARIA 状态与面板可见性。
+     * @param {number} i 目标 tab 在 pairs 中的下标
+     * @returns {void} 无返回值
+     */
     const select = (i) => {
-      tabs.forEach((tab, j) => {
+      pairs.forEach(({ tab, panel }, j) => {
         const on = i === j;
         tab.classList.toggle('is-active', on);
         tab.setAttribute('aria-selected', String(on));
         tab.tabIndex = on ? 0 : -1;
-        panels[j].classList.toggle('is-active', on);
-        panels[j].hidden = !on;
+        panel.classList.toggle('is-active', on);
+        panel.hidden = !on;
       });
       // 面板显示后补一次激活：隐藏容器中的图片可能刚获得加载机会
       activateSlots();
     };
-    tabs.forEach((tab, i) => {
+
+    pairs.forEach(({ tab }, i) => {
       tab.addEventListener('click', () => select(i));
       tab.addEventListener('keydown', (e) => {
         // 左右方向键在 tab 间移动焦点，符合 WAI-ARIA tabs 惯例
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
           e.preventDefault();
-          const next = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+          const next = (i + (e.key === 'ArrowRight' ? 1 : pairs.length - 1)) % pairs.length;
           select(next);
-          tabs[next].focus();
+          pairs[next].tab.focus();
         }
       });
     });
+  }
+
+  /* ── 滚动渐显：进入视口后再淡入上移 ───────────────────── */
+
+  /**
+   * 初始化滚动渐显：给 Bento 卡片补 reveal 类，并用 IntersectionObserver
+   * 在元素进入视口时触发一次入场动画。
+   * 动画结束后会移除 reveal / is-in 与内联延迟，避免长期压制卡片 hover 的
+   * transform；无 JS 时（html 无 .js）样式不隐藏任何内容，页面完整可见。
+   * @returns {void} 无返回值，仅注册观察器
+   */
+  function initReveal() {
+    // 观察器不可用时不加 reveal 类，避免元素被样式隐藏后无人解除
+    if (!('IntersectionObserver' in window)) return;
+
+    // Bento 卡片由脚本统一加类：按列数错开 45ms，形成逐张浮现的层次。
+    // 折叠状态下隐藏的卡片（第 7 张起）不参与渐显：它们不在视口内永远不会
+    // 触发观察回调，若加了 reveal 类，展开后会一直停在透明状态。
+    $$('.bento > .card').forEach((el, i) => {
+      if (el.hidden) return;
+      el.classList.add('reveal');
+      el.style.transitionDelay = `${(i % 4) * 45}ms`;
+    });
+
+    const targets = $$('.reveal');
+    if (!targets.length) return;
+
+    /**
+     * 取元素实际生效的过渡延迟（内联或样式表均可，支持逗号分隔的多值）。
+     * Hero 元素的延迟写在 CSS 里，这里读计算值才能等到动画真正结束。
+     * @param {HTMLElement} el 目标元素
+     * @returns {number} 延迟毫秒数
+     */
+    const delayMs = (el) => {
+      const raw = window.getComputedStyle(el).transitionDelay || '0ms';
+      return raw.split(',').reduce((max, part) => {
+        const str = part.trim();
+        const n = parseFloat(str) || 0;
+        const ms = /ms$/.test(str) ? n : n * 1000;
+        return Math.max(max, ms);
+      }, 0);
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        // 超过一屏高的元素（如超长更新日志）永远到不了 15% 可见比例，
+        // 这类元素一旦进入视口就放行，避免内容一直停在透明状态
+        const tall = entry.rootBounds &&
+          entry.boundingClientRect.height > entry.rootBounds.height;
+        if (entry.intersectionRatio < 0.15 && !tall) return;
+        el.classList.add('is-in');
+        // 入场动画结束后彻底摘掉 reveal 状态，把 transform 交还给 :hover
+        const wait = 700 + delayMs(el);
+        window.setTimeout(() => {
+          el.classList.remove('reveal', 'is-in');
+          el.style.transitionDelay = '';
+        }, wait);
+        observer.unobserve(el);
+      });
+    }, { threshold: [0, 0.15] });
+
+    targets.forEach((el) => observer.observe(el));
+  }
+
+  /* ── 导航滚动高亮（scrollspy） ────────────────────────── */
+
+  /**
+   * 初始化导航滚动高亮：观察各分区，命中的分区对应的导航链接标记为选中。
+   * 观察区间收窄到视口中部（上下各留出比例），避免相邻分区同时命中。
+   * @returns {void} 无返回值，仅注册观察器
+   */
+  function initScrollSpy() {
+    const links = $$('.nav-links a[href^="#"]');
+    if (!links.length || !('IntersectionObserver' in window)) return;
+
+    // 建立「分区 id → 导航链接」映射，href 指向不存在的分区时忽略
+    const map = new Map();
+    links.forEach((a) => {
+      const id = a.getAttribute('href').slice(1);
+      const section = id ? document.getElementById(id) : null;
+      if (section) map.set(section, a);
+    });
+    if (!map.size) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const active = map.get(entry.target);
+        if (!active) return;
+        // 同一时刻只高亮一个分区
+        links.forEach((a) => a.classList.remove('is-active'));
+        active.classList.add('is-active');
+      });
+    }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+
+    map.forEach((_, section) => observer.observe(section));
   }
 
   /* ── 主题：深色 / 亮色 / 跟随系统 ─────────────────────── */
@@ -543,12 +676,16 @@
   initNav();
   initUiTabs();
   initFeatToggle();
-  // URL 参数：?lang=en 直达英文、?tab=ranking|tablet 直达对应预览（便于分享与测试）
+  initReveal();
+  initScrollSpy();
+  // URL 参数：?lang=en 直达英文；?tab= 直达指定预览（便于分享与测试）
   const params = new URLSearchParams(location.search);
   if (params.get('lang') === 'en') setLang('en');
   const uiParam = params.get('tab');
-  if (uiParam === 'ranking' || uiParam === 'phone' || uiParam === 'tablet') {
-    $('#tab-' + uiParam).click();
+  const UI_TABS = ['phone', 'ranking', 'discover', 'illust', 'reader', 'tablet'];
+  if (UI_TABS.includes(uiParam)) {
+    const targetTab = $('#tab-' + uiParam);
+    if (targetTab) targetTab.click();
     // 深链接语义：?tab= 直达界面预览区块
     const screens = document.getElementById('screens');
     if (screens) screens.scrollIntoView({ behavior: 'instant', block: 'start' });

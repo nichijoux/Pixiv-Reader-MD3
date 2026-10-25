@@ -51,6 +51,8 @@
   --skel-dot: rgba(255, 255, 255, 0.22);
   --skel-soft: rgba(255, 255, 255, 0.02);
   --shadow-device: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 80px rgba(0, 150, 250, 0.08);
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --chip-bg: rgba(255, 255, 255, 0.08);   /* 漂浮徽章玻璃底 */
   --glow-a: rgba(0, 150, 250, 0.16);
   --glow-b: rgba(139, 92, 246, 0.10);
   --hero-title-to: #9CCFF5;
@@ -87,6 +89,8 @@
   --skel-dot: rgba(13, 18, 26, 0.26);
   --skel-soft: rgba(13, 18, 26, 0.02);
   --shadow-device: 0 24px 60px rgba(15, 23, 32, 0.16), 0 0 80px rgba(0, 150, 250, 0.06);
+  --shadow-card: 0 12px 32px rgba(15, 23, 32, 0.10);
+  --chip-bg: rgba(255, 255, 255, 0.72);
   --glow-a: rgba(0, 150, 250, 0.10);
   --glow-b: rgba(139, 92, 246, 0.06);
   --hero-title-to: #0069C2;
@@ -146,6 +150,28 @@ button { font-family: inherit; }
 .skip-link:focus { top: 0; text-decoration: none; }
 
 [hidden] { display: none !important; }
+
+/* ── 滚动渐显（reveal）：仅在 JS 可用时启用 ─────────────── */
+/* html.js 由 index.html 首帧内联脚本添加；无 JS 时元素完全可见 */
+html.js .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+html.js .reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hero 入场递进：各元素依次浮现，营造自上而下的阅读节奏。
+   这些元素本身没有过渡属性，延迟只在 .reveal 的过渡期间生效。 */
+html.js .hero-copy > *:nth-child(1) { transition-delay: 0.05s; }
+html.js .hero-copy > *:nth-child(2) { transition-delay: 0.10s; }
+html.js .hero-copy > *:nth-child(3) { transition-delay: 0.15s; }
+html.js .hero-copy > *:nth-child(4) { transition-delay: 0.20s; }
+html.js .hero-copy > *:nth-child(5) { transition-delay: 0.25s; }
+html.js .hero-copy > *:nth-child(6) { transition-delay: 0.30s; }
+html.js .hero-devices { transition-delay: 0.25s; }
 
 /* ── 布局容器 ───────────────────────────────────────────── */
 .container {
@@ -261,11 +287,26 @@ button { font-family: inherit; }
 
 .nav-links { display: flex; gap: 26px; }
 .nav-links a {
+  position: relative;
   color: var(--text-2);
   font-size: 14px;
   transition: color 0.15s ease;
 }
 .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+/* 滚动高亮：命中当前分区时加粗并提亮，左侧补一枚品牌色圆点 */
+.nav-links a.is-active { color: var(--text); font-weight: 600; }
+.nav-links a.is-active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--brand);
+}
 
 .nav-actions { display: flex; align-items: center; gap: 10px; }
 
@@ -426,9 +467,26 @@ button { font-family: inherit; }
 
 /* ── 设备模型（手机 / 平板） ────────────────────────────── */
 .hero-devices {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-end;
+}
+
+/* 双机背后的品牌色环境光：椭圆光斑经 blur 弥散，
+   深 / 浅主题分别用 --glow-a 校准强度，避免亮色下发灰 */
+.hero-devices::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  background: var(--glow-a);
+  filter: blur(48px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .device {
@@ -439,7 +497,7 @@ button { font-family: inherit; }
   box-shadow: var(--shadow-device);
 }
 .device-phone { width: 196px; border-radius: 34px; z-index: 2; }
-/* 平板为横屏（2560×1600），略小并置于手机后侧 */
+/* 平板为横屏（1280×800），略小并置于手机后侧 */
 .device-tablet { width: 360px; border-radius: 20px; z-index: 1; }
 
 /* 平板置于手机后侧并微微倾斜，增加层次 */
@@ -453,8 +511,19 @@ button { font-family: inherit; }
   background: var(--screen-bg);
 }
 .device-phone .device-screen { border-radius: 26px; }
-.device-phone .device-screen { aspect-ratio: 1080 / 2340; }
-.device-tablet .device-screen { border-radius: 14px; aspect-ratio: 2560 / 1600; }
+.device-phone .device-screen { aspect-ratio: 720 / 1600; }
+.device-tablet .device-screen { border-radius: 14px; aspect-ratio: 1280 / 800; }
+
+/* 屏幕玻璃高光：斜向一道极淡白，让设备框不像纯色贴图 */
+.device-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.10), transparent 38%);
+}
 
 /* 真实截图就位后铺满屏幕 */
 .slot-img {
@@ -500,6 +569,41 @@ button { font-family: inherit; }
   font-size: 12px;
   color: var(--text-2);
 }
+
+/* ── Hero 浮动特性徽章 ──────────────────────────────────── */
+/* 玻璃胶囊：半透明底 + 模糊背景 + 品牌色圆点，浮在设备边框外侧 */
+.hero-chip {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--chip-bg);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* 品牌色圆点，与导航高亮圆点呼应 */
+.hero-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+/* 徽章坐标跟随居中的设备组（组宽约 510px，半宽 265px），
+   这样单列布局下不会飘到容器两端 */
+.hero-chip-tablet { top: -14px; left: calc(50% - 265px); }
+/* 手机上方外侧：该处是页面背景，深浅主题下文字对比度都稳定
+   （贴在屏幕右下会压在明亮截图上，深色主题下浅字难以辨认） */
+.hero-chip-phone { top: -14px; right: calc(50% - 265px); }
 
 /* ── 占位示意 UI（ghost）：按真实界面结构排布 ───────────── */
 .ghost {
@@ -671,9 +775,9 @@ button { font-family: inherit; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 24px;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.card:hover { transform: translateY(-3px); border-color: rgba(0, 150, 250, 0.4); }
+.card:hover { transform: translateY(-3px); border-color: rgba(0, 150, 250, 0.4); box-shadow: var(--shadow-card); }
 .card-wide { grid-column: span 2; }
 
 .card-icon {
@@ -684,8 +788,10 @@ button { font-family: inherit; }
   border-radius: 12px;
   background: rgba(0, 150, 250, 0.12);
   color: var(--accent);
+  transition: transform 0.2s ease;
 }
 .card-icon svg { width: 22px; height: 22px; }
+.card:hover .card-icon { transform: translateY(-2px) scale(1.05); }
 
 .card h3 {
   margin: 16px 0 8px;
@@ -708,23 +814,32 @@ button { font-family: inherit; }
 .feat-toggle.is-open .feat-chevron { transform: rotate(180deg); }
 
 /* ── 界面预览 · 多端适配 ────────────────────────────────── */
+/* 6 个 Tab 居中排布；窄屏退化为横向滚动（隐藏滚动条） */
 .ui-tabs {
-  display: inline-flex;
+  display: flex;
+  width: max-content;
+  max-width: 100%;
   gap: 4px;
-  margin-top: 36px;
+  margin: 36px auto 0;
   padding: 4px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.ui-tabs::-webkit-scrollbar { display: none; }
+
 .ui-tab {
-  padding: 8px 22px;
+  min-height: 44px;
+  padding: 10px 20px;
   border: none;
   border-radius: 999px;
   background: transparent;
   color: var(--text-2);
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -737,6 +852,10 @@ button { font-family: inherit; }
 }
 
 .ui-panel { margin-top: 8px; }
+
+/* 面板切换动画：淡入 + 轻微上移；减少动态效果时由全局降级禁用 */
+.ui-panel.is-active { animation: panelIn 0.32s cubic-bezier(0.22, 0.61, 0.36, 1); }
+@keyframes panelIn { from { opacity: 0; transform: translateY(10px); } }
 
 .ui-stage {
   display: grid;
@@ -1057,6 +1176,8 @@ button { font-family: inherit; }
   .section { padding: 64px 0; }
   .hero-back { display: none; }   /* 窄屏只保留前机模型，排行榜在「界面」区块可切换查看 */
   .hero-phone { margin-left: 0; }
+  /* 窄屏没有外侧空间，浮动徽章会压住设备，直接隐藏 */
+  .hero-chip { display: none; }
   .dl-grid { grid-template-columns: 1fr; }
   .dl-card { padding: 20px; }
   .bento { grid-template-columns: 1fr; }

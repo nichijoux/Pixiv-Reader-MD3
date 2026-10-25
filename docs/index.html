@@ -17,6 +17,9 @@
       var dark = pref === 'dark' || (pref === 'system' &&
         window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      /* 标记 JS 可用：滚动渐显（.reveal）只在有 JS 时隐藏元素，
+         保证禁用脚本时内容完整可见（渐进增强）。 */
+      document.documentElement.classList.add('js');
     })();
   </script>
   <meta property="og:type" content="website">
@@ -108,14 +111,14 @@
       <div class="hero-glow" aria-hidden="true"></div>
       <div class="container hero-inner">
         <div class="hero-copy">
-          <p class="chip chip-release">
+          <p class="chip chip-release reveal">
             <span class="chip-dot" aria-hidden="true"></span>
             <span data-release="version">最新版</span><span aria-hidden="true"> · </span><span>Android 8.0+</span><span aria-hidden="true"> · </span><span data-release="size">约 10 MB</span>
           </p>
-          <h1 class="hero-title">PixivReader</h1>
-          <p class="hero-sub" data-i18n-html="hero.subtitle">非官方 Pixiv 安卓客户端<br>Material 3 设计 · 开源免费</p>
-          <p class="hero-desc" data-i18n="hero.desc">插画、漫画、小说一站式阅读：瀑布流浏览、排行榜、离线下载、平板自适应，全部开源实现。</p>
-          <div class="hero-cta">
+          <h1 class="hero-title reveal">PixivReader</h1>
+          <p class="hero-sub reveal" data-i18n-html="hero.subtitle">非官方 Pixiv 安卓客户端<br>Material 3 设计 · 开源免费</p>
+          <p class="hero-desc reveal" data-i18n="hero.desc">插画、漫画、小说一站式阅读：瀑布流浏览、排行榜、离线下载、平板自适应，全部开源实现。</p>
+          <div class="hero-cta reveal">
             <a class="btn btn-primary" href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases/latest" data-release-link="arm64">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -126,7 +129,7 @@
               <span data-i18n="hero.cta.source">查看源码</span>
             </a>
           </div>
-          <ul class="hero-meta" aria-label="Highlights">
+          <ul class="hero-meta reveal" aria-label="Highlights">
             <li data-i18n="hero.meta.license">GPL-2.0 开源</li>
             <li data-i18n="hero.meta.noad">无广告 · 无内购</li>
             <li data-i18n="hero.meta.local">数据仅存本地</li>
@@ -134,9 +137,9 @@
         </div>
 
         <!-- 设备模型：平板 + 手机（截图放入 assets/screens/ 后自动替换占位画面） -->
-        <div class="hero-devices" aria-hidden="false">
+        <div class="hero-devices reveal" aria-hidden="false">
           <div class="device device-tablet hero-back">
-            <div class="device-screen ratio-tablet" data-slot="tablet-novel" data-dim="2560×1600">
+            <div class="device-screen ratio-tablet" data-slot="tablet-novel" data-dim="1280×800">
               <div class="ghost ghost-tablet" aria-hidden="true">
                 <div class="gt-rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
                 <div class="gt-body">
@@ -153,12 +156,12 @@
                   </div>
                 </div>
               </div>
-              <img class="slot-img" src="assets/screens/tablet-novel.png" alt="" width="2560" height="1600" hidden>
+              <img class="slot-img" src="assets/screens/tablet-novel.webp" alt="" width="1280" height="800" fetchpriority="high" decoding="async" hidden>
             </div>
             <span class="device-label" data-i18n="hero.tablet.label">平板</span>
           </div>
           <div class="device device-phone hero-phone">
-            <div class="device-screen ratio-phone" data-slot="phone-home" data-dim="1080×2340">
+            <div class="device-screen ratio-phone" data-slot="phone-home" data-dim="720×1600">
               <div class="ghost ghost-phone" aria-hidden="true">
                 <div class="gt-bar"></div>
                 <div class="gt-masonry">
@@ -167,10 +170,13 @@
                 </div>
                 <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
               </div>
-              <img class="slot-img" src="assets/screens/phone-home.png" alt="" width="1080" height="2340" hidden>
+              <img class="slot-img" src="assets/screens/phone-home.webp" alt="" width="720" height="1600" fetchpriority="high" decoding="async" hidden>
             </div>
             <span class="device-label" data-i18n="hero.phone.label">手机</span>
           </div>
+          <!-- 浮动特性徽章：桌面端在设备边框外侧补两条卖点，窄屏隐藏 -->
+          <span class="hero-chip hero-chip-tablet" aria-hidden="true" data-i18n="hero.chip.split">目录 + 正文 双栏</span>
+          <span class="hero-chip hero-chip-phone" aria-hidden="true" data-i18n="hero.chip.m3">Material 3 瀑布流</span>
         </div>
       </div>
 
@@ -200,9 +206,9 @@
     <!-- ═══════════════ 功能特性（Bento） ═══════════════ -->
     <section class="section" id="features">
       <div class="container">
-        <p class="kicker" data-i18n="feat.kicker">功能特性</p>
-        <h2 class="section-title" data-i18n="feat.title">一个客户端，覆盖阅读全流程</h2>
-        <p class="section-desc" data-i18n="feat.desc">插画 · 漫画 · 小说 · 下载 · 互动，核心能力全部开源实现。</p>
+        <p class="kicker reveal" data-i18n="feat.kicker">功能特性</p>
+        <h2 class="section-title reveal" data-i18n="feat.title">一个客户端，覆盖阅读全流程</h2>
+        <p class="section-desc reveal" data-i18n="feat.desc">插画 · 漫画 · 小说 · 下载 · 互动，核心能力全部开源实现。</p>
 
         <div class="bento">
           <article class="card card-wide">
@@ -281,13 +287,16 @@
     <!-- ═══════════════ 界面预览 · 多端适配 ═══════════════ -->
     <section class="section section-alt" id="screens">
       <div class="container">
-        <p class="kicker" data-i18n="ui.kicker">界面预览</p>
-        <h2 class="section-title" data-i18n="ui.title">手机与平板，同一套 Material 3</h2>
-        <p class="section-desc" data-i18n="ui.desc">界面随窗口宽度自适应：手机用底部导航，平板切换为侧边栏，宽屏下小说与排行榜自动展开「目录 + 详情」双栏。</p>
+        <p class="kicker reveal" data-i18n="ui.kicker">界面预览</p>
+        <h2 class="section-title reveal" data-i18n="ui.title">手机与平板，同一套 Material 3</h2>
+        <p class="section-desc reveal" data-i18n="ui.desc">界面随窗口宽度自适应：手机用底部导航，平板切换为侧边栏，宽屏下小说与排行榜自动展开「目录 + 详情」双栏。</p>
 
-        <div class="ui-tabs" role="tablist" aria-label="Screen">
+        <div class="ui-tabs reveal" role="tablist" aria-label="Screen">
           <button class="ui-tab is-active" id="tab-phone" role="tab" aria-selected="true" aria-controls="panel-phone" type="button" data-i18n="ui.tab.phone">首页</button>
           <button class="ui-tab" id="tab-ranking" role="tab" aria-selected="false" aria-controls="panel-ranking" type="button" data-i18n="ui.tab.ranking">排行榜</button>
+          <button class="ui-tab" id="tab-discover" role="tab" aria-selected="false" aria-controls="panel-discover" type="button" data-i18n="ui.tab.discover">发现</button>
+          <button class="ui-tab" id="tab-illust" role="tab" aria-selected="false" aria-controls="panel-illust" type="button" data-i18n="ui.tab.illust">插画</button>
+          <button class="ui-tab" id="tab-reader" role="tab" aria-selected="false" aria-controls="panel-reader" type="button" data-i18n="ui.tab.reader">阅读器</button>
           <button class="ui-tab" id="tab-tablet" role="tab" aria-selected="false" aria-controls="panel-tablet" type="button" data-i18n="ui.tab.tablet">平板</button>
         </div>
 
@@ -295,7 +304,7 @@
         <div class="ui-panel is-active" id="panel-phone" role="tabpanel" aria-labelledby="tab-phone">
           <div class="ui-stage">
             <div class="device device-phone ui-device">
-              <div class="device-screen ratio-phone" data-slot="phone-home" data-dim="1080×2340">
+              <div class="device-screen ratio-phone" data-slot="phone-home" data-dim="720×1600">
                 <div class="ghost ghost-phone" aria-hidden="true">
                   <div class="gt-bar"></div>
                   <div class="gt-masonry">
@@ -304,8 +313,8 @@
                   </div>
                   <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
                 </div>
-                <img class="slot-img" src="assets/screens/phone-home.png" alt="" width="1080" height="2340" hidden>
-                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-home.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 1080×2340</span></span>
+                <img class="slot-img" src="assets/screens/phone-home.webp" alt="" width="720" height="1600" decoding="async" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-home.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 720×1600</span></span>
               </div>
             </div>
             <ol class="ui-notes">
@@ -320,7 +329,7 @@
         <div class="ui-panel" id="panel-ranking" role="tabpanel" aria-labelledby="tab-ranking" hidden>
           <div class="ui-stage">
             <div class="device device-phone ui-device">
-              <div class="device-screen ratio-phone" data-slot="phone-ranking" data-dim="1080×2340">
+              <div class="device-screen ratio-phone" data-slot="phone-ranking" data-dim="720×1600">
                 <div class="ghost ghost-phone" aria-hidden="true">
                   <div class="gt-bar"></div>
                   <div class="gt-masonry">
@@ -329,8 +338,8 @@
                   </div>
                   <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
                 </div>
-                <img class="slot-img" src="assets/screens/phone-ranking.png" alt="" width="1080" height="2340" hidden>
-                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-ranking.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 1080×2340</span></span>
+                <img class="slot-img" src="assets/screens/phone-ranking.webp" alt="" width="720" height="1600" decoding="async" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-ranking.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 720×1600</span></span>
               </div>
             </div>
             <ol class="ui-notes">
@@ -341,11 +350,86 @@
           </div>
         </div>
 
+        <!-- 发现面板 -->
+        <div class="ui-panel" id="panel-discover" role="tabpanel" aria-labelledby="tab-discover" hidden>
+          <div class="ui-stage">
+            <div class="device device-phone ui-device">
+              <div class="device-screen ratio-phone" data-slot="phone-discover" data-dim="720×1600">
+                <div class="ghost ghost-phone" aria-hidden="true">
+                  <div class="gt-bar"></div>
+                  <div class="gt-masonry">
+                    <div class="gcol"><i class="gt h56 hue1"></i><i class="gt h34 hue3"></i><i class="gt h44 hue5"></i></div>
+                    <div class="gcol"><i class="gt h38 hue2"></i><i class="gt h52 hue4"></i><i class="gt h30 hue6"></i></div>
+                  </div>
+                  <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+                </div>
+                <img class="slot-img" src="assets/screens/phone-discover.webp" alt="" width="720" height="1600" decoding="async" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-discover.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 720×1600</span></span>
+              </div>
+            </div>
+            <ol class="ui-notes">
+              <li><span class="note-num">1</span><span data-i18n="ui.an.d1">插画与小说双类型检索，热门标签一键直达</span></li>
+              <li><span class="note-num">2</span><span data-i18n="ui.an.d2">pixivision 特辑在线浏览</span></li>
+              <li><span class="note-num">3</span><span data-i18n="ui.an.d3">FANBOX / COMIC / 私信一键跳转系统浏览器</span></li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- 插画面板 -->
+        <div class="ui-panel" id="panel-illust" role="tabpanel" aria-labelledby="tab-illust" hidden>
+          <div class="ui-stage">
+            <div class="device device-phone ui-device">
+              <div class="device-screen ratio-phone" data-slot="phone-illust" data-dim="720×1600">
+                <div class="ghost ghost-phone" aria-hidden="true">
+                  <div class="gt-bar"></div>
+                  <div class="gt-masonry">
+                    <div class="gcol"><i class="gt h56 hue1"></i><i class="gt h34 hue3"></i><i class="gt h44 hue5"></i></div>
+                    <div class="gcol"><i class="gt h38 hue2"></i><i class="gt h52 hue4"></i><i class="gt h30 hue6"></i></div>
+                  </div>
+                  <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+                </div>
+                <img class="slot-img" src="assets/screens/phone-illust.webp" alt="" width="720" height="1600" decoding="async" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-illust.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 720×1600</span></span>
+              </div>
+            </div>
+            <ol class="ui-notes">
+              <li><span class="note-num">1</span><span data-i18n="ui.an.i1">大图无损查看，捏合缩放与双击放大</span></li>
+              <li><span class="note-num">2</span><span data-i18n="ui.an.i2">相关作品横向推荐，同系列一键续看</span></li>
+              <li><span class="note-num">3</span><span data-i18n="ui.an.i3">评论支持文字、文字表情与官方贴纸</span></li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- 阅读器面板 -->
+        <div class="ui-panel" id="panel-reader" role="tabpanel" aria-labelledby="tab-reader" hidden>
+          <div class="ui-stage">
+            <div class="device device-phone ui-device">
+              <div class="device-screen ratio-phone" data-slot="phone-reader" data-dim="720×1600">
+                <div class="ghost ghost-phone" aria-hidden="true">
+                  <div class="gt-bar"></div>
+                  <div class="gt-masonry">
+                    <div class="gcol"><i class="gt h56 hue1"></i><i class="gt h34 hue3"></i><i class="gt h44 hue5"></i></div>
+                    <div class="gcol"><i class="gt h38 hue2"></i><i class="gt h52 hue4"></i><i class="gt h30 hue6"></i></div>
+                  </div>
+                  <div class="gt-nav"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+                </div>
+                <img class="slot-img" src="assets/screens/phone-reader.webp" alt="" width="720" height="1600" decoding="async" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/phone-reader.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 720×1600</span></span>
+              </div>
+            </div>
+            <ol class="ui-notes">
+              <li><span class="note-num">1</span><span data-i18n="ui.an.rd1">四套阅读主题，正文排版沉浸舒适</span></li>
+              <li><span class="note-num">2</span><span data-i18n="ui.an.rd2">章节与行级进度自动记忆，重开即续读</span></li>
+              <li><span class="note-num">3</span><span data-i18n="ui.an.rd3">系列目录快切章节，支持导出 PDF / TXT</span></li>
+            </ol>
+          </div>
+        </div>
+
         <!-- 平板面板 -->
         <div class="ui-panel" id="panel-tablet" role="tabpanel" aria-labelledby="tab-tablet" hidden>
           <div class="ui-stage">
             <div class="device device-tablet ui-device">
-              <div class="device-screen ratio-tablet" data-slot="tablet-novel" data-dim="2560×1600">
+              <div class="device-screen ratio-tablet" data-slot="tablet-novel" data-dim="1280×800">
                 <div class="ghost ghost-tablet" aria-hidden="true">
                   <div class="gt-rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
                   <div class="gt-body">
@@ -362,8 +446,8 @@
                     </div>
                   </div>
                 </div>
-                <img class="slot-img" src="assets/screens/tablet-novel.png" alt="" width="2560" height="1600" hidden>
-                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/tablet-novel.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 2560×1600</span></span>
+                <img class="slot-img" src="assets/screens/tablet-novel.webp" alt="" width="1280" height="800" decoding="async" hidden>
+                <span class="slot-hint"><strong data-i18n="ui.slot.hint">截图待补充</strong><code>assets/screens/tablet-novel.png</code><span><span data-i18n="ui.slot.file">期望尺寸</span> 1280×800</span></span>
               </div>
             </div>
             <ol class="ui-notes">
@@ -379,11 +463,11 @@
     <!-- ═══════════════ 下载 ═══════════════ -->
     <section class="section" id="download">
       <div class="container container-narrow">
-        <p class="kicker" data-i18n="dl.kicker">下载</p>
-        <h2 class="section-title" data-i18n="dl.title">获取最新版 APK</h2>
-        <p class="section-desc" data-i18n="dl.desc">安装包按 CPU 架构拆分以减小体积。不确定就选 arm64-v8a，绝大多数手机都是它。</p>
+        <p class="kicker reveal" data-i18n="dl.kicker">下载</p>
+        <h2 class="section-title reveal" data-i18n="dl.title">获取最新版 APK</h2>
+        <p class="section-desc reveal" data-i18n="dl.desc">安装包按 CPU 架构拆分以减小体积。不确定就选 arm64-v8a，绝大多数手机都是它。</p>
 
-        <div class="dl-card">
+        <div class="dl-card reveal">
           <div class="dl-head">
             <div>
               <p class="dl-ver"><span class="dl-ver-label" data-i18n="dl.ver.label">最新版本</span><strong data-release="version">最新版</strong></p>
@@ -430,33 +514,33 @@
     <!-- ═══════════════ 安装方法 ═══════════════ -->
     <section class="section section-alt" id="install">
       <div class="container">
-        <p class="kicker" data-i18n="install.kicker">使用方法</p>
-        <h2 class="section-title" data-i18n="install.title">四步开始使用</h2>
-        <p class="section-desc" data-i18n="install.desc">全程约两分钟，无需任何额外配置。</p>
+        <p class="kicker reveal" data-i18n="install.kicker">使用方法</p>
+        <h2 class="section-title reveal" data-i18n="install.title">四步开始使用</h2>
+        <p class="section-desc reveal" data-i18n="install.desc">全程约两分钟，无需任何额外配置。</p>
 
         <ol class="steps">
-          <li class="step">
+          <li class="step reveal">
             <span class="step-num" aria-hidden="true">1</span>
             <div>
               <h3 data-i18n="install.1.t">下载 APK</h3>
               <p data-i18n="install.1.d">从上方选择对应架构的安装包，或到 GitHub Releases 页面下载。</p>
             </div>
           </li>
-          <li class="step">
+          <li class="step reveal">
             <span class="step-num" aria-hidden="true">2</span>
             <div>
               <h3 data-i18n="install.2.t">允许安装未知应用</h3>
               <p data-i18n="install.2.d">Android 8+ 首次安装会提示，需在系统设置中允许你的浏览器或文件管理器「安装未知应用」，属正常系统提示。</p>
             </div>
           </li>
-          <li class="step">
+          <li class="step reveal">
             <span class="step-num" aria-hidden="true">3</span>
             <div>
               <h3 data-i18n="install.3.t">安装并打开</h3>
               <p data-i18n="install.3.d">点击下载的 APK 完成安装。覆盖安装会保留历史、下载与阅读进度。</p>
             </div>
           </li>
-          <li class="step">
+          <li class="step reveal">
             <span class="step-num" aria-hidden="true">4</span>
             <div>
               <h3 data-i18n="install.4.t">登录 pixiv 账号</h3>
@@ -466,15 +550,15 @@
         </ol>
 
         <div class="notes-grid">
-          <div class="note-card">
+          <div class="note-card reveal">
             <h4 data-i18n="install.note1.t">数据保存在哪？</h4>
             <p data-i18n="install.note1.d">浏览历史、搜索记录、下载与阅读进度全部只存在本机数据库中，卸载应用即清空。</p>
           </div>
-          <div class="note-card">
+          <div class="note-card reveal">
             <h4 data-i18n="install.note2.t">如何更新？</h4>
             <p data-i18n="install.note2.d">应用内「我的 → 检查更新」会读取 GitHub Releases；也可以直接下载新 APK 覆盖安装。</p>
           </div>
-          <div class="note-card">
+          <div class="note-card reveal">
             <h4 data-i18n="install.note3.t">系统要求</h4>
             <p data-i18n="install.note3.d">Android 8.0（API 26）及以上；arm64-v8a 或 armeabi-v7a 设备；需能访问 pixiv 的网络环境。</p>
           </div>
@@ -502,8 +586,8 @@ cd Pixiv-Reader-MD3
     <!-- ═══════════════ 常见问题 ═══════════════ -->
     <section class="section" id="faq">
       <div class="container container-narrow">
-        <p class="kicker" data-i18n="faq.kicker">常见问题</p>
-        <h2 class="section-title" data-i18n="faq.title">你可能想问</h2>
+        <p class="kicker reveal" data-i18n="faq.kicker">常见问题</p>
+        <h2 class="section-title reveal" data-i18n="faq.title">你可能想问</h2>
 
         <div class="faq-list">
           <details class="faq">
@@ -545,9 +629,9 @@ cd Pixiv-Reader-MD3
     <!-- ═══════════════ 更新内容 ═══════════════ -->
     <section class="section section-alt" id="changelog">
       <div class="container container-narrow">
-        <p class="kicker" data-i18n="log.kicker">更新内容</p>
-        <h2 class="section-title"><span data-i18n="log.prefix">v</span><span data-release="version-num">?</span><span data-i18n="log.title"> 更新了什么</span></h2>
-        <div class="log-card" data-release="changelog" aria-live="polite">
+        <p class="kicker reveal" data-i18n="log.kicker">更新内容</p>
+        <h2 class="section-title reveal"><span data-i18n="log.prefix">v</span><span data-release="version-num">?</span><span data-i18n="log.title"> 更新了什么</span></h2>
+        <div class="log-card reveal" data-release="changelog" aria-live="polite">
           <p class="log-loading" data-i18n="log.loading">正在加载更新说明…</p>
         </div>
         <p class="log-more"><a href="https://github.com/nichijoux/Pixiv-Reader-MD3/releases" target="_blank" rel="noopener" data-i18n="log.all">在 GitHub 查看完整更新日志 →</a></p>
