@@ -61,7 +61,7 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 ## Releases
 
-Pushing a `v*` tag (e.g. `v1.2.3`) triggers GitHub Actions to build Release APKs and split them **by ABI** into two slim packages — `arm64-v8a` (ARMv8) and `armeabi-v7a` (other ARM) — which are uploaded to GitHub Releases. Release signing requires repository Secrets: `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` (unsigned APKs are produced if not configured).
+Pushing a `v*` tag (e.g. `v1.2.3`) triggers GitHub Actions to build Release APKs and split them **by ABI** into three slim packages — `arm64-v8a` (ARMv8), `armeabi-v7a` (other ARM) and `x86_64` (emulators/ChromeOS) — which are uploaded to GitHub Releases. Release signing requires repository Secrets: `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` (unsigned APKs are produced if not configured).
 
 ## Attribution
 

@@ -271,6 +271,8 @@ fun NovelRoute(
                         placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
                         onOpenReader = onOpenReader,
                         onOpenUser = onOpenUser,
+                        // 右栏标签点击 → 搜索（与列表卡标签同通道）
+                        onSearchTag = onSearchTag,
                         // 「查看完整系列」：pane 启用 → 压栈当前选中、切换到系列 pane；否则全屏路由
                         onOpenSeries = { id ->
                             if (detailPaneEnabled) {

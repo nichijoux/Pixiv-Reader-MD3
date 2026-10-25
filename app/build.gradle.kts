@@ -54,12 +54,12 @@ android {
             }
         }
     }
-    // 按 ABI 拆分 ARM 瘦身包：arm64-v8a（ARMv8）与 armeabi-v7a（其它 ARM），不产物 x86
+    // 按 ABI 拆分瘦身包：arm64-v8a / armeabi-v7a / x86_64（MMKV 2.x 仅提供 64 位原生库，32 位 x86 不产物）
     splits {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "armeabi-v7a")
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
             isUniversalApk = false
         }
     }

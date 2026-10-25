@@ -48,6 +48,17 @@ import com.pixiv.reader.feature.novel.data.NovelExportQueue
  * 沉浸式封面 banner（仅作背景、无视差）+ 标题 / 作者 / 发布时间 / 统计 / 标签 / 简介（首行缩进 + 展开全文）+
  * 阅读 / 收藏 / 追更 / 下载 / 评论（竖排卡片按钮）+ 系列目录（手机限高滚动 / 平板左栏固定、滚动互不影响）+ 查看完整系列。
  * 评论区走通用页 `comments/novel/{id}`（core:comment）。
+ *
+ * @param novelId 小说 id
+ * @param onBack 返回回调
+ * @param onOpenNovel 打开其它小说详情（系列目录 / 简介链接）
+ * @param onOpenReader 打开阅读器
+ * @param onOpenUser 打开用户主页
+ * @param onOpenSeries 打开完整系列页
+ * @param onOpenComments 打开评论页
+ * @param onSearchTag 标签点击跳搜索（由外层导航接线；默认空实现纯展示）
+ * @param viewModel 小说详情 ViewModel
+ * @return 无返回值（渲染 Composable）
  */
 @Composable
 fun NovelDetailRoute(
@@ -58,6 +69,8 @@ fun NovelDetailRoute(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onOpenComments: (Long) -> Unit,
+    // 标签点击跳搜索（由外层导航接线；默认空实现纯展示）
+    onSearchTag: (String) -> Unit = {},
     viewModel: NovelViewModel = hiltViewModel(),
 ) {
     val novel by viewModel.novel.collectAsStateWithLifecycle()
@@ -187,6 +200,7 @@ fun NovelDetailRoute(
                     onOpenUser = onOpenUser,
                     onOpenSeries = onOpenSeries,
                     onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                    onSearchTag = onSearchTag,
                     modifier = Modifier.padding(padding),
                 )
             }
@@ -217,7 +231,26 @@ fun NovelDetailRoute(
 }
 
 /** 平板 + 手机双布局分发：平板且有系列走双栏（目录固定），否则单列。
- * @param forceSingleColumn 排行右栏复用：强制单列（右栏宽度不足再分目录/内容双栏），默认 false 保持原行为 */
+ *
+ * @param detail 小说详情数据
+ * @param seriesNovels 系列内分册列表（平板双栏左目录 / 手机限高目录）
+ * @param progress 阅读进度
+ * @param isAuthorFollowed 当前是否已关注作者
+ * @param isAuthorFollowing 关注操作进行中
+ * @param downloading 下载中
+ * @param downloadProgress 下载进度文案（null 无进度）
+ * @param onBack 返回回调
+ * @param onOpenNovel 打开其它小说详情
+ * @param onOpenReader 打开阅读器
+ * @param onOpenUser 打开用户主页
+ * @param onOpenSeries 打开完整系列页
+ * @param onToggleFollowAuthor 关注 / 取关回调
+ * @param onSearchTag 标签点击跳搜索
+ * @param modifier 外部修饰
+ * @param forceSingleColumn 排行右栏复用：强制单列（右栏宽度不足再分目录/内容双栏），默认 false 保持原行为
+ * @param showBackButton 是否显示悬浮返回按钮（全屏路由页显示；右栏 pane 隐藏）
+ * @return 无返回值（渲染 Composable）
+ */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun NovelDetailContent(
@@ -234,6 +267,7 @@ internal fun NovelDetailContent(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleFollowAuthor: () -> Unit,
+    onSearchTag: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     forceSingleColumn: Boolean = false,
     // 是否显示悬浮返回按钮：全屏路由页显示；右栏 pane 隐藏（关闭由返回手势 / 外层入口承担）
@@ -265,6 +299,7 @@ internal fun NovelDetailContent(
                                 onToggleFollowAuthor = onToggleFollowAuthor,
                                 // 简介内 pixiv://novels 链接 → 系列内/详情切换
                                 onOpenNovel = onOpenNovel,
+                                onSearchTag = onSearchTag,
                             )
                             NovelActions(
                                 downloading = downloading,
@@ -314,13 +349,34 @@ internal fun NovelDetailContent(
             onOpenUser = onOpenUser,
             onOpenSeries = onOpenSeries,
             onToggleFollowAuthor = onToggleFollowAuthor,
+            onSearchTag = onSearchTag,
             showBackButton = showBackButton,
             modifier = modifier,
         )
     }
 }
 
-/** 手机单列详情：banner 随滚 + 标题信息 + 操作 + 系列目录（限高内部滚动）。 */
+/**
+ * 手机单列详情：banner 随滚 + 标题信息 + 操作 + 系列目录（限高内部滚动）。
+ *
+ * @param detail 小说详情数据
+ * @param seriesNovels 系列内分册列表
+ * @param progress 阅读进度
+ * @param isAuthorFollowed 当前是否已关注作者
+ * @param isAuthorFollowing 关注操作进行中
+ * @param downloading 下载中
+ * @param downloadProgress 下载进度文案（null 无进度）
+ * @param onBack 返回回调
+ * @param onOpenNovel 打开其它小说详情
+ * @param onOpenReader 打开阅读器
+ * @param onOpenUser 打开用户主页
+ * @param onOpenSeries 打开完整系列页
+ * @param onToggleFollowAuthor 关注 / 取关回调
+ * @param onSearchTag 标签点击跳搜索
+ * @param modifier 外部修饰
+ * @param showBackButton 是否显示悬浮返回按钮
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
 private fun PhoneNovelDetail(
     detail: Novel,
@@ -336,6 +392,7 @@ private fun PhoneNovelDetail(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onToggleFollowAuthor: () -> Unit,
+    onSearchTag: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true,
 ) {
@@ -359,6 +416,7 @@ private fun PhoneNovelDetail(
                             onToggleFollowAuthor = onToggleFollowAuthor,
                             // 简介内 pixiv://novels 链接 → 系列内/详情切换
                             onOpenNovel = onOpenNovel,
+                            onSearchTag = onSearchTag,
                         )
                         NovelActions(
                             downloading = downloading,

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.em
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.common.format.formatCountForNovel
+import com.pixiv.reader.core.ui.component.card.TagChip
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -48,7 +49,20 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
-/** 标题信息卡：标题 / 作者（关注按钮）/ 发布时间 / 统计（均分撑满整行）/ 标签 / 简介（首行缩进 + 展开全文）。 */
+/**
+ * 标题信息卡：标题 / 作者（关注按钮）/ 发布时间 / 统计（均分撑满整行）/ 标签 / 简介（首行缩进 + 展开全文）。
+ *
+ * @param novel 小说数据（标题 / 作者 / 统计 / 标签 / 简介来源）
+ * @param onOpenUser 作者点击回调（打开用户主页）
+ * @param expandableIntro 简介是否可展开（手机 true，平板 false）
+ * @param isAuthorFollowed 当前是否已关注作者
+ * @param isAuthorFollowing 关注操作进行中（按钮禁用）
+ * @param onToggleFollowAuthor 关注 / 取关回调
+ * @param onOpenNovel 简介内 pixiv://novels 链接回调（不接线时链接仅显示样式）
+ * @param onOpenIllust 简介内 pixiv://illusts 链接回调
+ * @param onSearchTag 标签点击跳搜索（默认空实现纯展示）
+ * @return 无返回值（渲染 Composable）
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NovelHeader(
@@ -61,6 +75,8 @@ internal fun NovelHeader(
     // 简介富文本链接回调（pixiv://novels / illusts；不接线时链接仅显示样式）
     onOpenNovel: (Long) -> Unit = {},
     onOpenIllust: (Long) -> Unit = {},
+    // 标签点击跳搜索（不接线时标签纯展示）
+    onSearchTag: (String) -> Unit = {},
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
         // 标题：titleLarge 派生 + 22sp Bold
@@ -157,7 +173,7 @@ internal fun NovelHeader(
                 modifier = Modifier.weight(1f),
             )
         }
-        // 标签胶囊
+        // 标签胶囊：统一 chip 样式，可点击跳搜索
         val tags = novel.tags.orEmpty().take(8)
         if (tags.isNotEmpty()) {
             FlowRow(
@@ -166,15 +182,13 @@ internal fun NovelHeader(
                 verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 tags.forEach { tag ->
-                    Text(
-                        text = "#${tag.displayName ?: tag.name.orEmpty()}",
-                        style = novelSmallLabelStyle(),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clip(AppShapes.pill)
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(horizontal = Spacing.smPlus, vertical = Spacing.xs),
-                    )
+                    val tagName = tag.displayName ?: tag.name.orEmpty()
+                    if (tagName.isNotBlank()) {
+                        TagChip(
+                            text = "#$tagName",
+                            onClick = { onSearchTag(tagName) },
+                        )
+                    }
                 }
             }
         }

@@ -77,6 +77,7 @@ import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
+import com.pixiv.reader.core.ui.component.card.TagChip
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
@@ -505,15 +506,10 @@ fun IllustInfoSection(
                 tags.forEach { tag ->
                     val tagName = tag.displayName ?: tag.name.orEmpty()
                     if (tagName.isNotBlank()) {
-                        Text(
+                        // 统一胶囊 chip（与小说详情一致）；点击跳搜索该标签
+                        TagChip(
                             text = "#$tagName",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clip(AppShapes.card)
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
-                                .clickable { onSearchTag(tagName) }
-                                .padding(horizontal = Spacing.smPlus, vertical = Spacing.xs),
+                            onClick = { onSearchTag(tagName) },
                         )
                     }
                 }

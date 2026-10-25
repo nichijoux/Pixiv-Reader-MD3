@@ -349,6 +349,10 @@ fun PixivNavGraph(
                     // 封面/头像全屏大图（系列 pane 封面点击）
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
+                onExitSearchSession = {
+                    // 栈底时 safeBack 静默忽略，避免误退 app
+                    navController.safeBack()
+                },
                 initialSearch = initialSearch,
                 initialSearchTagType = initialTagType,
             )
@@ -377,8 +381,8 @@ fun PixivNavGraph(
                     navController.navigate("comments/illust/$id")
                 },
                 onSearchTag = { tag ->
-                    // 标签搜索：切到发现页并搜索（裸 navigate 压栈新 main，区别于排行页的清栈复用通道）
-                    navController.navigate("main?search=${Uri.encode(tag)}")
+                    // 标签搜索：与排行页共用通道（压栈搜索会话，返回回到本详情页）
+                    navController.navigateTagSearch(tag)
                 },
             )
         }
@@ -437,6 +441,10 @@ fun PixivNavGraph(
                 onOpenComments = { id ->
                     // 评论独立页（通用）：novel 类型
                     navController.navigate("comments/novel/$id")
+                },
+                onSearchTag = { tag ->
+                    // 小说标签 → 发现页搜小说（返回回到本详情页）
+                    navController.navigateTagSearch(tag, TagType.NOVEL)
                 },
             )
         }
@@ -559,6 +567,8 @@ fun PixivNavGraph(
                         onOpenUser = { target ->
                             navController.navigate("user/$target")
                         },
+                        // 小说标签 → 发现页搜小说
+                        onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
                     )
                 },
                 // 平板 pane：系列卡点击 → 注入 feature:novel 的小说系列 pane
@@ -1044,8 +1054,10 @@ private fun NavHostController.safeBack() {
 }
 
 /**
- * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词重建 main 壳，
- * 清栈到旧 main（inclusive）+ launchSingleTop，避免旧 main 残留在栈底。
+ * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词压栈新 main 搜索会话。
+ * 不清栈——popUpTo(main){inclusive} 会把来源页（排行榜/用户页等全屏路由）一并弹掉，
+ * 返回链断裂后只能落在重建 main 的首页 Tab（历史 bug）。现压栈于来源页之上，
+ * 搜索会话内返回即回到来源页；launchSingleTop 防栈顶恰为 main 时重复叠实例。
  *
  * @param tag 搜索标签词（内部 Uri 编码）
  * @param tagType 标签内容类型（NOVEL → 深链带 sn=1，发现页预选小说分类）
@@ -1054,7 +1066,6 @@ private fun NavHostController.safeBack() {
 private fun NavHostController.navigateTagSearch(tag: String, tagType: TagType = TagType.ILLUST) {
     val sn = if (tagType == TagType.NOVEL) "&sn=1" else ""
     navigate("main?search=${Uri.encode(tag)}$sn") {
-        popUpTo(ROUTE_MAIN) { inclusive = true }
         launchSingleTop = true
     }
 }

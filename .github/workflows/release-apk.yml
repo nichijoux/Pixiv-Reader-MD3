@@ -64,7 +64,7 @@ jobs:
           EOF
           fi
 
-      # 构建 Release APK（按 ABI 拆分为 arm64-v8a / armeabi-v7a 两个瘦身包；未配签名则未签名）
+      # 构建 Release APK（按 ABI 拆分为 arm64-v8a / armeabi-v7a / x86_64 三个瘦身包；未配签名则未签名）
       - name: Build release APK
         shell: bash
         run: |
@@ -73,7 +73,7 @@ jobs:
             -PversionName="${{ steps.version.outputs.versionName }}" \
             -PversionCode="${{ steps.version.outputs.versionCode }}"
 
-      # 收集拆分的 ARM APK 并重命名（arm64-v8a / armeabi-v7a 两个瘦身包）
+      # 收集拆分的 APK 并重命名（arm64-v8a / armeabi-v7a / x86_64 三个瘦身包）
       - name: Collect APK artifacts
         shell: bash
         run: |
@@ -85,13 +85,14 @@ jobs:
             case "$BASENAME" in
               *arm64-v8a*)   ABI="arm64-v8a" ;;
               *armeabi-v7a*) ABI="armeabi-v7a" ;;
-              *) echo "跳过非 ARM ABI APK：$BASENAME" >&2; continue ;;
+              *x86_64*)      ABI="x86_64" ;;
+              *) echo "跳过非目标 ABI APK：$BASENAME" >&2; continue ;;
             esac
             cp "$APK" "PixivReader-${{ steps.version.outputs.versionName }}-$ABI.apk"
             COUNT=$((COUNT+1))
           done
           if [ "$COUNT" -eq 0 ]; then
-            echo "未找到 arm64-v8a / armeabi-v7a 拆分 APK，请检查 splits 配置" >&2
+            echo "未找到 arm64-v8a / armeabi-v7a / x86_64 拆分 APK，请检查 splits 配置" >&2
             exit 1
           fi
 

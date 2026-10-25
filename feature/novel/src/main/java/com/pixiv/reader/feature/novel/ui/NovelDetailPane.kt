@@ -37,8 +37,10 @@ import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
  * @param onOpenReader 打开阅读器（全屏路由）
  * @param onOpenUser 点击作者打开用户主页（全屏路由）
  * @param onOpenSeries 打开系列页（全屏路由）
+ * @param onSearchTag 标签点击跳搜索（宿主接线；默认空实现纯展示）
  * @param commentVm 评论 ViewModel（调用方注入；进入评论区时按当前小说 switchTo）
  * @param viewModel 小说详情 ViewModel（调用方注入）
+ * @return 无返回值（UI 渲染）
  */
 @Composable
 fun NovelDetailPane(
@@ -47,6 +49,8 @@ fun NovelDetailPane(
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
+    // 标签点击跳搜索（宿主接线；不接线时标签纯展示）
+    onSearchTag: (String) -> Unit = {},
     commentVm: CommentListViewModel,
     viewModel: NovelViewModel,
 ) {
@@ -122,6 +126,7 @@ fun NovelDetailPane(
                             onOpenUser = onOpenUser,
                             onOpenSeries = onOpenSeries,
                             onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                            onSearchTag = onSearchTag,
                             modifier = Modifier.weight(1f),
                             forceSingleColumn = true,
                             showBackButton = false,

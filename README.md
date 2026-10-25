@@ -61,7 +61,7 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 ## 发布
 
-推 `v*` 版本 tag（如 `v1.2.3`）时 GitHub Actions 自动构建 Release APK，并按 **ABI 拆分**为 `arm64-v8a`（ARMv8）与 `armeabi-v7a`（其它 ARM）两个瘦身包，上传到 GitHub Releases。Release 签名需在仓库 Secrets 配置 `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`（未配置则产出未签名 APK）。
+推 `v*` 版本 tag（如 `v1.2.3`）时 GitHub Actions 自动构建 Release APK，并按 **ABI 拆分**为 `arm64-v8a`（ARMv8）、`armeabi-v7a`（其它 ARM）与 `x86_64`（模拟器/ChromeOS）三个瘦身包，上传到 GitHub Releases。Release 签名需在仓库 Secrets 配置 `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`（未配置则产出未签名 APK）。
 
 ## 致谢 / Attribution
 

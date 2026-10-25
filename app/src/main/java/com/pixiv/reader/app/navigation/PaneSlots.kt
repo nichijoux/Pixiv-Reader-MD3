@@ -27,6 +27,7 @@ import com.pixiv.reader.feature.novel.ui.NovelSeriesPane
  * @param onOpenSeries 「查看完整系列」回调（宿主分流：pane 内切换系列 pane / 全屏）
  * @param onOpenReader 开始阅读回调（全屏路由）
  * @param onOpenUser 点击作者打开用户主页回调（全屏路由）
+ * @param onSearchTag 标签搜索回调（宿主跳发现页）
  * @return 无返回值（UI 渲染）
  */
 @Composable
@@ -37,6 +38,7 @@ internal fun NovelDetailPaneSlot(
     onOpenSeries: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onSearchTag: (String) -> Unit,
 ) {
     NovelDetailPane(
         selectedId = selectedId,
@@ -47,6 +49,7 @@ internal fun NovelDetailPaneSlot(
         onOpenUser = onOpenUser,
         // 「查看完整系列」由宿主分流（pane 内切换系列 pane / 全屏）
         onOpenSeries = onOpenSeries,
+        onSearchTag = onSearchTag,
         commentVm = commentVm,
         viewModel = novelVm,
     )

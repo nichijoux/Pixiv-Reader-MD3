@@ -363,10 +363,11 @@ fun NovelCard(
                     verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 ) {
                     novel.tags.take(5).forEach { tag ->
-                        NovelTagChip(text = "#$tag", onClick = { onTagClick(tag) })
+                        TagChip(text = "#$tag", onClick = { onTagClick(tag) }, compact = true)
                     }
                     if (novel.tags.size > 5) {
-                        NovelTagChip(text = "+${novel.tags.size - 5}", onClick = {})
+                        // "+N" 折叠：纯展示不可点
+                        TagChip(text = "+${novel.tags.size - 5}", onClick = null, compact = true)
                     }
                 }
             }
@@ -381,26 +382,6 @@ fun NovelCard(
             }
         }
     }
-}
-
-/** 标签圆角 chip（点击触发搜索）。 */
-@Composable
-private fun NovelTagChip(
-    text: String,
-    onClick: () -> Unit,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSecondaryContainer,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .clip(AppShapes.small)
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .clickable(onClick = onClick)
-            .padding(horizontal = Spacing.sm, vertical = 3.dp),
-    )
 }
 
 /** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */

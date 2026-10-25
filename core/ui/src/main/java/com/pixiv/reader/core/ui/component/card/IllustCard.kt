@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,10 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,7 +96,7 @@ import kotlin.math.roundToInt
  */
 // scope 实际用到了（maxWidth 作为 ugoira 解码上限），IDE 误报"scope 未使用"
 @SuppressLint("UnusedBoxWithConstraintsScope")
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun IllustCard(
     illust: Illust,
@@ -335,35 +333,23 @@ fun IllustCard(
                     )
                 }
             }
-            // 标签行（紧凑文本式，最多 3 个 + "+N"）：仅调用方提供 [onTagClick] 时展示，
-            // 每个标签独立可点 → 跳发现页搜索该标签（作品类型）
+            // 标签胶囊（与小说卡同款紧凑 chip，最多 3 个 + "+N" 折叠）：仅调用方提供
+            // [onTagClick] 时展示，每个标签独立可点 → 跳发现页搜索该标签（作品类型）
             val tagNames = illust.tags.orEmpty().mapNotNull { it.name }.filter { it.isNotBlank() }
             if (onTagClick != null && tagNames.isNotEmpty()) {
-                val click = onTagClick
-                val annotated = buildAnnotatedString {
-                    tagNames.take(3).forEachIndexed { i, tag ->
-                        if (i > 0) append("  ")
-                        val start = length
-                        append("#$tag")
-                        addLink(
-                            LinkAnnotation.Clickable(
-                                tag,
-                                TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary)),
-                                linkInteractionListener = { click(tag) },
-                            ),
-                            start,
-                            length,
-                        )
-                    }
-                    if (tagNames.size > 3) append("  +${tagNames.size - 3}")
-                }
-                Text(
-                    text = annotated,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                FlowRow(
                     modifier = Modifier.padding(top = Spacing.xs),
-                )
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+                ) {
+                    tagNames.take(3).forEach { tag ->
+                        TagChip(text = "#$tag", onClick = { onTagClick(tag) }, compact = true)
+                    }
+                    if (tagNames.size > 3) {
+                        // "+N" 折叠：纯展示不可点
+                        TagChip(text = "+${tagNames.size - 3}", onClick = null, compact = true)
+                    }
+                }
             }
         }
         }

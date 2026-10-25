@@ -1,5 +1,6 @@
 package com.pixiv.reader.app.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
@@ -71,6 +72,7 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
  * 内层 Tab 的跨 Tab 搜索：各 Tab 标签点击 → pendingSearch 缓存（[SearchLaunch]）→
  * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialTagType 消费（一次性）。
  * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道（默认搜作品）。
+ * 该深链进入的搜索会话实例在发现页按返回时经 [onExitSearchSession] 直接离开（回到来源页）。
  *
  * @param onLogout 退出登录（外层清栈回登录页）
  * @param onOpenIllust 打开作品详情（由外层导航处理，底部导航自动隐藏）
@@ -95,6 +97,7 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
  * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
  * @param onOpenReader 打开小说阅读器（小说 pane「开始阅读」入口）
  * @param onOpenCover 打开封面/头像全屏大图（系列 pane 封面点击）
+ * @param onExitSearchSession 搜索会话返回（经 main?search 深链进入时发现页按返回，离开本 main 实例回到来源页）
  * @param initialSearch 初始搜索词（顶层路由 `main?search=` 单次消费；null 无搜索）
  */
 @Composable
@@ -131,6 +134,8 @@ fun MainShell(
     onOpenReader: (Long) -> Unit,
     /** 打开封面/头像全屏大图（系列 pane 封面点击） */
     onOpenCover: (String) -> Unit,
+    /** 搜索会话返回：经 main?search 深链进入的实例在发现页按返回时直接离开本实例（回到来源页），由外层导航提供 */
+    onExitSearchSession: () -> Unit,
     initialSearch: String? = null,
     // 初始搜索词的标签类型（排行榜等深链通道；与 initialSearch 配套，null=不限）
     initialSearchTagType: TagType? = null,
@@ -182,6 +187,13 @@ fun MainShell(
             pendingSearch = SearchLaunch(initialSearch, tagType = initialSearchTagType ?: TagType.ILLUST)
             navigateToTab("discover_tab")
         }
+    }
+
+    // 搜索会话返回：仅 main?search 深链进入的实例生效——发现页按返回直接离开本 main 实例
+    // （回到来源页），而非先落回本实例的 home_tab 再按一次。Tab 内 launchTagSearch 进入
+    // 发现页不受影响（initialSearch 为 null，保持原有 hero 过渡返回行为）。
+    BackHandler(enabled = initialSearch != null && currentRoute == "discover_tab") {
+        onExitSearchSession()
     }
 
     // hero 过渡：首页搜索框 → 发现页搜索栏共享元素（sharedBounds container transform）。
@@ -247,6 +259,8 @@ fun MainShell(
                                 onOpenSeries = onOpenSeries,
                                 onOpenReader = onOpenReader,
                                 onOpenUser = onOpenUser,
+                                // 关注页小说详情标签 → 搜小说（内层通道，与同页系列槽一致）
+                                onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
                             )
                         },
                         // 平板 pane：系列卡（小说卡系列标题）点击 → 注入 feature:novel 的小说系列 pane

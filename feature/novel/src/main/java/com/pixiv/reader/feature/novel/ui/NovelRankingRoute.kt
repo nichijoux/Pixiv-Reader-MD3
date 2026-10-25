@@ -234,6 +234,8 @@ fun NovelRankingRoute(
                         onOpenReader = onOpenReader,
                         onOpenUser = onOpenUser,
                         onOpenSeries = onOpenSeries,
+                        // 右栏标签点击 → 搜索（与列表卡标签同通道）
+                        onSearchTag = onSearchTag,
                         commentVm = commentVm,
                         viewModel = detailVm,
                     )
