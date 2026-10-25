@@ -1,10 +1,17 @@
 ### 新增
-- 小说系列页追更按钮：信息头改「追更 + 下载」双按钮行，追更态由系列详情 watchlist_added 初始化、乐观防连点、失败回滚，全屏路由与平板右栏 pane 共享
+- 小说详情标签点击搜索：小说卡/作品卡/详情页标签区统一收敛为 TagChip 组件，点击标签按类型直达对应搜索（onSearchTag 全链穿线，返回可回到原详情）；顺带修复 +N 折叠 chip 空白区域可点击的问题
+- APK 新增 x86_64 ABI 架构支持
 
 ### 优化
-- 「状态 + 请求进行中」布尔对全面收敛为 ToggleUiState 四态状态机（15 对 / 7 个 ViewModel）：单一流承载状态与防连点，进行中保留旧文案禁用按钮、失败回滚；MessageViewModel 新增 runToggle 骨架（支持按失败种类分文案，如 CSRF 不可用专用提示），UserViewModel 关注/拉黑手写样板收编，删除旧 runOptimisticToggle 骨架
-- 死代码清理：ReadingProgressDao 三个零调用方法、COMIC 页缓存清理与本地屏蔽清空等零调用方法、图片质量设置死链（从未生效）、BookmarkEditor 只写不读状态、仅测试使用的 reflectAcrossSpine 内联进测试
-- 清理 40 组死字符串资源（×3 语言）：旧筛选面板、旧加载失败文案、排行预览副本、被 reader_msg 取代的追更提示等重构孤儿
+- Compose 重组性能优化：新增 compose_stability.conf 稳定性配置并在 21 个模块统一接入；Room DAO 新增 DownloadStatusRow/ReadLaterTargetRow 轻量投影，下载完成通知器/导出复位/稍后再看订阅避开 payloadJson 大列；历史/稍后再看/下载列表 payloadJson 反序列化结果记忆 + 共享 Gson 实例；RankingList 过滤结果 filterKey 缓存 + 列表稳定 key；新组件 SegmentedButtonLabel 单行缩字标签（阅读器设置/我的页分段接入）
+- main?search 深链内层起点直达发现页，修复返回时先落回首页的问题
 
 ### 修复
-- 收藏编辑器弹层确认按钮保存中不禁用（BookmarkEditor._saving 从未写入恒为 false）——改由 ViewModel 侧真实保存标志驱动
+- 标签搜索深链首屏空白：search 挂起等待 DataStore 筛选恢复完成（filtersRestored 信号，消除非会员降级写回被恢复值覆盖导致的渲染分支/数据落点脱节），结果页 pager 补 initialPage 跟随当前类型（小说标签深链直落小说栏，消除首组合类型翻转与重复搜索）
+- 热门预览搜索在途先显示骨架屏：新增 popularIllustsLoading/popularNovelsLoading 在途标记，无数据且请求中先渲染骨架，消除先闪「暂无热门作品」再出结果的观感
+- 请求签名时间格式线程安全：SimpleDateFormat 改 DateTimeFormatter，UTC 偏移 +09:00 与参考实现一致
+- 首页/小说推荐流下拉刷新指示器提前消失
+- 评论路由页死代码触底加载
+- 系列缓存并发竞态（LAZY 注册 + 条件移除）
+- 误启破坏性迁移回退
+- 查看器标题不随数据更新
