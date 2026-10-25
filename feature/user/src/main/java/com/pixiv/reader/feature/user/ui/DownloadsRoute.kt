@@ -82,6 +82,9 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import java.io.File
 
+/** 下载快照反序列化共享实例（Gson 线程安全；避免每个列表项组合各建一个实例）。 */
+private val PAYLOAD_GSON = Gson()
+
 /**
  * 下载管理：分段控件（作品 / 小说）+ HorizontalPager 滑动切换。
  * 作品（插画/漫画/动图）用 `IllustCard`（宽高完整显示）、小说用 `NovelCard`；每项右上角删除按钮。
@@ -269,7 +272,7 @@ private fun NovelDownloadList(
                 Box {
                     val card = restoreNovelCardData(
                         entry.payloadJson,
-                        Gson(),
+                        PAYLOAD_GSON,
                         entry.targetId,
                         entry.title ?: context.getString(R.string.untitled),
                         entry.coverUrl,

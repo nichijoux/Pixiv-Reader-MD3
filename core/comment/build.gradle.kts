@@ -16,6 +16,11 @@ android {
     buildFeatures { compose = true }
 }
 
+// Compose 编译器稳定性配置：读取根目录 compose_stability.conf，把 Gson 解析模型与共享 UI 模型声明为 stable
+composeCompiler {
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose_stability.conf"))
+}
+
 dependencies {
     // 评论竖切依赖 UI 基建（三态/通知/主题/图片）与网络层（分页/消息管线/仓库）
     api(project(":core:ui"))

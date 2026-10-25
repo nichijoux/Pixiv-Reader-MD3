@@ -48,6 +48,7 @@ DESIGN.md
 dist/
 .zcode/
 .v2c/
+out/
 
 # 发布页本地预览截图（临时产物）
 .preview/

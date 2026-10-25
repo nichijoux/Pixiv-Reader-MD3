@@ -85,6 +85,9 @@ private const val CENTERED_TAB_MAX = 4
  * @param emptyText 空态文案（调用方传入本地化文案）
  * @param filter 条目过滤谓词（null = 不过滤）。命中项保留其在原始榜单中的**真实名次**（过滤只隐藏
  *               不匹配项，不重排）；过滤后本页无匹配但榜单还有下一页时自动续载，直到出现匹配或耗尽
+ * @param filterKey 过滤结果的缓存键（配合 [filter] 的 `remember` 使用）：[filter] 的过滤行为
+ *                  发生变化时调用方**必须**传入不同的值（如过滤开关的 Boolean / 枚举 / 常量字符串），
+ *                  否则会沿用旧过滤结果；[filter] 为 null 或行为固定时可保持默认 null
  * @param filteredEmptyText 过滤后无任何命中且榜单耗尽时的空态文案（null 时回落 [emptyText]）
  * @param skeleton 加载骨架占位（调用方应传入与 itemContent 布局一致的骨架；默认空占位，需调用方指定，
  *                 如漫画/插画榜 `RankingIllustSkeleton`、小说榜 `NovelFeedSkeleton`）
@@ -110,6 +113,7 @@ fun <T> RankingList(
     modifier: Modifier = Modifier,
     emptyText: String,
     filter: ((T) -> Boolean)? = null,
+    filterKey: Any? = null,
     filteredEmptyText: String? = null,
     skeleton: @Composable () -> Unit = {},
     gridMinColumnWidth: Dp? = null,
@@ -226,6 +230,7 @@ fun <T> RankingList(
                                 onLoadMore = onLoadMore,
                                 emptyText = emptyText,
                                 filter = filter,
+                                filterKey = filterKey,
                                 filteredEmptyText = filteredEmptyText,
                                 gridMinColumnWidth = gridMinColumnWidth,
                                 itemContent = itemContent,
@@ -260,6 +265,7 @@ private fun <T> RankingPage(
     onLoadMore: (String) -> Unit,
     emptyText: String,
     filter: ((T) -> Boolean)?,
+    filterKey: Any?,
     filteredEmptyText: String?,
     gridMinColumnWidth: Dp?,
     itemContent: @Composable (T, Int) -> Unit,
@@ -276,8 +282,11 @@ private fun <T> RankingPage(
         FeedPhase.CONTENT -> {
             // 保留真实排名：rank 取该项在原始 items 中的位置 + 1（即榜单真实名次）。
             // 过滤只隐藏不匹配项，不改变其余项排名——封面左上角显示的是其在榜单中的真实名次。
-            val visibleIndexed = items.withIndex().filter { (_, item) ->
-                filter == null || filter(item)
+            // 过滤结果随 (items, filterKey) 记忆：避免每次重组全量重算（filter 谓词本身不稳定）
+            val visibleIndexed = remember(items, filterKey) {
+                items.withIndex().filter { (_, item) ->
+                    filter == null || filter(item)
+                }.toList()
             }
             if (visibleIndexed.isNotEmpty()) {
                 // 网格模式（gridMinColumnWidth 非 null，漫画/插画榜）：瀑布流自适应分列 2-3 列
@@ -290,7 +299,8 @@ private fun <T> RankingPage(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                         verticalItemSpacing = Spacing.sm,
                     ) {
-                        itemsIndexed(visibleIndexed) { _, (index, item) ->
+                        // key 用原始榜单索引：过滤只隐藏不改序、分页只追加，列表内稳定唯一
+                        itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
                             itemContent(item, index + 1)
                         }
                         if (hasMore) {
@@ -308,7 +318,8 @@ private fun <T> RankingPage(
                         modifier = modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
                     ) {
-                        itemsIndexed(visibleIndexed) { _, (index, item) ->
+                        // key 用原始榜单索引：过滤只隐藏不改序、分页只追加，列表内稳定唯一
+                        itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
                             itemContent(item, index + 1)
                         }
                         if (hasMore) {

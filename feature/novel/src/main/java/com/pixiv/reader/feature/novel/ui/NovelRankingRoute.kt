@@ -112,6 +112,8 @@ fun NovelRankingRoute(
             modifier = listModifier,
             emptyText = stringResource(R.string.novel_ranking_empty),
             filter = { novel -> novel.matchesLanguageFilter(languageFilter) },
+            // 过滤谓词闭包随筛选值变化：以枚举本身作为过滤结果缓存键
+            filterKey = languageFilter,
             filteredEmptyText = stringResource(R.string.novel_ranking_filter_empty),
             skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
             stateKey = currentDate.orEmpty(),

@@ -192,6 +192,20 @@ private fun ReadLaterNovelList(
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
 ) {
+    // payloadJson 解析一次并随 entries 记忆（与插画分支同范式）：避免每次重组全量 Gson 反序列化；
+    // 条目与还原结果成对保存，列表 key 仍用条目自身 id
+    val cards = remember(entries, context, gson) {
+        entries.map { entry ->
+            entry to restoreNovelCardData(
+                entry.payloadJson,
+                gson,
+                entry.targetId,
+                entry.title ?: context.getString(R.string.untitled),
+                entry.coverUrl,
+                requireValidId = true,
+            )
+        }
+    }
     if (entries.isEmpty()) {
         ReadLaterEmpty(
             icon = Icons.AutoMirrored.Filled.MenuBook,
@@ -205,16 +219,7 @@ private fun ReadLaterNovelList(
         contentPadding = PaddingValues(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
-        items(entries, key = { it.id }) { entry ->
-            // 快照 id 为 0 视为整体无效（requireValidId 守卫），回退条目最小数据
-            val card = restoreNovelCardData(
-                entry.payloadJson,
-                gson,
-                entry.targetId,
-                entry.title ?: context.getString(R.string.untitled),
-                entry.coverUrl,
-                requireValidId = true,
-            )
+        items(cards, key = { it.first.id }) { (entry, card) ->
             NovelCard(
                 novel = card,
                 onClick = { onOpenNovel(entry.targetId) },

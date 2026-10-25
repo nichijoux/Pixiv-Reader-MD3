@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.ui.component.input.SegmentedButtonLabel
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -247,6 +248,7 @@ internal fun MeItemGroup(items: List<SettingsCardItem>) {
 
 /**
  * 宽控件行：标题行（[MeRow]）+ 全宽单选分段选择（Expressive，选项均分占满）。
+ * 标签用 [SegmentedButtonLabel] 单行缩字，防止长文案换行把分段撑高错位。
  *
  * @param T 选项值类型（枚举等）
  * @param icon 标题行前置图标
@@ -276,7 +278,7 @@ internal fun <T> MeSegmentedRow(
                 onClick = { onSelect(value) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 modifier = Modifier.weight(1f),
-                label = { Text(stringResource(labelRes)) },
+                label = { SegmentedButtonLabel(stringResource(labelRes)) },
             )
         }
     }

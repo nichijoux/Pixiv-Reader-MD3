@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
+import com.pixiv.reader.core.ui.component.input.SegmentedButtonLabel
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -477,6 +478,7 @@ private fun roundStep(value: Float, step: Float): Float =
 /**
  * 通用分段选择行：SingleChoiceSegmentedButtonRow + SegmentedButton 惯式收敛
  * （字体 / 主题 / 翻页模式 / 双页显示 / 简繁转换五处共用）。
+ * 标签用 [SegmentedButtonLabel] 单行缩字，防止长文案换行把分段撑高错位。
  *
  * @param T 选项类型
  * @param options 选项列表（顺序 = 分段顺序）
@@ -504,7 +506,7 @@ private fun <T> SettingSegmentedRow(
                     index = index,
                     count = options.size
                 ),
-            ) { Text(label(option)) }
+            ) { SegmentedButtonLabel(label(option)) }
         }
     }
 }

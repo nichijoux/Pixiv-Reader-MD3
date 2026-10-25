@@ -63,6 +63,7 @@ import com.pixiv.reader.feature.discover.state.PeriodRankingViewModel
  *
  * @param title 顶栏标题
  * @param filter 客户端过滤谓词（true 保留）
+ * @param filterKey 过滤结果缓存键（榜单页过滤行为固定时传页面常量，如 "ai"/"wallpaper"/"era"）
  * @param filteredEmptyText 过滤后为空时的空态文案
  * @param eraChips 是否显示年代快捷 chips（年代榜专用：点击跳到该年代末的历史榜）
  * @param viewModel 共用排行 ViewModel（AI 榜用 day_ai 段、壁纸/年代榜用日/周/月段，
@@ -78,6 +79,7 @@ import com.pixiv.reader.feature.discover.state.PeriodRankingViewModel
 private fun FilteredRankingScreen(
     title: String,
     filter: (Illust) -> Boolean,
+    filterKey: String,
     filteredEmptyText: String,
     eraChips: Boolean,
     viewModel: FilteredRankingViewModel,
@@ -152,6 +154,7 @@ private fun FilteredRankingScreen(
                             onLoadMore = viewModel::loadMore,
                             emptyText = filteredEmptyText,
                             filter = filter,
+                            filterKey = filterKey,
                             filteredEmptyText = filteredEmptyText,
                             skeleton = { RankingIllustSkeleton(gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH) },
                             gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH,
@@ -202,6 +205,7 @@ private fun FilteredRankingScreen(
                 modifier = Modifier.padding(padding),
                 emptyText = filteredEmptyText,
                 filter = filter,
+                filterKey = filterKey,
                 filteredEmptyText = filteredEmptyText,
                 skeleton = { RankingIllustSkeleton(gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH) },
                 gridMinColumnWidth = RANKING_GRID_MIN_COLUMN_WIDTH,
@@ -297,6 +301,8 @@ fun AiRankingRoute(
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_ai_title),
         filter = { true },
+        // 服务端已按 day_ai 过滤，客户端谓词行为固定 → 常量键即可缓存过滤结果
+        filterKey = "ai",
         filteredEmptyText = stringResource(R.string.ranking_ai_empty),
         eraChips = false,
         viewModel = viewModel,
@@ -321,6 +327,8 @@ fun WallpaperRankingRoute(
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_wallpaper_title),
         filter = { it.width > it.height && it.width >= 1920 },
+        // 壁纸判定条件固定 → 常量键即可缓存过滤结果
+        filterKey = "wallpaper",
         filteredEmptyText = stringResource(R.string.ranking_wallpaper_empty),
         eraChips = false,
         viewModel = viewModel,
@@ -345,6 +353,8 @@ fun EraRankingRoute(
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_era_title),
         filter = { true },
+        // 年代榜不过滤（历史日期只换 data 维度）→ 常量键即可缓存过滤结果
+        filterKey = "era",
         filteredEmptyText = stringResource(R.string.ranking_era_empty),
         eraChips = true,
         viewModel = viewModel,

@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,8 +70,9 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
  *
  * 内层 Tab 的跨 Tab 搜索：各 Tab 标签点击 → pendingSearch 缓存（[SearchLaunch]）→
  * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialTagType 消费（一次性）。
- * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道（默认搜作品）。
- * 该深链进入的搜索会话实例在发现页按返回时经 [onExitSearchSession] 直接离开（回到来源页）。
+ * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道（默认搜作品），且内层起点
+ * 直达发现页（单条目栈）。该深链进入的搜索会话实例在发现页按返回时经 [onExitSearchSession]
+ * 直接离开（回到来源页）。
  *
  * @param onLogout 退出登录（外层清栈回登录页）
  * @param onOpenIllust 打开作品详情（由外层导航处理，底部导航自动隐藏）
@@ -144,8 +144,16 @@ fun MainShell(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val tabs = rememberTabs()
-    // 待搜索载荷（关键词 + 类型）：Tab 标签点击 / main?search 深链一次性消费
-    var pendingSearch by remember { mutableStateOf<SearchLaunch?>(null) }
+    // 待搜索载荷（关键词 + 类型）：Tab 标签点击 / main?search 深链一次性消费。
+    // 深链进入时必须以 initialSearch 同步构造初值（discover_tab 首次组合即读取，
+    // 不能延后到 LaunchedEffect，否则 initialQuery 丢失）
+    var pendingSearch by remember {
+        mutableStateOf(
+            initialSearch?.takeIf { it.isNotBlank() }?.let {
+                SearchLaunch(it, tagType = initialSearchTagType ?: TagType.ILLUST)
+            }
+        )
+    }
 
     // 再次点击当前 Tab → 对应页面滚回顶部：每个 Tab 一个计数作为 key 下传，
     // 页面侧比较 key 变化才滚动（首次组合只记录不触发，避免带旧值进入页面误滚）
@@ -181,17 +189,10 @@ fun MainShell(
         navigateToTab("discover_tab")
     }
 
-    // 顶层路由带 search 参数进入：切到发现页并搜索（排行榜深链携带类型标记）
-    LaunchedEffect(initialSearch) {
-        if (!initialSearch.isNullOrBlank()) {
-            pendingSearch = SearchLaunch(initialSearch, tagType = initialSearchTagType ?: TagType.ILLUST)
-            navigateToTab("discover_tab")
-        }
-    }
-
-    // 搜索会话返回：仅 main?search 深链进入的实例生效——发现页按返回直接离开本 main 实例
-    // （回到来源页），而非先落回本实例的 home_tab 再按一次。Tab 内 launchTagSearch 进入
-    // 发现页不受影响（initialSearch 为 null，保持原有 hero 过渡返回行为）。
+    // 搜索会话返回：仅 main?search 深链进入的实例生效——该实例内层起点即 discover_tab（单条目
+    // 栈，内层 NavHost 返回回调恒 disabled），发现页按返回由此直接离开本 main 实例回到来源页，
+    // 不会先落回 home_tab。Tab 内 launchTagSearch 进入发现页不受影响（initialSearch 为 null，
+    // 内层栈 [home_tab, discover_tab] 正常 pop 回首页，保持原有 hero 过渡返回行为）。
     BackHandler(enabled = initialSearch != null && currentRoute == "discover_tab") {
         onExitSearchSession()
     }
@@ -209,7 +210,9 @@ fun MainShell(
         ) { padding ->
             NavHost(
                 navController = navController,
-                startDestination = "home_tab",
+                // main?search 深链（搜索会话）起点直达发现页：内层单条目栈，返回直接离开本实例；
+                // 普通进入起点为首页 Tab
+                startDestination = if (initialSearch?.isNotBlank() == true) "discover_tab" else "home_tab",
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),

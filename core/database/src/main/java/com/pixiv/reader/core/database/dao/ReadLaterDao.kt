@@ -8,6 +8,18 @@ import androidx.room.Query
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * 稍后再看目标键投影（供只关心「某目标是否已在稍后再看」的订阅方使用，
+ * 避开 `payloadJson` 大列）。
+ *
+ * @property targetType 目标类型（illust / novel）
+ * @property targetId 目标 ID
+ */
+data class ReadLaterTargetRow(
+    val targetType: String,
+    val targetId: Long,
+)
+
 /** 稍后再看 DAO：Flow 观察 + 先删后插去重 + 单条删除/清空（形态对齐 [BrowseHistoryDao]）。 */
 @Dao
 interface ReadLaterDao {
@@ -15,6 +27,10 @@ interface ReadLaterDao {
     /** 观察全量稍后再看（按加入时间倒序）。 */
     @Query("SELECT * FROM read_later ORDER BY addedAt DESC")
     fun observeAll(): Flow<List<ReadLaterEntity>>
+
+    /** 观察全量稍后再看的目标键投影（无大列；卡片集合态判重用）。 */
+    @Query("SELECT targetType, targetId FROM read_later")
+    fun observeAllTargets(): Flow<List<ReadLaterTargetRow>>
 
     /** 观察某类型（illust / novel）稍后再看（稍后再看页类型筛选用）。 */
     @Query("SELECT * FROM read_later WHERE targetType = :type ORDER BY addedAt DESC")

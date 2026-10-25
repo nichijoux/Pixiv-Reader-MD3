@@ -257,11 +257,12 @@ class NovelSeriesViewModel @Inject constructor(
     }
 
     /** 观察导出结束：等 done/failed 终态后复位导出中状态（待同步/下载中不复位，反映排队与进行中）。
-     * 完成/失败通知由全局 DownloadCompletionNotifier 统一负责（离开页面也能收到）。 */
+     * 完成/失败通知由全局 DownloadCompletionNotifier 统一负责（离开页面也能收到）。
+     * 订阅走状态列定向查询（不取完整实体，避开进度写库时的大列反序列化）。 */
     private fun observeExportStateReset(id: Long) {
         viewModelScope.launch {
-            downloadEntryDao.observeAll().first { entries ->
-                entries.any { it.targetId == id && it.targetType == "novel" && (it.status == DownloadEntryEntity.STATUS_DONE || it.status == DownloadEntryEntity.STATUS_FAILED) }
+            downloadEntryDao.observeStatuses("novel", id).first { statuses ->
+                statuses.any { it == DownloadEntryEntity.STATUS_DONE || it == DownloadEntryEntity.STATUS_FAILED }
             }
             _downloading.value = false
             _downloadProgress.value = null

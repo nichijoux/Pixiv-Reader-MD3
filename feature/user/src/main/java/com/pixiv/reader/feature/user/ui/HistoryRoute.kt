@@ -46,6 +46,9 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
+/** 历史快照反序列化共享实例（Gson 线程安全；避免每个列表项组合各建一个实例）。 */
+private val PAYLOAD_GSON = Gson()
+
 /**
  * 阅读历史：TabRow（作品/小说/用户）+ HorizontalPager 滑动切换。
  * 三类内容各自使用通用组件：作品 `IllustCard`（瀑布流，含收藏；插画/漫画/动图共用）/ 小说 `NovelCard`（payloadJson 完整信息）/ 用户 `CreatorProfileCard`。
@@ -153,7 +156,10 @@ private fun IllustHistoryList(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
 ) {
-    val illusts = entries.map { restoreIllust(it.payloadJson, it.targetId, it.title, it.coverUrl) }
+    // payloadJson 解析一次并随 entries 记忆：无 remember 时父级任何重组都会触发全量解析
+    val illusts = remember(entries) {
+        entries.map { restoreIllust(it.payloadJson, it.targetId, it.title, it.coverUrl) }
+    }
     if (illusts.isEmpty()) {
         EmptyBox(stringResource(R.string.history_empty_illust))
         return
@@ -192,7 +198,7 @@ private fun NovelHistoryList(
         items(entries, key = { it.id }) { entry ->
             val card = restoreNovelCardData(
                 entry.payloadJson,
-                Gson(),
+                PAYLOAD_GSON,
                 entry.targetId,
                 entry.title ?: context.getString(R.string.untitled),
                 entry.coverUrl,

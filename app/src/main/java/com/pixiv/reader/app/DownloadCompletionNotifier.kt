@@ -3,6 +3,7 @@ package com.pixiv.reader.app
 import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.database.dao.DownloadEntryDao
+import com.pixiv.reader.core.database.dao.DownloadStatusRow
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +24,9 @@ import kotlinx.coroutines.flow.scan
  *
  * 语义：仅**状态迁移**发生时通知（`prev[key]` 存在且非终态 → 变为 done/failed）；
  * 首次订阅快照中已完成的条目不通知（避免每次冷启动重复提示历史下载）。
+ *
+ * 性能：订阅走 [DownloadEntryDao.observeAllStatuses] 轻量投影（不含 `payloadJson` 等大列），
+ * 下载 Worker 每 1% 进度写库时只反序列化少量列。
  */
 @Singleton
 class DownloadCompletionNotifier @Inject constructor(
@@ -32,11 +36,11 @@ class DownloadCompletionNotifier @Inject constructor(
     private val _events = MutableSharedFlow<UiMessage>(extraBufferCapacity = 16)
     val events: SharedFlow<UiMessage> = _events.asSharedFlow()
 
-    /** 订阅下载索引变化；collect 本流以驱动状态扫描（事件经 [events] 发出）。 */
-    fun observe(): Flow<Unit> = downloadEntryDao.observeAll()
-        .scan(emptyMap<Key, String>()) { prev, entries ->
-            val current = entries.associate { Key(it) to it.status }
-            entries.forEach { e ->
+    /** 订阅下载索引状态投影变化；collect 本流以驱动状态扫描（事件经 [events] 发出）。 */
+    fun observe(): Flow<Unit> = downloadEntryDao.observeAllStatuses()
+        .scan(emptyMap<Key, String>()) { prev, rows ->
+            val current = rows.associate { Key(it) to it.status }
+            rows.forEach { e ->
                 val key = Key(e)
                 val before = prev[key]
                 // 仅在"非终态 → 终态"迁移时通知；未在上一快照中的条目不通知（历史完成/新增中）
@@ -65,6 +69,6 @@ class DownloadCompletionNotifier @Inject constructor(
         .map { }
 
     private data class Key(val targetType: String, val targetId: Long, val format: String) {
-        constructor(e: DownloadEntryEntity) : this(e.targetType, e.targetId, e.format)
+        constructor(e: DownloadStatusRow) : this(e.targetType, e.targetId, e.format)
     }
 }

@@ -43,9 +43,9 @@ class AppCardActions @Inject constructor(
      */
     fun start(scope: CoroutineScope) {
         appScope = scope
-        // Room 稍后再看 → StateFlow（"illust:1" 形式键）
+        // Room 稍后再看 → StateFlow（"illust:1" 形式键）；只订阅目标键投影，避开 payloadJson 大列
         scope.launch {
-            readLaterDao.observeAll().collect { list ->
+            readLaterDao.observeAllTargets().collect { list ->
                 _readLaterIds.value = list.map { "${it.targetType}:${it.targetId}" }.toSet()
             }
         }
