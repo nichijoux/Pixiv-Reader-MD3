@@ -67,18 +67,18 @@
     'feat.12.t': 'Tiny footprint',
     'feat.12.d': 'R8-minified release builds, roughly 10 MB per ABI.',
     'ui.kicker': 'Screenshots',
-    'ui.title': 'Phone and tablet, one Material 3 app',
-    'ui.desc': 'The UI adapts to window width: bottom navigation on phones, a side rail on tablets, and a list + detail split view for rankings on wide screens.',
-    'ui.tab.phone': 'Phone',
-    'ui.tab.tablet': 'Tablet',
+    'ui.title': 'Illustrations, manga and novels in one Material 3 app',
+    'ui.desc': 'Waterfall browsing with original aspect ratios, swipeable ranking segments, and a list + detail split view once the window is wide enough.',
+    'ui.tab.phone': 'Home',
+    'ui.tab.ranking': 'Rankings',
     'ui.slot.hint': 'Screenshot coming soon',
     'ui.slot.file': 'Expected size',
     'ui.an.p1': 'Bottom navigation with 5 tabs: Home / Artworks / Novels / Following / Me',
     'ui.an.p2': 'Cards keep each artwork\'s original aspect ratio — nothing is cropped',
     'ui.an.p3': 'Fullscreen viewer with pinch-to-zoom and frame-by-frame ugoira playback',
-    'ui.an.t1': '≥600dp: an 84dp NavigationRail replaces the bottom bar',
-    'ui.an.t2': '≥704dp: rankings expand into a list + detail / comments split view',
-    'ui.an.t3': 'Content is capped at 760dp and centered — never stretched on large screens',
+    'ui.an.r1': 'Daily / weekly / monthly / rookie / R18 segments swipe independently, each paging on its own',
+    'ui.an.r2': 'Gold, orange and grey rank badges mark the top three',
+    'ui.an.r3': '≥704dp: rankings expand into a list + detail / comments split view',
     'dl.kicker': 'Download',
     'dl.title': 'Get the latest APK',
     'dl.desc': 'APKs are split by CPU architecture to keep them small. If unsure, pick arm64-v8a — nearly every phone uses it.',
@@ -150,7 +150,7 @@
   /* 截图替换后的替代文本（按占位槽区分） */
   const SLOT_ALT = {
     'phone-home': { zh: '应用首页截图', en: 'App home screenshot' },
-    'tablet-ranking': { zh: '平板端排行榜截图', en: 'Rankings on tablet screenshot' }
+    'phone-ranking': { zh: '漫画排行榜截图', en: 'Manga rankings screenshot' }
   };
 
   let lang = 'zh';
@@ -385,7 +385,6 @@
       // 加载失败（图片尚未放入）保持占位画面不动
     });
   }
-
   /** 按当前语言更新截图替代文本 */
   function applySlotAlt() {
     $$('.device-screen[data-slot]').forEach((screen) => {
@@ -443,10 +442,10 @@
     });
   }
 
-  /** 手机 / 平板预览切换（原生 tab 语义：role + aria-selected + hidden） */
+  /** 首页 / 排行榜预览切换（原生 tab 语义：role + aria-selected + hidden） */
   function initUiTabs() {
-    const tabs = [$('#tab-phone'), $('#tab-tablet')];
-    const panels = [$('#panel-phone'), $('#panel-tablet')];
+    const tabs = [$('#tab-phone'), $('#tab-ranking')];
+    const panels = [$('#panel-phone'), $('#panel-ranking')];
     const select = (i) => {
       tabs.forEach((tab, j) => {
         const on = i === j;
@@ -456,6 +455,8 @@
         panels[j].classList.toggle('is-active', on);
         panels[j].hidden = !on;
       });
+      // 面板显示后补一次激活：隐藏容器中的图片可能刚获得加载机会
+      activateSlots();
     };
     tabs.forEach((tab, i) => {
       tab.addEventListener('click', () => select(i));
@@ -536,11 +537,11 @@
   initNav();
   initUiTabs();
   initFeatToggle();
-  // URL 参数：?lang=en 直达英文、?tab=tablet 直达平板预览（便于分享与测试）
+  // URL 参数：?lang=en 直达英文、?tab=ranking 直达排行榜预览（便于分享与测试）
   const params = new URLSearchParams(location.search);
   if (params.get('lang') === 'en') setLang('en');
   const uiParam = params.get('tab');
-  if (uiParam === 'tablet' || uiParam === 'phone') {
+  if (uiParam === 'ranking' || uiParam === 'phone') {
     $('#tab-' + uiParam).click();
     // 深链接语义：?tab= 直达界面预览区块
     const screens = document.getElementById('screens');

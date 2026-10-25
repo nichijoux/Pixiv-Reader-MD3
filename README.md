@@ -10,6 +10,16 @@
 
 > ⚠️ 本项目为**非官方**第三方客户端，与 Pixiv Inc. 无关。所有插画、漫画、小说作品版权归原作者或 Pixiv 所有。使用本应用产生的账号风险（如 Pixiv 对第三方客户端的风控、OAuth 登录限制等）由使用者自行承担，请遵守 Pixiv 服务条款。
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/assets/screens/phone-home.png" width="180" alt="首页推荐流">
+  <img src="docs/assets/screens/phone-ranking.png" width="180" alt="漫画排行榜">
+  <img src="docs/assets/screens/phone-discover.png" width="180" alt="发现页">
+  <img src="docs/assets/screens/phone-illust.png" width="180" alt="插画详情页">
+  <img src="docs/assets/screens/phone-reader.png" width="180" alt="小说阅读器">
+</p>
+
 ## 功能
 
 - **插画 / 漫画**：瀑布流浏览、作品详情、大图缩放、ugoira 动态插画播放与导出（**MP4 视频 / ZIP 帧包**）、排行榜（日 / 周 / 月 / 男性向 / 女性向 / 新人 / R-18 滑动切段 + 触底分页）。

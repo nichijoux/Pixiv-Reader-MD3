@@ -10,6 +10,16 @@
 
 > ⚠️ This is an **unofficial** third-party client, not affiliated with Pixiv Inc. All illustrations, manga and novel works remain copyrighted by their respective creators or Pixiv. Use at your own risk regarding account security (e.g. Pixiv rate-limit/risk-control on third-party clients, OAuth login restrictions). Please comply with Pixiv's Terms of Service.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/assets/screens/phone-home.png" width="180" alt="Home feed">
+  <img src="docs/assets/screens/phone-ranking.png" width="180" alt="Manga rankings">
+  <img src="docs/assets/screens/phone-discover.png" width="180" alt="Discover page">
+  <img src="docs/assets/screens/phone-illust.png" width="180" alt="Illustration detail">
+  <img src="docs/assets/screens/phone-reader.png" width="180" alt="Novel reader">
+</p>
+
 ## Features
 
 - **Illustrations / Manga**: waterfall feed, artwork detail, pinch-to-zoom, ugoira (motion) playback & export (**MP4 video / ZIP frame pack**), rankings (day / week / month / male / female / rookie / R-18 sections with slide-to-switch + infinite pagination).
