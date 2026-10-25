@@ -18,6 +18,7 @@
   <img src="docs/assets/screens/phone-discover.png" width="180" alt="发现页">
   <img src="docs/assets/screens/phone-illust.png" width="180" alt="插画详情页">
   <img src="docs/assets/screens/phone-reader.png" width="180" alt="小说阅读器">
+  <img src="docs/assets/screens/tablet-novel.png" width="400" alt="平板端小说详情双栏">
 </p>
 
 ## 功能

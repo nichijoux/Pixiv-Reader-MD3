@@ -439,11 +439,11 @@ button { font-family: inherit; }
   box-shadow: var(--shadow-device);
 }
 .device-phone { width: 196px; border-radius: 34px; z-index: 2; }
-/* 后排手机为排行榜截图，略小并置于前机后侧 */
-.device-phone.hero-back { width: 176px; border-radius: 30px; z-index: 1; }
+/* 平板为横屏（2560×1600），略小并置于手机后侧 */
+.device-tablet { width: 360px; border-radius: 20px; z-index: 1; }
 
-/* 后排手机置于前机后侧并微微倾斜，增加层次 */
-.hero-back { transform: rotate(-4deg) translateY(10px); }
+/* 平板置于手机后侧并微微倾斜，增加层次 */
+.hero-back { transform: rotate(-3deg) translateY(8px); }
 .hero-phone { margin-left: -46px; }
 
 .device-screen {
@@ -454,7 +454,7 @@ button { font-family: inherit; }
 }
 .device-phone .device-screen { border-radius: 26px; }
 .device-phone .device-screen { aspect-ratio: 1080 / 2340; }
-.device-phone.hero-back .device-screen { border-radius: 22px; }
+.device-tablet .device-screen { border-radius: 14px; aspect-ratio: 2560 / 1600; }
 
 /* 真实截图就位后铺满屏幕 */
 .slot-img {
@@ -746,6 +746,7 @@ button { font-family: inherit; }
   margin-top: 40px;
 }
 .ui-device.device-phone { width: 280px; }
+.ui-device.device-tablet { width: 620px; }
 
 .ui-notes { display: grid; gap: 20px; }
 .ui-notes li {
@@ -1061,6 +1062,7 @@ button { font-family: inherit; }
   .bento { grid-template-columns: 1fr; }
   .card-wide { grid-column: auto; }
   .ui-device.device-phone { width: 240px; }
+  .ui-device.device-tablet { width: min(100%, 420px); }
   .build-req { display: none; }
 }
 

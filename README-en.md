@@ -18,6 +18,7 @@
   <img src="docs/assets/screens/phone-discover.png" width="180" alt="Discover page">
   <img src="docs/assets/screens/phone-illust.png" width="180" alt="Illustration detail">
   <img src="docs/assets/screens/phone-reader.png" width="180" alt="Novel reader">
+  <img src="docs/assets/screens/tablet-novel.png" width="400" alt="Novel detail split view on tablet">
 </p>
 
 ## Features
