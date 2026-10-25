@@ -71,6 +71,9 @@ class DiscoverViewModel @Inject constructor(
     val type = MutableStateFlow(SearchType.ILLUST)
     val filters = MutableStateFlow(SearchFilters())
 
+    /** 筛选条件是否已从 DataStore 恢复完成（[loadSavedFilters] 末尾置 true；search 在此之前挂起等待，避免默认值竞态）。 */
+    private val filtersRestored = MutableStateFlow(false)
+
     private val _hotTags = MutableStateFlow<List<TrendingTag>>(emptyList())
     val hotTags: StateFlow<List<TrendingTag>> = _hotTags.asStateFlow()
 
@@ -172,7 +175,15 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /** 读取上次应用的筛选条件（DataStore）作为本会话默认。 */
+    /**
+     * 异步读取上次应用的筛选条件（DataStore）作为本会话默认。
+     *
+     * 恢复完成后置 [filtersRestored] 信号，[search] 依赖该信号等待——否则搜索可能先用构造默认值
+     * 判定非会员降级，随后被恢复值整体覆盖，导致渲染分支（按 filters.sort 选择）与数据落点脱节
+     * （深链搜索首屏空白）。
+     *
+     * @return 无返回值（恢复结果写入 [filters]）
+     */
     private fun loadSavedFilters() {
         viewModelScope.launch {
             val sort = runCatching { userPreferences.searchFilterSort.first() }.getOrDefault("popular_desc")
@@ -190,6 +201,8 @@ class DiscoverViewModel @Inject constructor(
                 keywordUsersBucket = keywordUsers.takeIf { it > 0 },
                 aiType = aiType,
             )
+            // 恢复完成信号：search() 在此之前挂起，保证降级写回不被恢复值覆盖
+            filtersRestored.value = true
         }
     }
 
@@ -205,11 +218,33 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /** 搜索：按类型与排序（热门预览/分页搜索）加载结果 + 写入搜索历史。 */
+    /**
+     * 提交搜索：空词忽略；立即置已搜索态（UI 切结果视图），实际请求挂起等待
+     * [filtersRestored]（DataStore 筛选恢复完成）后执行——否则非会员降级把 sort 写回
+     * popular_preview 后会被恢复值整体覆盖冲掉，渲染分支（按 filters.sort 选择）切到
+     * 从未加载的分页状态导致首屏空白。
+     *
+     * @return 无返回值（结果经 illustPaged/novelPaged/userPaged 与 popularIllusts/popularNovels 暴露）
+     */
     fun search() {
         val rawWord = query.value.trim()
         if (rawWord.isBlank()) return
         _hasSearched.value = true
+        viewModelScope.launch {
+            // 等待筛选恢复完成：降级写回不再被覆盖，渲染分支与数据落点保持一致
+            filtersRestored.first { it }
+            executeSearch(rawWord)
+        }
+    }
+
+    /**
+     * 实际执行搜索（须在筛选恢复完成后调用）：非会员人气排序降级热门预览并写回 filters、
+     * 参数计算与按类型分派加载、记录搜索历史。
+     *
+     * @param rawWord 调用方捕获的原始关键词（不含 users入り 后缀；历史只记原始词）
+     * @return 无返回值（结果写入对应状态流）
+     */
+    private suspend fun executeSearch(rawWord: String) {
         val f = filters.value
         // 「Xusers入り」关键字后缀拼进请求（对齐 Pixiv-Shaft：非会员也可用的收藏量过滤）；
         // 搜索历史只记原始词
@@ -246,97 +281,96 @@ class DiscoverViewModel @Inject constructor(
         val startDate = computed?.first ?: f.startDate
         val endDate = computed?.second ?: f.endDate
         recordHistory(rawWord)
-        viewModelScope.launch {
-            when (type.value) {
-                SearchType.ILLUST -> if (effectiveSort == "popular_preview") {
-                    loadPopular(word, f, searchTarget, searchAiType, startDate, endDate)
-                } else {
-                    val body = bodyRange(f)
-                    val res = resolutionRange(f.resolutionBucket)
-                    // reset 作废旧代次：上次搜索仍在途时重搜不被幂等忽略（PagedState 在途时 loadInitial 直接 return）
-                    illustPaged.reset()
-                    illustPaged.loadInitial(
-                        fetch = {
-                            val resp = pixivRepository.api.searchIllusts(
-                                word = word,
-                                sort = effectiveSort,
-                                searchTarget = searchTarget,
-                                startDate = startDate,
-                                endDate = endDate,
-                                bookmarkNumMin = f.bookmarkNumMin,
-                                tool = f.tool,
-                                lang = f.lang,
-                                searchAiType = searchAiType,
-                                ratioPattern = f.ratioPattern,
-                                contentType = contentTypeQuery(f.contentType),
-                                widthMin = res?.widthMin,
-                                widthMax = res?.widthMax,
-                                heightMin = res?.heightMin,
-                                heightMax = res?.heightMax,
-                            )
-                            // 客户端过滤：仅看 AI（illust_ai_type==2）+ R18 档（x_restrict）
-                            resp.copy(illusts = resp.illusts.filter {
-                                (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
-                                    r18Accept(it.x_restrict, f.r18Mode)
-                            })
-                        },
-                        fetchNext = { url ->
-                            val resp = pixivRepository.api.getNextIllusts(url)
-                            resp.copy(illusts = resp.illusts.filter {
-                                (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
-                                    r18Accept(it.x_restrict, f.r18Mode)
-                            })
-                        },
-                    )
-                }
-                SearchType.NOVEL -> if (effectiveSort == "popular_preview") {
-                    loadPopular(word, f, searchTarget, searchAiType, startDate, endDate)
-                } else {
-                    val body = bodyRange(f)
-                    novelPaged.reset()
-                    novelPaged.loadInitial(
-                        fetch = {
-                            val resp = pixivRepository.api.searchNovels(
-                                word = word,
-                                sort = effectiveSort,
-                                searchTarget = searchTarget,
-                                startDate = startDate,
-                                endDate = endDate,
-                                bookmarkNumMin = f.bookmarkNumMin,
-                                genre = f.genre,
-                                lang = f.lang,
-                                searchAiType = searchAiType,
-                                isOriginalOnly = f.isOriginalOnly,
-                                isReplaceableOnly = f.isReplaceableOnly,
-                                textLengthMin = body.textMin,
-                                textLengthMax = body.textMax,
-                                wordCountMin = body.wordMin,
-                                wordCountMax = body.wordMax,
-                                readingTimeMin = body.readMin,
-                                readingTimeMax = body.readMax,
-                            )
-                            // 客户端过滤：仅看 AI（novel_ai_type==2）+ R18 档（x_restrict）
-                            resp.copy(novels = resp.novels.filter {
-                                (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
-                                    r18Accept(it.x_restrict, f.r18Mode)
-                            })
-                        },
-                        fetchNext = { url ->
-                            val resp = pixivRepository.api.getNextNovels(url)
-                            resp.copy(novels = resp.novels.filter {
-                                (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
-                                    r18Accept(it.x_restrict, f.r18Mode)
-                            })
-                        },
-                    )
-                }
-                SearchType.USER -> {
-                    userPaged.reset()
-                    userPaged.loadInitial(
-                        fetch = { pixivRepository.api.searchUsers(word) },
-                        fetchNext = { pixivRepository.api.getNextUsers(it) },
-                    )
-                }
+        // 已处于协程内，直接按类型分派加载（不再额外 launch）
+        when (type.value) {
+            SearchType.ILLUST -> if (effectiveSort == "popular_preview") {
+                loadPopular(word, f, searchTarget, searchAiType, startDate, endDate)
+            } else {
+                val body = bodyRange(f)
+                val res = resolutionRange(f.resolutionBucket)
+                // reset 作废旧代次：上次搜索仍在途时重搜不被幂等忽略（PagedState 在途时 loadInitial 直接 return）
+                illustPaged.reset()
+                illustPaged.loadInitial(
+                    fetch = {
+                        val resp = pixivRepository.api.searchIllusts(
+                            word = word,
+                            sort = effectiveSort,
+                            searchTarget = searchTarget,
+                            startDate = startDate,
+                            endDate = endDate,
+                            bookmarkNumMin = f.bookmarkNumMin,
+                            tool = f.tool,
+                            lang = f.lang,
+                            searchAiType = searchAiType,
+                            ratioPattern = f.ratioPattern,
+                            contentType = contentTypeQuery(f.contentType),
+                            widthMin = res?.widthMin,
+                            widthMax = res?.widthMax,
+                            heightMin = res?.heightMin,
+                            heightMax = res?.heightMax,
+                        )
+                        // 客户端过滤：仅看 AI（illust_ai_type==2）+ R18 档（x_restrict）
+                        resp.copy(illusts = resp.illusts.filter {
+                            (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
+                                r18Accept(it.x_restrict, f.r18Mode)
+                        })
+                    },
+                    fetchNext = { url ->
+                        val resp = pixivRepository.api.getNextIllusts(url)
+                        resp.copy(illusts = resp.illusts.filter {
+                            (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
+                                r18Accept(it.x_restrict, f.r18Mode)
+                        })
+                    },
+                )
+            }
+            SearchType.NOVEL -> if (effectiveSort == "popular_preview") {
+                loadPopular(word, f, searchTarget, searchAiType, startDate, endDate)
+            } else {
+                val body = bodyRange(f)
+                novelPaged.reset()
+                novelPaged.loadInitial(
+                    fetch = {
+                        val resp = pixivRepository.api.searchNovels(
+                            word = word,
+                            sort = effectiveSort,
+                            searchTarget = searchTarget,
+                            startDate = startDate,
+                            endDate = endDate,
+                            bookmarkNumMin = f.bookmarkNumMin,
+                            genre = f.genre,
+                            lang = f.lang,
+                            searchAiType = searchAiType,
+                            isOriginalOnly = f.isOriginalOnly,
+                            isReplaceableOnly = f.isReplaceableOnly,
+                            textLengthMin = body.textMin,
+                            textLengthMax = body.textMax,
+                            wordCountMin = body.wordMin,
+                            wordCountMax = body.wordMax,
+                            readingTimeMin = body.readMin,
+                            readingTimeMax = body.readMax,
+                        )
+                        // 客户端过滤：仅看 AI（novel_ai_type==2）+ R18 档（x_restrict）
+                        resp.copy(novels = resp.novels.filter {
+                            (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
+                                r18Accept(it.x_restrict, f.r18Mode)
+                        })
+                    },
+                    fetchNext = { url ->
+                        val resp = pixivRepository.api.getNextNovels(url)
+                        resp.copy(novels = resp.novels.filter {
+                            (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
+                                r18Accept(it.x_restrict, f.r18Mode)
+                        })
+                    },
+                )
+            }
+            SearchType.USER -> {
+                userPaged.reset()
+                userPaged.loadInitial(
+                    fetch = { pixivRepository.api.searchUsers(word) },
+                    fetchNext = { pixivRepository.api.getNextUsers(it) },
+                )
             }
         }
     }

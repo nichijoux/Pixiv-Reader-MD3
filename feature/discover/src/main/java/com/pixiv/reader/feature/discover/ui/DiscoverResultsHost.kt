@@ -38,7 +38,12 @@ internal fun SearchResultPager(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
-    val pagerState = rememberPagerState(pageCount = { SearchType.entries.size })
+    // 初始页跟随 VM 当前类型：小说标签深链 setType(NOVEL) 后直落小说栏，
+    // 否则 pager 首组合 page=0 的同步 effect 会把类型翻回插画并触发重复搜索
+    val pagerState = rememberPagerState(
+        initialPage = viewModel.type.value.ordinal,
+        pageCount = { SearchType.entries.size },
+    )
     val scope = rememberCoroutineScope()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
 
