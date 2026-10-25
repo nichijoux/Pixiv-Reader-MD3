@@ -1,99 +1,110 @@
 /* ═══════════════════════════════════════════════════════════
    PixivReader 发布页样式
-   设计基调：Dark Mode (OLED) — 画布取自客户端 ViewerScrim #0A0A0A，
-   品牌强调取自 PixivBlue #0096FA；正文对比度均按 ≥4.5:1 核算。
+   设计基调：Apple 式中性灰阶 + 自托管 Inter 可变字体。深色以纯黑
+   #000000 为画布、#F5F5F7 为正文；浅色以 #FFFFFF 为画布、#1D1D1F
+   为正文；链接蓝深色 #2997FF / 浅色 #0066CC，正文对比度均按 ≥4.5:1 核算。
    ═══════════════════════════════════════════════════════════ */
+
+/* ── 自托管 Inter 可变字体（拉丁字符），中文继续走系统字体 ── */
+@font-face {
+  font-family: "InterVariable";
+  src: url("fonts/InterVariable-latin.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* ── 设计 token ─────────────────────────────────────────── */
 :root {
-  /* 颜色：深色画布与表面 */
-  --bg: #0A0A0A;               /* 画布 = 客户端 ViewerScrim */
-  --bg-alt: #0D0D11;           /* 交替区块底 */
-  --surface: #121217;          /* 卡片面 */
-  --surface-2: #0F0F14;        /* 次级卡片面 */
+  /* 颜色：深色画布与表面（Apple 中性灰阶） */
+  --bg: #000000;               /* 纯黑画布，OLED 省电且让内容浮起 */
+  --bg-alt: #0C0C0E;           /* 交替区块底 */
+  --surface: #161618;          /* 卡片面 */
+  --surface-2: #1E1E20;        /* 次级卡片面 */
   --line: rgba(255, 255, 255, 0.07);
   --line-strong: rgba(255, 255, 255, 0.14);
 
-  /* 文字（对 #0A0A0A 的对比度：正文 17:1 / 次要 5.9:1 / 链接 11.3:1） */
-  --text: #EDEDEF;
-  --text-2: #8A8F98;
-  --text-3: #C9CDD3;
-  --accent: #7DCBFF;           /* 深底上的链接与强调 */
+  /* 文字（对 #000 的对比度：正文 ≈19:1 / 次要 #86868B ≈5.9:1） */
+  --text: #F5F5F7;
+  --text-2: #86868B;
+  --text-3: #A1A1A6;
+  --accent: #2997FF;           /* 对 #000 ≈7:1，Apple 深色链接蓝 */
   --brand: #0096FA;            /* PixivBlue，仅作装饰与 CTA 底色 */
 
   /* 语义色（取自客户端 core/ui/theme/Color.kt） */
   --success: #4CAF50;
   --danger: #FF5252;
 
-  /* 字体：与客户端 FontFamily.Default 对齐的系统字体栈 */
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-          "Helvetica Neue", Arial, sans-serif;
+  /* 字体：拉丁/数字统一 Inter，CJK 逐级回落系统字体 */
+  --font: "InterVariable", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI Variable Text", "Segoe UI", Roboto, "PingFang SC",
+          "HarmonyOS Sans SC", "MiSans", "Hiragino Sans GB", "Microsoft YaHei UI",
+          "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace;
 
-  --radius: 20px;
-  --nav-h: 60px;
+  --radius: 18px;
+  --nav-h: 52px;
 
   /* 组件级主题变量（深色为默认主题） */
-  --nav-bg: rgba(10, 10, 10, 0.82);
-  --nav-panel: rgba(12, 12, 16, 0.98);
-  --footer-bg: #070709;
-  --pre-bg: #070709;            /* 代码块两种主题下都保持深底 */
-  --pre-text: #C9CDD3;
+  --nav-bg: rgba(0, 0, 0, 0.65);
+  --nav-panel: rgba(10, 10, 12, 0.98);
+  --footer-bg: #070708;
+  --pre-bg: #0C0C0E;            /* 代码块两种主题下都保持深底 */
+  --pre-text: #C7C7CC;
   --code-bg: rgba(255, 255, 255, 0.08);
   --hover-soft: rgba(255, 255, 255, 0.06);
-  --device-bg: #17171C;
+  --device-bg: #1C1C1E;
   --device-border: rgba(255, 255, 255, 0.12);
-  --screen-bg: #0D0D12;
-  --hint-bg: rgba(10, 10, 10, 0.72);
+  --screen-bg: #101012;
+  --hint-bg: rgba(0, 0, 0, 0.72);
   --hint-border: rgba(255, 255, 255, 0.22);
   --skel: rgba(255, 255, 255, 0.09);
   --skel-dot: rgba(255, 255, 255, 0.22);
   --skel-soft: rgba(255, 255, 255, 0.02);
-  --shadow-device: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 80px rgba(0, 150, 250, 0.08);
-  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.35);
-  --chip-bg: rgba(255, 255, 255, 0.08);   /* 漂浮徽章玻璃底 */
-  --glow-a: rgba(0, 150, 250, 0.16);
-  --glow-b: rgba(139, 92, 246, 0.10);
-  --hero-title-to: #9CCFF5;
+  --shadow-device: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 80px rgba(41, 151, 255, 0.06);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --chip-bg: rgba(28, 28, 30, 0.72);   /* 漂浮徽章玻璃底 */
+  --glow-a: rgba(41, 151, 255, 0.10);
+  --glow-b: rgba(139, 92, 246, 0.06);
+  --hero-title-to: #9CCFF5;     /* 预留：标题已改纯色，此 token 留作后续点缀 */
   --success-text: #4CAF50;
   color-scheme: dark;
 }
 
 /* ── 亮色主题：html[data-theme="light"]，由内联脚本/app.js 依用户偏好设置 ── */
 :root[data-theme="light"] {
-  --bg: #F7F8FA;
-  --bg-alt: #EFF1F4;
-  --surface: #FFFFFF;
-  --surface-2: #F3F4F7;
-  --line: rgba(13, 18, 26, 0.10);
-  --line-strong: rgba(13, 18, 26, 0.20);
-  /* 文字对比度：正文 ≈15:1 / 次要 ≈5.6:1 / 链接 #0069C2 ≈5.5:1 */
-  --text: #16181D;
-  --text-2: #5B6470;
-  --text-3: #3D434D;
-  --accent: #0069C2;
-  --nav-bg: rgba(247, 248, 250, 0.85);
+  --bg: #FFFFFF;
+  --bg-alt: #F5F5F7;
+  --surface: #F5F5F7;
+  --surface-2: #FFFFFF;
+  --line: rgba(0, 0, 0, 0.10);       /* 白上白靠 1px 发丝线区分卡片 */
+  --line-strong: rgba(0, 0, 0, 0.20);
+  /* 文字（对 #FFF 的对比度：正文 ≈16:1 / 次要 #6E6E73 ≈5.1:1） */
+  --text: #1D1D1F;
+  --text-2: #6E6E73;
+  --text-3: #424245;
+  --accent: #0066CC;            /* 对 #FFF ≈5.6:1 */
+  --nav-bg: rgba(255, 255, 255, 0.72);
   --nav-panel: rgba(255, 255, 255, 0.98);
-  --footer-bg: #EFF1F4;
-  --pre-bg: #0F1216;
-  --pre-text: #C9CDD3;
-  --code-bg: rgba(13, 18, 26, 0.07);
-  --hover-soft: rgba(13, 18, 26, 0.06);
-  --device-bg: #E9EBF0;
-  --device-border: rgba(13, 18, 26, 0.14);
-  --screen-bg: #EEF0F4;
+  --footer-bg: #F5F5F7;
+  --pre-bg: #1D1D1F;
+  --pre-text: #C7C7CC;
+  --code-bg: rgba(0, 0, 0, 0.06);
+  --hover-soft: rgba(0, 0, 0, 0.05);
+  --device-bg: #E8E8ED;
+  --device-border: rgba(0, 0, 0, 0.12);
+  --screen-bg: #F0F0F3;
   --hint-bg: rgba(255, 255, 255, 0.80);
-  --hint-border: rgba(13, 18, 26, 0.25);
-  --skel: rgba(13, 18, 26, 0.10);
-  --skel-dot: rgba(13, 18, 26, 0.26);
-  --skel-soft: rgba(13, 18, 26, 0.02);
-  --shadow-device: 0 24px 60px rgba(15, 23, 32, 0.16), 0 0 80px rgba(0, 150, 250, 0.06);
-  --shadow-card: 0 12px 32px rgba(15, 23, 32, 0.10);
-  --chip-bg: rgba(255, 255, 255, 0.72);
-  --glow-a: rgba(0, 150, 250, 0.10);
-  --glow-b: rgba(139, 92, 246, 0.06);
-  --hero-title-to: #0069C2;
+  --hint-border: rgba(0, 0, 0, 0.22);
+  --skel: rgba(0, 0, 0, 0.10);
+  --skel-dot: rgba(0, 0, 0, 0.26);
+  --skel-soft: rgba(0, 0, 0, 0.02);
+  --shadow-device: 0 24px 60px rgba(0, 0, 0, 0.12), 0 0 80px rgba(0, 102, 204, 0.05);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --chip-bg: rgba(255, 255, 255, 0.75);
+  --glow-a: rgba(0, 102, 204, 0.06);
+  --glow-b: rgba(139, 92, 246, 0.04);
+  --hero-title-to: #0066CC;
   --success-text: #15803D;      /* 亮底上 #4CAF50 仅 2.1:1，换深绿 */
   color-scheme: light;
 }
@@ -181,35 +192,39 @@ html.js .hero-devices { transition-delay: 0.25s; }
 }
 .container-narrow { max-width: 860px; }
 
-.section { padding: 88px 0; }
+.section { padding: 104px 0; }
 .section-alt {
   background: var(--bg-alt);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 
+/* 区块三件套统一居中，形成 Apple 式单栏叙事节奏 */
 .kicker {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--text-2);
+  text-align: center;
   margin-bottom: 14px;
 }
 
 .section-title {
-  font-size: clamp(26px, 4vw, 36px);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
+  font-size: clamp(28px, 3.2vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.15;
+  text-align: center;
 }
 
 .section-desc {
-  margin-top: 14px;
-  max-width: 640px;
+  margin: 14px auto 0;
+  max-width: 620px;
   color: var(--text-2);
-  font-size: 15.5px;
+  font-size: 15px;
   line-height: 1.75;
+  text-align: center;
 }
 
 /* ── 按钮 ───────────────────────────────────────────────── */
@@ -218,25 +233,25 @@ html.js .hero-devices { transition-delay: 0.25s; }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 22px;
+  padding: 11px 22px;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 980px;
+  font-size: 14.5px;
+  font-weight: 500;
   cursor: pointer;
   text-decoration: none;
-  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.btn:hover { text-decoration: none; transform: translateY(-1px); }
-.btn:active { transform: translateY(0) scale(0.98); }
+/* 胶囊按钮不上浮，靠亮度/边框反馈；按下给轻微回缩 */
+.btn:hover { text-decoration: none; }
+.btn:active { transform: scale(0.98); }
 
 /* 主 CTA：亮蓝底 + 近黑字（6.4:1；白字仅 3.1:1 不达标） */
 .btn-primary {
   background: var(--brand);
   color: #06121D;
-  box-shadow: 0 8px 28px rgba(0, 150, 250, 0.28);
 }
-.btn-primary:hover { background: #33ACFF; }
+.btn-primary:hover { background: #2AA2FF; }
 
 .btn-ghost {
   background: transparent;
@@ -261,8 +276,8 @@ html.js .hero-devices { transition-delay: 0.25s; }
   top: 0;
   z-index: 50;
   background: var(--nav-bg);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
   border-bottom: 1px solid var(--line);
 }
 
@@ -279,17 +294,18 @@ html.js .hero-devices { transition-delay: 0.25s; }
   align-items: center;
   gap: 10px;
   color: var(--text);
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: 600;
+  font-size: 15px;
   letter-spacing: -0.01em;
 }
 .brand:hover { text-decoration: none; }
+.brand-mark { width: 26px; height: 26px; }
 
-.nav-links { display: flex; gap: 26px; }
+.nav-links { display: flex; gap: 24px; }
 .nav-links a {
   position: relative;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: 13px;
   transition: color 0.15s ease;
 }
 .nav-links a:hover { color: var(--text); text-decoration: none; }
@@ -366,38 +382,40 @@ html.js .hero-devices { transition-delay: 0.25s; }
 /* ── Hero ───────────────────────────────────────────────── */
 .hero {
   position: relative;
-  padding: 84px 0 72px;
+  padding: 96px 0 72px;
   overflow: hidden;
 }
 
-/* 品牌光晕：纯装饰，且在 reduced-motion 下无动画 */
+/* 品牌光晕：纯装饰，且在 reduced-motion 下无动画。
+   色斑聚到中上偏右，呼应居中标题的视觉重心，强度较上一版再降一档。 */
 .hero-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(560px 380px at 72% 12%, var(--glow-a), transparent 65%),
-    radial-gradient(480px 340px at 88% 58%, var(--glow-b), transparent 65%);
+    radial-gradient(560px 380px at 50% -10%, var(--glow-a), transparent 65%),
+    radial-gradient(480px 340px at 70% 30%, var(--glow-b), transparent 65%);
 }
 
+/* 单列居中堆叠：复制 Apple 主页「标题 + 副文案 + CTA + 大图」的阅读节奏 */
 .hero-inner {
   position: relative;
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 48px;
-  align-items: center;
+  display: block;
+  text-align: center;
 }
+
+.hero-copy { max-width: 760px; margin: 0 auto; }
 
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border: 1px solid rgba(0, 150, 250, 0.35);
   border-radius: 999px;
   background: rgba(0, 150, 250, 0.08);
   color: var(--accent);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
 }
 .chip-dot {
@@ -408,30 +426,29 @@ html.js .hero-devices { transition-delay: 0.25s; }
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.8);
 }
 
+/* 纯色标题：去掉渐变字，靠 Inter 的负字距与紧凑行高建立层级 */
 .hero-title {
   margin-top: 22px;
-  font-size: clamp(40px, 7vw, 64px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-  background: linear-gradient(92deg, var(--text) 30%, var(--hero-title-to));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: clamp(40px, 6vw, 60px);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.08;
   color: var(--text);
 }
 
 .hero-sub {
   margin: 18px 0 12px;
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 400;
   color: var(--text-3);
   line-height: 1.6;
 }
 
 .hero-desc {
-  max-width: 520px;
-  font-size: 15.5px;
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 15px;
   color: var(--text-2);
   line-height: 1.75;
 }
@@ -439,6 +456,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .hero-cta {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 14px;
   margin-top: 28px;
 }
@@ -446,6 +464,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .hero-meta {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 10px 18px;
   margin-top: 26px;
 }
@@ -471,6 +490,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   display: flex;
   justify-content: center;
   align-items: flex-end;
+  margin-top: 56px;
 }
 
 /* 双机背后的品牌色环境光：椭圆光斑经 blur 弥散，
@@ -566,7 +586,8 @@ html.js .hero-devices { transition-delay: 0.25s; }
   right: 0;
   margin-top: 12px;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
   color: var(--text-2);
 }
 
@@ -577,7 +598,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   z-index: 3;
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 5px 11px;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   background: var(--chip-bg);
@@ -585,7 +606,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   backdrop-filter: blur(8px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   color: var(--text-3);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -748,6 +769,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .trust {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 14px 36px;
   margin-top: 64px;
   padding-top: 28px;
@@ -757,16 +779,16 @@ html.js .hero-devices { transition-delay: 0.25s; }
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--text-2);
 }
-.trust svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.trust svg { width: 16px; height: 16px; color: var(--accent); flex: none; }
 
 /* ── 功能特性（Bento） ──────────────────────────────────── */
 .bento {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 18px;
   margin-top: 48px;
 }
 
@@ -774,7 +796,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 26px;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .card:hover { transform: translateY(-3px); border-color: rgba(0, 150, 250, 0.4); box-shadow: var(--shadow-card); }
@@ -783,9 +805,9 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .card-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   background: rgba(0, 150, 250, 0.12);
   color: var(--accent);
   transition: transform 0.2s ease;
@@ -795,11 +817,12 @@ html.js .hero-devices { transition-delay: 0.25s; }
 
 .card h3 {
   margin: 16px 0 8px;
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .card p {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-2);
   line-height: 1.65;
 }
@@ -837,7 +860,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   border-radius: 999px;
   background: transparent;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -870,22 +893,22 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .ui-notes { display: grid; gap: 20px; }
 .ui-notes li {
   display: grid;
-  grid-template-columns: 26px 1fr;
+  grid-template-columns: 22px 1fr;
   gap: 14px;
   align-items: start;
   color: var(--text-3);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.7;
 }
 .note-num {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border: 1px solid rgba(0, 150, 250, 0.5);
   border-radius: 50%;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   margin-top: 1px;
 }
@@ -895,8 +918,8 @@ html.js .hero-devices { transition-delay: 0.25s; }
   margin-top: 44px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 24px;
-  padding: 28px;
+  border-radius: 20px;
+  padding: 26px;
 }
 
 .dl-head {
@@ -910,7 +933,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .dl-ver { font-size: 14px; color: var(--text-2); }
 .dl-ver strong {
   margin-left: 10px;
-  font-size: 20px;
+  font-size: 18px;
   color: var(--text);
   font-weight: 700;
 }
@@ -925,8 +948,8 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .dl-item {
   background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 18px;
 }
 .dl-item-head {
   display: flex;
@@ -938,9 +961,10 @@ html.js .hero-devices { transition-delay: 0.25s; }
   border-radius: 8px;
   background: var(--code-bg);
   font-family: var(--mono);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
+  font-feature-settings: "tnum";
 }
 .dl-badge {
   padding: 2px 10px;
@@ -955,11 +979,13 @@ html.js .hero-devices { transition-delay: 0.25s; }
   font-size: 13.5px;
   color: var(--text-2);
 }
+/* 文件体积用等宽数字，避免位数变化时抖动 */
 .dl-size {
   margin-top: 10px;
   text-align: center;
   font-size: 12.5px;
   color: var(--text-2);
+  font-feature-settings: "tnum";
 }
 
 .dl-which { margin-top: 20px; }
@@ -988,16 +1014,16 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .step-num {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgba(0, 150, 250, 0.14);
   color: var(--accent);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
-.step h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-.step p { font-size: 14px; color: var(--text-2); line-height: 1.7; }
+.step h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 6px; }
+.step p { font-size: 13.5px; color: var(--text-2); line-height: 1.7; }
 
 .notes-grid {
   display: grid;
@@ -1057,7 +1083,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   position: relative;
   padding: 17px 48px 17px 20px;
   cursor: pointer;
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 500;
   list-style: none;
 }
@@ -1104,8 +1130,8 @@ html.js .hero-devices { transition-delay: 0.25s; }
 .log-card ul { padding-left: 20px; list-style: disc; }
 .log-card li {
   margin: 6px 0;
-  font-size: 14.5px;
-  line-height: 1.8;
+  font-size: 14px;
+  line-height: 1.75;
   color: var(--text-3);
 }
 .log-card code {
@@ -1129,7 +1155,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
   gap: 40px;
 }
 .footer-col h5 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
-.footer-col p { font-size: 13px; color: var(--text-2); line-height: 1.7; }
+.footer-col p { font-size: 12.5px; color: var(--text-2); line-height: 1.7; }
 .footer-brand .brand-name { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
 .footer-dim { margin-top: 6px; }
 .footer-links { margin-top: 8px; }
@@ -1141,8 +1167,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
 }
 
 @media (max-width: 900px) {
-  .hero-inner { grid-template-columns: 1fr; }
-  .hero-devices { margin-top: 24px; }
+  /* Hero 已是单列居中默认版式，此处只压上间距 */
   .hero { padding-top: 64px; }
   .ui-stage {
     grid-template-columns: 1fr;
@@ -1173,7 +1198,7 @@ html.js .hero-devices { transition-delay: 0.25s; }
 }
 
 @media (max-width: 640px) {
-  .section { padding: 64px 0; }
+  .section { padding: 72px 0; }
   .hero-back { display: none; }   /* 窄屏只保留前机模型，排行榜在「界面」区块可切换查看 */
   .hero-phone { margin-left: 0; }
   /* 窄屏没有外侧空间，浮动徽章会压住设备，直接隐藏 */

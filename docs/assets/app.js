@@ -635,7 +635,7 @@
     const dark = theme === 'dark' || (theme === 'system' && systemPrefersDark());
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     const meta = $('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0A0A0A' : '#F7F8FA');
+    if (meta) meta.setAttribute('content', dark ? '#000000' : '#FFFFFF');
 
     $$('#theme-btn [data-icon]').forEach((svg) => { svg.hidden = svg.dataset.icon !== theme; });
     const labels = THEME_ARIA[theme];
