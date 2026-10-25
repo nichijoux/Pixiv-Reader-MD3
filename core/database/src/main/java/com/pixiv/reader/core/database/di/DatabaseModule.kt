@@ -24,7 +24,8 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PixivDatabase =
         Room.databaseBuilder(context, PixivDatabase::class.java, "pixiv_reader.db")
-            .fallbackToDestructiveMigration(false)
+            // 不启用 fallbackToDestructiveMigration：迁移链 1→7 完整，漏写迁移时应在开发期
+            // 抛 IllegalStateException 暴露问题，而不是静默清空用户数据
             .addMigrations(
                 PixivDatabase.MIGRATION_1_2,
                 PixivDatabase.MIGRATION_2_3,

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,9 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -67,19 +64,7 @@ fun CommentListRoute(
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    val listState = rememberLazyListState()
-    // 触底加载更多：最后可见项接近列表末尾且仍有下一页时触发
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            last >= comments.lastIndex - 3
-        }
-    }
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && hasMore && !isLoading && !isLoadingMore) {
-            viewModel.loadMoreComments()
-        }
-    }
+    // 触底加载由 CommentListContent 内部的列表状态负责（本页不再重复触发，避免重复请求）
 
     Scaffold(
         topBar = {

@@ -11,6 +11,7 @@ import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -102,8 +103,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun loadRecommend() {
-        viewModelScope.launch {
+    /**
+     * 加载推荐流第一页（fetch 内含快照回写）。
+     *
+     * @return 本次加载协程 [Job]，调用方可 join 以等待网络真正结束
+     */
+    private fun loadRecommend(): Job {
+        return viewModelScope.launch {
             recommendPaged.loadInitial(
                 fetch = {
                     pixivRepository.api.getRecommendedIllusts(includeRanking = true).also { page ->
@@ -115,8 +121,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun loadFollowing() {
-        viewModelScope.launch {
+    /**
+     * 加载关注流第一页（fetch 内含快照回写）。
+     *
+     * @return 本次加载协程 [Job]，调用方可 join 以等待网络真正结束
+     */
+    private fun loadFollowing(): Job {
+        return viewModelScope.launch {
             followingPaged.loadInitial(
                 fetch = {
                     pixivRepository.api.getFollowingIllusts("all").also { page ->
@@ -128,8 +139,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 下拉刷新：重拉当前 Tab 第一页（清空旧列表），结束后复位指示（防重入）。
-     *  复用 [loadRecommend]/[loadFollowing]（fetch 内含快照回写），刷新后的数据即下次冷启动的秒开内容。 */
+    /**
+     * 下拉刷新：重拉当前 Tab 第一页（清空旧列表），等网络结束后复位指示（防重入）。
+     * 复用 [loadRecommend]/[loadFollowing]（fetch 内含快照回写），刷新后的数据即下次冷启动的秒开内容。
+     *
+     * @return 无返回值
+     */
     fun pullRefresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
@@ -138,12 +153,13 @@ class HomeViewModel @Inject constructor(
                 when (_tab.value) {
                     HomeTab.RECOMMEND -> {
                         recommendPaged.reset()
-                        loadRecommend()
+                        // join 等待首屏网络完成，否则指示会在请求返回前提前消失
+                        loadRecommend().join()
                     }
 
                     HomeTab.FOLLOW -> {
                         followingPaged.reset()
-                        loadFollowing()
+                        loadFollowing().join()
                     }
                 }
             } finally {

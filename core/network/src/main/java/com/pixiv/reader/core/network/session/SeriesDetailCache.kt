@@ -4,6 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -70,18 +71,26 @@ class SeriesDetailCache @Inject constructor() {
      * 结果在缓存自身作用域内写回内存层（与调用方生命周期无关）：调用方提前退出时，
      * 已完成的网络结果仍驻留缓存，供同会话后续访问命中。
      *
+     * 并发安全：任务以 [CoroutineStart.LAZY] 创建——先注册 in-flight 再 start，消除
+     * 「检查后启动」窗口内的重复网络请求；注册失败（已有胜者）时本方任务从未启动，
+     * 无需取消，也不会在 finally 中误删胜者的表项。
+     *
      * @param seriesId 系列 id
      * @param fetcher 未命中时执行的网络取详情函数（返回 [SeriesDetailInfo]，null 表示无可用数据且不落缓存）
+     * @return 系列详情；[fetcher] 返回 null 时为 null
      */
     suspend fun getOrFetch(seriesId: Long, fetcher: suspend () -> SeriesDetailInfo?): SeriesDetailInfo? {
         infos[seriesId]?.let { return it }
         inFlight[seriesId]?.let { return it.await() }
 
-        val deferred = scope.async {
+        // 为让 finally 能引用任务自身，先声明再赋值；LAZY 保证协程体在赋值完成后才执行
+        lateinit var deferred: Deferred<SeriesDetailInfo?>
+        deferred = scope.async(start = CoroutineStart.LAZY) {
             val result = try {
                 fetcher()
             } finally {
-                inFlight.remove(seriesId)
+                // 条件移除：仅当表项仍指向自己时清除，避免误删并发胜者的注册
+                inFlight.remove(seriesId, deferred)
             }
             // 结果在缓存自身作用域内写回内存层（与调用方生命周期无关）
             if (result != null) {
@@ -91,10 +100,11 @@ class SeriesDetailCache @Inject constructor() {
         }
         val winner = inFlight.putIfAbsent(seriesId, deferred)
         if (winner != null) {
-            // 并发窗口内已有任务在跑，复用其结果并取消本次冗余请求
-            deferred.cancel()
+            // 并发窗口内已有任务在跑，直接复用它（本方 LAZY 任务从未启动，无需取消）
             return winner.await()
         }
+        // 本方为胜者：此时表项已就绪，启动真正的网络请求
+        deferred.start()
         return deferred.await()
     }
 }

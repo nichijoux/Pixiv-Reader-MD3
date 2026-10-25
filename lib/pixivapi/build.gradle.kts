@@ -30,4 +30,6 @@ dependencies {
     api(libs.okhttp.logging)
     api(libs.gson)
     api(libs.kotlinx.coroutines.android)
+    // 纯 JVM 单测（RequestNonce 时间格式契约回归）
+    testImplementation(libs.junit)
 }

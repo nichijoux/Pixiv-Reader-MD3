@@ -1,6 +1,5 @@
 package com.pixiv.reader.feature.viewer
 
-import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -88,7 +87,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
  * 平板/横屏：图片自适应居中，底部操作条宽度受限。
  */
-@SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ViewerRoute(
@@ -96,6 +94,7 @@ fun ViewerRoute(
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     BackHandler(onBack = onBack)
+    val illust by viewModel.illust.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val isGif by viewModel.isGif.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
@@ -261,7 +260,7 @@ fun ViewerRoute(
                     )
                 }
                 Text(
-                    text = viewModel.illust.value?.title.orEmpty(),
+                    text = illust?.title.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White,
                     modifier = Modifier.weight(1f),
