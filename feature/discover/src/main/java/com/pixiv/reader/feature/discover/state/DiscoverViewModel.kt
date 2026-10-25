@@ -108,6 +108,14 @@ class DiscoverViewModel @Inject constructor(
     private val _popularNovels = MutableStateFlow<List<Novel>>(emptyList())
     val popularNovels: StateFlow<List<Novel>> = _popularNovels.asStateFlow()
 
+    /** 热门预览插画加载中（请求在途为 true；结果页骨架屏判断用，语义对齐 PagedState.isLoading）。 */
+    private val _popularIllustsLoading = MutableStateFlow(false)
+    val popularIllustsLoading: StateFlow<Boolean> = _popularIllustsLoading.asStateFlow()
+
+    /** 热门预览小说加载中（请求在途为 true；结果页骨架屏判断用，语义对齐 PagedState.isLoading）。 */
+    private val _popularNovelsLoading = MutableStateFlow(false)
+    val popularNovelsLoading: StateFlow<Boolean> = _popularNovelsLoading.asStateFlow()
+
     val illustPaged = PagedState<Illust>()
     val novelPaged = PagedState<Novel>()
     val userPaged = PagedState<UserPreview>()
@@ -375,7 +383,18 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /** 热门预览（popular-preview endpoint，一次性列表；对齐 Pixiv-Shaft 不传 sort）。 */
+    /**
+     * 按当前搜索类型分派 popular-preview 请求，结果写入 popularIllusts / popularNovels；
+     * 请求在途期间置对应 loading 标记，供结果页在无数据时显示骨架屏而非空态。
+     *
+     * @param word 搜索关键词
+     * @param f 当前搜索筛选条件（AI / R18 / 收藏数 / 工具 / 语言 / 比例）
+     * @param searchTarget 搜索目标（热门预览按类型透传，可空）
+     * @param searchAiType AI 过滤参数（1 仅人绘；0 其他档——「仅看 AI」由客户端按 ai_type 过滤，不走该参数）
+     * @param startDate 投稿起始日期（yyyy-MM-dd，可空）
+     * @param endDate 投稿结束日期（yyyy-MM-dd，可空）
+     * @return 无返回值（结果与在途状态写入对应 StateFlow）
+     */
     private suspend fun loadPopular(
         word: String,
         f: SearchFilters,
@@ -385,35 +404,47 @@ class DiscoverViewModel @Inject constructor(
         endDate: String?,
     ) {
         when (type.value) {
-            SearchType.ILLUST -> runCatching {
-                pixivRepository.api.popularPreview(
-                    word = word,
-                    searchTarget = searchTarget,
-                    startDate = startDate,
-                    endDate = endDate,
-                    bookmarkNumMin = f.bookmarkNumMin,
-                    tool = f.tool,
-                    lang = f.lang,
-                    searchAiType = searchAiType,
-                    ratioPattern = f.ratioPattern,
-                )
-            }.onSuccess {
-                _popularIllusts.value = it.illusts.take(10).filter { i ->
-                    (f.aiType != AiFilter.AI_ONLY || i.illust_ai_type == 2) && r18Accept(i.x_restrict, f.r18Mode)
-                }
-            }.onFailure { _popularIllusts.value = emptyList() }
-            SearchType.NOVEL -> runCatching {
-                pixivRepository.api.popularNovelPreview(
-                    word = word,
-                    searchTarget = searchTarget,
-                    startDate = startDate,
-                    endDate = endDate,
-                )
-            }.onSuccess {
-                _popularNovels.value = it.novels.take(10).filter { n ->
-                    (f.aiType != AiFilter.AI_ONLY || n.novel_ai_type == 2) && r18Accept(n.x_restrict, f.r18Mode)
-                }
-            }.onFailure { _popularNovels.value = emptyList() }
+            SearchType.ILLUST -> {
+                // 在途标记：请求期间结果页显示骨架屏而非空态
+                _popularIllustsLoading.value = true
+                runCatching {
+                    pixivRepository.api.popularPreview(
+                        word = word,
+                        searchTarget = searchTarget,
+                        startDate = startDate,
+                        endDate = endDate,
+                        bookmarkNumMin = f.bookmarkNumMin,
+                        tool = f.tool,
+                        lang = f.lang,
+                        searchAiType = searchAiType,
+                        ratioPattern = f.ratioPattern,
+                    )
+                }.onSuccess {
+                    _popularIllusts.value = it.illusts.take(10).filter { i ->
+                        (f.aiType != AiFilter.AI_ONLY || i.illust_ai_type == 2) && r18Accept(i.x_restrict, f.r18Mode)
+                    }
+                }.onFailure { _popularIllusts.value = emptyList() }
+                // 请求结束（成功或失败）后清除在途标记
+                _popularIllustsLoading.value = false
+            }
+            SearchType.NOVEL -> {
+                // 在途标记：请求期间结果页显示骨架屏而非空态
+                _popularNovelsLoading.value = true
+                runCatching {
+                    pixivRepository.api.popularNovelPreview(
+                        word = word,
+                        searchTarget = searchTarget,
+                        startDate = startDate,
+                        endDate = endDate,
+                    )
+                }.onSuccess {
+                    _popularNovels.value = it.novels.take(10).filter { n ->
+                        (f.aiType != AiFilter.AI_ONLY || n.novel_ai_type == 2) && r18Accept(n.x_restrict, f.r18Mode)
+                    }
+                }.onFailure { _popularNovels.value = emptyList() }
+                // 请求结束（成功或失败）后清除在途标记
+                _popularNovelsLoading.value = false
+            }
             SearchType.USER -> Unit
         }
     }

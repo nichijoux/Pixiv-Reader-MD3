@@ -23,6 +23,7 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
@@ -95,7 +96,14 @@ internal fun SearchResultPager(
     }
 }
 
-/** 热门模式：插画一次性完整列表（无分页）。 */
+/**
+ * 热门模式：插画一次性完整列表（无分页）；请求在途且无数据时显示骨架屏。
+ *
+ * @param viewModel 发现页 ViewModel（提供热门插画列表与在途状态）
+ * @param onOpenIllust 点击插画卡回调（插画 ID）
+ * @param onOpenUser 点击作者头像回调（用户 ID）
+ * @return 无返回值
+ */
 @Composable
 private fun HotIllustGrid(
     viewModel: DiscoverViewModel,
@@ -103,6 +111,12 @@ private fun HotIllustGrid(
     onOpenUser: (Long) -> Unit,
 ) {
     val popular by viewModel.popularIllusts.collectAsStateWithLifecycle()
+    val loading by viewModel.popularIllustsLoading.collectAsStateWithLifecycle()
+    // 请求在途且尚无数据 → 骨架屏；仅在加载完成仍为空时才显示空态
+    if (loading && popular.isEmpty()) {
+        IllustWaterfallSkeleton()
+        return
+    }
     if (popular.isEmpty()) {
         EmptyBox(stringResource(R.string.search_no_hot))
         return
@@ -117,7 +131,15 @@ private fun HotIllustGrid(
     )
 }
 
-/** 热门模式：小说一次性完整列表（无分页）。 */
+/**
+ * 热门模式：小说一次性完整列表（无分页）；请求在途且无数据时显示骨架屏。
+ *
+ * @param viewModel 发现页 ViewModel（提供热门小说列表与在途状态）
+ * @param onOpenNovel 点击小说卡回调（小说 ID）
+ * @param onOpenUser 点击作者头像回调（用户 ID）
+ * @param onOpenSeries 点击系列回调（系列 ID）
+ * @return 无返回值
+ */
 @Composable
 private fun HotNovelList(
     viewModel: DiscoverViewModel,
@@ -126,6 +148,12 @@ private fun HotNovelList(
     onOpenSeries: (Long) -> Unit,
 ) {
     val popular by viewModel.popularNovels.collectAsStateWithLifecycle()
+    val loading by viewModel.popularNovelsLoading.collectAsStateWithLifecycle()
+    // 请求在途且尚无数据 → 骨架屏；仅在加载完成仍为空时才显示空态
+    if (loading && popular.isEmpty()) {
+        NovelSearchSkeleton()
+        return
+    }
     if (popular.isEmpty()) {
         EmptyBox(stringResource(R.string.search_no_hot))
         return
