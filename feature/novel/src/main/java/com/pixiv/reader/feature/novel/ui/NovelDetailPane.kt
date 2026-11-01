@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
@@ -21,6 +23,9 @@ import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.LoadingBox
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
 
 /**
@@ -31,6 +36,9 @@ import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
  * （`forceSingleColumn=true` 单栏，避免 pane 宽度下双栏挤压；`showBackButton=false`
  * 不显示悬浮返回按钮，关闭由返回手势 / 外层入口承担）+ [NovelActionBar] 操作行
  * + 下载格式弹窗（复用详情页 [DownloadSheet]）。
+ *
+ * pane 无外层消息收集链路，故自持消息通知宿主（[NotificationHost] + [UiMessageEffect]）：
+ * 导出 / 收藏 / 追更等 VM toast 以底部居中叠层展示，详情与评论两态均可见。
  *
  * @param selectedId 当前选中小说 id（null = 未选中，显示 [placeholder]）
  * @param placeholder 未选中时的占位提示文案
@@ -84,6 +92,9 @@ fun NovelDetailPane(
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     // 下载格式弹窗（复用详情页 DownloadSheet）
     var showDownloadDialog by remember { mutableStateOf(false) }
+    // 消息通知宿主：pane 无外层收集链路，自持宿主展示 VM 消息（导出/收藏/追更 toast）
+    val notificationHostState = rememberNotificationHostState()
+    UiMessageEffect(viewModel.message, notificationHostState)
 
     Box(
         modifier = Modifier
@@ -153,7 +164,11 @@ fun NovelDetailPane(
                             NovelDetailDownloadSheet(
                                 visible = showDownloadDialog,
                                 seriesId = detail.series?.id,
-                                onExport = viewModel::export,
+                                onExport = { formatName, series ->
+                                    viewModel.export(formatName, series)
+                                    // 点击格式即入队：立即关弹窗，配合 queued toast 给予已点击反馈（与系列页一致）
+                                    showDownloadDialog = false
+                                },
                                 onDismiss = { showDownloadDialog = false },
                             )
                         }
@@ -161,5 +176,12 @@ fun NovelDetailPane(
                 }
             }
         }
+
+        // 底部居中通知叠层：contentModifier 承担导航栏避让（放 modifier 会空闲占位，见 NotificationHost KDoc）
+        NotificationHost(
+            state = notificationHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            contentModifier = Modifier.navigationBarsPadding(),
+        )
     }
 }

@@ -281,7 +281,24 @@ class NovelExporter @Inject constructor(
         novel to doc
     }.getOrNull()
 
-    /** 写入下载索引（targetType=novel，localPath=导出文件路径或 content uri）。 */
+    /**
+     * 写入下载完成索引（targetType=novel，localPath=导出文件路径或 content uri）。
+     *
+     * 系列 / 部分分册导出时卡片维度是「系列」而非封面章（首章）：`title` 与 `payloadJson`
+     * 传 null，由 [upsertIndex] 的合并语义保留 existing 值，即入队时 `pendingEntry` 写入的
+     * 系列标题（「系列标题（FORMAT）」）与系列快照；单本导出仍按封面章元数据正常覆盖。
+     * `scopeKey` 必须转发：否则完成态会落到 scopeKey="" 的另一条主键行，与进度写入的系列行
+     * 分裂成两张下载卡（系列卡停 100% + 首章卡显示完成）。
+     *
+     * @param novelId 首章（封面章）小说 ID，与入队索引保持一致
+     * @param format 导出格式
+     * @param seriesId 系列 ID（单本为 null）
+     * @param coverNovel 封面章小说元数据（作者 / 封面 / 字数等快照来源）
+     * @param localPath 导出文件路径或 content uri
+     * @param chapterCount 导出的章节数
+     * @param scopeKey 下载条目作用域（""=单本，"series"=整系列，其余=部分分册）
+     * @return 无返回值
+     */
     private suspend fun recordDownload(
         novelId: Long,
         format: NovelExportFormat,
@@ -291,9 +308,11 @@ class NovelExporter @Inject constructor(
         chapterCount: Int,
         scopeKey: String = "",
     ) {
+        // 系列 / 部分导出：卡片维度是系列，标题与快照沿用入队已有值不被封面章覆盖
+        val seriesScope = scopeKey.isNotEmpty()
         upsertIndex(
             novelId = novelId,
-            title = coverNovel.title,
+            title = if (seriesScope) null else coverNovel.title,
             format = format,
             seriesId = seriesId,
             coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium,
@@ -308,8 +327,9 @@ class NovelExporter @Inject constructor(
             favoriteCount = coverNovel.total_bookmarks ?: 0,
             publishDate = coverNovel.create_date,
             seriesTitle = coverNovel.series?.title,
-            // 完整卡片快照（与浏览历史同格式，下载管理页完整显示用）
-            payloadJson = Gson().toJson(coverNovel.toCardData()),
+            // 完整卡片快照（与浏览历史同格式，下载管理页完整显示用）；系列维度保留入队快照
+            payloadJson = if (seriesScope) null else Gson().toJson(coverNovel.toCardData()),
+            scopeKey = scopeKey,
         )
     }
 

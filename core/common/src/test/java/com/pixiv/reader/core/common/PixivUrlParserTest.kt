@@ -158,4 +158,35 @@ class PixivUrlParserTest {
     fun `id 非数字返回 null`() {
         assertNull(PixivUrlParser.parse("https://www.pixiv.net/artworks/abc"))
     }
+
+    @Test
+    fun `纯数字输入解析为 ID`() {
+        assertEquals(12345L, parseNumericId("12345"))
+    }
+
+    @Test
+    fun `纯数字输入两侧空白被裁剪`() {
+        assertEquals(123L, parseNumericId(" 123 "))
+    }
+
+    @Test
+    fun `零与负数不算有效 ID`() {
+        assertNull(parseNumericId("0"))
+        assertNull(parseNumericId("-5"))
+    }
+
+    @Test
+    fun `含非数字字符不算有效 ID`() {
+        assertNull(parseNumericId("12a"))
+    }
+
+    @Test
+    fun `空白输入返回 null`() {
+        assertNull(parseNumericId("  "))
+    }
+
+    @Test
+    fun `Long 溢出返回 null`() {
+        assertNull(parseNumericId("99999999999999999999"))
+    }
 }

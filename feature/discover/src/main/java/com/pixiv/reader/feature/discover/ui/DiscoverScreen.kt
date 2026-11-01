@@ -17,6 +17,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.parse.PixivLinkType
 import com.pixiv.reader.core.common.parse.PixivUrlParser
+import com.pixiv.reader.core.common.parse.parseNumericId
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
@@ -25,6 +26,10 @@ import com.pixiv.reader.feature.discover.state.SearchType
 /**
  * 发现页搜索：热门 + 历史 → 联想 → 结果（TabRow + HorizontalPager 滑动切换插画/小说/用户）。
  * 筛选入口在搜索框右侧，面板按当前类型动态渲染。
+ *
+ * 直达能力：输入 pixiv 链接后按搜索直接跳详情页；输入**纯数字 ID** 时联想列表顶部
+ * 给出「按 ID 打开小说/插画/用户/系列」四个提示行，由用户自行选择目标类型
+ * （提示行跳转不写搜索历史；Enter / 搜索按钮行为保持普通搜索不变）。
  *
  * 子组件：搜索栏 [SearchField]、初始面板 [IdlePanel]、联想 [SuggestionList]、
  * 结果 [SearchResultPager] / [IllustSearchResults] / [NovelSearchResults] / [UserSearchResults]、
@@ -125,6 +130,12 @@ fun DiscoverRoute(
                 )
                 query.isNotBlank() -> SuggestionList(
                     suggestions = suggestions,
+                    // 纯数字输入：联想列表顶部提供按 ID 直达小说/插画/用户/系列的提示行（不写搜索历史）
+                    numericId = parseNumericId(query),
+                    onOpenNovel = onOpenNovel,
+                    onOpenIllust = onOpenIllust,
+                    onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
                     onPick = { viewModel.onQueryChange(it); viewModel.search() },
                 )
                 else -> IdlePanel(

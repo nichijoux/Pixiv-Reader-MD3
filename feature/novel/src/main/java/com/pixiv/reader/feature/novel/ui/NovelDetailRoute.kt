@@ -123,7 +123,8 @@ fun NovelDetailRoute(
                     // 单本详情无「选取部分」：chapterIds 恒空（scopeKey 由 helper 依 seriesId 推导）
                     chapterIds = emptyList(),
                     format = format,
-                    title = novel?.title,
+                    // 系列导出卡片以系列标题展示（单本用本作标题）
+                    title = if ((seriesId ?: 0L) > 0L) novel?.series?.title ?: novel?.title else novel?.title,
                     coverUrl = novel?.image_urls?.medium,
                     seriesTitle = novel?.series?.title,
                     authorName = novel?.user?.name,
@@ -209,7 +210,11 @@ fun NovelDetailRoute(
         NovelDetailDownloadSheet(
             visible = showDownloadDialog && dialogNovel != null,
             seriesId = dialogNovel?.series?.id,
-            onExport = viewModel::export,
+            onExport = { formatName, series ->
+                viewModel.export(formatName, series)
+                // 点击格式即入队：立即关弹窗，配合 queued toast 给予已点击反馈（与系列页一致）
+                showDownloadDialog = false
+            },
             onDismiss = { showDownloadDialog = false },
         )
     }

@@ -17,6 +17,8 @@
     <string name="search_history_delete_message">將刪除搜尋歷史「%1$s」。</string>
     <string name="search_hot_title">熱門搜尋</string>
     <string name="search_hint">輸入關鍵詞以搜尋</string>
+    <string name="search_id_section_title">按 ID 開啟</string>
+    <string name="search_type_series">系列</string>
     <string name="search_no_hot">暫無熱門作品</string>
 
     <!-- 筛选面板 -->

@@ -57,3 +57,11 @@ object PixivUrlParser {
         return PixivLink(type, id)
     }
 }
+
+/**
+ * 解析纯数字 ID 输入（搜索框 ID 直达用）。
+ *
+ * @param text 用户原始输入
+ * @return trim 后非空、可转 Long 且 > 0 时返回该 ID；其余情况（空白、含非数字、0、负数、Long 溢出）返回 null
+ */
+fun parseNumericId(text: String): Long? = text.trim().toLongOrNull()?.takeIf { it > 0L }

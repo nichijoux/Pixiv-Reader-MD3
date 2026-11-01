@@ -17,6 +17,8 @@
     <string name="search_history_delete_message">This will delete the search history "%1$s".</string>
     <string name="search_hot_title">Trending searches</string>
     <string name="search_hint">Enter a keyword to search</string>
+    <string name="search_id_section_title">Open by ID</string>
+    <string name="search_type_series">Series</string>
     <string name="search_no_hot">No trending works</string>
 
     <!-- Filter sheet -->
