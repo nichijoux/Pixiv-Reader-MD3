@@ -1,0 +1,47 @@
+name: Deploy Pages
+
+# 仅在发布页文件（docs/）变化时部署 GitHub Pages；
+# 其余提交（app 代码 / CHANGELOG 等）不再触发 Pages 构建。
+# 前置条件：仓库 Settings → Pages → Source 需切换为「GitHub Actions」，
+# 否则 deploy-pages 步骤会因 build_type 不兼容而失败。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+# 创建 Pages 部署需要 pages 写权限与 OIDC id-token
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时刻只允许一个 Pages 部署：连续推送时排队执行而非互相取消
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # 部署环境与站点 URL（官方 starter 惯例）
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
