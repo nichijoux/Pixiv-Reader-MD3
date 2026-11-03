@@ -14,8 +14,11 @@ import com.pixiv.reader.core.network.session.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private const val TAG = "CommentList"
@@ -40,6 +43,33 @@ enum class CommentTarget(val apiValue: String) {
             if (raw == ILLUST.apiValue) ILLUST else NOVEL
     }
 }
+
+/**
+ * 顶层评论排序方向（客户端排序，子回复不参与）。
+ *
+ * @property NEWEST_FIRST 最新在前（与 pixiv 官方 API 返回顺序一致）
+ * @property OLDEST_FIRST 最早在前
+ */
+enum class CommentSortOrder { NEWEST_FIRST, OLDEST_FIRST }
+
+/**
+ * 按排序方向整理顶层评论列表（纯函数，客户端排序零网络请求）。
+ *
+ * [Comment.date] 为 ISO 8601 字符串，字典序即时间序；缺失日期用空串兜底
+ * （降序排最后、升序排最前），与 FollowUserSorter 对 create_date 的处理一致。
+ *
+ * @param list 待排序的顶层评论列表（通常为分页累积结果）
+ * @param order 目标排序方向
+ * @return 排序后的新列表（不修改入参）
+ */
+internal fun sortCommentsForDisplay(
+    list: List<Comment>,
+    order: CommentSortOrder,
+): List<Comment> =
+    when (order) {
+        CommentSortOrder.NEWEST_FIRST -> list.sortedByDescending { it.date.orEmpty() }
+        CommentSortOrder.OLDEST_FIRST -> list.sortedBy { it.date.orEmpty() }
+    }
 
 /**
  * 通用评论列表 ViewModel（novel / illust 共用，core:network 下沉，
@@ -71,6 +101,19 @@ class CommentListViewModel @Inject constructor(
 
     /** 分页评论列表（数据驻留 VM，触底加载更多）。 */
     val commentsPaged = PagedState<Comment>()
+
+    /** 顶层评论排序方向（默认最新在前，与 pixiv 官方列表一致）。 */
+    private val _sortOrder = MutableStateFlow(CommentSortOrder.NEWEST_FIRST)
+
+    /**
+     * 当前顶层评论排序方向（VM 会话态，不持久化；切换只重排已加载数据，不发网络请求）。
+     */
+    val sortOrder: StateFlow<CommentSortOrder> = _sortOrder.asStateFlow()
+
+    /** 按 [sortOrder] 整理后的顶层评论列表（分页追加或切换方向后自动重排）。 */
+    val sortedComments: StateFlow<List<Comment>> =
+        combine(commentsPaged.items, _sortOrder) { list, order -> sortCommentsForDisplay(list, order) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 子回复缓存：父评论 id → 子回复列表（v3 列表只给 has_replies 标志，子回复按需拉取）。 */
     private val _replies = MutableStateFlow<Map<Long, List<Comment>>>(emptyMap())
@@ -109,7 +152,11 @@ class CommentListViewModel @Inject constructor(
 
     /**
      * 切换到另一作品的评论区（排行右栏选中项变化时调用）。
-     * 清空旧评论状态后重新加载。
+     * 清空旧评论状态后重新加载；排序方向属用户偏好，不在切换时重置。
+     *
+     * @param newTarget 新评论目标类型（插画 / 小说）
+     * @param newTargetId 新作品 id（与当前相同或非正数时忽略）
+     * @return 无返回值
      */
     fun switchTo(newTarget: CommentTarget, newTargetId: Long) {
         if (newTargetId == _targetId.value || newTargetId <= 0L) return
@@ -123,6 +170,21 @@ class CommentListViewModel @Inject constructor(
         _replyTarget.value = null
         _replyTargetTopId.value = null
         loadComments()
+    }
+
+    /**
+     * 翻转顶层评论排序方向（最新在前 ↔ 最早在前）。
+     *
+     * 仅重排已加载数据，不触发网络请求；[switchTo] 切换作品时不重置排序，
+     * 以便在右栏连续浏览多个作品时保持用户选择。
+     *
+     * @return 无返回值
+     */
+    fun toggleSortOrder() {
+        _sortOrder.value = when (_sortOrder.value) {
+            CommentSortOrder.NEWEST_FIRST -> CommentSortOrder.OLDEST_FIRST
+            CommentSortOrder.OLDEST_FIRST -> CommentSortOrder.NEWEST_FIRST
+        }
     }
 
     /** 加载 pixiv 贴纸目录（供表情面板选贴纸发评论）。 */

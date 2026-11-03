@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,13 +27,14 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.comment.R
 import com.pixiv.reader.core.ui.R as UiR
 import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentSortOrder
 
 /**
  * 通用评论列表页（novel / illust 共用，路由 `comments/{type}/{targetId}`）。
  *
  * 全屏页 + TopAppBar；`PagedState<Comment>` 分页（触底加载更多）；
  * 支持回复（点回复后输入框预填 @昵称 渲染为胶囊，一次退格删除即取消；`parent_comment_id` 发子评论）；
- * 点作者行进入用户主页。
+ * 点作者行进入用户主页。TopAppBar 右侧图标切换顶层评论时间正序 / 倒序（客户端排序）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +43,8 @@ fun CommentListRoute(
     onOpenUser: (Long) -> Unit,
     viewModel: CommentListViewModel = hiltViewModel(),
 ) {
-    val comments by viewModel.commentsPaged.items.collectAsStateWithLifecycle()
+    val comments by viewModel.sortedComments.collectAsStateWithLifecycle()
+    val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
     val isLoading by viewModel.commentsPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.commentsPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.commentsPaged.hasMore.collectAsStateWithLifecycle()
@@ -75,6 +79,25 @@ fun CommentListRoute(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(UiR.string.core_cd_back))
                     }
                 },
+                // 排序切换：仅重排已加载评论，图标方向与当前排序一致
+                actions = {
+                    IconButton(onClick = viewModel::toggleSortOrder) {
+                        Icon(
+                            if (sortOrder == CommentSortOrder.NEWEST_FIRST) {
+                                Icons.Filled.ArrowDownward
+                            } else {
+                                Icons.Filled.ArrowUpward
+                            },
+                            contentDescription = stringResource(
+                                if (sortOrder == CommentSortOrder.NEWEST_FIRST) {
+                                    R.string.comment_sort_newest_first
+                                } else {
+                                    R.string.comment_sort_oldest_first
+                                }
+                            ),
+                        )
+                    }
+                },
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -85,6 +108,7 @@ fun CommentListRoute(
             isLoading = isLoading,
             isLoadingMore = isLoadingMore,
             hasMore = hasMore,
+            sortOrder = sortOrder,
             error = error,
             replies = replies,
             repliesLoading = repliesLoading,

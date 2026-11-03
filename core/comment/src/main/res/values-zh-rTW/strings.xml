@@ -15,6 +15,9 @@
     <string name="comment_reply">回覆</string>
     <string name="comment_reply_expand">查看全部 %1$d 條回覆</string>
     <string name="comment_reply_prefix">回覆 @%1$s：</string>
+    <!-- 顶层评论排序切换（客户端排序） -->
+    <string name="comment_sort_newest_first">最新在前</string>
+    <string name="comment_sort_oldest_first">最早在前</string>
     <!-- 删除自己的评论（长按确认框） -->
     <string name="comment_delete_title">刪除這條評論？</string>
     <string name="comment_delete_message">刪除後無法復原。</string>

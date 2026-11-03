@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.comment.state.CommentListViewModel
+import com.pixiv.reader.core.comment.state.CommentSortOrder
 import com.pixiv.reader.core.comment.R
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -31,7 +35,8 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * 评论 pane（Master-Detail 右栏内嵌评论区，首页 / 作品页 / 小说页共用）。
  *
  * 复用 [CommentListViewModel]（调用方 `hiltViewModel()` 注入，core:ui 不依赖 hilt）——
- * 由调用方在进入评论区前 `switchTo(type, id)` 定位目标；顶部返回条切回详情。
+ * 由调用方在进入评论区前 `switchTo(type, id)` 定位目标；顶部返回条切回详情，
+ * 同一行右侧图标切换顶层评论时间正序 / 倒序（排序偏好跨作品保留）。
  * 返回键导航（评论 → 详情 → 列表）由外层 pane 的 BackHandler 负责，本组件只管内容。
  *
  * @param commentVm 评论 ViewModel（调用方注入；进入前需已 [CommentListViewModel.switchTo]）
@@ -44,7 +49,8 @@ fun CommentPane(
     onOpenUser: (Long) -> Unit,
     onBackToDetail: () -> Unit,
 ) {
-    val comments by commentVm.commentsPaged.items.collectAsStateWithLifecycle()
+    val comments by commentVm.sortedComments.collectAsStateWithLifecycle()
+    val sortOrder by commentVm.sortOrder.collectAsStateWithLifecycle()
     val isLoading by commentVm.commentsPaged.isLoading.collectAsStateWithLifecycle()
     val isLoadingMore by commentVm.commentsPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by commentVm.commentsPaged.hasMore.collectAsStateWithLifecycle()
@@ -77,6 +83,25 @@ fun CommentPane(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
+            Spacer(Modifier.weight(1f))
+            // 排序切换：IconButton 自行消费点击，不会穿透到整行的返回点击
+            IconButton(onClick = commentVm::toggleSortOrder) {
+                Icon(
+                    if (sortOrder == CommentSortOrder.NEWEST_FIRST) {
+                        Icons.Filled.ArrowDownward
+                    } else {
+                        Icons.Filled.ArrowUpward
+                    },
+                    contentDescription = stringResource(
+                        if (sortOrder == CommentSortOrder.NEWEST_FIRST) {
+                            R.string.comment_sort_newest_first
+                        } else {
+                            R.string.comment_sort_oldest_first
+                        }
+                    ),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         CommentListContent(
@@ -84,6 +109,7 @@ fun CommentPane(
             isLoading = isLoading,
             isLoadingMore = isLoadingMore,
             hasMore = hasMore,
+            sortOrder = sortOrder,
             error = error,
             replies = replies,
             repliesLoading = repliesLoading,

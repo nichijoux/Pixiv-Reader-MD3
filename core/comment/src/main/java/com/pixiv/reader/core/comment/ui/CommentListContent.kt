@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Comment
 import com.pixiv.reader.core.comment.R
+import com.pixiv.reader.core.comment.state.CommentSortOrder
 import com.pixiv.reader.core.ui.R as UiR
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -67,6 +68,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * @param isLoading 首屏加载中
  * @param isLoadingMore 触底加载更多中
  * @param hasMore 是否还有下一页
+ * @param sortOrder 顶层评论排序方向（切换后列表整体翻转并滚回顶部）
  * @param error 首屏错误信息（null=无错误）
  * @param replies 回复树（评论 id → 该评论的回复列表）
  * @param repliesLoading 加载回复中的评论 id 集合
@@ -96,6 +98,7 @@ fun CommentListContent(
     isLoading: Boolean,
     isLoadingMore: Boolean,
     hasMore: Boolean,
+    sortOrder: CommentSortOrder = CommentSortOrder.NEWEST_FIRST,
     error: String?,
     replies: Map<Long, List<Comment>>,
     repliesLoading: Set<Long>,
@@ -119,6 +122,8 @@ fun CommentListContent(
 ) {
     // 触底加载更多：最后可见项接近列表末尾且仍有下一页时触发
     val listState = rememberLazyListState()
+    // 切换排序后列表整体翻转，滚回顶部避免视口内容跳变（首组合同样触发一次，无害）
+    LaunchedEffect(sortOrder) { listState.scrollToItem(0) }
     // derivedStateOf 捕获的 lambda 须随 comments 重建：分页追加产生新列表实例，
     // 无 key 的 remember 会一直读首次组合的旧列表（lastIndex 恒旧，触底判定失效）
     val shouldLoadMore by remember(comments) {

@@ -15,6 +15,9 @@
     <string name="comment_reply">Reply</string>
     <string name="comment_reply_expand">View all %1$d replies</string>
     <string name="comment_reply_prefix">Reply to @%1$s: </string>
+    <!-- 顶层评论排序切换（客户端排序） -->
+    <string name="comment_sort_newest_first">Newest first</string>
+    <string name="comment_sort_oldest_first">Oldest first</string>
     <!-- 删除自己的评论（长按确认框） -->
     <string name="comment_delete_title">Delete this comment?</string>
     <string name="comment_delete_message">This action cannot be undone.</string>
