@@ -162,6 +162,11 @@ fun IllustDetailContent(
                 illustId = illust?.id,
                 // 垫底 medium：与 hero/卡片封面同源，原图未就绪时先顶上
                 placeholderUrl = illust?.image_urls?.medium,
+                // 首页兜底比例取 illust 宽高（与卡片 aspectRatio 同源）：pages 宽高未就绪时
+                // 首帧高度即与 hero 占位一致，避免接棒后从 1.5f 修正到大图真实比例的两连跳
+                fallbackRatio = illust
+                    ?.takeIf { it.width > 0 && it.height > 0 }
+                    ?.let { it.width.toFloat() / it.height.toFloat() },
             )
         }
         IllustInfoSection(
@@ -203,6 +208,10 @@ fun IllustDetailContent(
  * **同页内**的比例修正（图片加载完成、hero 占位接棒）直接落地不做动画——
  * 否则 hero morph 结束后弹簧重播，观感是「大图又跳一下」。
  *
+ * 比例兜底链：图片真实比例 → 页面元数据宽高 → [fallbackRatio]（首页用 illust 宽高比）
+ * → 1.5f 通用兜底。多页作品实时翻页时第 2+ 页在 web 接口补齐宽高前，用首页比例兜底
+ * （严格优于 1.5f 的通用值）；补齐后翻页高度弹簧照常播放。
+ *
  * @param pages 各 P 的图片元数据（宽高/URL）
  * @param onPageChange 当前页变化回调
  * @param onOpenViewer 点击全屏入口回调（参数为页索引）
@@ -213,6 +222,9 @@ fun IllustDetailContent(
  * @param illustId 作品 id（hero 共享元素 key 用；null 时（无作品的骨架/预览场景）不挂共享边界）
  * @param placeholderUrl 当前页原图加载完成前的垫底图 URL（通常为已缓存的 medium，
  *   与 hero 占位同源）；null 时不垫底
+ * @param fallbackRatio 首页兜底宽高比（调用方传 illust 的 `width / height`）；用于修正
+ *   pages 宽高未就绪（web 接口补尺寸前的数百毫秒）时落到 1.5f 通用兜底、与 hero 占位
+ *   （封面比例）高度不一致导致的接棒跳变。null 时仍走 1.5f 兜底
  * @return 无返回值（渲染 Composable）
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -227,6 +239,7 @@ fun IllustPagePager(
     strings: IllustDetailStrings,
     illustId: Long? = null,
     placeholderUrl: String? = null,
+    fallbackRatio: Float? = null,
 ) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val currentPage = pagerState.currentPage
@@ -251,11 +264,13 @@ fun IllustPagePager(
         retryKey++
     }
 
-    // 优先图片真实比例，其次网页宽高，最后兜底
+    // 优先图片真实比例，其次网页宽高，再次调用方传入的首页兜底比例，最后通用兜底
     val webRatio = current
         ?.takeIf { it.width > 0 && it.height > 0 }
         ?.let { it.width.toFloat() / it.height.toFloat() }
-    val effectiveRatio = imageRatio ?: webRatio ?: 1.5f
+    val effectiveRatio = imageRatio ?: webRatio ?: fallbackRatio ?: 1.5f
+    // spinner 只反映「当前页图片是否已有尺寸/已停止加载」：fallbackRatio 是静态估值，
+    // 不代表图片已就绪，不计入 ready（否则首帧误隐藏转圈）
     val ready = imageRatio != null || webRatio != null
 
     BoxWithConstraints(

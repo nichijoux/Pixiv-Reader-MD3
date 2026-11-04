@@ -340,6 +340,11 @@ fun IllustDetailRoute(
                                     illustId = illust?.id,
                                     // 垫底 medium：与卡片封面/hero 占位同源，原图未就绪时先顶上
                                     placeholderUrl = illust?.image_urls?.medium,
+                                    // 首页兜底比例取 illust 宽高（与卡片封面同源）：pages 宽高
+                                    // 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
+                                    fallbackRatio = illust
+                                        ?.takeIf { it.width > 0 && it.height > 0 }
+                                        ?.let { it.width.toFloat() / it.height.toFloat() },
                                 )
                             }
                         }

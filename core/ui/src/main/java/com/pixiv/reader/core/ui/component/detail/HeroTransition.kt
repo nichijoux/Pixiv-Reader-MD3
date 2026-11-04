@@ -23,7 +23,8 @@ import com.pixiv.reader.core.ui.component.image.PixivImage
  * （避免数据未到、终点无共享元素导致的「飞入空窗」）。
  *
  * @param coverUrl 卡片封面 URL（详情加载期占位图数据源；空串表示无封面，占位块留纯色底）
- * @param aspectRatio 卡片封面宽高比（`width / height`；null 表示无宽高数据，占位块按 1:1 兜底）
+ * @param aspectRatio 卡片封面宽高比（`width / height`；null 表示无宽高数据，占位块按 1.5f 兜底，
+ *   与 IllustPagePager 通用兜底保持一致）
  */
 data class HeroSeed(
     val coverUrl: String,
@@ -163,7 +164,9 @@ fun HeroSeedCover(
             .fillMaxWidth()
             .then(
                 if (height != null) Modifier.height(height)
-                else Modifier.aspectRatio(seed.aspectRatio ?: 1f),
+                // 与 IllustPagePager 通用兜底比例（1.5f）统一：seed 与 fallbackRatio 双缺的
+                // 罕见场景下，占位块与详情大图容器比例仍一致，接棒无高度跳变
+                else Modifier.aspectRatio(seed.aspectRatio ?: 1.5f),
             )
             .heroBoundsModifier(key),
     ) {
