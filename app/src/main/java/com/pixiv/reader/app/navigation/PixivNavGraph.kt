@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +26,10 @@ import com.pixiv.reader.app.download.retryDownload
 import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
+import com.pixiv.reader.core.ui.theme.pixivNavEnter
+import com.pixiv.reader.core.ui.theme.pixivNavExit
+import com.pixiv.reader.core.ui.theme.pixivNavPopEnter
+import com.pixiv.reader.core.ui.theme.pixivNavPopExit
 import com.pixiv.reader.feature.auth.AuthRoute
 import com.pixiv.reader.feature.bookmark.BookmarkRoute
 import com.pixiv.reader.core.comment.ui.CommentListRoute
@@ -215,6 +220,9 @@ fun PixivNavGraph(
         activity?.finish()
     }
 
+    // 过渡 lambda 非组合上下文：动效方案在组合期先取好，供各 transition lambda 闭包捕获
+    val motionScheme = MaterialTheme.motionScheme
+
     NavHost(
         navController = navController,
         startDestination = when {
@@ -222,6 +230,12 @@ fun PixivNavGraph(
             isLoggedIn -> ROUTE_MAIN
             else -> ROUTE_AUTH
         },
+        // 全局默认过渡：轻量水平位移 + 淡入（Expressive spring 规格，见 core:ui theme/Motion.kt）。
+        // composable 级自定义过渡（如阅读器 220ms 方向 slide）自动覆盖这里的默认值。
+        enterTransition = { pixivNavEnter(motionScheme) },
+        exitTransition = { pixivNavExit(motionScheme) },
+        popEnterTransition = { pixivNavPopEnter(motionScheme) },
+        popExitTransition = { pixivNavPopExit(motionScheme) },
     ) {
         composable(ROUTE_ONBOARDING) {
             OnboardingRoute(

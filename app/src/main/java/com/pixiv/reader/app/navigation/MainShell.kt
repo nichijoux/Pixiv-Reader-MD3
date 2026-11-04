@@ -3,9 +3,6 @@ package com.pixiv.reader.app.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -14,6 +11,7 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -32,6 +30,8 @@ import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.feature.watchlist.WatchlistSegment
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
+import com.pixiv.reader.core.ui.theme.pixivTabFadeIn
+import com.pixiv.reader.core.ui.theme.pixivTabFadeOut
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
 import com.pixiv.reader.feature.follow.ui.FollowRoute
 import com.pixiv.reader.feature.home.HomeRoute
@@ -200,6 +200,8 @@ fun MainShell(
     // hero 过渡：首页搜索框 → 发现页搜索栏共享元素（sharedBounds container transform）。
     // 旧注释记录 Compose 1.7.x 冷启动首帧可能抛 SharedBoundsNode「Uninitialized LayoutCoordinates」
     // 闪退而弃用；依赖升级（BOM 2026.08）后已修复，重新启用
+    // Tab 过渡 lambda 非组合上下文：动效方案在组合期先取好，供各 lambda 闭包捕获
+    val motionScheme = MaterialTheme.motionScheme
     SharedTransitionLayout {
         AdaptiveNavScaffold(
             items = tabs,
@@ -216,11 +218,17 @@ fun MainShell(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
+                // Tab 默认过渡：纯 fade（Expressive effects 快档），不做水平位移——
+                // 取代 navigation-compose 默认 700ms 淡入淡出
+                enterTransition = { pixivTabFadeIn(motionScheme) },
+                exitTransition = { pixivTabFadeOut(motionScheme) },
+                popEnterTransition = { pixivTabFadeIn(motionScheme) },
+                popExitTransition = { pixivTabFadeOut(motionScheme) },
             ) {
                 // 首页：退出淡出（hero 元素由 sharedBounds 接管，浮于容器过渡之上）
                 composable(
                     route = "home_tab",
-                    exitTransition = { fadeOut(animationSpec = tween(160)) },
+                    exitTransition = { pixivTabFadeOut(motionScheme) },
                 ) {
                     HomeRoute(
                         reselectKey = tabReselectKeys["home_tab"] ?: 0,
@@ -281,13 +289,14 @@ fun MainShell(
                     )
                 }
                 // 发现页：跨 Tab 标签 / main?search 深链进入。
-                // 容器动画由 hero 共享元素接管（首页搜索框 → 搜索栏 morph），页面本体仅淡入淡出
+                // 容器动画由 hero 共享元素接管（首页搜索框 → 搜索栏 morph），页面本体仅淡入淡出；
+                // 严禁给该 Tab 加位移，否则共享元素会跟随容器位移产生错位
                 composable(
                     route = "discover_tab",
-                    enterTransition = { fadeIn(tween(220)) },
-                    exitTransition = { fadeOut(tween(180)) },
-                    popEnterTransition = { fadeIn(tween(180)) },
-                    popExitTransition = { fadeOut(tween(220)) },
+                    enterTransition = { pixivTabFadeIn(motionScheme) },
+                    exitTransition = { pixivTabFadeOut(motionScheme) },
+                    popEnterTransition = { pixivTabFadeIn(motionScheme) },
+                    popExitTransition = { pixivTabFadeOut(motionScheme) },
                 ) {
                     // 一次性消费跨 Tab 搜索载荷（先取出再置空，避免双重消费）
                     val launch = pendingSearch
