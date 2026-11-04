@@ -38,15 +38,17 @@ class MangaViewModel @Inject constructor(
     val illustPaged = PagedState<Illust>()
     val ugoiraPaged = PagedState<Illust>()
 
-    private val _tab = MutableStateFlow(MangaContentType.MANGA)
+    // 默认选中插画（菜单展示顺序由 MangaRoute 的 MENU_ORDER 决定，与枚举声明顺序解耦）
+    private val _tab = MutableStateFlow(MangaContentType.ILLUST)
     val tab: StateFlow<MangaContentType> = _tab.asStateFlow()
 
     /** 下拉刷新指示（PullToRefreshBox 用，按当前内容类型生效）。 */
     private val _isRefreshing = MutableStateFlow(false)
-    val isRefreshing = _isRefreshing.asStateFlow()
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     init {
-        loadManga()
+        // 预载默认 Tab（插画）首屏数据；其余类型经 selectTab 懒加载
+        loadIllust()
     }
 
     /** 切换内容类型：对应列表为空时懒加载（避免每次切换都重新请求）。 */
