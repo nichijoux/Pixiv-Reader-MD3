@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
@@ -158,6 +159,8 @@ private fun HotNovelList(
         EmptyBox(stringResource(R.string.search_no_hot))
         return
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
@@ -174,6 +177,11 @@ private fun HotNovelList(
                     viewModel.search()
                 },
                 onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                // 进场淡入 + 列表刷新时位置平滑过渡
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
             )
         }
     }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.feature.user.state.HistoryFilter
@@ -190,6 +191,8 @@ private fun NovelHistoryList(
         EmptyBox(stringResource(R.string.history_empty_novel))
         return
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.lg),
@@ -210,6 +213,11 @@ private fun NovelHistoryList(
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(entry.targetId, fav) },
                 onTagClick = {},
                 onSeriesClick = { card.seriesId?.let(onOpenSeries) },
+                // 进场淡入 + 删除条目时位置平滑重排
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
             )
         }
     }
@@ -229,6 +237,8 @@ private fun UserHistoryList(
         EmptyBox(stringResource(R.string.history_empty_user))
         return
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.lg),
@@ -239,6 +249,11 @@ private fun UserHistoryList(
                 profile = entry.toCreatorProfile(context),
                 onToggleFollow = {},
                 onClick = { onOpenUser(entry.targetId) },
+                // 进场淡入 + 删除条目时位置平滑重排
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
             )
         }
     }

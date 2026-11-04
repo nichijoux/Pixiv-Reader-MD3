@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.FanboxCreator
 import com.pixiv.api.model.FanboxPost
@@ -281,6 +282,8 @@ private fun PostsPage(
     onOpenPost: (String) -> Unit,
     onLoginAgain: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     // 过期引导优先级最高（即使有残留数据也整页替换）；其余按集中判定的互斥四态
     when {
         sessionExpired -> SessionExpiredBox(onLoginAgain = onLoginAgain, onRetry = onRetry)
@@ -293,7 +296,17 @@ private fun PostsPage(
                 contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                items(posts, key = { it.id }) { post -> FanboxPostCard(post = post, onClick = { onOpenPost(post.id) }) }
+                items(posts, key = { it.id }) { post ->
+                    FanboxPostCard(
+                        post = post,
+                        onClick = { onOpenPost(post.id) },
+                        // 进场淡入 + 翻页追加时位置平滑过渡
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        ),
+                    )
+                }
                 loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
             }
         }
@@ -334,15 +347,20 @@ private fun SessionExpiredBox(onLoginAgain: () -> Unit, onRetry: () -> Unit) {
 /**
  * 投稿卡（M3 Expressive）：封面 + 标题 + 创作者行 + 摘要/标签 + 徽标与计数元信息行。
  * 摘要、标签、预览等可选内容为空时收起，不留空位。
+ *
+ * @param post 投稿数据
+ * @param onClick 卡片点击（打开投稿详情）
+ * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
+ * @return 无返回值
  */
 @Composable
-private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit) {
+private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val fallbackTitle = stringResource(R.string.fanbox_post_title)
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column {
             if (post.coverUrl.isNotEmpty()) {
@@ -472,6 +490,8 @@ private fun CreatorsPage(
     onRetry: () -> Unit,
     onOpenCreator: (String, String) -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     when {
         state.isLoading -> LoadingBox()
         state.error != null -> ErrorBox(message = state.error, onRetry = onRetry)
@@ -490,6 +510,11 @@ private fun CreatorsPage(
                     onClick = {
                         creator.creatorId?.let { id -> onOpenCreator(id, creator.user?.name.orEmpty()) }
                     },
+                    // 进场淡入 + 刷新时位置平滑过渡
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
         }
@@ -499,14 +524,19 @@ private fun CreatorsPage(
 /**
  * 创作者卡（M3 Expressive）：头像 + 名字 + 支持/关注关系徽标 + 分类 + 简介 +
  * 主页展示图预览排（常不足 4 张，缺的格子收起）。
+ *
+ * @param creator 创作者数据
+ * @param onClick 卡片点击（打开创作者主页）
+ * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
+ * @return 无返回值
  */
 @Composable
-private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit) {
+private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

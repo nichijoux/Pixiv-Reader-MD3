@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -185,6 +186,7 @@ fun WatchlistRoute(
  * @param isLoadingMore 加载更多中
  * @param onLoadMore 触底加载更多回调
  * @param onOpenSeries 卡片点击（打开系列详情页）
+ * @return 无返回值
  */
 @Composable
 private fun NovelWatchlistList(
@@ -195,6 +197,8 @@ private fun NovelWatchlistList(
     onLoadMore: () -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         // 沉浸式底部：尾部避开系统导航栏（与小说 Tab 追更页签一致）
@@ -227,6 +231,11 @@ private fun NovelWatchlistList(
                     authorAvatarUrl = series.user?.profile_image_urls?.best(),
                 ),
                 onClick = { onOpenSeries(series.id) },
+                // 进场淡入 + 切换列表/追加时位置平滑过渡
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
             )
         }
         loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
@@ -247,6 +256,8 @@ private fun MangaWatchlistGrid(
     onOpenIllust: (Long) -> Unit,
     onRemove: (WatchlistSeries) -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(150.dp),
         modifier = Modifier.fillMaxSize(),
@@ -260,6 +271,11 @@ private fun MangaWatchlistGrid(
                 coverUrl = covers[series.id],
                 onClick = { series.latest_content_id?.let(onOpenIllust) },
                 onRemove = { onRemove(series) },
+                // 进场淡入 + 取消追更/追加时位置平滑重排
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
             )
         }
         loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore, span = StaggeredGridItemSpan.FullLine)
@@ -273,6 +289,8 @@ private fun MangaWatchlistGrid(
  * @param coverUrl 系列封面（异步补齐；null 用书本图标兜底）
  * @param onClick 卡片点击（打开最新一话详情）
  * @param onRemove 取消追更
+ * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
+ * @return 无返回值
  */
 @Composable
 private fun MangaWatchlistCard(
@@ -280,9 +298,10 @@ private fun MangaWatchlistCard(
     coverUrl: String?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick),

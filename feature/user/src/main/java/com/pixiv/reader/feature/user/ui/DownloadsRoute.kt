@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -190,6 +191,8 @@ private fun IllustDownloadList(
         EmptyBox(stringResource(R.string.downloads_empty_illust))
         return
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Adaptive(140.dp),
         modifier = Modifier.fillMaxSize(),
@@ -198,7 +201,13 @@ private fun IllustDownloadList(
         verticalItemSpacing = 8.dp,
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
-            Column {
+            // 进场淡入 + 删除/新增条目时位置平滑重排
+            Column(
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
+            ) {
                 Box {
                     IllustCard(
                         illust = restoreIllust(
@@ -262,13 +271,21 @@ private fun NovelDownloadList(
         EmptyBox(stringResource(R.string.downloads_empty))
         return
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}_${it.scopeKey}" }) { entry ->
-            Column {
+            // 进场淡入 + 删除/新增条目时位置平滑重排
+            Column(
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
+            ) {
                 Box {
                     val card = restoreNovelCardData(
                         entry.payloadJson,

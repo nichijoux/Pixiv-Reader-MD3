@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ranking.state.RankingModeInfo
@@ -253,6 +254,28 @@ fun <T> RankingList(
 /** 排行榜页内容三态：加载占位 / 错误 / 有数据。作为 [AnimatedContent] 的 targetState。 */
 private enum class RankContentState { Loading, Error, Content }
 
+/**
+ * 排行榜单页内容：按 [feedPhase] 渲染加载骨架 / 错误 / 空态 / 榜单本身。
+ * 网格模式（[gridMinColumnWidth] 非 null）走瀑布流，否则单列大卡列表；两者条目均挂
+ * `animateItem`：首次进榜淡入、翻页追加与过滤切换时位置平滑重排。
+ *
+ * @param modeValue 当前段标识（重试/加载更多回调回传，用于按段分派）
+ * @param items 该段当前已加载的全部条目（含被过滤隐藏项，名次取其在原列表中的位置）
+ * @param isLoading 首屏加载中
+ * @param isLoadingMore 触底加载更多中
+ * @param hasMore 是否还有下一页（true 时尾部渲染加载项）
+ * @param error 首屏错误信息（null=无错误）
+ * @param onRetry 失败重试回调（参数为段标识）
+ * @param onLoadMore 触底加载更多回调（参数为段标识）
+ * @param emptyText 榜单为空时的文案
+ * @param filter 条目过滤谓词（null=不过滤；只隐藏不改名次）
+ * @param filterKey 过滤条件标识（参与 [remember] 键，变化时重算可见集）
+ * @param filteredEmptyText 过滤后无匹配且已无下一页时的文案（null 回落 [emptyText]）
+ * @param gridMinColumnWidth 瀑布流最小列宽（null=单列列表）
+ * @param itemContent 单条目内容渲染（参数：条目 + 真实名次，名次从 1 开始）
+ * @param modifier 外部传入的 Modifier
+ * @return 无返回值
+ */
 @Composable
 private fun <T> RankingPage(
     modeValue: String,
@@ -271,6 +294,8 @@ private fun <T> RankingPage(
     itemContent: @Composable (T, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty(), hasError = error != null)) {
         FeedPhase.LOADING -> LoadingBox(modifier)
         FeedPhase.ERROR -> ErrorBox(
@@ -301,7 +326,17 @@ private fun <T> RankingPage(
                     ) {
                         // key 用原始榜单索引：过滤只隐藏不改序、分页只追加，列表内稳定唯一
                         itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
-                            itemContent(item, index + 1)
+                            // 进场淡入 + 重排位移：包在 slot 外层，调用方 itemContent 零改动
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem(
+                                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                                    ),
+                            ) {
+                                itemContent(item, index + 1)
+                            }
                         }
                         if (hasMore) {
                             // 尾部加载项横跨整行（不占用条目列）
@@ -320,7 +355,17 @@ private fun <T> RankingPage(
                     ) {
                         // key 用原始榜单索引：过滤只隐藏不改序、分页只追加，列表内稳定唯一
                         itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
-                            itemContent(item, index + 1)
+                            // 进场淡入 + 重排位移：包在 slot 外层，调用方 itemContent 零改动
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem(
+                                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                                    ),
+                            ) {
+                                itemContent(item, index + 1)
+                            }
                         }
                         if (hasMore) {
                             item(key = "load_more") {

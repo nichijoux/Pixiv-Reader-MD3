@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.card.NovelCard
@@ -149,6 +150,8 @@ private fun FollowFeedList(
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     val listState = rememberLazyListState()
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
@@ -173,6 +176,13 @@ private fun FollowFeedList(
         lazyItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
+                // 进场淡入 + 刷新追加时位置平滑过渡
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 onSearchTag = onSearchTag,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
@@ -203,6 +213,8 @@ private fun FollowFeedGrid(
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
     val gridState = rememberLazyStaggeredGridState()
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {
@@ -228,7 +240,13 @@ private fun FollowFeedGrid(
         gridItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
-                modifier = Modifier.fillMaxWidth(),
+                // 进场淡入 + 刷新追加时位置平滑过渡
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 onSearchTag = onSearchTag,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,

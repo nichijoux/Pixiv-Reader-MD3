@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Comment
 import com.pixiv.reader.core.comment.R
@@ -63,6 +64,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  * 评论列表内容块（core:comment 模块，评论页与排行右栏评论区共用）。
  * 不含 Scaffold/TopAppBar——由调用方决定外壳（全屏页 / 右栏面板）。
  * 参数均为调用方 collect 后的纯数据/回调（评论 VM 不进本组件）。
+ * 评论条目挂 `animateItem`：新评论进场淡入、切换排序时整列平滑重排。
  *
  * @param comments 评论列表（一级评论，按分页累积）
  * @param isLoading 首屏加载中
@@ -137,6 +139,8 @@ fun CommentListContent(
             onLoadMoreComments()
         }
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
 
     Box(modifier = modifier.fillMaxSize()) {
         when (feedPhase(loading = isLoading, hasItems = comments.isNotEmpty(), hasError = error != null)) {
@@ -160,20 +164,33 @@ fun CommentListContent(
                 contentPadding = PaddingValues(bottom = 72.dp),
             ) {
                 items(comments, key = { it.id }) { comment ->
-                    CommentRow(
-                        comment = comment,
-                        ownUid = ownUid,
-                        onOpenUser = onOpenUser,
-                        onReply = { target -> onReply(target, comment.id) },
-                        onDeleteComment = onDeleteComment,
-                        replies = replies[comment.id].orEmpty(),
-                        repliesLoading = repliesLoading.contains(comment.id),
-                        expanded = expandedReplies.contains(comment.id),
-                        onLoadReplies = { onLoadReplies(comment.id) },
-                        onToggleExpanded = { onToggleRepliesExpanded(comment.id) },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    // 排序翻转（正/倒序切换）时条目平滑重排；新评论进场淡入
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(
+                                fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                                placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                            ),
+                    ) {
+                        // 全宽列：保证分隔线横贯列表宽度
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            CommentRow(
+                                comment = comment,
+                                ownUid = ownUid,
+                                onOpenUser = onOpenUser,
+                                onReply = { target -> onReply(target, comment.id) },
+                                onDeleteComment = onDeleteComment,
+                                replies = replies[comment.id].orEmpty(),
+                                repliesLoading = repliesLoading.contains(comment.id),
+                                expanded = expandedReplies.contains(comment.id),
+                                onLoadReplies = { onLoadReplies(comment.id) },
+                                onToggleExpanded = { onToggleRepliesExpanded(comment.id) },
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
                 }
                 if (isLoadingMore) {
                     item {

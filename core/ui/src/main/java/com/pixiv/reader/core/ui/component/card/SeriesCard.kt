@@ -72,6 +72,12 @@ data class SeriesCardData(
  * 右侧列撑满封面高度（`height(IntrinsicSize.Min)` + `fillMaxHeight`）：
  * **标题顶对齐封面顶部**，`Spacer(weight 1f)` 弹性占位后 **作者行（头像+名称+更新时间）抵底对齐封面底部**。
  * 原实现位于 feature:user 用户页系列分区（内部组件），为供小说追更页复用上移到 core:ui。
+ *
+ * @param data 卡片展示数据（标题/封面/篇数字数/章节状态/作者行）
+ * @param onClick 点击卡片回调
+ * @param onOpenAuthor 点击作者行回调（默认空实现）
+ * @param modifier 外部传入的 Modifier（调用方可用它挂 `animateItem` 等列表动效，在其上继续追加）
+ * @return 无返回值
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -79,9 +85,10 @@ fun SeriesCard(
     data: SeriesCardData,
     onClick: () -> Unit,
     onOpenAuthor: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .clip(AppShapes.large)

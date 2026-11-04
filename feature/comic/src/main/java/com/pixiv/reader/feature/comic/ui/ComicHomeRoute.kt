@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -157,6 +158,8 @@ private fun ComicTopTab(
     onOpenWork: (Long) -> Unit,
     onRetry: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     when {
         top.isLoading && top.recentWorks.isEmpty() -> ComicHomeSkeleton(showRankingHeader = false)
         top.error != null && top.recentWorks.isEmpty() -> ErrorBox(message = top.error, onRetry = onRetry)
@@ -193,6 +196,11 @@ private fun ComicTopTab(
                         coverUrl = work.thumbnailImageUrl ?: work.mainImageUrl,
                         storiesCount = work.storiesCount,
                         onClick = { onOpenWork(work.id) },
+                        // 进场淡入 + 刷新时位置平滑过渡
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        ),
                     )
                 }
             }
@@ -251,6 +259,8 @@ private fun ComicRankingTab(
     onSelectLabel: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     when {
         ranking.isLoading && ranking.works.isEmpty() && ranking.labels.isEmpty() ->
             ComicHomeSkeleton(showRankingHeader = true)
@@ -311,6 +321,11 @@ private fun ComicRankingTab(
                     coverUrl = work.thumbnailImageUrl ?: work.mainImageUrl,
                     storiesCount = work.storiesCount,
                     onClick = { onOpenWork(work.id) },
+                    // key 含模式/标签前缀：切榜即整榜换 key → 全量重新进场淡入（此处正是想要的语义）
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
         }

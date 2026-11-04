@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Novel
@@ -68,6 +70,8 @@ internal fun NovelSearchResults(
     val isLoadingMore by viewModel.novelPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.novelPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.novelPaged.error.collectAsStateWithLifecycle()
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
 
     when {
         isLoading && items.isEmpty() -> NovelSearchSkeleton()
@@ -97,6 +101,11 @@ internal fun NovelSearchResults(
                         viewModel.search()
                     },
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                    // 进场淡入 + 新搜索/翻页追加时位置平滑过渡
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
             loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
@@ -104,6 +113,18 @@ internal fun NovelSearchResults(
     }
 }
 
+/**
+ * 小说搜索结果单行：转发到通用 [NovelCard]。
+ *
+ * @param novel 小说数据
+ * @param onClick 卡片点击
+ * @param onOpenAuthor 作者行点击
+ * @param onToggleFavorite 收藏切换回调（参数为切换后是否已收藏）
+ * @param onTagClick 标签点击（跳搜索）
+ * @param onSeriesClick 系列标题点击
+ * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
+ * @return 无返回值
+ */
 @Composable
 private fun NovelRow(
     novel: Novel,
@@ -112,6 +133,7 @@ private fun NovelRow(
     onToggleFavorite: (Boolean) -> Unit,
     onTagClick: (String) -> Unit,
     onSeriesClick: (Long) -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     NovelCard(
         novel = novel.toCardData(),
@@ -120,6 +142,7 @@ private fun NovelRow(
         onToggleFavorite = onToggleFavorite,
         onTagClick = onTagClick,
         onSeriesClick = onSeriesClick,
+        modifier = modifier,
     )
 }
 
@@ -132,6 +155,8 @@ internal fun UserSearchResults(
     val items by viewModel.userPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.userPaged.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.userPaged.error.collectAsStateWithLifecycle()
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
 
     when {
         isLoading && items.isEmpty() -> UserSearchSkeleton()
@@ -152,21 +177,37 @@ internal fun UserSearchResults(
                     onToggleFollow = { followed ->
                         preview.user?.id?.let { viewModel.toggleFollowUser(it, followed) }
                     },
+                    // 进场淡入 + 新搜索时位置平滑过渡
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
         }
     }
 }
 
+/**
+ * 用户搜索结果单行：转发到通用 [CreatorProfileCard]。
+ *
+ * @param preview 用户预览数据
+ * @param onClick 卡片点击（打开用户主页）
+ * @param onToggleFollow 关注切换回调（参数为切换后是否已关注）
+ * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
+ * @return 无返回值
+ */
 @Composable
 private fun UserRow(
     preview: UserPreview,
     onClick: () -> Unit,
     onToggleFollow: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     CreatorProfileCard(
         profile = preview.toCreatorProfile(),
         onToggleFollow = onToggleFollow,
         onClick = onClick,
+        modifier = modifier,
     )
 }

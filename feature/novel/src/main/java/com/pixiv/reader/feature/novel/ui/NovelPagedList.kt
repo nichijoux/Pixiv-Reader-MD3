@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +22,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
@@ -55,6 +58,8 @@ internal fun NovelPagedList(
     header: (@Composable () -> Unit)? = null,
     scrollToTopKey: Int = 0,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     val listState = rememberLazyListState()
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
@@ -106,6 +111,13 @@ internal fun NovelPagedList(
                         onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                         onTagClick = onSearchTag,
                         onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                        // 进场淡入 + 刷新/重新排序时位置平滑过渡
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(
+                                fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                                placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                            ),
                     )
                 }
                 loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)

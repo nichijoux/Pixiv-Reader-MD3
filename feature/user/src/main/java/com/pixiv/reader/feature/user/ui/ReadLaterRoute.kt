@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -214,6 +215,8 @@ private fun ReadLaterNovelList(
         )
         return
     }
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.lg),
@@ -226,6 +229,11 @@ private fun ReadLaterNovelList(
                 onOpenAuthor = { card.authorId.takeIf { it != 0L }?.let(onOpenUser) },
                 onToggleFavorite = {},
                 onTagClick = {},
+                // 进场淡入 + 移除条目时位置平滑重排
+                modifier = Modifier.animateItem(
+                    fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                    placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                ),
             )
         }
     }

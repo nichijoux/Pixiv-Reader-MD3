@@ -72,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import coil.compose.AsyncImage
@@ -873,12 +874,22 @@ private fun AuthorFollowPill(
 
 // ── 相关作品 ──
 
+/**
+ * 相关作品横滑区：标题 + 150dp 固定宽卡片行（封面 4:3 裁切 + 单行标题）。
+ *
+ * @param items 相关作品列表
+ * @param strings 文案集合（标题「相关作品」等）
+ * @param onOpenIllust 点击卡片打开作品详情（参数为作品 id）
+ * @return 无返回值
+ */
 @Composable
 fun IllustRelatedSection(
     items: List<Illust>,
     strings: IllustDetailStrings,
     onOpenIllust: (Long) -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     Column(modifier = Modifier.padding(Spacing.lg)) {
         Text(
             strings.related,
@@ -891,6 +902,11 @@ fun IllustRelatedSection(
                 Column(
                     modifier = Modifier
                         .width(150.dp)
+                        // 进场淡入 + 相关作品换批时位置平滑过渡
+                        .animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        )
                         .clip(AppShapes.cardSmall)
                         .background(MaterialTheme.colorScheme.surfaceContainer)
                         .clickable { onOpenIllust(related.id) },

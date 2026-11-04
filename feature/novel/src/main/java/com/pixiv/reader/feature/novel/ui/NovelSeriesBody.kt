@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.card.NovelCard
@@ -136,6 +137,8 @@ internal fun NovelSeriesList(
     val isWatchlisted = watchlistState.isOn
     val isWatchlisting = watchlistState.inFlight
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
 
     when {
         isLoading && items.isEmpty() && detail == null -> NovelSeriesSkeleton()
@@ -194,7 +197,13 @@ internal fun NovelSeriesList(
                     onTagClick = onSearchTag,
                     // 分册卡点系列标题：全屏页回当前系列（popUpTo 语义由导航处理）；pane 经宿主原地切换
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                    modifier = Modifier.padding(horizontal = Spacing.lg),
+                    // 进场淡入 + 翻页追加时位置平滑过渡
+                    modifier = Modifier
+                        .padding(horizontal = Spacing.lg)
+                        .animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        ),
                 )
             }
             loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)

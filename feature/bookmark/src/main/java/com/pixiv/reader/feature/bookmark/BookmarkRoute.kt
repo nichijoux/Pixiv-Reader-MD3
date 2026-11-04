@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.paging.PagedState
@@ -186,6 +188,8 @@ private fun BookmarkNovelList(
     onTagClick: (String) -> Unit,
     onLoadMore: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     PagedFeed(
         paged = paged,
         emptyText = stringResource(R.string.bookmark_empty),
@@ -204,6 +208,11 @@ private fun BookmarkNovelList(
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                    // 进场淡入 + 取消收藏/翻页追加时位置平滑重排
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
             loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)

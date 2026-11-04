@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -131,6 +132,8 @@ private fun ComicWorkDetailContent(
 ) {
     // 文案在组合期解析（点击回调 lambda 内不可调 stringResource）
     val lockedToast = stringResource(R.string.comic_locked_toast)
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     val data = work.work ?: return
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -181,9 +184,18 @@ private fun ComicWorkDetailContent(
                     EmptyBox(text = stringResource(R.string.comic_empty_episodes))
                 }
             else -> items(episodes.entries, key = { entry -> entry.episode?.id ?: entry.hashCode() }) { entry ->
-                ComicEpisodeRow(entry = entry, onOpenReader = onOpenReader, onLocked = {
-                    notificationHost.show(lockedToast, type = NotificationType.Error)
-                })
+                ComicEpisodeRow(
+                    entry = entry,
+                    onOpenReader = onOpenReader,
+                    onLocked = {
+                        notificationHost.show(lockedToast, type = NotificationType.Error)
+                    },
+                    // 正序/倒序切换时整列条目平滑重排（该场景收益最高）
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
+                )
             }
         }
     }
@@ -302,6 +314,7 @@ private fun ComicDescription(work: ComicWork) {
  * @param entry 章节条目
  * @param onOpenReader 进阅读器回调
  * @param onLocked 点到不可读章节的提示回调
+ * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
  * @return 无返回值
  */
 @Composable
@@ -309,12 +322,13 @@ private fun ComicEpisodeRow(
     entry: ComicEpisodeEntry,
     onOpenReader: (Long) -> Unit,
     onLocked: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val episode = entry.episode ?: return
     val readable = entry.state == "readable" && episode.isReadable
     val unpublished = entry.state != "readable"
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = !unpublished) {
                 if (readable) onOpenReader(episode.id) else onLocked()

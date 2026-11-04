@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -23,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.MangaSeriesItem
 import com.pixiv.api.model.Novel
@@ -86,6 +88,8 @@ internal fun SectionNovel(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     PagedFeed(
         paged = paged,
         emptyText = stringResource(R.string.user_empty_novel),
@@ -110,6 +114,11 @@ internal fun SectionNovel(
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                    // 进场淡入 + 翻页追加时位置平滑过渡
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
             loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
@@ -186,6 +195,8 @@ private fun NovelSeriesList(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     PagedFeed(
         paged = paged,
         emptyText = stringResource(R.string.user_empty_series),
@@ -218,6 +229,11 @@ private fun NovelSeriesList(
                         authorAvatarUrl = series.user?.profile_image_urls?.best(),
                     ),
                     onClick = { onOpenSeries(series.id) },
+                    // 进场淡入 + 翻页追加时位置平滑过渡
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
             loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
@@ -233,6 +249,8 @@ private fun MangaSeriesList(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     PagedFeed(
         paged = paged,
         emptyText = stringResource(R.string.user_empty_manga_series),
@@ -260,6 +278,11 @@ private fun MangaSeriesList(
                         authorAvatarUrl = series.user?.profile_image_urls?.best(),
                     ),
                     onClick = { onOpenMangaSeries(series.id) },
+                    // 进场淡入 + 翻页追加时位置平滑过渡
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
                 )
             }
             // 保留独立 key「load_more_manga」（与同文件小说系列列表 footer 区分，历史行为不变）
