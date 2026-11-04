@@ -23,7 +23,6 @@ import com.pixiv.reader.core.comment.state.CommentListViewModel
 import com.pixiv.reader.core.comment.state.CommentTarget
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.comment.ui.CommentPane
-import com.pixiv.reader.core.ui.component.detail.HeroSeedCover
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.LocalNavAnimatedVisibilityScope
 import com.pixiv.reader.core.ui.component.detail.novelCoverKey
@@ -72,6 +71,11 @@ fun NovelDetailPane(
     LaunchedEffect(currentId) {
         if (currentId != null) viewModel.switchTo(currentId)
     }
+    // hero 种子在 pane 层消费一次，经参数下发 NovelDetailContent：
+    // 上下游各自 consume 会互相抢（取出即删，第二个拿到 null）
+    val heroSeed = remember(currentId) {
+        currentId?.let { HeroSeedStore.consume(novelCoverKey(it)) }
+    }
     // hero 种子兜底清理：pane 命中缓存未走加载分支时种子不会被消费，切换选中项 / 销毁时清掉，
     // 避免左栏反复点卡后进程内残留无界增长（pane 内 scope 已置空，不影响 morph）
     DisposableEffect(currentId) {
@@ -86,7 +90,6 @@ fun NovelDetailPane(
     val novel by viewModel.novel.collectAsStateWithLifecycle()
     val seriesNovels by viewModel.seriesNovels.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
@@ -119,53 +122,48 @@ fun NovelDetailPane(
             when {
                 currentId == null -> PanePlaceholder(text = placeholder)
 
-                isLoading && novel == null -> Box {
-                    NovelDetailSkeleton()
-                    // hero 占位：pane 内 scope 已置空，HeroSeedCover 退化为普通封面（仅加载期占位，
-                    // 不参与 morph）；无 seed 时整体不渲染（纯骨架）
-                    HeroSeedCover(
-                        key = novelCoverKey(currentId),
-                        modifier = Modifier.align(Alignment.TopCenter),
-                        height = NOVEL_BANNER_HEIGHT,
-                    )
-                }
                 error != null && novel == null -> ErrorBox(
                     message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                     onRetry = viewModel::load,
                 )
 
+                // hero 元素全程唯一：banner 常驻组合（数据未到时以 seed 封面占位），
+                // 数据到达后同一容器原地转真图，消除骨架 + 占位封面 → 真图 banner 的硬切闪现
                 else -> {
-                    val detail = novel
-                    if (detail != null) {
-                        if (showComments) {
-                            // 评论区：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
-                            CommentPane(
-                                commentVm = commentVm,
+                    if (showComments) {
+                        // 评论区：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
+                        CommentPane(
+                            commentVm = commentVm,
+                            onOpenUser = onOpenUser,
+                            onBackToDetail = { showComments = false },
+                        )
+                    } else {
+                        Column(Modifier.fillMaxSize()) {
+                            NovelDetailContent(
+                                detail = novel,
+                                seed = heroSeed,
+                                novelIdForHero = currentId,
+                                seriesNovels = seriesNovels,
+                                progress = progress,
+                                isAuthorFollowed = isAuthorFollowed,
+                                isAuthorFollowing = isAuthorFollowing,
+                                downloading = downloading,
+                                downloadProgress = downloadProgress,
+                                // pane 无悬浮返回按钮（onBack 不会被触发，占位安全）
+                                onBack = {},
+                                onOpenNovel = viewModel::switchTo,
+                                onOpenReader = onOpenReader,
                                 onOpenUser = onOpenUser,
-                                onBackToDetail = { showComments = false },
+                                onOpenSeries = onOpenSeries,
+                                onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                                onSearchTag = onSearchTag,
+                                modifier = Modifier.weight(1f),
+                                forceSingleColumn = true,
+                                showBackButton = false,
                             )
-                        } else {
-                            Column(Modifier.fillMaxSize()) {
-                                NovelDetailContent(
-                                    detail = detail,
-                                    seriesNovels = seriesNovels,
-                                    progress = progress,
-                                    isAuthorFollowed = isAuthorFollowed,
-                                    isAuthorFollowing = isAuthorFollowing,
-                                    downloading = downloading,
-                                    downloadProgress = downloadProgress,
-                                    // pane 无悬浮返回按钮（onBack 不会被触发，占位安全）
-                                    onBack = {},
-                                    onOpenNovel = viewModel::switchTo,
-                                    onOpenReader = onOpenReader,
-                                    onOpenUser = onOpenUser,
-                                    onOpenSeries = onOpenSeries,
-                                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                                    onSearchTag = onSearchTag,
-                                    modifier = Modifier.weight(1f),
-                                    forceSingleColumn = true,
-                                    showBackButton = false,
-                                )
+                            // 操作条依赖非空详情（系列 id / 评论区目标），数据未到达时不渲染
+                            val detail = novel
+                            if (detail != null) {
                                 NovelActionBar(
                                     seriesId = detail.series?.id,
                                     privacy = bookmarkPrivacy,
@@ -184,18 +182,18 @@ fun NovelDetailPane(
                                     // 直通屏幕底）；导航栏避让由沉浸式页面整体方案处理
                                     navigationBarInset = false,
                                 )
-                                // 下载格式选择弹窗（详情页 / pane 共用调用块）
-                                NovelDetailDownloadSheet(
-                                    visible = showDownloadDialog,
-                                    seriesId = detail.series?.id,
-                                    onExport = { formatName, series ->
-                                        viewModel.export(formatName, series)
-                                        // 点击格式即入队：立即关弹窗，配合 queued toast 给予已点击反馈（与系列页一致）
-                                        showDownloadDialog = false
-                                    },
-                                    onDismiss = { showDownloadDialog = false },
-                                )
                             }
+                            // 下载格式选择弹窗（详情页 / pane 共用调用块）
+                            NovelDetailDownloadSheet(
+                                visible = showDownloadDialog && novel != null,
+                                seriesId = novel?.series?.id,
+                                onExport = { formatName, series ->
+                                    viewModel.export(formatName, series)
+                                    // 点击格式即入队：立即关弹窗，配合 queued toast 给予已点击反馈（与系列页一致）
+                                    showDownloadDialog = false
+                                },
+                                onDismiss = { showDownloadDialog = false },
+                            )
                         }
                     }
                 }

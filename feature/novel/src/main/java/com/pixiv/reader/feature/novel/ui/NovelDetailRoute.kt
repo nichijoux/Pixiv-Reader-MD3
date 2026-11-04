@@ -17,6 +17,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,7 +34,7 @@ import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
-import com.pixiv.reader.core.ui.component.detail.HeroSeedCover
+import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -51,6 +52,9 @@ import com.pixiv.reader.feature.novel.data.NovelExportQueue
  * 沉浸式封面 banner（仅作背景、无视差）+ 标题 / 作者 / 发布时间 / 统计 / 标签 / 简介（首行缩进 + 展开全文）+
  * 阅读 / 收藏 / 追更 / 下载 / 评论（竖排卡片按钮）+ 系列目录（手机限高滚动 / 平板左栏固定、滚动互不影响）+ 查看完整系列。
  * 评论区走通用页 `comments/novel/{id}`（core:comment）。
+ *
+ * hero 元素由 banner 独占并恒组合：数据未到达时 banner 以列表卡片写入的 seed 封面占位，
+ * 数据到达后同一容器原地转真图，避免「骨架 + 占位封面 → 真图 banner」子树硬切导致的闪现。
  *
  * @param novelId 小说 id
  * @param onBack 返回回调
@@ -107,8 +111,10 @@ fun NovelDetailRoute(
         else -> BookmarkPrivacy.PUBLIC
     }
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
-    // hero 种子兜底清理：详情页销毁时丢弃未消费的种子（详情命中缓存 / 占位分支未组合的情况）
+    // hero 种子在 Route 层消费一次，经参数下发：上下游各自 consume 会互相抢（取出即删）
     val heroKey = novelCoverKey(novelId)
+    val heroSeed = remember(heroKey) { HeroSeedStore.consume(heroKey) }
+    // hero 种子兜底清理：详情页销毁时丢弃未消费的种子（详情命中缓存 / 占位分支未组合的情况）
     DisposableEffect(heroKey) {
         onDispose { HeroSeedStore.clear(heroKey) }
     }
@@ -182,45 +188,44 @@ fun NovelDetailRoute(
     ) { padding ->
         // Scaffold innerPadding 已排除 bottomBar 高度：内容滚不到操作条下方（对齐插画详情页）
         when {
-            isLoading && novel == null -> Box(modifier = Modifier.padding(padding)) {
-                NovelDetailSkeleton()
-                // hero 占位：骨架之上叠加卡片封面（banner 高度），衔接列表卡片 → 详情 banner
-                HeroSeedCover(
-                    key = heroKey,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    height = NOVEL_BANNER_HEIGHT,
-                )
-            }
             error != null && novel == null -> ErrorBox(
                 message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
                 onRetry = viewModel::load,
                 modifier = Modifier.padding(padding),
             )
 
-            novel == null -> EmptyBox(
+            // 加载结束且无数据、无错误：作品不存在
+            novel == null && !isLoading -> EmptyBox(
                 stringResource(R.string.novel_not_found),
                 modifier = Modifier.padding(padding),
             )
-            else -> {
-                val detail = checkNotNull(novel)
-                NovelDetailContent(
-                    detail = detail,
-                    seriesNovels = seriesNovels,
-                    progress = progress,
-                    isAuthorFollowed = isAuthorFollowed,
-                    isAuthorFollowing = isAuthorFollowing,
-                    downloading = downloading,
-                    downloadProgress = downloadProgress,
-                    onBack = onBack,
-                    onOpenNovel = onOpenNovel,
-                    onOpenReader = onOpenReader,
-                    onOpenUser = onOpenUser,
-                    onOpenSeries = onOpenSeries,
-                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                    onSearchTag = onSearchTag,
-                    modifier = Modifier.padding(padding),
-                )
+
+            // 深链进入：无 hero 种子且详情未到 → 完整骨架兜底（banner 无 seed 可占位）
+            novel == null && heroSeed == null -> Box(modifier = Modifier.padding(padding)) {
+                NovelDetailSkeleton()
             }
+
+            // hero 元素全程唯一：banner 常驻组合（数据未到时以 seed 封面占位），
+            // 数据到达后同一容器原地转真图，不再有 skeleton+seed → 真图 banner 的硬切
+            else -> NovelDetailContent(
+                detail = novel,
+                seed = heroSeed,
+                novelIdForHero = novelId.takeIf { it > 0L },
+                seriesNovels = seriesNovels,
+                progress = progress,
+                isAuthorFollowed = isAuthorFollowed,
+                isAuthorFollowing = isAuthorFollowing,
+                downloading = downloading,
+                downloadProgress = downloadProgress,
+                onBack = onBack,
+                onOpenNovel = onOpenNovel,
+                onOpenReader = onOpenReader,
+                onOpenUser = onOpenUser,
+                onOpenSeries = onOpenSeries,
+                onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                onSearchTag = onSearchTag,
+                modifier = Modifier.padding(padding),
+            )
         }
         val dialogNovel = novel
         NovelDetailDownloadSheet(
@@ -253,7 +258,12 @@ fun NovelDetailRoute(
 
 /** 平板 + 手机双布局分发：平板且有系列走双栏（目录固定），否则单列。
  *
- * @param detail 小说详情数据
+ * banner 恒渲染（hero 元素唯一）：`detail` 为 null 时以 [seed] 占位，数据到达后原地转真图；
+ * 信息区在 `detail` 为 null 时以 [NovelInfoSkeleton] 占位。
+ *
+ * @param detail 小说详情数据；null 表示数据未到达（banner 以 seed 占位、信息区骨架占位）
+ * @param seed hero 种子（列表卡片封面快照；数据未到达时 banner 的占位图）
+ * @param novelIdForHero hero 共享元素 key 的回退作品 id（路由参数，detail 未到达时定位 key）
  * @param seriesNovels 系列内分册列表（平板双栏左目录 / 手机限高目录）
  * @param progress 阅读进度
  * @param isAuthorFollowed 当前是否已关注作者
@@ -275,7 +285,9 @@ fun NovelDetailRoute(
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun NovelDetailContent(
-    detail: Novel,
+    detail: Novel?,
+    seed: HeroSeed? = null,
+    novelIdForHero: Long? = null,
     seriesNovels: List<Novel>,
     progress: ReadingProgressEntity?,
     isAuthorFollowed: Boolean,
@@ -295,13 +307,18 @@ internal fun NovelDetailContent(
     showBackButton: Boolean = true,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
-    val seriesId = detail.series?.id
+    val seriesId = detail?.series?.id
     if (isTablet && seriesNovels.isNotEmpty() && !forceSingleColumn) {
         // 平板双栏：banner 随正文滚动，左目录固定（sticky 等效），滚动互不影响
         Box(modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize()) {
                 item(key = "banner") {
-                    NovelBanner(detail = detail, height = NOVEL_BANNER_TABLET_HEIGHT)
+                    NovelBanner(
+                        detail = detail,
+                        seed = seed,
+                        fallbackId = novelIdForHero,
+                        height = NOVEL_BANNER_TABLET_HEIGHT,
+                    )
                 }
                 item(key = "info_actions") {
                     // 右侧正文：避开左目录（264dp + 间距）
@@ -311,22 +328,27 @@ internal fun NovelDetailContent(
                             .padding(start = NOVEL_TOC_PANEL_WIDTH + Spacing.lg),
                     ) {
                         Column(Modifier.fillMaxWidth()) {
-                            NovelHeader(
-                                detail,
-                                onOpenUser = onOpenUser,
-                                expandableIntro = false,
-                                isAuthorFollowed = isAuthorFollowed,
-                                isAuthorFollowing = isAuthorFollowing,
-                                onToggleFollowAuthor = onToggleFollowAuthor,
-                                // 简介内 pixiv://novels 链接 → 系列内/详情切换
-                                onOpenNovel = onOpenNovel,
-                                onSearchTag = onSearchTag,
-                            )
-                            NovelActions(
-                                downloading = downloading,
-                                downloadProgress = downloadProgress,
-                                onRead = { onOpenReader(detail.id) },
-                            )
+                            // 数据未到达：信息区骨架占位（banner 已由 seed 承载 hero）
+                            if (detail == null) {
+                                NovelInfoSkeleton()
+                            } else {
+                                NovelHeader(
+                                    detail,
+                                    onOpenUser = onOpenUser,
+                                    expandableIntro = false,
+                                    isAuthorFollowed = isAuthorFollowed,
+                                    isAuthorFollowing = isAuthorFollowing,
+                                    onToggleFollowAuthor = onToggleFollowAuthor,
+                                    // 简介内 pixiv://novels 链接 → 系列内/详情切换
+                                    onOpenNovel = onOpenNovel,
+                                    onSearchTag = onSearchTag,
+                                )
+                                NovelActions(
+                                    downloading = downloading,
+                                    downloadProgress = downloadProgress,
+                                    onRead = { onOpenReader(detail.id) },
+                                )
+                            }
                         }
                     }
                 }
@@ -339,7 +361,8 @@ internal fun NovelDetailContent(
             ) {
                 NovelTocList(
                     seriesNovels = seriesNovels,
-                    currentId = detail.id,
+                    // 占位期（detail 未到）用路由 id 兜底；两者皆无时不定位任何行（0L 不命中）
+                    currentId = detail?.id ?: novelIdForHero ?: 0L,
                     seriesId = seriesId,
                     onOpenNovel = onOpenNovel,
                     onOpenSeries = onOpenSeries,
@@ -358,6 +381,8 @@ internal fun NovelDetailContent(
     } else {
         PhoneNovelDetail(
             detail = detail,
+            seed = seed,
+            novelIdForHero = novelIdForHero,
             seriesNovels = seriesNovels,
             progress = progress,
             isAuthorFollowed = isAuthorFollowed,
@@ -380,7 +405,12 @@ internal fun NovelDetailContent(
 /**
  * 手机单列详情：banner 随滚 + 标题信息 + 操作 + 系列目录（限高内部滚动）。
  *
- * @param detail 小说详情数据
+ * banner 恒渲染（hero 元素唯一）：`detail` 为 null 时以 [seed] 占位；
+ * 信息区在 `detail` 为 null 时以 [NovelInfoSkeleton] 占位。
+ *
+ * @param detail 小说详情数据；null 表示数据未到达（banner 以 seed 占位、信息区骨架占位）
+ * @param seed hero 种子（列表卡片封面快照；数据未到达时 banner 的占位图）
+ * @param novelIdForHero hero 共享元素 key 的回退作品 id（路由参数，detail 未到达时定位 key）
  * @param seriesNovels 系列内分册列表
  * @param progress 阅读进度
  * @param isAuthorFollowed 当前是否已关注作者
@@ -400,7 +430,9 @@ internal fun NovelDetailContent(
  */
 @Composable
 private fun PhoneNovelDetail(
-    detail: Novel,
+    detail: Novel?,
+    seed: HeroSeed?,
+    novelIdForHero: Long?,
     seriesNovels: List<Novel>,
     progress: ReadingProgressEntity?,
     isAuthorFollowed: Boolean,
@@ -418,32 +450,44 @@ private fun PhoneNovelDetail(
     showBackButton: Boolean = true,
 ) {
     val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
-    val seriesId = detail.series?.id
+    val seriesId = detail?.series?.id
+    // 目录当前章：占位期用路由 id 兜底（两者皆无时不定位任何行）
+    val currentNovelId = detail?.id ?: novelIdForHero ?: 0L
 
     Box(modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize()) {
             item(key = "banner") {
-                NovelBanner(detail = detail, height = NOVEL_BANNER_HEIGHT)
+                NovelBanner(
+                    detail = detail,
+                    seed = seed,
+                    fallbackId = novelIdForHero,
+                    height = NOVEL_BANNER_HEIGHT,
+                )
             }
             item(key = "info_actions") {
                 NovelCenteredBox {
                     Column {
-                        NovelHeader(
-                            detail,
-                            onOpenUser = onOpenUser,
-                            expandableIntro = true,
-                            isAuthorFollowed = isAuthorFollowed,
-                            isAuthorFollowing = isAuthorFollowing,
-                            onToggleFollowAuthor = onToggleFollowAuthor,
-                            // 简介内 pixiv://novels 链接 → 系列内/详情切换
-                            onOpenNovel = onOpenNovel,
-                            onSearchTag = onSearchTag,
-                        )
-                        NovelActions(
-                            downloading = downloading,
-                            downloadProgress = downloadProgress,
-                            onRead = { onOpenReader(detail.id) },
-                        )
+                        // 数据未到达：信息区骨架占位（banner 已由 seed 承载 hero）
+                        if (detail == null) {
+                            NovelInfoSkeleton()
+                        } else {
+                            NovelHeader(
+                                detail,
+                                onOpenUser = onOpenUser,
+                                expandableIntro = true,
+                                isAuthorFollowed = isAuthorFollowed,
+                                isAuthorFollowing = isAuthorFollowing,
+                                onToggleFollowAuthor = onToggleFollowAuthor,
+                                // 简介内 pixiv://novels 链接 → 系列内/详情切换
+                                onOpenNovel = onOpenNovel,
+                                onSearchTag = onSearchTag,
+                            )
+                            NovelActions(
+                                downloading = downloading,
+                                downloadProgress = downloadProgress,
+                                onRead = { onOpenReader(detail.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -453,7 +497,7 @@ private fun PhoneNovelDetail(
                     NovelCenteredBox {
                         NovelTocList(
                             seriesNovels = seriesNovels,
-                            currentId = detail.id,
+                            currentId = currentNovelId,
                             seriesId = seriesId,
                             onOpenNovel = onOpenNovel,
                             onOpenSeries = onOpenSeries,
