@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +61,13 @@ fun IllustDetailPane(
     LaunchedEffect(currentId) {
         if (currentId != null) viewModel.switchTo(currentId)
     }
+    // hero 种子兜底清理：pane 命中缓存未走加载分支时种子不会被消费，切换选中项 / 销毁时清掉，
+    // 避免左栏反复点卡后进程内残留无界增长（pane 内 scope 已置空，不影响 morph）
+    DisposableEffect(currentId) {
+        onDispose {
+            if (currentId != null) HeroSeedStore.clear(illustCoverKey(currentId))
+        }
+    }
     // 评论区开关：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
     var showComments by remember { mutableStateOf(false) }
     // 返回键导航：评论 → 详情（先于外层 pane 关闭的 BackHandler 触发）
@@ -84,51 +93,63 @@ fun IllustDetailPane(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        when {
-            currentId == null -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = placeholder,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // pane 内关闭 hero 共享边界：平板 Master-Detail 下左侧列表卡片与右栏详情同屏，
+        // 两者若用同一 key 会互相匹配产生多余 morph；pane 场景本就无导航跳转，无需 hero
+        CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides null) {
+            when {
+                currentId == null -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                isLoading && illust == null -> Box {
+                    IllustDetailSkeleton()
+                    // hero 占位：pane 内 scope 已置空，HeroSeedCover 的共享边界自动退化为普通
+                    // 封面（仅作加载期占位图，不参与 morph）；无 seed 时整体不渲染
+                    HeroSeedCover(
+                        key = illustCoverKey(currentId),
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
+                error != null && illust == null -> ErrorBox(
+                    message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
+                    onRetry = viewModel::load,
+                )
+
+                // 进入评论区：槽位参数为 onBackToDetail（评论区顶部返回条点击后切回详情）
+                showComments -> comments { showComments = false }
+
+                else -> IllustDetailContent(
+                    illust = illust,
+                    pages = pages,
+                    ugoiraFrames = ugoiraFrames,
+                    ugoiraProgress = ugoiraProgress,
+                    relatedItems = relatedItems,
+                    strings = strings,
+                    onPageChange = {},
+                    onOpenViewer = { page -> onOpenViewer(currentId, page) },
+                    onOpenUser = onOpenUser,
+                    onOpenIllust = viewModel::switchTo,
+                    onSearchTag = onSearchTag,
+                    isAuthorFollowed = isAuthorFollowed,
+                    isAuthorFollowing = isAuthorFollowing,
+                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                    isBookmarked = isBookmarked,
+                    isBookmarking = isBookmarking,
+                    onToggleBookmark = viewModel::toggleBookmark,
+                    onDownload = viewModel::download,
+                    onOpenComments = {
+                        showComments = true
+                        onOpenComments()
+                    },
                 )
             }
-
-            isLoading && illust == null -> IllustDetailSkeleton()
-            error != null && illust == null -> ErrorBox(
-                message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
-                onRetry = viewModel::load,
-            )
-
-            // 进入评论区：槽位参数为 onBackToDetail（评论区顶部返回条点击后切回详情）
-            showComments -> comments { showComments = false }
-
-            else -> IllustDetailContent(
-                illust = illust,
-                pages = pages,
-                ugoiraFrames = ugoiraFrames,
-                ugoiraProgress = ugoiraProgress,
-                relatedItems = relatedItems,
-                strings = strings,
-                onPageChange = {},
-                onOpenViewer = { page -> onOpenViewer(currentId, page) },
-                onOpenUser = onOpenUser,
-                onOpenIllust = viewModel::switchTo,
-                onSearchTag = onSearchTag,
-                isAuthorFollowed = isAuthorFollowed,
-                isAuthorFollowing = isAuthorFollowing,
-                onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                isBookmarked = isBookmarked,
-                isBookmarking = isBookmarking,
-                onToggleBookmark = viewModel::toggleBookmark,
-                onDownload = viewModel::download,
-                onOpenComments = {
-                    showComments = true
-                    onOpenComments()
-                },
-            )
         }
     }
 }

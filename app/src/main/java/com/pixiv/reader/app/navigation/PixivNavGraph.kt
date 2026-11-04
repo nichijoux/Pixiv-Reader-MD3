@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
@@ -25,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.pixiv.reader.app.download.retryDownload
 import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.core.novel.store.LocalReaderStore
+import com.pixiv.reader.core.ui.component.detail.LocalNavAnimatedVisibilityScope
 import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
 import com.pixiv.reader.core.ui.theme.pixivNavEnter
 import com.pixiv.reader.core.ui.theme.pixivNavExit
@@ -273,103 +275,107 @@ fun PixivNavGraph(
         ) { backStackEntry ->
             val initialSearch = backStackEntry.arguments?.getString("search")
             val initialTagType = if (backStackEntry.arguments?.getString("sn") == "1") TagType.NOVEL else TagType.ILLUST
-            MainShell(
-                onLogout = {
-                    onLogout()
-                    // 登出：清空主壳栈回到登录页
-                    navController.navigate(ROUTE_AUTH) {
-                        popUpTo(ROUTE_MAIN) { inclusive = true }
-                    }
-                },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenNovel = { novelId ->
-                    navController.navigate("novel/$novelId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenSeries = { seriesId ->
-                    navController.navigate("novel_series/$seriesId")
-                },
-                onOpenHistory = {
-                    navController.navigate(ROUTE_HISTORY)
-                },
-                onOpenBookmarks = {
-                    navController.navigate(ROUTE_BOOKMARKS)
-                },
-                onOpenWatchlist = { segment ->
-                    // 小说 Tab / Me 页 → 小说分段；作品 Tab 顶栏 → 直达漫画分段
-                    navController.navigate("watchlist?type=${segment.routeValue}")
-                },
-                onOpenReadLater = {
-                    navController.navigate(ROUTE_READ_LATER)
-                },
-                onOpenPixivision = {
-                    navController.navigate(ROUTE_PIXIVISION)
-                },
-                onOpenUserRanking = {
-                    navController.navigate(ROUTE_USER_RANKING)
-                },
-                onOpenAiRanking = {
-                    navController.navigate(ROUTE_AI_RANKING)
-                },
-                onOpenEraRanking = {
-                    navController.navigate(ROUTE_ERA_RANKING)
-                },
-                onOpenWallpaperRanking = {
-                    navController.navigate(ROUTE_WALLPAPER_RANKING)
-                },
-                onOpenNotifications = {
-                    navController.navigate(ROUTE_NOTIFICATION)
-                },
-                onOpenBlocked = {
-                    navController.navigate(ROUTE_BLOCKED)
-                },
-                onOpenDownloads = {
-                    navController.navigate(ROUTE_DOWNLOADS)
-                },
-                onOpenMangaRanking = {
-                    navController.navigate(ROUTE_MANGA_RANKING)
-                },
-                onOpenIllustRanking = {
-                    navController.navigate(ROUTE_ILLUST_RANKING)
-                },
-                onOpenNovelRanking = {
-                    navController.navigate(ROUTE_NOVEL_RANKING)
-                },
-                onOpenFanbox = {
-                    // 我的页 FANBOX 入口（已登录 FANBOX 进原生首页）
-                    navController.navigate(ROUTE_FANBOX_HOME)
-                },
-                onOpenFanboxWeb = { url, title ->
-                    // FANBOX 内置网页（登录引导 / 创作者主页等）
-                    navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
-                },
-                onOpenComic = {
-                    // 我的页 COMIC 入口（免费内容无需登录，直达原生首页）
-                    navController.navigate(ROUTE_COMIC_HOME)
-                },
-                onOpenViewer = { id, page ->
-                    // 全屏查看器：Tab 内详情 pane 图片点击（定位到指定页）
-                    navController.navigate("viewer/$id?page=$page")
-                },
-                onOpenReader = { id ->
-                    // 小说阅读器：小说 pane「开始阅读」入口
-                    navController.navigate("reader/$id")
-                },
-                onOpenCover = { url ->
-                    // 封面/头像全屏大图（系列 pane 封面点击）
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
-                },
-                onExitSearchSession = {
-                    // 栈底时 safeBack 静默忽略，避免误退 app
-                    navController.safeBack()
-                },
-                initialSearch = initialSearch,
-                initialSearchTagType = initialTagType,
-            )
+            // 主壳也下发可见性作用域：Tab 内卡片是 hero 的「发出方」（本条目退出 = outgoing），
+            // 与详情路由（incoming）在同一 SharedTransitionScope 内按 key 匹配
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                MainShell(
+                    onLogout = {
+                        onLogout()
+                        // 登出：清空主壳栈回到登录页
+                        navController.navigate(ROUTE_AUTH) {
+                            popUpTo(ROUTE_MAIN) { inclusive = true }
+                        }
+                    },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenNovel = { novelId ->
+                        navController.navigate("novel/$novelId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenSeries = { seriesId ->
+                        navController.navigate("novel_series/$seriesId")
+                    },
+                    onOpenHistory = {
+                        navController.navigate(ROUTE_HISTORY)
+                    },
+                    onOpenBookmarks = {
+                        navController.navigate(ROUTE_BOOKMARKS)
+                    },
+                    onOpenWatchlist = { segment ->
+                        // 小说 Tab / Me 页 → 小说分段；作品 Tab 顶栏 → 直达漫画分段
+                        navController.navigate("watchlist?type=${segment.routeValue}")
+                    },
+                    onOpenReadLater = {
+                        navController.navigate(ROUTE_READ_LATER)
+                    },
+                    onOpenPixivision = {
+                        navController.navigate(ROUTE_PIXIVISION)
+                    },
+                    onOpenUserRanking = {
+                        navController.navigate(ROUTE_USER_RANKING)
+                    },
+                    onOpenAiRanking = {
+                        navController.navigate(ROUTE_AI_RANKING)
+                    },
+                    onOpenEraRanking = {
+                        navController.navigate(ROUTE_ERA_RANKING)
+                    },
+                    onOpenWallpaperRanking = {
+                        navController.navigate(ROUTE_WALLPAPER_RANKING)
+                    },
+                    onOpenNotifications = {
+                        navController.navigate(ROUTE_NOTIFICATION)
+                    },
+                    onOpenBlocked = {
+                        navController.navigate(ROUTE_BLOCKED)
+                    },
+                    onOpenDownloads = {
+                        navController.navigate(ROUTE_DOWNLOADS)
+                    },
+                    onOpenMangaRanking = {
+                        navController.navigate(ROUTE_MANGA_RANKING)
+                    },
+                    onOpenIllustRanking = {
+                        navController.navigate(ROUTE_ILLUST_RANKING)
+                    },
+                    onOpenNovelRanking = {
+                        navController.navigate(ROUTE_NOVEL_RANKING)
+                    },
+                    onOpenFanbox = {
+                        // 我的页 FANBOX 入口（已登录 FANBOX 进原生首页）
+                        navController.navigate(ROUTE_FANBOX_HOME)
+                    },
+                    onOpenFanboxWeb = { url, title ->
+                        // FANBOX 内置网页（登录引导 / 创作者主页等）
+                        navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
+                    },
+                    onOpenComic = {
+                        // 我的页 COMIC 入口（免费内容无需登录，直达原生首页）
+                        navController.navigate(ROUTE_COMIC_HOME)
+                    },
+                    onOpenViewer = { id, page ->
+                        // 全屏查看器：Tab 内详情 pane 图片点击（定位到指定页）
+                        navController.navigate("viewer/$id?page=$page")
+                    },
+                    onOpenReader = { id ->
+                        // 小说阅读器：小说 pane「开始阅读」入口
+                        navController.navigate("reader/$id")
+                    },
+                    onOpenCover = { url ->
+                        // 封面/头像全屏大图（系列 pane 封面点击）
+                        navController.navigate("image_preview?url=${Uri.encode(url)}")
+                    },
+                    onExitSearchSession = {
+                        // 栈底时 safeBack 静默忽略，避免误退 app
+                        navController.safeBack()
+                    },
+                    initialSearch = initialSearch,
+                    initialSearchTagType = initialTagType,
+                )
+            }
         }
         // 插画详情：全屏路由（隐藏底部导航），支持 pixiv://illust/{id} 深链
         composable(
@@ -377,28 +383,32 @@ fun PixivNavGraph(
             arguments = listOf(navArgument("illustId") { type = NavType.LongType }),
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://illust/{illustId}" }),
         ) { _ ->
-            IllustDetailRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { id ->
-                    // 相关作品等：跳对应作品详情（叠栈，返回回到当前详情）
-                    navController.navigate("illust/$id")
-                },
-                onOpenViewer = { id, page ->
-                    // 打开全屏查看器并定位到指定页
-                    navController.navigate("viewer/$id?page=$page")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenComments = { id ->
-                    // 评论独立页（通用）：illust 类型
-                    navController.navigate("comments/illust/$id")
-                },
-                onSearchTag = { tag ->
-                    // 标签搜索：与排行页共用通道（压栈搜索会话，返回回到本详情页）
-                    navController.navigateTagSearch(tag)
-                },
-            )
+            // 详情路由向 core:ui 下发可见性作用域（this = 该条目的 AnimatedContentScope）：
+            // 卡片封面与详情大图跨 NavHost 层级共享元素，详情侧需据此判定进入 / 退出
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                IllustDetailRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { id ->
+                        // 相关作品等：跳对应作品详情（叠栈，返回回到当前详情）
+                        navController.navigate("illust/$id")
+                    },
+                    onOpenViewer = { id, page ->
+                        // 打开全屏查看器并定位到指定页
+                        navController.navigate("viewer/$id?page=$page")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenComments = { id ->
+                        // 评论独立页（通用）：illust 类型
+                        navController.navigate("comments/illust/$id")
+                    },
+                    onSearchTag = { tag ->
+                        // 标签搜索：与排行页共用通道（压栈搜索会话，返回回到本详情页）
+                        navController.navigateTagSearch(tag)
+                    },
+                )
+            }
         }
         // 全屏查看器：page 可选，缺省从第 0 页开始
         composable(
@@ -435,32 +445,36 @@ fun PixivNavGraph(
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://novel/{novelId}" }),
         ) { backStackEntry ->
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
-            NovelDetailRoute(
-                novelId = novelId,
-                onBack = { navController.safeBack() },
-                onOpenNovel = { id ->
-                    // 系列目录：点击打开该分册的小说详情
-                    navController.navigate("novel/$id")
-                },
-                onOpenReader = { id ->
-                    navController.navigate("reader/$id")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenSeries = { seriesId ->
-                    // 系列目录底部：查看完整系列页
-                    navController.navigate("novel_series/$seriesId")
-                },
-                onOpenComments = { id ->
-                    // 评论独立页（通用）：novel 类型
-                    navController.navigate("comments/novel/$id")
-                },
-                onSearchTag = { tag ->
-                    // 小说标签 → 发现页搜小说（返回回到本详情页）
-                    navController.navigateTagSearch(tag, TagType.NOVEL)
-                },
-            )
+            // 详情路由向 core:ui 下发可见性作用域（this = 该条目的 AnimatedContentScope）：
+            // 小说卡片封面 ↔ 详情 banner 共享元素跨 NavHost 层级匹配
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                NovelDetailRoute(
+                    novelId = novelId,
+                    onBack = { navController.safeBack() },
+                    onOpenNovel = { id ->
+                        // 系列目录：点击打开该分册的小说详情
+                        navController.navigate("novel/$id")
+                    },
+                    onOpenReader = { id ->
+                        navController.navigate("reader/$id")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenSeries = { seriesId ->
+                        // 系列目录底部：查看完整系列页
+                        navController.navigate("novel_series/$seriesId")
+                    },
+                    onOpenComments = { id ->
+                        // 评论独立页（通用）：novel 类型
+                        navController.navigate("comments/novel/$id")
+                    },
+                    onSearchTag = { tag ->
+                        // 小说标签 → 发现页搜小说（返回回到本详情页）
+                        navController.navigateTagSearch(tag, TagType.NOVEL)
+                    },
+                )
+            }
         }
         // 通用评论列表页：novel / illust 共用，PagedState 分页 + 回复
         composable(

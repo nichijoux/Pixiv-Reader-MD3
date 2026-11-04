@@ -55,6 +55,10 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
 import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
+import com.pixiv.reader.core.ui.component.detail.HeroSeed
+import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
+import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
+import com.pixiv.reader.core.ui.component.detail.illustCoverKey
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -82,6 +86,17 @@ import kotlin.math.roundToInt
  * 恢复打开详情需先经菜单取消屏蔽）。收藏按钮点击**先翻转本地状态
  * 再回调**外部执行 API（成功与否由外部负责，组件仅维护 UI 态 [favorite]）；
  * 作者行（头像+名称）点击 [onOpenAuthor] 打开作者主页（user 为 null 时不可点）。
+ *
+ * ## hero 过渡
+ * 封面容器挂 `heroBoundsModifier(illustCoverKey(id))`（key 与详情大图一致），点击时把封面
+ * URL / 宽高比写入 [HeroSeedStore]，详情页加载期据此渲染占位衔接 morph。两个
+ * CompositionLocal（scope / 可见性作用域）均由 app 根部与顶层 NavHost 对应路由提供，
+ * 本组件无需透传。
+ *
+ * 注意：仅提供 scope 的宿主链路（含 Tab 的 `main` 路由）会真正挂上共享边界；排行页等
+ * 未提供可见性作用域的全屏路由自动退化为普通卡片。若后续在这些路由也提供 scope，
+ * 需注意 `AnimatedContent` 内容必须应用传入 modifier 的既有约定（见 `RankingList` 注释），
+ * 并真机验证「Uninitialized LayoutCoordinates」风险。
  *
  * @param illust 作品数据（`width/height` 用于完整显示、`is_bookmarked` 初始化收藏态）
  * @param onClick 整卡点击回调（通常打开作品详情）
@@ -120,7 +135,25 @@ fun IllustCard(
         targetId = illust.id,
         title = { illust.title },
         payload = { gson.toJson(illust) },
-        onClick = onClick,
+        onClick = {
+            // hero：点击瞬间快照封面（URL + 比例），详情加载期据此渲染占位并衔接 morph——
+            // 详情数据到达前终点无共享元素，占位可避免「飞入空窗」。
+            // 平板右栏点击也会写入：pane 侧同样消费该种子作加载期占位（scope 已置空，不参与 morph）
+            HeroSeedStore.seed(
+                key = illustCoverKey(illust.id),
+                value = HeroSeed(
+                    coverUrl = illust.image_urls?.medium
+                        ?: illust.image_urls?.square_medium
+                        ?: "",
+                    aspectRatio = if (illust.width > 0 && illust.height > 0) {
+                        illust.width.toFloat() / illust.height.toFloat()
+                    } else {
+                        null
+                    },
+                ),
+            )
+            onClick()
+        },
     )
     // 卡片根容器：圆角 + 卡片底色 + 整卡点击（含屏蔽手势包装）
     Box(
@@ -134,7 +167,15 @@ fun IllustCard(
             modifier = Modifier.then(if (block.state.isMasked) Modifier.blur(16.dp) else Modifier),
         ) {
         // ── 封面区（Box 内浮层用 align 定位） ──
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // hero：共享边界挂在封面容器（含徽标 / 收藏按钮浮层）而非图片本身，morph 时元素更完整；
+        // 共享元素在 overlay 中渲染会绕过父级裁剪，故此处显式补上顶部圆角裁剪
+        // （与卡片顶部圆角一致）。无共享过渡环境时该修饰器无操作（预览 / 非 app 根环境安全）
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heroBoundsModifier(illustCoverKey(illust.id))
+                .clip(AppShapes.cardLargeTop),
+        ) {
             // 封面宽度（px）：动图帧采样解码上限（避免解码 zip 原图尺寸浪费内存）
             val coverWidth = maxWidth
             val coverMaxSize = with(LocalDensity.current) { coverWidth.roundToPx() }

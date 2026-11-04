@@ -32,12 +32,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -53,12 +55,15 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.detail.HeroSeedCover
+import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.IllustDetailContent
 import com.pixiv.reader.core.ui.component.detail.IllustDetailSkeleton
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.detail.IllustInfoSection
 import com.pixiv.reader.core.ui.component.detail.IllustPagePager
 import com.pixiv.reader.core.ui.component.detail.IllustRelatedSection
+import com.pixiv.reader.core.ui.component.detail.illustCoverKey
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
@@ -77,6 +82,8 @@ fun IllustDetailRoute(
     viewModel: IllustViewModel = hiltViewModel(),
 ) {
     val illust by viewModel.illust.collectAsStateWithLifecycle()
+    // hero 占位用的作品 id：取路由参数（SavedStateHandle 初始化即有值，数据未到时也能定位 key）
+    val routeIllustId by viewModel.illustIdFlow.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
     val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
@@ -108,6 +115,12 @@ fun IllustDetailRoute(
     var menuExpanded by remember { mutableStateOf(false) }
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
+    // hero 种子兜底清理：详情页销毁时丢弃未消费的种子（详情命中缓存 / 占位分支未组合的情况），
+    // 防过期封面被后续无关打开复用
+    val heroKey = illustCoverKey(routeIllustId)
+    DisposableEffect(heroKey) {
+        onDispose { HeroSeedStore.clear(heroKey) }
+    }
     // 下沉详情块文案（feature:illust 侧提供，core:ui 不直接引用本模块 R）
     val illustDetailStrings = IllustDetailStrings(
         loadRetry = stringResource(R.string.illust_load_retry),
@@ -260,7 +273,15 @@ fun IllustDetailRoute(
         if (twoPane) {
             // 平板双栏：加载中/失败也要有明确状态，避免显示空骨架
             when {
-                isLoading && illust == null -> IllustDetailSkeleton(modifier = Modifier.padding(padding))
+                // hero 占位叠加在骨架之上：卡片 → 详情 morph 期间终点有共享元素，
+                // 数据到达后整个分支切换为真实内容，真图以同 key 接棒
+                isLoading && illust == null -> Box(modifier = Modifier.padding(padding)) {
+                    IllustDetailSkeleton()
+                    HeroSeedCover(
+                        key = heroKey,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
                 error != null && illust == null -> ErrorBox(
                     message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                     onRetry = viewModel::load,
@@ -290,7 +311,14 @@ fun IllustDetailRoute(
             // 手机单列
             AdaptiveContentBox(modifier = Modifier.padding(padding)) {
                 when {
-                    isLoading && illust == null -> IllustDetailSkeleton()
+                    // hero 占位叠加在骨架之上（同平板分支）：morph 期间终点不空窗
+                    isLoading && illust == null -> Box {
+                        IllustDetailSkeleton()
+                        HeroSeedCover(
+                            key = heroKey,
+                            modifier = Modifier.align(Alignment.TopCenter),
+                        )
+                    }
                     error != null && illust == null -> ErrorBox(message = error?.let {
                         stringResource(
                             it.res,
@@ -308,6 +336,8 @@ fun IllustDetailRoute(
                                     onPageChange = { currentPage = it },
                                     onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
                                     strings = illustDetailStrings,
+                                    // hero：大图容器与列表卡片封面同 key
+                                    illustId = illust?.id,
                                 )
                             }
                         }

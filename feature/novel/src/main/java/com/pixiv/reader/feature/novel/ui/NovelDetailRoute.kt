@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,9 @@ import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
+import com.pixiv.reader.core.ui.component.detail.HeroSeedCover
+import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
+import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
@@ -103,6 +107,11 @@ fun NovelDetailRoute(
         else -> BookmarkPrivacy.PUBLIC
     }
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
+    // hero 种子兜底清理：详情页销毁时丢弃未消费的种子（详情命中缓存 / 占位分支未组合的情况）
+    val heroKey = novelCoverKey(novelId)
+    DisposableEffect(heroKey) {
+        onDispose { HeroSeedStore.clear(heroKey) }
+    }
 
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
@@ -173,7 +182,15 @@ fun NovelDetailRoute(
     ) { padding ->
         // Scaffold innerPadding 已排除 bottomBar 高度：内容滚不到操作条下方（对齐插画详情页）
         when {
-            isLoading && novel == null -> NovelDetailSkeleton(modifier = Modifier.padding(padding))
+            isLoading && novel == null -> Box(modifier = Modifier.padding(padding)) {
+                NovelDetailSkeleton()
+                // hero 占位：骨架之上叠加卡片封面（banner 高度），衔接列表卡片 → 详情 banner
+                HeroSeedCover(
+                    key = heroKey,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    height = NOVEL_BANNER_HEIGHT,
+                )
+            }
             error != null && novel == null -> ErrorBox(
                 message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
                 onRetry = viewModel::load,

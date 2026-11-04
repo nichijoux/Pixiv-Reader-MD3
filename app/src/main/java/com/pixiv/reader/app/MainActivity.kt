@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -63,6 +64,7 @@ import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import com.pixiv.reader.app.actions.AppCardActions
 import com.pixiv.reader.core.ui.component.actions.CardActionsHost
+import com.pixiv.reader.core.ui.component.detail.LocalSharedTransitionScope
 import com.pixiv.reader.core.ui.theme.Spacing
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -264,20 +266,28 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                        // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
-                        CardActionsHost(actions = appCardActions) {
-                            PixivNavGraph(
-                                isLoggedIn = isLoggedIn,
-                                // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
-                                onboardingComplete = readOnboardingCompleteSync(context),
-                                onCompleteOnboarding = {
-                                    lifecycleScope.launch {
-                                        runCatching { userPreferences.setOnboardingComplete(true) }
-                                    }
-                                },
-                                onLogout = { sessionRepository.logout() },
-                                navController = navController,
-                            )
+                        // hero 过渡 scope 提升到应用根部：内层 Tab 卡片（MainShell 内的 NavHost）
+                        // 与外层详情路由（顶层 NavHost）跨 NavHost 层级共享元素，必须同一个
+                        // SharedTransitionLayout 才有共同坐标系；scope 经 CompositionLocal 下发，
+                        // 卡片 / 详情组件内部自行消费，页面层无需透传
+                        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+                            CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                                // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
+                                CardActionsHost(actions = appCardActions) {
+                                    PixivNavGraph(
+                                        isLoggedIn = isLoggedIn,
+                                        // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
+                                        onboardingComplete = readOnboardingCompleteSync(context),
+                                        onCompleteOnboarding = {
+                                            lifecycleScope.launch {
+                                                runCatching { userPreferences.setOnboardingComplete(true) }
+                                            }
+                                        },
+                                        onLogout = { sessionRepository.logout() },
+                                        navController = navController,
+                                    )
+                                }
+                            }
                         }
                     }
                 }

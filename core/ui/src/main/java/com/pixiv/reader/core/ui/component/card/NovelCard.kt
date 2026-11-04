@@ -56,6 +56,10 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
 import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
+import com.pixiv.reader.core.ui.component.detail.HeroSeed
+import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
+import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
+import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -101,6 +105,10 @@ typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
  * - [onClick] 整卡（含封面）→ 小说详情
  * - [onOpenAuthor] 作者行 → 用户主页；[onToggleFavorite] 收藏切换（组件维护 UI 态 + 回调外部 API）
  * - [onTagClick] 标签 → 搜索该标签
+ *
+ * ## hero 过渡
+ * 封面容器挂 `heroBoundsModifier(novelCoverKey(id))`（key 与详情 banner 一致），点击时把封面
+ * URL 写入 [HeroSeedStore]（比例固定 3:4），详情加载期据此渲染占位衔接 morph。
  *
  * @param novel 卡片数据（见 [NovelCardData]）
  * @param onClick 整卡点击（打开小说详情）
@@ -151,7 +159,16 @@ fun NovelCard(
         targetId = novel.id,
         title = { novel.title },
         payload = { gson.toJson(novel) },
-        onClick = onClick,
+        onClick = {
+            // hero：点击瞬间快照封面，详情 banner 加载期据此渲染占位并衔接 morph；
+            // 小说封面固定 3:4 书籍比例（与卡片封面一致）。
+            // 平板右栏点击也会写入：pane 侧同样消费该种子作加载期占位（scope 已置空，不参与 morph）
+            HeroSeedStore.seed(
+                key = novelCoverKey(novel.id),
+                value = HeroSeed(coverUrl = novel.coverUrl.orEmpty(), aspectRatio = 3f / 4f),
+            )
+            onClick()
+        },
     )
 
     Card(
@@ -175,10 +192,13 @@ fun NovelCard(
             // 使右信息 Column 的 fillMaxHeight 有确定高度可撑满，作者行才能抵底与封面齐平。
             Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 // 左：封面（书籍比例 + 底部居中角标；点击随整卡 onClick 打开小说详情）
+                // hero：共享边界挂在封面容器（含角标与徽标），与详情 banner 同 key 衔接 morph；
+                // 无共享过渡环境时该修饰器无操作（预览 / 非 app 根环境安全）
                 Box(
                     modifier = Modifier
                         .width(coverWidth)
                         .aspectRatio(3f / 4f)
+                        .heroBoundsModifier(novelCoverKey(novel.id))
                         .clip(AppShapes.card)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 ) {

@@ -1,8 +1,6 @@
 package com.pixiv.reader.app.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -30,6 +28,7 @@ import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.feature.watchlist.WatchlistSegment
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
+import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
 import com.pixiv.reader.core.ui.theme.pixivTabFadeIn
 import com.pixiv.reader.core.ui.theme.pixivTabFadeOut
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
@@ -44,7 +43,6 @@ import com.pixiv.reader.feature.user.ui.MeRoute
 private const val SHARED_SEARCH_BAR_KEY = "search_bar"
 
 /** 底部导航五项：首页 / 作品 / 小说 / 关注 / 我的（发现页由首页搜索框等入口进入，不在底栏）。 */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
     AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
@@ -198,171 +196,163 @@ fun MainShell(
     }
 
     // hero 过渡：首页搜索框 → 发现页搜索栏共享元素（sharedBounds container transform）。
+    // 根布局 SharedTransitionLayout 已上提到 MainActivity（跨 NavHost 层级 hero 共用同一
+    // 共享坐标系），此处经 CompositionLocal 取 scope——无 scope 环境（预览等）退普通 Modifier。
     // 旧注释记录 Compose 1.7.x 冷启动首帧可能抛 SharedBoundsNode「Uninitialized LayoutCoordinates」
     // 闪退而弃用；依赖升级（BOM 2026.08）后已修复，重新启用
     // Tab 过渡 lambda 非组合上下文：动效方案在组合期先取好，供各 lambda 闭包捕获
     val motionScheme = MaterialTheme.motionScheme
-    SharedTransitionLayout {
-        AdaptiveNavScaffold(
-            items = tabs,
-            selectedRoute = currentRoute,
-            onSelect = { route -> navigateToTab(route) },
-            // 发现页全屏化：隐藏底栏（由首页搜索框进入，返回走系统返回键）
-            showBottomBar = currentRoute != "discover_tab",
-        ) { padding ->
-            NavHost(
-                navController = navController,
-                // main?search 深链（搜索会话）起点直达发现页：内层单条目栈，返回直接离开本实例；
-                // 普通进入起点为首页 Tab
-                startDestination = if (initialSearch?.isNotBlank() == true) "discover_tab" else "home_tab",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                // Tab 默认过渡：纯 fade（Expressive effects 快档），不做水平位移——
-                // 取代 navigation-compose 默认 700ms 淡入淡出
+    AdaptiveNavScaffold(
+        items = tabs,
+        selectedRoute = currentRoute,
+        onSelect = { route -> navigateToTab(route) },
+        // 发现页全屏化：隐藏底栏（由首页搜索框进入，返回走系统返回键）
+        showBottomBar = currentRoute != "discover_tab",
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            // main?search 深链（搜索会话）起点直达发现页：内层单条目栈，返回直接离开本实例；
+            // 普通进入起点为首页 Tab
+            startDestination = if (initialSearch?.isNotBlank() == true) "discover_tab" else "home_tab",
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            // Tab 默认过渡：纯 fade（Expressive effects 快档），不做水平位移——
+            // 取代 navigation-compose 默认 700ms 淡入淡出
+            enterTransition = { pixivTabFadeIn(motionScheme) },
+            exitTransition = { pixivTabFadeOut(motionScheme) },
+            popEnterTransition = { pixivTabFadeIn(motionScheme) },
+            popExitTransition = { pixivTabFadeOut(motionScheme) },
+        ) {
+            // 首页：退出淡出（hero 元素由 sharedBounds 接管，浮于容器过渡之上）
+            composable(
+                route = "home_tab",
+                exitTransition = { pixivTabFadeOut(motionScheme) },
+            ) {
+                HomeRoute(
+                    reselectKey = tabReselectKeys["home_tab"] ?: 0,
+                    onOpenSearch = {
+                        navigateToTab("discover_tab")
+                    },
+                    onSearchTag = { tag -> launchTagSearch(tag) },
+                    onOpenIllust = onOpenIllust,
+                    onOpenUser = onOpenUser,
+                    onOpenNotifications = onOpenNotifications,
+                    onOpenViewer = onOpenViewer,
+                    // hero：首页搜索框共享元素修饰（与发现页搜索栏同 key）；
+                    // scope 来自根部 SharedTransitionLayout，可见性作用域为本 Tab 的 composable
+                    modifier = Modifier.heroBoundsModifier(SHARED_SEARCH_BAR_KEY, this@composable),
+                )
+            }
+            composable("follow_tab") {
+                FollowRoute(
+                    reselectKey = tabReselectKeys["follow_tab"] ?: 0,
+                    onOpenIllust = onOpenIllust,
+                    onOpenNovel = onOpenNovel,
+                    onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
+                    onOpenViewer = onOpenViewer,
+                    // 关注页小说卡标签 → 搜小说
+                    onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
+                    // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
+                    // （feature 间禁止依赖，关注页经此槽位复用；作品 pane 在 core:ui，关注页直用。
+                    //   VM 创建 + pane 组装由共享槽位承担，导航出口走回调链）
+                    novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
+                        NovelDetailPaneSlot(
+                            selectedId = selectedId,
+                            novelVm = novelVm,
+                            commentVm = commentVm,
+                            onOpenSeries = onOpenSeries,
+                            onOpenReader = onOpenReader,
+                            onOpenUser = onOpenUser,
+                            // 关注页小说详情标签 → 搜小说（内层通道，与同页系列槽一致）
+                            onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
+                        )
+                    },
+                    // 平板 pane：系列卡（小说卡系列标题）点击 → 注入 feature:novel 的小说系列 pane
+                    //（VM 创建 + pane 组装由共享槽位承担，导航出口走回调链）
+                    seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
+                        NovelSeriesPaneSlot(
+                            selectedId = selectedId,
+                            onOpenNovel = onOpenNovel,
+                            onOpenSeries = onOpenSeries,
+                            onOpenUser = onOpenUser,
+                            onOpenCover = onOpenCover,
+                            onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
+                        )
+                    },
+                )
+            }
+            // 发现页：跨 Tab 标签 / main?search 深链进入。
+            // 容器动画由 hero 共享元素接管（首页搜索框 → 搜索栏 morph），页面本体仅淡入淡出；
+            // 严禁给该 Tab 加位移，否则共享元素会跟随容器位移产生错位
+            composable(
+                route = "discover_tab",
                 enterTransition = { pixivTabFadeIn(motionScheme) },
                 exitTransition = { pixivTabFadeOut(motionScheme) },
                 popEnterTransition = { pixivTabFadeIn(motionScheme) },
                 popExitTransition = { pixivTabFadeOut(motionScheme) },
             ) {
-                // 首页：退出淡出（hero 元素由 sharedBounds 接管，浮于容器过渡之上）
-                composable(
-                    route = "home_tab",
-                    exitTransition = { pixivTabFadeOut(motionScheme) },
-                ) {
-                    HomeRoute(
-                        reselectKey = tabReselectKeys["home_tab"] ?: 0,
-                        onOpenSearch = {
-                            navigateToTab("discover_tab")
-                        },
-                        onSearchTag = { tag -> launchTagSearch(tag) },
-                        onOpenIllust = onOpenIllust,
-                        onOpenUser = onOpenUser,
-                        onOpenNotifications = onOpenNotifications,
-                        onOpenViewer = onOpenViewer,
-                        // hero：首页搜索框共享元素修饰（与发现页搜索栏同 key）
-                        modifier = with(this@SharedTransitionLayout) {
-                            Modifier.sharedBounds(
-                                rememberSharedContentState(key = SHARED_SEARCH_BAR_KEY),
-                                animatedVisibilityScope = this@composable,
-                            )
-                        },
-                    )
-                }
-                composable("follow_tab") {
-                    FollowRoute(
-                        reselectKey = tabReselectKeys["follow_tab"] ?: 0,
-                        onOpenIllust = onOpenIllust,
-                        onOpenNovel = onOpenNovel,
-                        onOpenUser = onOpenUser,
-                        onOpenSeries = onOpenSeries,
-                        onOpenViewer = onOpenViewer,
-                        // 关注页小说卡标签 → 搜小说
-                        onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
-                        // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
-                        // （feature 间禁止依赖，关注页经此槽位复用；作品 pane 在 core:ui，关注页直用。
-                        //   VM 创建 + pane 组装由共享槽位承担，导航出口走回调链）
-                        novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
-                            NovelDetailPaneSlot(
-                                selectedId = selectedId,
-                                novelVm = novelVm,
-                                commentVm = commentVm,
-                                onOpenSeries = onOpenSeries,
-                                onOpenReader = onOpenReader,
-                                onOpenUser = onOpenUser,
-                                // 关注页小说详情标签 → 搜小说（内层通道，与同页系列槽一致）
-                                onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
-                            )
-                        },
-                        // 平板 pane：系列卡（小说卡系列标题）点击 → 注入 feature:novel 的小说系列 pane
-                        //（VM 创建 + pane 组装由共享槽位承担，导航出口走回调链）
-                        seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
-                            NovelSeriesPaneSlot(
-                                selectedId = selectedId,
-                                onOpenNovel = onOpenNovel,
-                                onOpenSeries = onOpenSeries,
-                                onOpenUser = onOpenUser,
-                                onOpenCover = onOpenCover,
-                                onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
-                            )
-                        },
-                    )
-                }
-                // 发现页：跨 Tab 标签 / main?search 深链进入。
-                // 容器动画由 hero 共享元素接管（首页搜索框 → 搜索栏 morph），页面本体仅淡入淡出；
-                // 严禁给该 Tab 加位移，否则共享元素会跟随容器位移产生错位
-                composable(
-                    route = "discover_tab",
-                    enterTransition = { pixivTabFadeIn(motionScheme) },
-                    exitTransition = { pixivTabFadeOut(motionScheme) },
-                    popEnterTransition = { pixivTabFadeIn(motionScheme) },
-                    popExitTransition = { pixivTabFadeOut(motionScheme) },
-                ) {
-                    // 一次性消费跨 Tab 搜索载荷（先取出再置空，避免双重消费）
-                    val launch = pendingSearch
-                    pendingSearch = null
-                    DiscoverRoute(
-                        onOpenIllust = onOpenIllust,
-                        onOpenNovel = onOpenNovel,
-                        onOpenUser = onOpenUser,
-                        onOpenSeries = onOpenSeries,
-                        onOpenPixivision = onOpenPixivision,
-                        onOpenUserRanking = onOpenUserRanking,
-                        onOpenAiRanking = onOpenAiRanking,
-                        onOpenEraRanking = onOpenEraRanking,
-                        onOpenWallpaperRanking = onOpenWallpaperRanking,
-                        initialQuery = launch?.query,
-                        initialTagType = launch?.tagType,
-                        // hero：发现页搜索栏共享元素修饰（与首页搜索框同 key）
-                        modifier = with(this@SharedTransitionLayout) {
-                            Modifier.sharedBounds(
-                                rememberSharedContentState(key = SHARED_SEARCH_BAR_KEY),
-                                animatedVisibilityScope = this@composable,
-                            )
-                        },
-                    )
-                }
-                composable("manga_tab") {
-                    MangaRoute(
-                        reselectKey = tabReselectKeys["manga_tab"] ?: 0,
-                        onSearchTag = { tag -> launchTagSearch(tag) },
-                        onOpenIllust = onOpenIllust,
-                        onOpenMangaRanking = onOpenMangaRanking,
-                        onOpenIllustRanking = onOpenIllustRanking,
-                        onOpenWatchlist = { onOpenWatchlist(WatchlistSegment.MANGA) },
-                        onOpenUser = onOpenUser,
-                        onOpenViewer = onOpenViewer,
-                    )
-                }
-                composable("novel_tab") {
-                    NovelRoute(
-                        reselectKey = tabReselectKeys["novel_tab"] ?: 0,
-                        onOpenNovel = onOpenNovel,
-                        onOpenUser = onOpenUser,
-                        onOpenNovelRanking = onOpenNovelRanking,
-                        onOpenSeries = onOpenSeries,
-                        onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
-                        onOpenReader = onOpenReader,
-                        onOpenCover = onOpenCover,
-                    )
-                }
-                composable("me_tab") {
-                    MeRoute(
-                        reselectKey = tabReselectKeys["me_tab"] ?: 0,
-                        onLogout = onLogout,
-                        onOpenHistory = onOpenHistory,
-                        onOpenBookmarks = onOpenBookmarks,
-                        onOpenWatchlist = { onOpenWatchlist(WatchlistSegment.NOVEL) },
-                        onOpenReadLater = onOpenReadLater,
-                        onOpenPixivision = onOpenPixivision,
-                        onOpenBlocked = onOpenBlocked,
-                        onOpenDownloads = onOpenDownloads,
-                        onOpenUser = onOpenUser,
-                        onOpenFanbox = onOpenFanbox,
-                        onOpenFanboxWeb = onOpenFanboxWeb,
-                        onOpenComic = onOpenComic,
-                    )
-                }
+                // 一次性消费跨 Tab 搜索载荷（先取出再置空，避免双重消费）
+                val launch = pendingSearch
+                pendingSearch = null
+                DiscoverRoute(
+                    onOpenIllust = onOpenIllust,
+                    onOpenNovel = onOpenNovel,
+                    onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
+                    onOpenPixivision = onOpenPixivision,
+                    onOpenUserRanking = onOpenUserRanking,
+                    onOpenAiRanking = onOpenAiRanking,
+                    onOpenEraRanking = onOpenEraRanking,
+                    onOpenWallpaperRanking = onOpenWallpaperRanking,
+                    initialQuery = launch?.query,
+                    initialTagType = launch?.tagType,
+                    // hero：发现页搜索栏共享元素修饰（与首页搜索框同 key）；
+                    // scope 来自根部 SharedTransitionLayout，可见性作用域为本 Tab 的 composable
+                    modifier = Modifier.heroBoundsModifier(SHARED_SEARCH_BAR_KEY, this@composable),
+                )
+            }
+            composable("manga_tab") {
+                MangaRoute(
+                    reselectKey = tabReselectKeys["manga_tab"] ?: 0,
+                    onSearchTag = { tag -> launchTagSearch(tag) },
+                    onOpenIllust = onOpenIllust,
+                    onOpenMangaRanking = onOpenMangaRanking,
+                    onOpenIllustRanking = onOpenIllustRanking,
+                    onOpenWatchlist = { onOpenWatchlist(WatchlistSegment.MANGA) },
+                    onOpenUser = onOpenUser,
+                    onOpenViewer = onOpenViewer,
+                )
+            }
+            composable("novel_tab") {
+                NovelRoute(
+                    reselectKey = tabReselectKeys["novel_tab"] ?: 0,
+                    onOpenNovel = onOpenNovel,
+                    onOpenUser = onOpenUser,
+                    onOpenNovelRanking = onOpenNovelRanking,
+                    onOpenSeries = onOpenSeries,
+                    onSearchTag = { tag -> launchTagSearch(tag, tagType = TagType.NOVEL) },
+                    onOpenReader = onOpenReader,
+                    onOpenCover = onOpenCover,
+                )
+            }
+            composable("me_tab") {
+                MeRoute(
+                    reselectKey = tabReselectKeys["me_tab"] ?: 0,
+                    onLogout = onLogout,
+                    onOpenHistory = onOpenHistory,
+                    onOpenBookmarks = onOpenBookmarks,
+                    onOpenWatchlist = { onOpenWatchlist(WatchlistSegment.NOVEL) },
+                    onOpenReadLater = onOpenReadLater,
+                    onOpenPixivision = onOpenPixivision,
+                    onOpenBlocked = onOpenBlocked,
+                    onOpenDownloads = onOpenDownloads,
+                    onOpenUser = onOpenUser,
+                    onOpenFanbox = onOpenFanbox,
+                    onOpenFanboxWeb = onOpenFanboxWeb,
+                    onOpenComic = onOpenComic,
+                )
             }
         }
     }

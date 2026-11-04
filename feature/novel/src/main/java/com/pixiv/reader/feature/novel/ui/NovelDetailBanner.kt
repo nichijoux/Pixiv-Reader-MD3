@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
+import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
+import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -36,7 +38,9 @@ internal fun NovelBanner(detail: Novel, height: Dp) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height),
+            .height(height)
+            // hero：banner 与列表小说卡片封面同 key 衔接 morph（key 用作品 id 区分）
+            .heroBoundsModifier(novelCoverKey(detail.id)),
     ) {
         PixivImage(
             url = detail.image_urls?.medium ?: detail.image_urls?.square_medium,

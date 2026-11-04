@@ -156,6 +156,8 @@ fun IllustDetailContent(
                 onPageChange = onPageChange,
                 onOpenViewer = onOpenViewer,
                 strings = strings,
+                // hero：详情大图与列表卡片封面同 key（illust 可空：空时不挂共享边界）
+                illustId = illust?.id,
             )
         }
         IllustInfoSection(
@@ -196,6 +198,8 @@ fun IllustDetailContent(
  * @param ugoiraFrames 动图帧（ugoira 作品由 ViewModel 加载）；非空时首页（动图作品仅 1 页）
  *   叠加 [UgoiraPlayer] 播放动画——静态封面 AsyncImage 保留（量比例 + 帧未就绪兜底显示）
  * @param ugoiraProgress 动图 zip 下载进度 0..1；非 null 且帧未就绪时首页叠加转圈 + 百分比
+ * @param illustId 作品 id（hero 共享元素 key 用；null 时（无作品的骨架/预览场景）不挂共享边界）
+ * @return 无返回值（渲染 Composable）
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -207,6 +211,7 @@ fun IllustPagePager(
     ugoiraFrames: List<UgoiraFrame> = emptyList(),
     ugoiraProgress: Float? = null,
     strings: IllustDetailStrings,
+    illustId: Long? = null,
 ) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val currentPage = pagerState.currentPage
@@ -252,11 +257,19 @@ fun IllustPagePager(
         )
         // 嵌套 lambda（pager item）无法隐式访问 BoxWithConstraints receiver：提前捕获
         val pagerMaxWidth = maxWidth
+        // hero：大图容器与卡片封面同 key 衔接 morph（容器含比例吸附动画，
+        // 期间 boundsTransform 由 sharedBounds 接管，静态态下即为当前显示高度）
+        val heroModifier = if (illustId != null) {
+            Modifier.heroBoundsModifier(illustCoverKey(illustId))
+        } else {
+            Modifier
+        }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(pagerHeight),
+                .height(pagerHeight)
+                .then(heroModifier),
         ) {
             HorizontalPager(
                 state = pagerState,

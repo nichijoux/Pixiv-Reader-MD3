@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +23,10 @@ import com.pixiv.reader.core.comment.state.CommentListViewModel
 import com.pixiv.reader.core.comment.state.CommentTarget
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.comment.ui.CommentPane
+import com.pixiv.reader.core.ui.component.detail.HeroSeedCover
+import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
+import com.pixiv.reader.core.ui.component.detail.LocalNavAnimatedVisibilityScope
+import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
@@ -66,6 +72,13 @@ fun NovelDetailPane(
     LaunchedEffect(currentId) {
         if (currentId != null) viewModel.switchTo(currentId)
     }
+    // hero 种子兜底清理：pane 命中缓存未走加载分支时种子不会被消费，切换选中项 / 销毁时清掉，
+    // 避免左栏反复点卡后进程内残留无界增长（pane 内 scope 已置空，不影响 morph）
+    DisposableEffect(currentId) {
+        onDispose {
+            if (currentId != null) HeroSeedStore.clear(novelCoverKey(currentId))
+        }
+    }
     // 评论区开关：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
     var showComments by remember { mutableStateOf(false) }
     // 返回键导航：评论 → 详情（先于外层 pane 关闭的 BackHandler 触发）
@@ -100,76 +113,89 @@ fun NovelDetailPane(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        when {
-            currentId == null -> PanePlaceholder(text = placeholder)
+        // pane 内关闭 hero 共享边界：平板 Master-Detail 下左侧列表卡片与右栏详情同屏，
+        // 同 key 会互相匹配产生多余 morph；pane 场景无导航跳转，不需要 hero
+        CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides null) {
+            when {
+                currentId == null -> PanePlaceholder(text = placeholder)
 
-            isLoading && novel == null -> NovelDetailSkeleton()
-            error != null && novel == null -> ErrorBox(
-                message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
-                onRetry = viewModel::load,
-            )
+                isLoading && novel == null -> Box {
+                    NovelDetailSkeleton()
+                    // hero 占位：pane 内 scope 已置空，HeroSeedCover 退化为普通封面（仅加载期占位，
+                    // 不参与 morph）；无 seed 时整体不渲染（纯骨架）
+                    HeroSeedCover(
+                        key = novelCoverKey(currentId),
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        height = NOVEL_BANNER_HEIGHT,
+                    )
+                }
+                error != null && novel == null -> ErrorBox(
+                    message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
+                    onRetry = viewModel::load,
+                )
 
-            else -> {
-                val detail = novel
-                if (detail != null) {
-                    if (showComments) {
-                        // 评论区：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
-                        CommentPane(
-                            commentVm = commentVm,
-                            onOpenUser = onOpenUser,
-                            onBackToDetail = { showComments = false },
-                        )
-                    } else {
-                        Column(Modifier.fillMaxSize()) {
-                        NovelDetailContent(
-                            detail = detail,
-                            seriesNovels = seriesNovels,
-                            progress = progress,
-                            isAuthorFollowed = isAuthorFollowed,
-                            isAuthorFollowing = isAuthorFollowing,
-                            downloading = downloading,
-                            downloadProgress = downloadProgress,
-                            // pane 无悬浮返回按钮（onBack 不会被触发，占位安全）
-                            onBack = {},
-                            onOpenNovel = viewModel::switchTo,
-                            onOpenReader = onOpenReader,
-                            onOpenUser = onOpenUser,
-                            onOpenSeries = onOpenSeries,
-                            onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                            onSearchTag = onSearchTag,
-                            modifier = Modifier.weight(1f),
-                            forceSingleColumn = true,
-                            showBackButton = false,
-                        )
-                            NovelActionBar(
-                                seriesId = detail.series?.id,
-                                privacy = bookmarkPrivacy,
-                                isBookmarking = isBookmarking,
-                                isWatchlisted = isWatchlisted,
-                                isWatchlisting = isWatchlisting,
-                                downloading = downloading,
-                                onBookmark = viewModel::toggleBookmark,
-                                onWatchlist = viewModel::toggleWatchlist,
-                                onDownload = { showDownloadDialog = true },
-                                onComments = {
-                                    showComments = true
-                                    commentVm.switchTo(CommentTarget.NOVEL, currentId)
-                                },
-                                // pane 操作条不自行避让导航栏（底边与左栏列表底边一致，
-                                // 直通屏幕底）；导航栏避让由沉浸式页面整体方案处理
-                                navigationBarInset = false,
+                else -> {
+                    val detail = novel
+                    if (detail != null) {
+                        if (showComments) {
+                            // 评论区：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
+                            CommentPane(
+                                commentVm = commentVm,
+                                onOpenUser = onOpenUser,
+                                onBackToDetail = { showComments = false },
                             )
-                            // 下载格式选择弹窗（详情页 / pane 共用调用块）
-                            NovelDetailDownloadSheet(
-                                visible = showDownloadDialog,
-                                seriesId = detail.series?.id,
-                                onExport = { formatName, series ->
-                                    viewModel.export(formatName, series)
-                                    // 点击格式即入队：立即关弹窗，配合 queued toast 给予已点击反馈（与系列页一致）
-                                    showDownloadDialog = false
-                                },
-                                onDismiss = { showDownloadDialog = false },
-                            )
+                        } else {
+                            Column(Modifier.fillMaxSize()) {
+                                NovelDetailContent(
+                                    detail = detail,
+                                    seriesNovels = seriesNovels,
+                                    progress = progress,
+                                    isAuthorFollowed = isAuthorFollowed,
+                                    isAuthorFollowing = isAuthorFollowing,
+                                    downloading = downloading,
+                                    downloadProgress = downloadProgress,
+                                    // pane 无悬浮返回按钮（onBack 不会被触发，占位安全）
+                                    onBack = {},
+                                    onOpenNovel = viewModel::switchTo,
+                                    onOpenReader = onOpenReader,
+                                    onOpenUser = onOpenUser,
+                                    onOpenSeries = onOpenSeries,
+                                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                                    onSearchTag = onSearchTag,
+                                    modifier = Modifier.weight(1f),
+                                    forceSingleColumn = true,
+                                    showBackButton = false,
+                                )
+                                NovelActionBar(
+                                    seriesId = detail.series?.id,
+                                    privacy = bookmarkPrivacy,
+                                    isBookmarking = isBookmarking,
+                                    isWatchlisted = isWatchlisted,
+                                    isWatchlisting = isWatchlisting,
+                                    downloading = downloading,
+                                    onBookmark = viewModel::toggleBookmark,
+                                    onWatchlist = viewModel::toggleWatchlist,
+                                    onDownload = { showDownloadDialog = true },
+                                    onComments = {
+                                        showComments = true
+                                        commentVm.switchTo(CommentTarget.NOVEL, currentId)
+                                    },
+                                    // pane 操作条不自行避让导航栏（底边与左栏列表底边一致，
+                                    // 直通屏幕底）；导航栏避让由沉浸式页面整体方案处理
+                                    navigationBarInset = false,
+                                )
+                                // 下载格式选择弹窗（详情页 / pane 共用调用块）
+                                NovelDetailDownloadSheet(
+                                    visible = showDownloadDialog,
+                                    seriesId = detail.series?.id,
+                                    onExport = { formatName, series ->
+                                        viewModel.export(formatName, series)
+                                        // 点击格式即入队：立即关弹窗，配合 queued toast 给予已点击反馈（与系列页一致）
+                                        showDownloadDialog = false
+                                    },
+                                    onDismiss = { showDownloadDialog = false },
+                                )
+                            }
                         }
                     }
                 }
