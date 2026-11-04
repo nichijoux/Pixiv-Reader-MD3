@@ -548,75 +548,80 @@ fun PixivNavGraph(
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://user/{userId}" }),
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
-            UserRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenNovel = { novelId ->
-                    navController.navigate("novel/$novelId")
-                },
-                onOpenViewer = { id, page ->
-                    // 全屏查看器：pane 内图片点击（定位到指定页）
-                    navController.navigate("viewer/$id?page=$page")
-                },
-                onOpenCover = { url ->
-                    navController.navigate("image_preview?url=${Uri.encode(url)}")
-                },
-                onOpenUser = { target ->
-                    navController.navigate("user/$target")
-                },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
-                onNovelSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
-                onOpenSeries = { seriesId ->
-                    navController.navigate("novel_series/$seriesId")
-                },
-                onOpenMangaSeries = { seriesId ->
-                    navController.navigate("illust_series/$seriesId")
-                },
-                onOpenUserBookmarks = {
-                    navController.navigate("user_bookmarks/$userId")
-                },
-                onOpenUserFollowing = {
-                    navController.navigate("user_following/$userId")
-                },
-                // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
-                // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款；
-                //   VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
-                novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
-                    NovelDetailPaneSlot(
-                        selectedId = selectedId,
-                        novelVm = novelVm,
-                        commentVm = commentVm,
-                        onOpenSeries = onOpenSeries,
-                        onOpenReader = { novelId ->
-                            navController.navigate("reader/$novelId")
-                        },
-                        onOpenUser = { target ->
-                            navController.navigate("user/$target")
-                        },
-                        // 小说标签 → 发现页搜小说
-                        onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
-                    )
-                },
-                // 平板 pane：系列卡点击 → 注入 feature:novel 的小说系列 pane
-                //（VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
-                seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
-                    NovelSeriesPaneSlot(
-                        selectedId = selectedId,
-                        onOpenNovel = onOpenNovel,
-                        onOpenSeries = onOpenSeries,
-                        onOpenUser = { target ->
-                            navController.navigate("user/$target")
-                        },
-                        onOpenCover = { url ->
-                            navController.navigate("image_preview?url=${Uri.encode(url)}")
-                        },
-                        // 系列页签内的小说标签 → 搜小说
-                        onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
-                    )
-                },
-            )
+            // 用户页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard / NovelCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → illust / novel 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                UserRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenNovel = { novelId ->
+                        navController.navigate("novel/$novelId")
+                    },
+                    onOpenViewer = { id, page ->
+                        // 全屏查看器：pane 内图片点击（定位到指定页）
+                        navController.navigate("viewer/$id?page=$page")
+                    },
+                    onOpenCover = { url ->
+                        navController.navigate("image_preview?url=${Uri.encode(url)}")
+                    },
+                    onOpenUser = { target ->
+                        navController.navigate("user/$target")
+                    },
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                    onNovelSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
+                    onOpenSeries = { seriesId ->
+                        navController.navigate("novel_series/$seriesId")
+                    },
+                    onOpenMangaSeries = { seriesId ->
+                        navController.navigate("illust_series/$seriesId")
+                    },
+                    onOpenUserBookmarks = {
+                        navController.navigate("user_bookmarks/$userId")
+                    },
+                    onOpenUserFollowing = {
+                        navController.navigate("user_following/$userId")
+                    },
+                    // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
+                    // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款；
+                    //   VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
+                    novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
+                        NovelDetailPaneSlot(
+                            selectedId = selectedId,
+                            novelVm = novelVm,
+                            commentVm = commentVm,
+                            onOpenSeries = onOpenSeries,
+                            onOpenReader = { novelId ->
+                                navController.navigate("reader/$novelId")
+                            },
+                            onOpenUser = { target ->
+                                navController.navigate("user/$target")
+                            },
+                            // 小说标签 → 发现页搜小说
+                            onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
+                        )
+                    },
+                    // 平板 pane：系列卡点击 → 注入 feature:novel 的小说系列 pane
+                    //（VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
+                    seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
+                        NovelSeriesPaneSlot(
+                            selectedId = selectedId,
+                            onOpenNovel = onOpenNovel,
+                            onOpenSeries = onOpenSeries,
+                            onOpenUser = { target ->
+                                navController.navigate("user/$target")
+                            },
+                            onOpenCover = { url ->
+                                navController.navigate("image_preview?url=${Uri.encode(url)}")
+                            },
+                            // 系列页签内的小说标签 → 搜小说
+                            onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
+                        )
+                    },
+                )
+            }
         }
         // 用户公开收藏：该用户公开收藏的插画（瀑布流），从用户主页统计格进入
         composable(
@@ -871,103 +876,133 @@ fun PixivNavGraph(
         }
         // AI 榜：排行数据过滤 AI 生成作品
         composable(ROUTE_AI_RANKING) {
-            AiRankingRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenViewer = { illustId, page ->
-                    navController.navigate("viewer/$illustId?page=$page")
-                },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
-            )
+            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                AiRankingRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenViewer = { illustId, page ->
+                        navController.navigate("viewer/$illustId?page=$page")
+                    },
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                )
+            }
         }
         // 年代榜：历史某天榜单 + 年代快捷入口
         composable(ROUTE_ERA_RANKING) {
-            EraRankingRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenViewer = { illustId, page ->
-                    navController.navigate("viewer/$illustId?page=$page")
-                },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
-            )
+            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                EraRankingRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenViewer = { illustId, page ->
+                        navController.navigate("viewer/$illustId?page=$page")
+                    },
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                )
+            }
         }
         // 壁纸榜：排行数据过滤横屏高分辨率作品
         composable(ROUTE_WALLPAPER_RANKING) {
-            WallpaperRankingRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenViewer = { illustId, page ->
-                    navController.navigate("viewer/$illustId?page=$page")
-                },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
-            )
+            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                WallpaperRankingRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenViewer = { illustId, page ->
+                        navController.navigate("viewer/$illustId?page=$page")
+                    },
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                )
+            }
         }
         // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
         composable(ROUTE_MANGA_RANKING) {
-            MangaRankingRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenViewer = { illustId, page ->
-                    navController.navigate("viewer/$illustId?page=$page")
-                },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
-            )
+            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                MangaRankingRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenViewer = { illustId, page ->
+                        navController.navigate("viewer/$illustId?page=$page")
+                    },
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                )
+            }
         }
         // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
         composable(ROUTE_ILLUST_RANKING) {
-            IllustRankingRoute(
-                onBack = { navController.safeBack() },
-                onOpenIllust = { illustId ->
-                    navController.navigate("illust/$illustId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                onOpenViewer = { illustId, page ->
-                    navController.navigate("viewer/$illustId?page=$page")
-                },
-                onSearchTag = { tag -> navController.navigateTagSearch(tag) },
-            )
+            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                IllustRankingRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenIllust = { illustId ->
+                        navController.navigate("illust/$illustId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    onOpenViewer = { illustId, page ->
+                        navController.navigate("viewer/$illustId?page=$page")
+                    },
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag) },
+                )
+            }
         }
         // 小说排行榜（全屏页）：条目用 NovelCard（整卡→详情、作者→主页、收藏、标签）
         composable(ROUTE_NOVEL_RANKING) {
-            NovelRankingRoute(
-                onBack = { navController.safeBack() },
-                onOpenNovel = { novelId ->
-                    navController.navigate("novel/$novelId")
-                },
-                onOpenUser = { userId ->
-                    navController.navigate("user/$userId")
-                },
-                // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
-                onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
-                onOpenSeries = { seriesId ->
-                    navController.navigate("novel_series/$seriesId")
-                },
-                onOpenReader = { novelId ->
-                    navController.navigate("reader/$novelId")
-                },
-            )
+            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 NovelCard 内部
+            // heroBoundsModifier 自动激活，单栏点卡 → novel 详情路由按 key 匹配 morph
+            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
+            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                NovelRankingRoute(
+                    onBack = { navController.safeBack() },
+                    onOpenNovel = { novelId ->
+                        navController.navigate("novel/$novelId")
+                    },
+                    onOpenUser = { userId ->
+                        navController.navigate("user/$userId")
+                    },
+                    // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
+                    onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
+                    onOpenSeries = { seriesId ->
+                        navController.navigate("novel_series/$seriesId")
+                    },
+                    onOpenReader = { novelId ->
+                        navController.navigate("reader/$novelId")
+                    },
+                )
+            }
         }
         // FANBOX 原生首页：投稿流 + 推荐创作者（会话过期引导进网页登录）
         composable(ROUTE_FANBOX_HOME) {
