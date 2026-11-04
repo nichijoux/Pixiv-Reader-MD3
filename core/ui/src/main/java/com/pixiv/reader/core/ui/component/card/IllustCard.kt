@@ -4,9 +4,11 @@ import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraCardPlayer
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -59,6 +61,7 @@ import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
 import com.pixiv.reader.core.ui.component.detail.illustCoverKey
+import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -156,11 +159,19 @@ fun IllustCard(
         },
     )
     // 卡片根容器：圆角 + 卡片底色 + 整卡点击（含屏蔽手势包装）
+    // interactionSource 与整卡手势共享：按压缩放需要收到 pressed 态（自建 source 收不到）
+    val cardInteraction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
+            .pressScale(cardInteraction)
             .clip(AppShapes.cardLarge)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .combinedClickable(onClick = block.onClick, onLongClick = block.onLongClick),
+            .combinedClickable(
+                interactionSource = cardInteraction,
+                indication = LocalIndication.current,
+                onClick = block.onClick,
+                onLongClick = block.onLongClick,
+            ),
     ) {
         // 内容层：屏蔽时整体模糊（标题/作者随封面一并打码；点击临时显示）
         Column(

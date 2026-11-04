@@ -57,6 +57,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Stamp
 import com.pixiv.reader.core.comment.R
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -96,6 +98,8 @@ fun CommentInput(
 ) {
     var panelExpanded by remember { mutableStateOf(false) }
     val handle = remember { EmoteFieldHandle() }
+    // 发送成功确认触觉（草稿为空时 onPost 由外部拦截，这里也只在非空时响）
+    val haptic = rememberHapticCue()
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
 
@@ -188,7 +192,16 @@ fun CommentInput(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            IconButton(onClick = onPost, modifier = Modifier.size(ButtonSide)) {
+            IconButton(
+                onClick = {
+                    // 空草稿发送是无效操作（外部会拦截），此时不响触觉
+                    if (draft.isNotBlank()) {
+                        haptic(PixivHaptics.HapticCue.SUCCESS)
+                    }
+                    onPost()
+                },
+                modifier = Modifier.size(ButtonSide),
+            ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.comment_send), tint = MaterialTheme.colorScheme.primary)
             }
         }

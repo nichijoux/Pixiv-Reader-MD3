@@ -40,6 +40,8 @@ import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.common.ui.WindowSizeClass
 import com.pixiv.reader.core.common.ui.classifyWindowWidth
 import com.pixiv.reader.core.common.ui.useRail
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import kotlinx.coroutines.launch
 
 /** 底部/侧边导航项（自适应导航壳的数据单元）。 */
@@ -80,6 +82,8 @@ fun AdaptiveNavScaffold(
 ) {
     val size = currentWindowSizeClass()
     val useRail = size.useRail()
+    // 页签切换触觉：仅在真正切到另一页签时响（重复点当前页签不响）
+    val haptic = rememberHapticCue()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -95,7 +99,13 @@ fun AdaptiveNavScaffold(
                     items.forEach { item ->
                         NavigationBarItem(
                             selected = selectedRoute == item.route,
-                            onClick = { onSelect(item.route) },
+                            onClick = {
+                                // 仅切换页签时响 SELECT（重复点当前页签只做回顶，不响）
+                                if (selectedRoute != item.route) {
+                                    haptic(PixivHaptics.HapticCue.SELECT)
+                                }
+                                onSelect(item.route)
+                            },
                             icon = {
                                 Icon(
                                     imageVector = if (selectedRoute == item.route) item.selectedIcon else item.icon,
@@ -142,7 +152,13 @@ fun AdaptiveNavScaffold(
                     items.forEach { item ->
                         WideNavigationRailItem(
                             selected = selectedRoute == item.route,
-                            onClick = { onSelect(item.route) },
+                            onClick = {
+                                // 仅切换页签时响 SELECT（与底栏同语义）
+                                if (selectedRoute != item.route) {
+                                    haptic(PixivHaptics.HapticCue.SELECT)
+                                }
+                                onSelect(item.route)
+                            },
                             icon = {
                                 Icon(
                                     imageVector = if (selectedRoute == item.route) item.selectedIcon else item.icon,

@@ -169,6 +169,7 @@ fun NovelDetailRoute(
             val actionNovel = novel
             if (actionNovel != null) {
                 NovelActionBar(
+                    novelId = actionNovel.id,
                     seriesId = actionNovel.series?.id,
                     privacy = bookmarkPrivacy,
                     isBookmarking = isBookmarking,

@@ -28,8 +28,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,6 +50,8 @@ import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
@@ -254,6 +258,16 @@ private fun HomeFeedContent(
     val hasMore by paged.hasMore.collectAsStateWithLifecycle()
     val error by paged.error.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+
+    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响（刷新结束回落不响）
+    val haptic = rememberHapticCue()
+    var wasRefreshing by remember { mutableStateOf(isRefreshing) }
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing && !wasRefreshing) {
+            haptic(PixivHaptics.HapticCue.GESTURE_START)
+        }
+        wasRefreshing = isRefreshing
+    }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,

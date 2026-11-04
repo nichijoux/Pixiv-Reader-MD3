@@ -1,5 +1,8 @@
 package com.pixiv.reader.feature.novel.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,11 +27,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.ui.R as CoreUiR
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -75,6 +86,8 @@ internal fun NovelActions(
  * 底部固定操作条：收藏 / 追更 / 下载 / 评论 四个竖排 icon+文字按钮（对齐插画详情页风格，
  * 复用 core:ui [VerticalActionButton]），Scaffold 外 Box 底部固定，限宽居中（平板与内容对齐）。
  *
+ * @param novelId 当前小说 id（作为收藏弹跳「上一态」记忆的 key——平板 pane 不按 id 重建组合，
+ *   切换作品时须重置，否则 A 未收藏 → 选中已收藏 B 会误播弹跳与触觉）
  * @param navigationBarInset 是否追加系统导航栏避让——Scaffold bottomBar 场景（手机全屏详情页）
  *   为 true；Master-Detail 右栏内嵌场景为 false（外层 Scaffold padding 已含导航栏避让，
  *   再加会导致操作条比左栏底部高出一个导航栏高度、无法对齐）
@@ -107,6 +120,7 @@ enum class BookmarkPrivacy {
 
 @Composable
 internal fun NovelActionBar(
+    novelId: Long,
     seriesId: Long?,
     privacy: BookmarkPrivacy,
     isBookmarking: Boolean,
@@ -121,6 +135,28 @@ internal fun NovelActionBar(
     navigationBarInset: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    // 收藏心形弹跳：privacy 由 NONE 变为已收藏（公开/私密）时触发 0.6 → 过冲 → 1 的 pop
+    val favoriteBounce = remember { Animatable(1f) }
+    // 上一次收藏态：key 为小说 id（pane 切换作品时重置为该作品当前态，防止跨作品误播）
+    var wasBookmarked by remember(novelId) { mutableStateOf(privacy != BookmarkPrivacy.NONE) }
+    val haptic = rememberHapticCue()
+    LaunchedEffect(privacy) {
+        val bookmarked = privacy != BookmarkPrivacy.NONE
+        val becameBookmarked = bookmarked && !wasBookmarked
+        wasBookmarked = bookmarked
+        if (becameBookmarked) {
+            // 成功确认触觉 + 心形缩放 pop（MediumBouncy 过冲后回落到 1f）
+            haptic(PixivHaptics.HapticCue.SUCCESS)
+            favoriteBounce.snapTo(0.6f)
+            favoriteBounce.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            )
+        }
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -151,6 +187,11 @@ internal fun NovelActionBar(
                 modifier = Modifier.weight(1f),
                 // 收藏激活用红心（与插画详情页一致）
                 activeIconTint = FavoriteRed,
+                // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
+                iconModifier = Modifier.graphicsLayer {
+                    scaleX = favoriteBounce.value
+                    scaleY = favoriteBounce.value
+                },
             )
             VerticalActionButton(
                 icon = if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,

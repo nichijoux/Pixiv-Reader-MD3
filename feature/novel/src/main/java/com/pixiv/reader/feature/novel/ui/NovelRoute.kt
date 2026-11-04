@@ -50,6 +50,8 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ranking.ui.RankingBanner
 import com.pixiv.reader.core.ui.component.card.SeriesCard
@@ -416,6 +418,15 @@ private fun NovelWatchlistTab(
     val isRefreshing by viewModel.isWatchlistRefreshing.collectAsStateWithLifecycle()
     val infos by viewModel.watchlistInfos.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
+    val haptic = rememberHapticCue()
+    var wasRefreshing by remember { mutableStateOf(isRefreshing) }
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing && !wasRefreshing) {
+            haptic(PixivHaptics.HapticCue.GESTURE_START)
+        }
+        wasRefreshing = isRefreshing
+    }
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {

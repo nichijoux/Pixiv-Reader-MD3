@@ -38,9 +38,11 @@ import androidx.compose.ui.unit.dp
  * - 激活：primaryContainer 底 + primary 边框 + [activeIconTint]（null 时 primary）图标 + onPrimaryContainer 文字
  * - disabled：整体 0.45 透明度，图标 onSurfaceVariant
  * - 按压：Expressive spring 缩放（按下微缩 → 松手弹性回弹，跟随 [MaterialTheme.motionScheme]）
+ * - 图标可经 [iconModifier] 追加调用方动效（如收藏成功的心形弹跳），不影响按钮自身缩放
  *
  * @param activeIconTint 激活态图标色（如收藏按钮传 FavoriteRed 红心）；null 用 primary
  * @param onLongClick 长按回调（如小说收藏按钮长按打开收藏设置）；null 不挂长按手势
+ * @param iconModifier 追加在图标上的 Modifier（调用方用于挂收藏弹跳等图标级动效；默认无）
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -53,6 +55,7 @@ fun VerticalActionButton(
     modifier: Modifier = Modifier,
     activeIconTint: Color? = null,
     onLongClick: (() -> Unit)? = null,
+    iconModifier: Modifier = Modifier,
 ) {
     // 按压态跟踪 + spring 缩放（Expressive 触感：按下微缩，松手弹性回弹）
     val interactionSource = remember { MutableInteractionSource() }
@@ -105,7 +108,7 @@ fun VerticalActionButton(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(19.dp),
+            modifier = iconModifier.size(19.dp),
             tint = when {
                 !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
                 active -> activeIconTint ?: MaterialTheme.colorScheme.primary

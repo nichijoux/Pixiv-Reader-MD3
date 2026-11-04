@@ -163,6 +163,7 @@ fun NovelDetailPane(
                         val detail = novel
                         if (detail != null) {
                             NovelActionBar(
+                                novelId = detail.id,
                                 seriesId = detail.series?.id,
                                 privacy = bookmarkPrivacy,
                                 isBookmarking = isBookmarking,

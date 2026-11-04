@@ -1,8 +1,10 @@
 package com.pixiv.reader.core.ui.component.card
 import com.pixiv.reader.core.ui.component.image.PixivImage
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -87,13 +91,20 @@ fun SeriesCard(
     onOpenAuthor: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    // interactionSource 与整卡手势共享：pressScale 需要收到 pressed 态
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .pressScale(interaction)
             .height(IntrinsicSize.Min)
             .clip(AppShapes.large)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
             .padding(Spacing.mdPlus),
         verticalAlignment = Alignment.Top,
     ) {

@@ -1,9 +1,11 @@
 package com.pixiv.reader.core.ui.component.card
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +62,7 @@ import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
 import com.pixiv.reader.core.ui.component.detail.novelCoverKey
+import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -171,10 +174,18 @@ fun NovelCard(
         },
     )
 
+    // 卡片 interactionSource：与整卡手势共享，供 pressScale 收集按压态
+    val cardInteraction = remember { MutableInteractionSource() }
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = block.onClick, onLongClick = block.onLongClick),
+            .pressScale(cardInteraction)
+            .combinedClickable(
+                interactionSource = cardInteraction,
+                indication = LocalIndication.current,
+                onClick = block.onClick,
+                onLongClick = block.onLongClick,
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),

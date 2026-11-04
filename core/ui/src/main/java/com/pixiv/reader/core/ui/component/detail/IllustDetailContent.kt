@@ -3,7 +3,9 @@ package com.pixiv.reader.core.ui.component.detail
 import android.annotation.SuppressLint
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,6 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -82,6 +85,8 @@ import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.ui.component.card.TagChip
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
@@ -682,6 +687,7 @@ fun IllustInfoSection(
         // 手机详情页走固定底栏（showActionRow=false），排行右栏等内嵌布局用此行进操作。
         if (showActionRow) {
             ActionButtonsRow(
+                illustId = illust.id,
                 isBookmarked = isBookmarked,
                 isBookmarking = isBookmarking,
                 onToggleBookmark = onToggleBookmark,
@@ -734,9 +740,23 @@ fun IllustInfoSection(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 操作按钮行（标签下方）：收藏 / 全屏 / 下载 / 评论（不固定，跟随内容滚动）。 */
+/**
+ * 操作按钮行（标签下方）：收藏 / 全屏 / 下载 / 评论（不固定，跟随内容滚动）。
+ *
+ * @param illustId 当前作品 id（作为收藏弹跳「上一态」记忆的 key——平板 pane 不按 id 重建组合，
+ *   切换作品时须重置，否则 A 未收藏 → 选中已收藏 B 会误播弹跳与触觉）
+ * @param isBookmarked 是否已收藏
+ * @param isBookmarking 收藏请求进行中（禁用按钮防连点）
+ * @param onToggleBookmark 收藏/取消收藏回调
+ * @param onOpenViewer 打开全屏查看器回调
+ * @param onDownload 打开下载回调
+ * @param onOpenComments 打开评论区回调
+ * @param strings 详情页文案
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
 private fun ActionButtonsRow(
+    illustId: Long,
     isBookmarked: Boolean,
     isBookmarking: Boolean,
     onToggleBookmark: () -> Unit,
@@ -745,6 +765,27 @@ private fun ActionButtonsRow(
     onOpenComments: () -> Unit,
     strings: IllustDetailStrings,
 ) {
+    // 收藏心形弹跳：0.6 → 过冲 → 1 的 pop；仅在「未收藏 → 已收藏」跳变时触发
+    val favoriteBounce = remember { Animatable(1f) }
+    // 上一次收藏态：key 为作品 id（pane 切换作品时重置为该作品当前态，防止跨作品误播）
+    var wasBookmarked by remember(illustId) { mutableStateOf(isBookmarked) }
+    val haptic = rememberHapticCue()
+    LaunchedEffect(isBookmarked) {
+        val becameBookmarked = isBookmarked && !wasBookmarked
+        wasBookmarked = isBookmarked
+        if (becameBookmarked) {
+            // 成功确认触觉 + 心形缩放 pop（MediumBouncy 过冲后回落到 1f）
+            haptic(PixivHaptics.HapticCue.SUCCESS)
+            favoriteBounce.snapTo(0.6f)
+            favoriteBounce.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            )
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -760,6 +801,11 @@ private fun ActionButtonsRow(
             modifier = Modifier.weight(1f),
             // 收藏激活用红心（保留 App 收藏色习惯）
             activeIconTint = FavoriteRed,
+            // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
+            iconModifier = Modifier.graphicsLayer {
+                scaleX = favoriteBounce.value
+                scaleY = favoriteBounce.value
+            },
         )
         VerticalActionButton(
             icon = Icons.Filled.Fullscreen,

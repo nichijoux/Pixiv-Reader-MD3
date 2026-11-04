@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +58,8 @@ import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ranking.ui.RankingBannerSkeleton
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
@@ -93,6 +96,15 @@ fun MangaRoute(
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
+    val haptic = rememberHapticCue()
+    var wasRefreshing by remember { mutableStateOf(isRefreshing) }
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing && !wasRefreshing) {
+            haptic(PixivHaptics.HapticCue.GESTURE_START)
+        }
+        wasRefreshing = isRefreshing
+    }
     // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
     var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）

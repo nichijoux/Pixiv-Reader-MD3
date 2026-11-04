@@ -17,6 +17,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,8 @@ import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
 import com.pixiv.reader.core.ui.component.layout.detailPaneWidth
@@ -165,6 +168,16 @@ fun FollowRoute(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.isLoadingMore.collectAsStateWithLifecycle()
     val feedError by viewModel.feedError.collectAsStateWithLifecycle()
+
+    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
+    val haptic = rememberHapticCue()
+    var wasRefreshing by remember { mutableStateOf(isRefreshing) }
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing && !wasRefreshing) {
+            haptic(PixivHaptics.HapticCue.GESTURE_START)
+        }
+        wasRefreshing = isRefreshing
+    }
 
     val allItems by viewModel.allItems.collectAsStateWithLifecycle()
     val novelItems by viewModel.novelItems.collectAsStateWithLifecycle()
