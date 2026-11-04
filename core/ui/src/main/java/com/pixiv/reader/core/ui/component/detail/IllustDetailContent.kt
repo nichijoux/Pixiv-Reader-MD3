@@ -116,6 +116,37 @@ data class IllustDetailStrings(
 /**
  * 详情内容（可滚动整页）：多 P Pager + 信息区（标题/作者/统计/标签/操作行/简介）+ 相关作品。
  * 操作按钮行放在标签之后、简介之前（排行榜右栏布局要求；详情页手机端仍走固定底栏）。
+ *
+ * 传入 [seed] 时即使 [pages] 尚未就绪也会渲染 pager 容器（占位封面），hero 共享元素
+ * 自进入详情起即存在——详情路由据此不再叠加独立的 loader 分支。
+ *
+ * @param illust 作品数据；null 时信息区不渲染（骨架阶段）
+ * @param pages 各 P 的图片元数据
+ * @param ugoiraFrames 动图帧
+ * @param ugoiraProgress 动图 zip 下载进度 0..1；null 表示未在下载
+ * @param relatedItems 相关作品列表
+ * @param strings 详情页文案（feature 侧注入）
+ * @param onPageChange 当前页变化回调
+ * @param onOpenViewer 全屏入口回调（参数为页索引）
+ * @param onOpenUser 打开作者主页回调
+ * @param onOpenIllust 简介内打开其他插画回调
+ * @param onSearchTag 点击标签搜索回调
+ * @param isAuthorFollowed 作者是否已关注
+ * @param isAuthorFollowing 关注操作是否进行中
+ * @param onToggleFollowAuthor 切换作者关注回调
+ * @param isBookmarked 是否已收藏
+ * @param isBookmarking 收藏操作是否进行中
+ * @param onToggleBookmark 切换收藏回调
+ * @param onDownload 下载回调
+ * @param onOpenComments 打开评论回调
+ * @param expandableIntro 简介是否可展开/收起
+ * @param showActionRow 是否在标签下渲染操作行（详情页走底栏时为 false）
+ * @param modifier 外部 Modifier
+ * @param onOpenNovel 简介内打开小说回调
+ * @param seed hero 种子（pages 未就绪时的封面占位），透传给 [IllustPagePager]
+ * @param heroIllustId hero 共享元素 key 的回退作品 id（路由参数，[illust] 未到达时用于定位 key，
+ *   保证占位封面在数据加载期即参与 morph）；null 时仅用 [illust] 的 id
+ * @return 无返回值（渲染 Composable）
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -144,13 +175,16 @@ fun IllustDetailContent(
     modifier: Modifier = Modifier,
     // 简介内 `pixiv://novels/{id}` 链接回调（默认不接线，样式仍显示）
     onOpenNovel: (Long) -> Unit = {},
+    seed: HeroSeed? = null,
+    heroIllustId: Long? = null,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        if (pages.isNotEmpty()) {
+        // 有种子时 pages 为空也渲染 pager：hero 元素从进入详情起唯一存在
+        if (pages.isNotEmpty() || seed != null) {
             IllustPagePager(
                 pages = pages,
                 ugoiraFrames = ugoiraFrames,
@@ -158,8 +192,8 @@ fun IllustDetailContent(
                 onPageChange = onPageChange,
                 onOpenViewer = onOpenViewer,
                 strings = strings,
-                // hero：详情大图与列表卡片封面同 key（illust 可空：空时不挂共享边界）
-                illustId = illust?.id,
+                // hero：详情大图与列表卡片封面同 key（illust 可空：回退路由参数 id）
+                illustId = illust?.id ?: heroIllustId,
                 // 垫底 medium：与 hero/卡片封面同源，原图未就绪时先顶上
                 placeholderUrl = illust?.image_urls?.medium,
                 // 首页兜底比例取 illust 宽高（与卡片 aspectRatio 同源）：pages 宽高未就绪时
@@ -167,27 +201,33 @@ fun IllustDetailContent(
                 fallbackRatio = illust
                     ?.takeIf { it.width > 0 && it.height > 0 }
                     ?.let { it.width.toFloat() / it.height.toFloat() },
+                seed = seed,
             )
         }
-        IllustInfoSection(
-            illust = illust,
-            strings = strings,
-            onOpenUser = onOpenUser,
-            onOpenIllust = onOpenIllust,
-            onSearchTag = onSearchTag,
-            onOpenViewer = onOpenViewer,
-            isAuthorFollowed = isAuthorFollowed,
-            isAuthorFollowing = isAuthorFollowing,
-            onToggleFollowAuthor = onToggleFollowAuthor,
-            isBookmarked = isBookmarked,
-            isBookmarking = isBookmarking,
-            onToggleBookmark = onToggleBookmark,
-            onDownload = onDownload,
-            onOpenComments = onOpenComments,
-            expandableIntro = expandableIntro,
-            showActionRow = showActionRow,
-            onOpenNovel = onOpenNovel,
-        )
+        // 数据未到（仅 seed 占位阶段）：信息区用骨架占位，避免大图下方直接空出
+        if (illust == null) {
+            IllustInfoSkeleton()
+        } else {
+            IllustInfoSection(
+                illust = illust,
+                strings = strings,
+                onOpenUser = onOpenUser,
+                onOpenIllust = onOpenIllust,
+                onSearchTag = onSearchTag,
+                onOpenViewer = onOpenViewer,
+                isAuthorFollowed = isAuthorFollowed,
+                isAuthorFollowing = isAuthorFollowing,
+                onToggleFollowAuthor = onToggleFollowAuthor,
+                isBookmarked = isBookmarked,
+                isBookmarking = isBookmarking,
+                onToggleBookmark = onToggleBookmark,
+                onDownload = onDownload,
+                onOpenComments = onOpenComments,
+                expandableIntro = expandableIntro,
+                showActionRow = showActionRow,
+                onOpenNovel = onOpenNovel,
+            )
+        }
         IllustRelatedSection(
             items = relatedItems,
             strings = strings,
@@ -212,6 +252,14 @@ fun IllustDetailContent(
  * → 1.5f 通用兜底。多页作品实时翻页时第 2+ 页在 web 接口补齐宽高前，用首页比例兜底
  * （严格优于 1.5f 的通用值）；补齐后翻页高度弹簧照常播放。
  *
+ * 占位态（`pages` 为空但持有 [seed]）：容器不经 HorizontalPager，直接渲染种子封面，
+ * 比例取 `seed.aspectRatio → fallbackRatio → 1.5f`，且不渲染页码胶囊 / 全屏按钮 / spinner /
+ * 动图分支 / 失败重试层。容器本身始终挂 hero 共享边界，数据到达后同一个容器原地转为真实
+ * pager——hero 元素全程唯一，避免 loading→content 硬切导致共享元素「消失后重现」重播动画。
+ *
+ * 容器底色：占位态与当前页图片尚未就绪时用 `colorScheme.surface`（占位图 / 加载中不露黑块）；
+ * 图片真正加载完成后才切 `Color.Black`，用于压住图片 letterbox 区域的黑帧观感。
+ *
  * @param pages 各 P 的图片元数据（宽高/URL）
  * @param onPageChange 当前页变化回调
  * @param onOpenViewer 点击全屏入口回调（参数为页索引）
@@ -225,6 +273,9 @@ fun IllustDetailContent(
  * @param fallbackRatio 首页兜底宽高比（调用方传 illust 的 `width / height`）；用于修正
  *   pages 宽高未就绪（web 接口补尺寸前的数百毫秒）时落到 1.5f 通用兜底、与 hero 占位
  *   （封面比例）高度不一致导致的接棒跳变。null 时仍走 1.5f 兜底
+ * @param seed hero 种子（卡片点击时快照的封面）。pages 未就绪时作为封面占位渲染，
+ *   保证 hero 共享元素自详情进入起即存在、跨 loading→content 切换不重建；null 时
+ *   pages 为空则不渲染任何内容（深链兜底由调用方走完整骨架）
  * @return 无返回值（渲染 Composable）
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -240,11 +291,20 @@ fun IllustPagePager(
     illustId: Long? = null,
     placeholderUrl: String? = null,
     fallbackRatio: Float? = null,
+    seed: HeroSeed? = null,
 ) {
-    val pagerState = rememberPagerState(pageCount = { pages.size })
+    // 占位态：无页面数据但持有种子封面（数据到达前 hero 元素必须存在）
+    val placeholderOnly = pages.isEmpty() && seed != null
+    // 占位态比例：种子封面比例 → 调用方兜底 → 通用兜底
+    val placeholderRatio = seed?.aspectRatio ?: fallbackRatio ?: 1.5f
+    // lambda 每次调用重读最新 pages / seed，占位态 1 页、正常态按页数
+    val pagerState = rememberPagerState(
+        pageCount = { if (pages.isEmpty() && seed != null) 1 else pages.size },
+    )
     val currentPage = pagerState.currentPage
     LaunchedEffect(currentPage) { onPageChange(currentPage) }
 
+    // 占位态不读 pages（pageCount=1 时索引无意义），用种子比例合成当前页关键参数
     val current = pages.getOrNull(currentPage)
     // 图片加载完成后的真实宽高比（drawable.intrinsic）。
     // 以 URL 为 remember key：切页时组合期同步重置——必须先于同组合内 AsyncImage 的回调。
@@ -264,19 +324,30 @@ fun IllustPagePager(
         retryKey++
     }
 
-    // 优先图片真实比例，其次网页宽高，再次调用方传入的首页兜底比例，最后通用兜底
+    // 优先图片真实比例，其次网页宽高，再次调用方传入的首页兜底比例，最后通用兜底；
+    // 占位态直接用种子封面比例，保证与卡片封面高度一致（接棒无跳变）
     val webRatio = current
         ?.takeIf { it.width > 0 && it.height > 0 }
         ?.let { it.width.toFloat() / it.height.toFloat() }
-    val effectiveRatio = imageRatio ?: webRatio ?: fallbackRatio ?: 1.5f
+    val effectiveRatio = if (placeholderOnly) {
+        placeholderRatio
+    } else {
+        imageRatio ?: webRatio ?: fallbackRatio ?: 1.5f
+    }
     // spinner 只反映「当前页图片是否已有尺寸/已停止加载」：fallbackRatio 是静态估值，
     // 不代表图片已就绪，不计入 ready（否则首帧误隐藏转圈）
     val ready = imageRatio != null || webRatio != null
+    // 底色：占位态与图片未就绪时不露黑块；真实图片渲染后才用黑底压 letterbox 黑帧
+    val containerColor = if (placeholderOnly || (!ready && !loadDone)) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        Color.Black
+    }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Black),
+            .background(containerColor),
     ) {
         val targetHeight = if (effectiveRatio > 0f) maxWidth / effectiveRatio else 400.dp
         // 高度吸附弹簧：在组合期先取好（LaunchedEffect 的 body 不是组合上下文，
@@ -321,167 +392,183 @@ fun IllustPagePager(
                 .height(heightAnim.value)
                 .then(heroModifier),
         ) {
-            HorizontalPager(
-                state = pagerState,
-                // 预组合相邻页：翻页前邻图已在加载，滑动即显
-                beyondViewportPageCount = 1,
-                modifier = Modifier.fillMaxSize(),
-            ) { index ->
-                val p = pages[index]
-                if (index == currentPage) {
-                    Box {
-                        // 垫底：原图（original/large，首访无缓存）加载完成前显示已在缓存中的
-                        // medium（与 hero 占位同源）。AsyncImage 成功后自然覆盖；非 hero 直接
-                        // 打开详情页同样受益（避免接棒瞬间空窗）。null 时不渲染——
-                        // PixivImage 对 null 会画主题占位色块，会盖掉容器的黑色底
-                        if (placeholderUrl != null) {
-                            PixivImage(
-                                url = placeholderUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit,
-                            )
-                        }
-                        // key(retryKey)：手动重试时自增，强制重建 painter 重新发起请求
-                        key(retryKey) {
-                            AsyncImage(
-                                model = p.displayUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit,
-                                onSuccess = { res ->
-                                    // Coil 2.7：State.Success.result 是 SuccessResult，含 drawable
-                                    val d = res.result.drawable
-                                    if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
-                                        imageRatio =
-                                            d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+            // 占位态：pager 的 pageCount 为 1 而 pages 为空（取 pages[index] 会越界），
+            // 故不经过 HorizontalPager，直接在同一 hero 容器内渲染种子封面
+            if (placeholderOnly) {
+                // 封面空串走 null：PixivImage 会画主题占位色块（与容器 surface 底一致）
+                val seedCoverUrl = seed.coverUrl.ifBlank { null }
+                PixivImage(
+                    url = seedCoverUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    // 预组合相邻页：翻页前邻图已在加载，滑动即显
+                    beyondViewportPageCount = 1,
+                    modifier = Modifier.fillMaxSize(),
+                ) { index ->
+                    val p = pages[index]
+                    if (index == currentPage) {
+                        Box {
+                            // 垫底：原图（original/large，首访无缓存）加载完成前显示已在缓存中的
+                            // medium（与 hero 占位同源）。AsyncImage 成功后自然覆盖；非 hero 直接
+                            // 打开详情页同样受益（避免接棒瞬间空窗）。null 时不渲染——
+                            // PixivImage 对 null 会画主题占位色块，会盖掉容器的黑色底
+                            if (placeholderUrl != null) {
+                                PixivImage(
+                                    url = placeholderUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit,
+                                )
+                            }
+                            // key(retryKey)：手动重试时自增，强制重建 painter 重新发起请求
+                            key(retryKey) {
+                                AsyncImage(
+                                    model = p.displayUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit,
+                                    onSuccess = { res ->
+                                        // Coil 2.7：State.Success.result 是 SuccessResult，含 drawable
+                                        val d = res.result.drawable
+                                        if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
+                                            imageRatio =
+                                                d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+                                        }
+                                        loadDone = true
+                                        loadFailed = false
+                                    },
+                                    onError = {
+                                        loadDone = true
+                                        loadFailed = true
+                                    },
+                                )
+                            }
+                            // 加载失败：点击手动重试（动图封面失败不拦截播放，帧就绪照常播）
+                            if (loadFailed && ugoiraFrames.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .clickable { retry() },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = strings.loadRetry,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(Sizes.s28),
+                                        )
+                                        Text(
+                                            text = strings.loadRetry,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(top = Spacing.xsPlus),
+                                        )
                                     }
-                                    loadDone = true
-                                    loadFailed = false
-                                },
-                                onError = {
-                                    loadDone = true
-                                    loadFailed = true
-                                },
-                            )
-                        }
-                        // 加载失败：点击手动重试（动图封面失败不拦截播放，帧就绪照常播）
-                        if (loadFailed && ugoiraFrames.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.5f))
-                                    .clickable { retry() },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = strings.loadRetry,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(Sizes.s28),
-                                    )
-                                    Text(
-                                        text = strings.loadRetry,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(top = Spacing.xsPlus),
-                                    )
                                 }
                             }
-                        }
-                        // 动图：帧就绪播放 zip 帧动画；下载中显示转圈 + 百分比；均叠加静态封面之上
-                        if (index == 0) {
-                            when {
-                                ugoiraFrames.isNotEmpty() -> {
-                                    val maxDecodeSize =
-                                        with(LocalDensity.current) { pagerMaxWidth.roundToPx() }
-                                    UgoiraPlayer(
-                                        frames = ugoiraFrames,
-                                        modifier = Modifier.fillMaxSize(),
-                                        maxDecodeSize = maxDecodeSize,
-                                        contentScale = ContentScale.Fit,
-                                    )
-                                }
+                            // 动图：帧就绪播放 zip 帧动画；下载中显示转圈 + 百分比；均叠加静态封面之上
+                            if (index == 0) {
+                                when {
+                                    ugoiraFrames.isNotEmpty() -> {
+                                        val maxDecodeSize =
+                                            with(LocalDensity.current) { pagerMaxWidth.roundToPx() }
+                                        UgoiraPlayer(
+                                            frames = ugoiraFrames,
+                                            modifier = Modifier.fillMaxSize(),
+                                            maxDecodeSize = maxDecodeSize,
+                                            contentScale = ContentScale.Fit,
+                                        )
+                                    }
 
-                                ugoiraProgress != null -> {
-                                    // zip 下载中：半透明黑底 + 转圈 + 百分比（帧就绪后切换播放）
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color.Black.copy(alpha = 0.35f)),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                    ugoiraProgress != null -> {
+                                        // zip 下载中：半透明黑底 + 转圈 + 百分比（帧就绪后切换播放）
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color.Black.copy(alpha = 0.35f)),
+                                            contentAlignment = Alignment.Center,
                                         ) {
-                                            LoadingIndicator(color = Color.White)
-                                            Text(
-                                                text = "${(ugoiraProgress * 100).toInt()}%",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color.White,
-                                            )
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                            ) {
+                                                LoadingIndicator(color = Color.White)
+                                                Text(
+                                                    text = "${(ugoiraProgress * 100).toInt()}%",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color.White,
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                    } else {
+                        PixivImage(
+                            url = p.displayUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
                     }
-                } else {
-                    PixivImage(
-                        url = p.displayUrl,
-                        contentDescription = null,
+                }
+            }
+            // 占位态：不渲染 spinner 与页码/全屏入口（尚无页面数据可操作）
+            if (!placeholderOnly) {
+                if (!ready && !loadDone) {
+                    Box(
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        LoadingIndicator(color = Color.White)
+                    }
                 }
-            }
-            if (!ready && !loadDone) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    LoadingIndicator(color = Color.White)
-                }
-            }
-            // 页码 + 全屏入口（统一 32dp 高胶囊，视觉一致）
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(Spacing.smPlus),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-            ) {
-                Box(
+                // 页码 + 全屏入口（统一 32dp 高胶囊，视觉一致）
+                Row(
                     modifier = Modifier
-                        .height(32.dp)
-                        .clip(AppShapes.card)
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(horizontal = Spacing.md),
-                    contentAlignment = Alignment.Center,
+                        .align(Alignment.BottomEnd)
+                        .padding(Spacing.smPlus),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
-                    Text(
-                        text = "${pagerState.currentPage + 1} / ${pages.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(Sizes.s32)
-                        .clip(AppShapes.card)
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .clickable { onOpenViewer(pagerState.currentPage) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Fullscreen,
-                        contentDescription = strings.fullscreen,
-                        tint = Color.White,
-                        modifier = Modifier.size(Sizes.s18),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(AppShapes.card)
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = Spacing.md),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "${pagerState.currentPage + 1} / ${pages.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(Sizes.s32)
+                            .clip(AppShapes.card)
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .clickable { onOpenViewer(pagerState.currentPage) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Fullscreen,
+                            contentDescription = strings.fullscreen,
+                            tint = Color.White,
+                            modifier = Modifier.size(Sizes.s18),
+                        )
+                    }
                 }
             }
         }

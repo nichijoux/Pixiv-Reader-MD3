@@ -2,7 +2,9 @@ package com.pixiv.reader.core.ui.component.detail
 
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +19,14 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import com.pixiv.reader.core.ui.component.image.PixivImage
+
+/**
+ * hero 共享边界动画时长（ms）：固定短 tween，与路由 enter/exit 过渡的 spring 解耦。
+ *
+ * 不用 MotionScheme 的 spatial 弹簧——路由过渡已是 spring，两条 spring 并联会让 bounds
+ * 动画在低速段拖尾，内容切换重挂后从中间态跳到终点，观感是「卡一下再猛跳」。
+ */
+private const val HERO_BOUNDS_MOTION_MS = 200
 
 /**
  * hero 过渡种子：卡片点击时快照封面信息，详情页加载期渲染占位图衔接 morph
@@ -127,8 +137,14 @@ fun Modifier.heroBoundsModifier(
     val sharedScope = LocalSharedTransitionScope.current ?: return this
     val visibilityScope = animatedVisibilityScope ?: LocalNavAnimatedVisibilityScope.current
         ?: return this
-    // 组合期取好动效规格：boundsTransform lambda 非组合上下文，不能读 MaterialTheme
-    val boundsSpec: FiniteAnimationSpec<Rect> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    // 组合期取好动效规格：boundsTransform lambda 非组合上下文，不能读 MaterialTheme。
+    // 用固定短 tween 而非 spatial 弹簧：路由 enter 过渡本身也是 spring，两条 spring 并联时
+    // bounds 动画在低速段拖尾（封面停在中途约 400ms）后随内容切换重挂、从中间态直接跳到终点，
+    // 观感即「卡住一下再猛跳」。固定短时长让封面 morph 在路由过渡窗口内干净收敛。
+    val boundsSpec: FiniteAnimationSpec<Rect> = tween(
+        durationMillis = HERO_BOUNDS_MOTION_MS,
+        easing = FastOutSlowInEasing,
+    )
     return with(sharedScope) {
         this@heroBoundsModifier.sharedBounds(
             sharedContentState = rememberSharedContentState(key = key),

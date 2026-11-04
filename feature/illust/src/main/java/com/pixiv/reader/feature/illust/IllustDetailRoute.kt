@@ -35,11 +35,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -55,12 +53,13 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
-import com.pixiv.reader.core.ui.component.detail.HeroSeedCover
+import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.IllustDetailContent
 import com.pixiv.reader.core.ui.component.detail.IllustDetailSkeleton
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.detail.IllustInfoSection
+import com.pixiv.reader.core.ui.component.detail.IllustInfoSkeleton
 import com.pixiv.reader.core.ui.component.detail.IllustPagePager
 import com.pixiv.reader.core.ui.component.detail.IllustRelatedSection
 import com.pixiv.reader.core.ui.component.detail.illustCoverKey
@@ -87,7 +86,6 @@ fun IllustDetailRoute(
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
     val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     // 三对开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
@@ -118,6 +116,9 @@ fun IllustDetailRoute(
     // hero 种子兜底清理：详情页销毁时丢弃未消费的种子（详情命中缓存 / 占位分支未组合的情况），
     // 防过期封面被后续无关打开复用
     val heroKey = illustCoverKey(routeIllustId)
+    // hero 种子在 Route 层消费一次，经参数下发手机/平板两条链路：
+    // 上下游各自 consume 会互相抢（取出即删，第二个拿到 null）
+    val heroSeed = remember(heroKey) { HeroSeedStore.consume(heroKey) }
     DisposableEffect(heroKey) {
         onDispose { HeroSeedStore.clear(heroKey) }
     }
@@ -272,26 +273,24 @@ fun IllustDetailRoute(
 
         if (twoPane) {
             // 平板双栏：加载中/失败也要有明确状态，避免显示空骨架
+            val hasPagerContent = pages.isNotEmpty() || heroSeed != null
             when {
-                // hero 占位叠加在骨架之上：卡片 → 详情 morph 期间终点有共享元素，
-                // 数据到达后整个分支切换为真实内容，真图以同 key 接棒
-                isLoading && illust == null -> Box(modifier = Modifier.padding(padding)) {
-                    IllustDetailSkeleton()
-                    HeroSeedCover(
-                        key = heroKey,
-                        modifier = Modifier.align(Alignment.TopCenter),
-                    )
-                }
                 error != null && illust == null -> ErrorBox(
                     message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                     onRetry = viewModel::load,
                     modifier = Modifier.padding(padding),
                 )
+                // 深链进入（无 hero 种子且页面数据未到）：完整骨架兜底
+                !hasPagerContent -> Box(modifier = Modifier.padding(padding)) {
+                    IllustDetailSkeleton()
+                }
 
                 else -> TwoPaneContent(
                     modifier = Modifier.padding(padding),
                     illust = illust,
                     pages = pages,
+                    heroSeed = heroSeed,
+                    heroIllustId = routeIllustId.takeIf { it > 0L },
                     onPageChange = { currentPage = it },
                     onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
                     onOpenUser = onOpenUser,
@@ -310,15 +309,10 @@ fun IllustDetailRoute(
         } else {
             // 手机单列
             AdaptiveContentBox(modifier = Modifier.padding(padding)) {
+                // hero 元素全程唯一：有种子时 pager 以占位封面承载 hero（占位态不渲染页码等），
+                // 数据到达后同一容器原地转真实 pager，不再有 skeleton+seed → pager 的硬切
+                val hasPagerContent = pages.isNotEmpty() || heroSeed != null
                 when {
-                    // hero 占位叠加在骨架之上（同平板分支）：morph 期间终点不空窗
-                    isLoading && illust == null -> Box {
-                        IllustDetailSkeleton()
-                        HeroSeedCover(
-                            key = heroKey,
-                            modifier = Modifier.align(Alignment.TopCenter),
-                        )
-                    }
                     error != null && illust == null -> ErrorBox(message = error?.let {
                         stringResource(
                             it.res,
@@ -326,55 +320,65 @@ fun IllustDetailRoute(
                         )
                     }, onRetry = viewModel::load)
 
+                    // 深链进入（无 hero 种子且页面数据未到）：完整骨架兜底
+                    !hasPagerContent -> IllustDetailSkeleton()
+
                     else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        if (pages.isNotEmpty()) {
-                            item(key = "pager") {
-                                IllustPagePager(
-                                    pages = pages,
-                                    ugoiraFrames = ugoiraFrames,
-                                    ugoiraProgress = ugoiraProgress,
-                                    onPageChange = { currentPage = it },
-                                    onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
+                        item(key = "pager") {
+                            IllustPagePager(
+                                pages = pages,
+                                ugoiraFrames = ugoiraFrames,
+                                ugoiraProgress = ugoiraProgress,
+                                onPageChange = { currentPage = it },
+                                onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
+                                strings = illustDetailStrings,
+                                // hero：大图容器与列表卡片封面同 key
+                                illustId = illust?.id ?: routeIllustId.takeIf { it > 0L },
+                                // 垫底 medium：与卡片封面/hero 占位同源，原图未就绪时先顶上
+                                placeholderUrl = illust?.image_urls?.medium,
+                                // 首页兜底比例取 illust 宽高（与卡片封面同源）：pages 宽高
+                                // 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
+                                fallbackRatio = illust
+                                    ?.takeIf { it.width > 0 && it.height > 0 }
+                                    ?.let { it.width.toFloat() / it.height.toFloat() },
+                                // 数据到达前以种子封面占位（hero 元素不重建）
+                                seed = heroSeed,
+                            )
+                        }
+                        item(key = "info") {
+                            if (illust == null) {
+                                IllustInfoSkeleton()
+                            } else {
+                                IllustInfoSection(
+                                    illust = illust,
                                     strings = illustDetailStrings,
-                                    // hero：大图容器与列表卡片封面同 key
-                                    illustId = illust?.id,
-                                    // 垫底 medium：与卡片封面/hero 占位同源，原图未就绪时先顶上
-                                    placeholderUrl = illust?.image_urls?.medium,
-                                    // 首页兜底比例取 illust 宽高（与卡片封面同源）：pages 宽高
-                                    // 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
-                                    fallbackRatio = illust
-                                        ?.takeIf { it.width > 0 && it.height > 0 }
-                                        ?.let { it.width.toFloat() / it.height.toFloat() },
+                                    onOpenUser = onOpenUser,
+                                    onSearchTag = onSearchTag,
+                                    onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
+                                    isAuthorFollowed = isAuthorFollowed,
+                                    isAuthorFollowing = isAuthorFollowing,
+                                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                                    isBookmarked = isBookmarked,
+                                    isBookmarking = isBookmarking,
+                                    onToggleBookmark = viewModel::toggleBookmark,
+                                    onDownload = viewModel::download,
+                                    onOpenComments = { onOpenComments(illust?.id ?: 0L) },
+                                    expandableIntro = true,
+                                    // 手机详情页操作走底部固定栏，标签下不再重复
+                                    showActionRow = false,
                                 )
                             }
                         }
-                        item(key = "info") {
-                            IllustInfoSection(
-                                illust = illust,
-                                strings = illustDetailStrings,
-                                onOpenUser = onOpenUser,
-                                onSearchTag = onSearchTag,
-                                onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
-                                isAuthorFollowed = isAuthorFollowed,
-                                isAuthorFollowing = isAuthorFollowing,
-                                onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                                isBookmarked = isBookmarked,
-                                isBookmarking = isBookmarking,
-                                onToggleBookmark = viewModel::toggleBookmark,
-                                onDownload = viewModel::download,
-                                onOpenComments = { onOpenComments(illust?.id ?: 0L) },
-                                expandableIntro = true,
-                                // 手机详情页操作走底部固定栏，标签下不再重复
-                                showActionRow = false,
-                            )
-                        }
                         item(key = "related") {
                             val relatedItems by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
-                            IllustRelatedSection(
-                                items = relatedItems,
-                                strings = illustDetailStrings,
-                                onOpenIllust = onOpenIllust,
-                            )
+                            // 数据未到达前不渲染相关作品区（避免占位阶段空标题露出）
+                            if (illust != null || relatedItems.isNotEmpty()) {
+                                IllustRelatedSection(
+                                    items = relatedItems,
+                                    strings = illustDetailStrings,
+                                    onOpenIllust = onOpenIllust,
+                                )
+                            }
                         }
                     }
                 }
@@ -398,12 +402,36 @@ fun IllustDetailRoute(
     )
 }
 
-/** 平板布局：主内容单列（图 + 作者 + 相关），评论走通用评论页。 */
+/**
+ * 平板布局：主内容单列（图 + 作者 + 相关），评论走通用评论页。
+ *
+ * @param modifier 外部 Modifier（携带 Scaffold innerPadding）
+ * @param illust 作品数据；null 表示页面数据未到（信息区由骨架占位）
+ * @param pages 各 P 图片元数据
+ * @param heroSeed hero 种子（pages 未就绪时 pager 的封面占位，保证 hero 元素唯一）
+ * @param heroIllustId hero 共享元素 key 的回退作品 id（路由参数，illust 未到达时定位 key）
+ * @param onPageChange 当前页变化回调
+ * @param onOpenViewer 全屏入口回调
+ * @param onOpenUser 打开作者主页回调
+ * @param onOpenIllust 简介内打开其他插画回调
+ * @param onSearchTag 点击标签搜索回调
+ * @param isAuthorFollowed 作者是否已关注
+ * @param isAuthorFollowing 关注操作是否进行中
+ * @param onToggleFollowAuthor 切换作者关注回调
+ * @param isBookmarked 是否已收藏
+ * @param isBookmarking 收藏操作是否进行中
+ * @param onOpenComments 打开评论回调
+ * @param strings 详情页文案
+ * @param viewModel 详情 ViewModel（相关作品 / 动图 / 操作复用）
+ * @return 无返回值（渲染 Composable）
+ */
 @Composable
 private fun TwoPaneContent(
     modifier: Modifier,
     illust: Illust?,
     pages: List<IllustPageInfo>,
+    heroSeed: HeroSeed?,
+    heroIllustId: Long?,
     onPageChange: (Int) -> Unit,
     onOpenViewer: (Int) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -445,6 +473,8 @@ private fun TwoPaneContent(
         // 详情页平板分支同样有底部固定栏，标签下不重复操作行
         showActionRow = false,
         modifier = modifier,
+        seed = heroSeed,
+        heroIllustId = heroIllustId,
     )
 }
 
