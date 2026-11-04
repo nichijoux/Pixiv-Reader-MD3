@@ -2,7 +2,8 @@ package com.pixiv.reader.core.ui.component.detail
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,6 +71,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import coil.compose.AsyncImage
@@ -158,6 +160,8 @@ fun IllustDetailContent(
                 strings = strings,
                 // hero：详情大图与列表卡片封面同 key（illust 可空：空时不挂共享边界）
                 illustId = illust?.id,
+                // 垫底 medium：与 hero/卡片封面同源，原图未就绪时先顶上
+                placeholderUrl = illust?.image_urls?.medium,
             )
         }
         IllustInfoSection(
@@ -195,10 +199,20 @@ fun IllustDetailContent(
  * 用 AsyncImage 的 onSuccess 拿到 drawable 真实尺寸计算比例；
  * spinner 仅在真正加载中显示，加载完成或失败即隐藏。
  *
+ * 高度变化按来源分流：**换页**时用 Expressive spatial 弹簧吸附（不同比例页过渡自然）；
+ * **同页内**的比例修正（图片加载完成、hero 占位接棒）直接落地不做动画——
+ * 否则 hero morph 结束后弹簧重播，观感是「大图又跳一下」。
+ *
+ * @param pages 各 P 的图片元数据（宽高/URL）
+ * @param onPageChange 当前页变化回调
+ * @param onOpenViewer 点击全屏入口回调（参数为页索引）
  * @param ugoiraFrames 动图帧（ugoira 作品由 ViewModel 加载）；非空时首页（动图作品仅 1 页）
  *   叠加 [UgoiraPlayer] 播放动画——静态封面 AsyncImage 保留（量比例 + 帧未就绪兜底显示）
  * @param ugoiraProgress 动图 zip 下载进度 0..1；非 null 且帧未就绪时首页叠加转圈 + 百分比
+ * @param strings 详情页文案（core:ui 不依赖 feature 的 R）
  * @param illustId 作品 id（hero 共享元素 key 用；null 时（无作品的骨架/预览场景）不挂共享边界）
+ * @param placeholderUrl 当前页原图加载完成前的垫底图 URL（通常为已缓存的 medium，
+ *   与 hero 占位同源）；null 时不垫底
  * @return 无返回值（渲染 Composable）
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -212,6 +226,7 @@ fun IllustPagePager(
     ugoiraProgress: Float? = null,
     strings: IllustDetailStrings,
     illustId: Long? = null,
+    placeholderUrl: String? = null,
 ) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val currentPage = pagerState.currentPage
@@ -249,16 +264,36 @@ fun IllustPagePager(
             .background(Color.Black),
     ) {
         val targetHeight = if (effectiveRatio > 0f) maxWidth / effectiveRatio else 400.dp
-        // 容器高度随图片比例吸附：Expressive spatial 弹簧（MotionScheme 随主题动效方案）
-        val pagerHeight by animateDpAsState(
-            targetValue = targetHeight,
-            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-            label = "pagerHeight",
-        )
+        // 高度吸附弹簧：在组合期先取好（LaunchedEffect 的 body 不是组合上下文，
+        // 不能在其中读 MaterialTheme.motionScheme），与 theme/Motion.kt 同一做法
+        val heightSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
+        // 容器高度改为手控 Animatable：只有换页才走弹簧，同页修正直接落地
+        val heightAnim = remember { Animatable(targetHeight, Dp.VectorConverter) }
+        // 首组合标记：首个 LaunchedEffect 只做就位，不播放入场高度动画
+        var heightSettled by remember { mutableStateOf(false) }
+        // 上次参与高度判定的页索引：用于区分「换页」与「同页比例修正」
+        var lastPageForHeight by remember { mutableIntStateOf(currentPage) }
+        LaunchedEffect(currentPage, targetHeight) {
+            // 三态判定：首组合就位 / 换页吸附 / 同页修正落地
+            val firstComposition = !heightSettled
+            val pageChanged = !firstComposition && lastPageForHeight != currentPage
+            // 先落标记再启动动画：弹簧被后续 targetHeight 变化打断时，
+            // 新的一次判定不会被重复当成「换页」而重播弹簧
+            heightSettled = true
+            lastPageForHeight = currentPage
+            when {
+                // 首组合：容器直接落到目标高度（与 animateDpAsState 首帧即终值语义一致）
+                firstComposition -> heightAnim.snapTo(targetHeight)
+                // 换页：不同比例页之间保留 spatial 弹簧吸附
+                pageChanged -> heightAnim.animateTo(targetHeight, heightSpec)
+                // 同页修正（原图加载完成 / hero 占位接棒）：立即落地，消除二次跳动
+                else -> heightAnim.snapTo(targetHeight)
+            }
+        }
         // 嵌套 lambda（pager item）无法隐式访问 BoxWithConstraints receiver：提前捕获
         val pagerMaxWidth = maxWidth
-        // hero：大图容器与卡片封面同 key 衔接 morph（容器含比例吸附动画，
-        // 期间 boundsTransform 由 sharedBounds 接管，静态态下即为当前显示高度）
+        // hero：大图容器与卡片封面同 key 衔接 morph（容器高度换页时才有弹簧吸附，
+        // morph 期间 boundsTransform 由 sharedBounds 接管，静态态下即为当前显示高度）
         val heroModifier = if (illustId != null) {
             Modifier.heroBoundsModifier(illustCoverKey(illustId))
         } else {
@@ -268,7 +303,7 @@ fun IllustPagePager(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(pagerHeight)
+                .height(heightAnim.value)
                 .then(heroModifier),
         ) {
             HorizontalPager(
@@ -280,6 +315,18 @@ fun IllustPagePager(
                 val p = pages[index]
                 if (index == currentPage) {
                     Box {
+                        // 垫底：原图（original/large，首访无缓存）加载完成前显示已在缓存中的
+                        // medium（与 hero 占位同源）。AsyncImage 成功后自然覆盖；非 hero 直接
+                        // 打开详情页同样受益（避免接棒瞬间空窗）。null 时不渲染——
+                        // PixivImage 对 null 会画主题占位色块，会盖掉容器的黑色底
+                        if (placeholderUrl != null) {
+                            PixivImage(
+                                url = placeholderUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                            )
+                        }
                         // key(retryKey)：手动重试时自增，强制重建 painter 重新发起请求
                         key(retryKey) {
                             AsyncImage(

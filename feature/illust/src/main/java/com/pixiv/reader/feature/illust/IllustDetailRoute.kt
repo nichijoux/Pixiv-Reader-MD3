@@ -338,6 +338,8 @@ fun IllustDetailRoute(
                                     strings = illustDetailStrings,
                                     // hero：大图容器与列表卡片封面同 key
                                     illustId = illust?.id,
+                                    // 垫底 medium：与卡片封面/hero 占位同源，原图未就绪时先顶上
+                                    placeholderUrl = illust?.image_urls?.medium,
                                 )
                             }
                         }
