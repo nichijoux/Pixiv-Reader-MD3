@@ -42,7 +42,6 @@ import com.pixiv.api.model.ComicBanner
 import com.pixiv.reader.feature.comic.state.ComicRankingMode
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
@@ -159,7 +158,7 @@ private fun ComicTopTab(
     onRetry: () -> Unit,
 ) {
     when {
-        top.isLoading && top.recentWorks.isEmpty() -> LoadingBox()
+        top.isLoading && top.recentWorks.isEmpty() -> ComicHomeSkeleton(showRankingHeader = false)
         top.error != null && top.recentWorks.isEmpty() -> ErrorBox(message = top.error, onRetry = onRetry)
         else -> AdaptiveContentBox {
             LazyVerticalGrid(
@@ -253,7 +252,8 @@ private fun ComicRankingTab(
     onRetry: () -> Unit,
 ) {
     when {
-        ranking.isLoading && ranking.works.isEmpty() && ranking.labels.isEmpty() -> LoadingBox()
+        ranking.isLoading && ranking.works.isEmpty() && ranking.labels.isEmpty() ->
+            ComicHomeSkeleton(showRankingHeader = true)
         ranking.error != null && ranking.works.isEmpty() -> ErrorBox(message = ranking.error, onRetry = onRetry)
         else -> LazyVerticalGrid(
             columns = GridCells.Fixed(GRID_COLUMNS),

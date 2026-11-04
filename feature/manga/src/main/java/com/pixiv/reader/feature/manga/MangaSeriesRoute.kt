@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,11 +34,13 @@ import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.ui.component.card.SeriesBookCover
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
+import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -79,7 +83,11 @@ fun MangaSeriesRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         when {
-            isLoading && detail == null -> LoadingBox(modifier = Modifier.padding(padding))
+            isLoading && detail == null -> IllustWaterfallSkeleton(
+                modifier = Modifier.padding(padding),
+                // 系列头骨架：对齐下方真实 SeriesHeader 结构（随网格滚动）
+                header = { MangaSeriesHeaderSkeleton() },
+            )
             error != null && detail == null -> ErrorBox(
                 message = error.orEmpty(),
                 onRetry = viewModel::load,
@@ -232,5 +240,96 @@ private fun SeriesHeader(
                 modifier = Modifier.padding(top = Spacing.md),
             )
         }
+    }
+}
+
+/**
+ * 漫画系列头骨架：仿 [SeriesHeader]（96×128 封面块 + 右侧标题/作者行/话数/追更按钮 + 简介一行），
+ * 供 [IllustWaterfallSkeleton] 的整行 header 槽位使用，避免加载态与真实头部结构错位。
+ *
+ * @return 无返回值（渲染 Composable）
+ */
+@Composable
+private fun MangaSeriesHeaderSkeleton() {
+    val color = skeletonPulseColor(label = "mangaSeriesHeaderSkeleton")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            // 封面块：与 SeriesHeader 同规格（96×128，AppShapes.card）
+            SkeletonBlock(
+                modifier = Modifier
+                    .size(width = 96.dp, height = 128.dp)
+                    .clip(AppShapes.card),
+                color = color,
+            )
+            // 右侧信息列：标题两行 + 作者行 + 话数 + 追更按钮
+            Column(
+                modifier = Modifier
+                    .padding(start = Spacing.md)
+                    .weight(1f),
+            ) {
+                SkeletonBlock(
+                    modifier = Modifier.fillMaxWidth(0.85f).height(18.dp).clip(AppShapes.tiny),
+                    color = color,
+                )
+                SkeletonBlock(
+                    modifier = Modifier
+                        .padding(top = Spacing.sm)
+                        .fillMaxWidth(0.5f)
+                        .height(18.dp)
+                        .clip(AppShapes.tiny),
+                    color = color,
+                )
+                // 作者行：小圆头像 + 昵称条
+                Row(
+                    modifier = Modifier.padding(top = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SkeletonBlock(
+                        modifier = Modifier.size(Sizes.s20).clip(AppShapes.circle),
+                        color = color,
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .padding(start = Spacing.xsPlus)
+                            .width(88.dp)
+                            .height(10.dp)
+                            .clip(AppShapes.tiny),
+                        color = color,
+                    )
+                }
+                // 话数条
+                SkeletonBlock(
+                    modifier = Modifier
+                        .padding(top = Spacing.xs)
+                        .width(64.dp)
+                        .height(10.dp)
+                        .clip(AppShapes.tiny),
+                    color = color,
+                )
+                // 追更按钮
+                SkeletonBlock(
+                    modifier = Modifier
+                        .padding(top = Spacing.sm)
+                        .width(104.dp)
+                        .height(36.dp)
+                        .clip(AppShapes.pill),
+                    color = color,
+                )
+            }
+        }
+        // 简介一行
+        SkeletonBlock(
+            modifier = Modifier
+                .padding(top = Spacing.md)
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(AppShapes.tiny),
+            color = color,
+        )
     }
 }

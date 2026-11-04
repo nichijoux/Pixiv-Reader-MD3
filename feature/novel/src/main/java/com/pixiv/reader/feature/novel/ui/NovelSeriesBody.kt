@@ -4,12 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,11 +32,14 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
+import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
@@ -129,7 +138,7 @@ internal fun NovelSeriesList(
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
 
     when {
-        isLoading && items.isEmpty() && detail == null -> LoadingBox()
+        isLoading && items.isEmpty() && detail == null -> NovelSeriesSkeleton()
         error != null && items.isEmpty() && detail == null ->
             ErrorBox(message = error.orEmpty(), onRetry = viewModel::load)
 
@@ -198,6 +207,137 @@ internal fun NovelSeriesList(
                         .navigationBarsPadding(),
                 )
             }
+        }
+    }
+}
+
+/**
+ * 小说系列页加载骨架：仿 [SeriesHeader]（3:4 大封面 + 右侧标题/徽章/作者行 + 简介两行）
+ * + 分册列表占位（复用 [NovelCardSkeleton]），呼吸脉冲替代全屏转圈。
+ *
+ * 结构与真实页一致（`LazyColumn` + 同款间距），切到真实内容时不产生布局跳变。
+ *
+ * @param modifier 外部传入的 Modifier
+ * @return 无返回值（渲染 Composable）
+ */
+@Composable
+internal fun NovelSeriesSkeleton(modifier: Modifier = Modifier) {
+    val color = skeletonPulseColor(label = "novelSeriesSkeleton")
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
+    ) {
+        item(key = "skeleton_header") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.lg),
+            ) {
+                Row(verticalAlignment = Alignment.Top) {
+                    // 大封面：与 SeriesHeader 同规格（110 × 3:4）
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .width(110.dp)
+                            .aspectRatio(3f / 4f)
+                            .clip(AppShapes.card),
+                        color = color,
+                    )
+                    Column(modifier = Modifier.padding(start = Spacing.lg).weight(1f)) {
+                        // 标题两行
+                        SkeletonBlock(
+                            modifier = Modifier.fillMaxWidth(0.9f).height(20.dp).clip(AppShapes.tiny),
+                            color = color,
+                        )
+                        SkeletonBlock(
+                            modifier = Modifier
+                                .padding(top = Spacing.sm)
+                                .fillMaxWidth(0.55f)
+                                .height(20.dp)
+                                .clip(AppShapes.tiny),
+                            color = color,
+                        )
+                        // 徽章行：话数 + 连载态
+                        Row(
+                            modifier = Modifier.padding(top = Spacing.smPlus),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            repeat(2) {
+                                SkeletonBlock(
+                                    modifier = Modifier.width(64.dp).height(24.dp).clip(AppShapes.pill),
+                                    color = color,
+                                )
+                            }
+                        }
+                        // 总字数条
+                        SkeletonBlock(
+                            modifier = Modifier
+                                .padding(top = Spacing.smPlus)
+                                .width(96.dp)
+                                .height(12.dp)
+                                .clip(AppShapes.tiny),
+                            color = color,
+                        )
+                    }
+                }
+                // 简介两行
+                SkeletonBlock(
+                    modifier = Modifier
+                        .padding(top = Spacing.mdPlus)
+                        .fillMaxWidth()
+                        .height(12.dp)
+                        .clip(AppShapes.tiny),
+                    color = color,
+                )
+                SkeletonBlock(
+                    modifier = Modifier
+                        .padding(top = Spacing.sm)
+                        .fillMaxWidth(0.7f)
+                        .height(12.dp)
+                        .clip(AppShapes.tiny),
+                    color = color,
+                )
+                // 作者行：头像 + 昵称 + 关注胶囊
+                Row(
+                    modifier = Modifier.padding(top = Spacing.mdPlus),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SkeletonBlock(
+                        modifier = Modifier.size(Sizes.s44).clip(AppShapes.circle),
+                        color = color,
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .padding(start = Spacing.md)
+                            .width(120.dp)
+                            .height(14.dp)
+                            .clip(AppShapes.tiny),
+                        color = color,
+                    )
+                    Box(Modifier.weight(1f))
+                    SkeletonBlock(
+                        modifier = Modifier.width(72.dp).height(28.dp).clip(AppShapes.pill),
+                        color = color,
+                    )
+                }
+                // 操作行：追更 / 下载两个等宽按钮
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    repeat(2) {
+                        SkeletonBlock(
+                            modifier = Modifier.weight(1f).height(40.dp).clip(AppShapes.pill),
+                            color = color,
+                        )
+                    }
+                }
+            }
+        }
+        // 分册标题条 + 分册卡占位（与真实列表同款卡骨架）
+        items(count = 4) {
+            NovelCardSkeleton(color = color, modifier = Modifier.padding(horizontal = Spacing.lg))
         }
     }
 }

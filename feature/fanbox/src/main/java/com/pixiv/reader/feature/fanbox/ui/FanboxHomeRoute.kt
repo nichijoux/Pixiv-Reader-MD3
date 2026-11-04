@@ -285,7 +285,7 @@ private fun PostsPage(
     when {
         sessionExpired -> SessionExpiredBox(onLoginAgain = onLoginAgain, onRetry = onRetry)
         else -> when (feedPhase(loading = isLoading, hasItems = posts.isNotEmpty(), hasError = error != null)) {
-            FeedPhase.LOADING -> LoadingBox()
+            FeedPhase.LOADING -> FanboxPostSkeleton()
             FeedPhase.ERROR -> ErrorBox(message = error, onRetry = onRetry)
             FeedPhase.EMPTY -> EmptyBox(text = stringResource(R.string.fanbox_empty_posts))
             FeedPhase.CONTENT -> LazyColumn(

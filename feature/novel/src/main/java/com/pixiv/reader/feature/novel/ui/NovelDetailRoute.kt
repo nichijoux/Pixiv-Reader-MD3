@@ -34,7 +34,6 @@ import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
@@ -174,7 +173,7 @@ fun NovelDetailRoute(
     ) { padding ->
         // Scaffold innerPadding 已排除 bottomBar 高度：内容滚不到操作条下方（对齐插画详情页）
         when {
-            isLoading && novel == null -> LoadingBox(modifier = Modifier.padding(padding))
+            isLoading && novel == null -> NovelDetailSkeleton(modifier = Modifier.padding(padding))
             error != null && novel == null -> ErrorBox(
                 message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
                 onRetry = viewModel::load,

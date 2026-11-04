@@ -50,11 +50,11 @@ import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.detail.IllustDetailContent
+import com.pixiv.reader.core.ui.component.detail.IllustDetailSkeleton
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
 import com.pixiv.reader.core.ui.component.detail.IllustInfoSection
 import com.pixiv.reader.core.ui.component.detail.IllustPagePager
@@ -260,7 +260,7 @@ fun IllustDetailRoute(
         if (twoPane) {
             // 平板双栏：加载中/失败也要有明确状态，避免显示空骨架
             when {
-                isLoading && illust == null -> LoadingBox(modifier = Modifier.padding(padding))
+                isLoading && illust == null -> IllustDetailSkeleton(modifier = Modifier.padding(padding))
                 error != null && illust == null -> ErrorBox(
                     message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                     onRetry = viewModel::load,
@@ -290,7 +290,7 @@ fun IllustDetailRoute(
             // 手机单列
             AdaptiveContentBox(modifier = Modifier.padding(padding)) {
                 when {
-                    isLoading && illust == null -> LoadingBox()
+                    isLoading && illust == null -> IllustDetailSkeleton()
                     error != null && illust == null -> ErrorBox(message = error?.let {
                         stringResource(
                             it.res,

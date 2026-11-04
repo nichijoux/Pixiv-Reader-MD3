@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
@@ -34,7 +36,8 @@ private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp
  *
  * ## UI 设计方式
  * `LazyVerticalStaggeredGrid` + `StaggeredGridCells.Adaptive(minColumnWidth)`：
- * 手机约 2 列，平板自动 4~5 列。内部每项渲染 [IllustCard]（封面按宽高比完整显示）。
+ * 手机约 2 列，平板自动 4~5 列。内部每项渲染 [IllustCard]（封面按宽高比完整显示），
+ * 并挂 `animateItem`：初始加载淡入、排序/刷新时位置平滑重排（规格取自主题 MotionScheme）。
  * `hasMore` 时网格尾部自动放一个加载 item 并触发 [onLoadMore]（无需调用方手动监听滚动）。
  *
  * @param illusts 作品列表（需含 `width/height` 以保证完整显示）
@@ -76,6 +79,8 @@ fun IllustWaterfallGrid(
     scrollToTopKey: Int = 0,
 ) {
     val gridState: LazyStaggeredGridState = rememberLazyStaggeredGridState()
+    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    val motionScheme = MaterialTheme.motionScheme
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {
@@ -112,7 +117,13 @@ fun IllustWaterfallGrid(
                 } ?: {},
                 onTagClick = onTagClick,
                 ugoiraLoader = ugoiraLoader,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 条目进场淡入 + 排序/刷新时的位置平滑过渡（动效规格取自主题 MotionScheme）
+                    .animateItem(
+                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                    ),
             )
         }
         if (hasMore) {

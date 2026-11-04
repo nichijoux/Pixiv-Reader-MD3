@@ -22,7 +22,6 @@ import com.pixiv.reader.core.comment.state.CommentTarget
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
@@ -104,7 +103,7 @@ fun NovelDetailPane(
         when {
             currentId == null -> PanePlaceholder(text = placeholder)
 
-            isLoading && novel == null -> LoadingBox()
+            isLoading && novel == null -> NovelDetailSkeleton()
             error != null && novel == null -> ErrorBox(
                 message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                 onRetry = viewModel::load,

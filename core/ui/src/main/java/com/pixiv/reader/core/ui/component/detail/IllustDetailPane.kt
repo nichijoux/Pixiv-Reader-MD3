@@ -18,7 +18,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
-import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 
 /**
  * 插画详情 pane（Master-Detail 右栏，首页 / 作品页共用）。
@@ -97,7 +96,7 @@ fun IllustDetailPane(
                 )
             }
 
-            isLoading && illust == null -> LoadingBox()
+            isLoading && illust == null -> IllustDetailSkeleton()
             error != null && illust == null -> ErrorBox(
                 message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
                 onRetry = viewModel::load,
