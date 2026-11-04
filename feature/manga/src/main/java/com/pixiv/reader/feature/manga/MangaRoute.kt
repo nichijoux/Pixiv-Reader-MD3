@@ -137,7 +137,8 @@ fun MangaRoute(
                                     expanded = menuExpanded,
                                     onDismissRequest = { menuExpanded = false },
                                 ) {
-                                    MangaContentType.entries.forEach { type ->
+                                    // 菜单固定按「插画 / 漫画 / 动图」展示（与默认选中的内容类型无关）
+                                    MENU_ORDER.forEach { type ->
                                         DropdownMenuItem(
                                             text = { Text(stringResource(type.labelRes())) },
                                             leadingIcon = { Icon(type.icon(), contentDescription = null) },
@@ -306,6 +307,16 @@ fun MangaRoute(
         )
     }
 }
+
+/**
+ * 内容类型切换菜单展示顺序（插画 / 漫画 / 动图）。
+ * 与枚举声明顺序解耦：改菜单顺序不影响 `MangaContentType` 的既有语义。
+ */
+private val MENU_ORDER = listOf(
+    MangaContentType.ILLUST,
+    MangaContentType.MANGA,
+    MangaContentType.UGOIRA,
+)
 
 /** 内容类型切换按钮文案（@StringRes）。 */
 @StringRes
