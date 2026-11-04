@@ -1,13 +1,17 @@
 package com.pixiv.reader.core.ui.component.layout
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,8 +19,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
+import com.pixiv.reader.core.ui.component.detail.LocalNavAnimatedVisibilityScope
 
 /** 主列表限宽上限（与 `MAX_CONTENT_WIDTH_DP` 一致；pane 不可用时列表按此值限宽）。 */
 private const val LIST_MAX_WIDTH_DP = 760
@@ -64,6 +70,11 @@ fun detailPaneWidth(contentWidth: Float, minListWidth: Float = LIST_MIN_DP.toFlo
  * - 选中后：整块列表左移 `(内容区−列表宽)/2` 从居中平移到贴左，pane 从右侧滑入
  *   `内容区×34%`（夹在 280~460dp）；平移动画走 Expressive spatial 弹簧，纯 GPU（graphicsLayer 内读
  *   progress，动画帧不重组）
+ * - pane 滑入 / 滑出由 [AnimatedVisibility] 承担（与列表让位同规格 spatial 弹簧），并在其内容作用域
+ *   内把 `AnimatedVisibilityScope` 下发为 [LocalNavAnimatedVisibilityScope]——pane 内 hero 元素
+ *   借此可与左栏卡片按同 key 匹配 morph（平板 Master-Detail 的共享过渡基建）
+ * - **组合语义**：pane 从「常驻组合、屏外平移」改为「选中时组合、关闭后离场」。pane 内 remember 状态
+ *   （评论开关、滚动位置等）在关闭后随 Composition 销毁清零——已接受的设计取舍（重开回到初始态）
  * - 返回键 / [onClose] 反向恢复；快速连点开-关时动画中途反向，纯位移自然衔接
  *
  * ## 启用条件
@@ -83,7 +94,8 @@ fun detailPaneWidth(contentWidth: Float, minListWidth: Float = LIST_MIN_DP.toFlo
  * @param listContent 主列表内容；接收当前限宽（按窗口尺寸固定的值，pane 可用时为
  *   内容区−pane−间隙，否则 min(760, 内容区)），内部用该值限宽居中
  *   （如 [AdaptiveContentBox]（maxWidth = 传入值））
- * @param detailPane 右侧详情内容（常驻组合，未选中时在屏幕外；内部三态自管）
+ * @param detailPane 右侧详情内容（选中时组合、关闭后离场；内部三态自管）。
+ *   内容作用域内已 provide [LocalNavAnimatedVisibilityScope]，pane 内 hero 元素可直接参与共享过渡
  */
 @Composable
 fun ListDetailOverlay(
@@ -108,13 +120,16 @@ fun ListDetailOverlay(
             animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
             label = "listDetailProgress",
         )
+        // pane 滑入 / 滑出规格：与列表让位同一 spatial token，两条动画同时长收敛。
+        // AnimatedVisibility 的 enter/exit 在组合期构造，规格必须在此取好传入
+        val enterSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+        val exitSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
 
         // 左移量在绘制阶段逐帧计算（graphicsLayer 内读 progress State，动画帧不触发重组）：
         // 未选中 0（内容居中）→ 选中 (内容区−列表宽)/2（内容贴左，右侧全给 pane）。
         // 列表宽度恒定，平移终点恰好是「内容居中边距」，动画全程内容不会越过区域左缘
         val density = LocalDensity.current
         val listShiftBasePx = with(density) { ((contentWidth - listWidth) / 2).toPx() }
-        val panePx = with(density) { (paneWidth ?: 300f).dp.toPx() }
 
         // 返回键：优先走宿主返回栈（pane 间互跳逐级回退），无栈时关闭 pane。
         // 仅 pane 可见时拦截，不干扰列表自身返回行为；pane 内更深层 BackHandler（如评论区）
@@ -130,18 +145,26 @@ fun ListDetailOverlay(
             ) {
                 listContent(listWidth)
             }
-            // 详情 pane：从屏幕右侧滑入，停靠在列表让出的空间。
+            // 详情 pane：选中时从屏幕右侧滑入，停靠在列表让出的空间。
             // 仅内容区 ≥ [LIST_MIN_DP]（[paneWidth] 非 null）时组合——空间不足（手机竖屏）
-            // 组件退化为主列表全宽，此时组合 pane 会因 `paneWidth!!` 空指针崩溃
+            // 组件退化为主列表全宽，此时组合 pane 会因 `paneWidth!!` 空指针崩溃。
+            // enabled 转 false 时整棵子树直接卸载（无收尾动画需求：窄屏不允许 pane 存在）。
+            // AnimatedVisibility 的作用域下发给 pane，hero 元素据此与左栏卡片跨 scope 匹配
             if (enabled) {
-                Box(
+                AnimatedVisibility(
+                    visible = selected != null,
+                    enter = slideInHorizontally(enterSpec) { it },
+                    exit = slideOutHorizontally(exitSpec) { it },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight()
-                        .width(paneWidth!!.dp)
-                        .graphicsLayer { translationX = panePx * (1f - progress) },
+                        .width(paneWidth!!.dp),
                 ) {
-                    detailPane()
+                    CompositionLocalProvider(
+                        LocalNavAnimatedVisibilityScope provides this@AnimatedVisibility,
+                    ) {
+                        detailPane()
+                    }
                 }
             }
         }
