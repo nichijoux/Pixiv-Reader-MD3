@@ -3,6 +3,7 @@ package com.pixiv.reader.core.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
@@ -20,10 +21,6 @@ private val LightColors = lightColorScheme(
     onPrimary = OnPrimary,
     primaryContainer = PrimaryContainer,
     onPrimaryContainer = OnPrimaryContainer,
-    secondary = Secondary,
-    onSecondary = OnSecondary,
-    secondaryContainer = SecondaryContainer,
-    onSecondaryContainer = OnSecondaryContainer,
     tertiary = Tertiary,
     onTertiary = OnTertiary,
     tertiaryContainer = TertiaryContainer,
@@ -47,10 +44,6 @@ private val DarkColors = darkColorScheme(
     onPrimary = OnPrimaryContainer,
     primaryContainer = Primary,
     onPrimaryContainer = OnPrimary,
-    secondary = SecondaryContainer,
-    onSecondary = OnSecondaryContainer,
-    secondaryContainer = Secondary,
-    onSecondaryContainer = OnSecondary,
     tertiary = TertiaryContainer,
     onTertiary = OnTertiaryContainer,
     tertiaryContainer = Tertiary,
@@ -59,6 +52,34 @@ private val DarkColors = darkColorScheme(
     onError = OnErrorContainer,
     errorContainer = Error,
     onErrorContainer = OnError,
+    // 补全深色中性角色：此前缺失时静态深色会落到 M3 基线默认值
+    background = DarkBackground,
+    onBackground = DarkOnBackground,
+    surface = DarkSurface,
+    onSurface = DarkOnSurface,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = DarkOnSurfaceVariant,
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant,
+)
+
+/**
+ * 将色板的 secondary 系四角色镜像为 primary 系对应角色。
+ *
+ * 背景：动态取色（Android 12+ 壁纸取色）下系统会按壁纸生成多条色板，accent2 派生的
+ * secondary 系常与主色异相（典型如 primary 蓝而 secondaryContainer 淡紫），而 M3 的
+ * NavigationBarItem 指示器、SegmentedButton 选中段、FilterChip 等组件默认取
+ * secondaryContainer，导致界面出现蓝紫混色。统一镜像为 primary 系可保证全局单一色相，
+ * 且动态/静态色板行为一致。
+ *
+ * @param scheme 原始色板（动态或静态均可）
+ * @return secondary 系已镜像为 primary 系的新色板，其余角色不变
+ */
+private fun unifySecondaryWithPrimary(scheme: ColorScheme): ColorScheme = scheme.copy(
+    secondary = scheme.primary,
+    onSecondary = scheme.onPrimary,
+    secondaryContainer = scheme.primaryContainer,
+    onSecondaryContainer = scheme.onPrimaryContainer,
 )
 
 /**
@@ -90,15 +111,18 @@ fun PixivReaderTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    // secondary 系镜像 primary 系：消除动态取色 accent2 异相导致的蓝紫混色
+    val colorScheme = unifySecondaryWithPrimary(
+        when {
+            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                val context = LocalContext.current
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
 
-        darkTheme -> DarkColors
-        else -> LightColors
-    }
+            darkTheme -> DarkColors
+            else -> LightColors
+        },
+    )
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,

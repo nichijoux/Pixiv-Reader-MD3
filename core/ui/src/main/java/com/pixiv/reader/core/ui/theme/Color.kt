@@ -3,15 +3,12 @@ package com.pixiv.reader.core.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ── Material 3 静态配色（种子色 #0096FA 派生；动态取色不可用时回退） ──
+// secondary 系已由 PixivReaderTheme 镜像 primary 系，静态色板不再单独定义 secondary 系 token。
 
 val Primary = Color(0xFF00639B)
 val OnPrimary = Color(0xFFFFFFFF)
 val PrimaryContainer = Color(0xFFCDE5FF)
 val OnPrimaryContainer = Color(0xFF001D33)
-val Secondary = Color(0xFF52606F)
-val OnSecondary = Color(0xFFFFFFFF)
-val SecondaryContainer = Color(0xFFD6E3F2)
-val OnSecondaryContainer = Color(0xFF0E1D29)
 val Tertiary = Color(0xFF66558B)
 val OnTertiary = Color(0xFFFFFFFF)
 val TertiaryContainer = Color(0xFFEBDCFF)
@@ -20,6 +17,17 @@ val Error = Color(0xFFBA1A1A)
 val ErrorContainer = Color(0xFFFFDAD6)
 val OnError = Color(0xFFFFFFFF)
 val OnErrorContainer = Color(0xFF410002)
+
+// ── 深色中性板（#0096FA 种子派生，DarkColors 专用；原缺失导致静态深色落到 M3 基线默认值）──
+val DarkBackground = Color(0xFF191C1F)
+val DarkOnBackground = Color(0xFFE1E2E8)
+val DarkSurface = Color(0xFF191C1F)
+val DarkOnSurface = Color(0xFFE1E2E8)
+val DarkSurfaceVariant = Color(0xFF42474D)
+val DarkOnSurfaceVariant = Color(0xFFC3C7CF)
+val DarkOutline = Color(0xFF8D9199)
+val DarkOutlineVariant = Color(0xFF42474D)
+
 val Background = Color(0xFFFDFCFF)
 val OnBackground = Color(0xFF1A1C1E)
 val Surface = Color(0xFFFDFCFF)
