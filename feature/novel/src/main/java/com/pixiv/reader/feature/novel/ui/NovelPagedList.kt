@@ -31,7 +31,6 @@ import com.pixiv.reader.core.ui.component.feedback.FeedPhase
 import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
-import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -92,14 +91,12 @@ internal fun NovelPagedList(
             FeedPhase.CONTENT -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                // 沉浸式底部：尾部避开「浮动底栏 + 系统导航栏」。壳层不再消费导航栏 inset，
-                // 故 navigationBarsPadding 分量在此自行叠加（rail 模式 local=0，仅剩系统栏）。
+                // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
                 contentPadding = PaddingValues(
                     start = Spacing.lg,
                     end = Spacing.lg,
                     top = Spacing.lg,
-                    bottom = Spacing.lg + LocalFloatingNavBottomInset.current +
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                    bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {

@@ -46,7 +46,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
-import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
@@ -149,15 +148,11 @@ fun NovelRoute(
 
     Scaffold(
         snackbarHost = {
-            // 沉浸式底部（contentWindowInsets=0）后 Scaffold 不再自动避开导航栏；
-            // 通知条须落在浮动底栏（LocalFloatingNavBottomInset）之上。
-            // 壳层已不再消费导航栏 inset —— navigationBarsPadding() 两端均有值，
-            // 与 local（只含栏高 + 悬浮偏移、不含系统栏）相加不重复。
+            // 沉浸式底部（contentWindowInsets=0）后 Scaffold 不再自动避开导航栏，
+            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
             NotificationHost(
                 notificationHostState,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(bottom = LocalFloatingNavBottomInset.current),
+                modifier = Modifier.navigationBarsPadding(),
             )
         },
         topBar = {
@@ -180,9 +175,8 @@ fun NovelRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：Scaffold 不垫高内容（平板上系统导航栏区域留给列表/详情直通）。
-        // 手机端不再有壳层 bottomBar——底部浮动胶囊叠在内容之上，尾部避让由
-        // LocalFloatingNavBottomInset 与各滚动容器的 navigationBarsPadding 分别承担。
+        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
+        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
@@ -461,14 +455,12 @@ private fun NovelWatchlistTab(
             else -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                // 沉浸式底部：尾部避开「浮动底栏 + 系统导航栏」。壳层不再消费导航栏 inset，
-                // 故 navigationBarsPadding 分量在此自行叠加（rail 模式 local=0，仅剩系统栏）。
+                // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
                 contentPadding = PaddingValues(
                     start = Spacing.lg,
                     end = Spacing.lg,
                     top = Spacing.lg,
-                    bottom = Spacing.lg + LocalFloatingNavBottomInset.current +
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                    bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {

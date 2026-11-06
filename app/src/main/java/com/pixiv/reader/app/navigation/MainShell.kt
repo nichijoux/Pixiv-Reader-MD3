@@ -64,7 +64,7 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
 
 /**
  * 登录后的主壳。
- * 自适应导航：手机 = 底部浮动胶囊（内容可穿栏）；平板 = 左侧 NavigationRail。
+ * 自适应导航：手机 = 底部 NavigationBar；平板 = 左侧 NavigationRail。
  *
  * 内层 Tab 的跨 Tab 搜索：各 Tab 标签点击 → pendingSearch 缓存（[SearchLaunch]）→
  * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialTagType 消费（一次性）。

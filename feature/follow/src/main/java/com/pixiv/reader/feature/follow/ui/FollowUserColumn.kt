@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.ui.component.card.UserAvatar
-import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.follow.R
@@ -76,13 +75,7 @@ internal fun FollowUserColumn(
                 .fillMaxSize()
                 // 沉浸式：仅内容让开状态栏，Box 背景 surfaceContainerLow 延伸至状态栏后
                 .statusBarsPadding(),
-            // 尾部避开「浮动底栏 + 系统导航栏」：壳层不再消费导航栏 inset，
-            // 故 navigationBars 分量在此自行叠加（rail 模式 local=0，仅剩系统栏）
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                top = Spacing.xsPlus,
-                bottom = Spacing.xsPlus + LocalFloatingNavBottomInset.current +
-                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
-            ),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = Spacing.xsPlus),
         ) {
             // 顶部「全部」
             item(key = "all") {

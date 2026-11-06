@@ -41,7 +41,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
-import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
@@ -125,15 +124,11 @@ fun MeRoute(
     // 由主题色派生故深浅色与动态取色下自动协调；Scaffold 容器透明让渐变透出
     Scaffold(
         snackbarHost = {
-            // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏；
-            // 通知条须落在浮动底栏（LocalFloatingNavBottomInset）之上。
-            // 壳层已不再消费导航栏 inset —— navigationBarsPadding() 两端均有值，
-            // 与 local（只含栏高 + 悬浮偏移、不含系统栏）相加不重复。
+            // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏，
+            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
             NotificationHost(
                 notificationHostState,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(bottom = LocalFloatingNavBottomInset.current),
+                modifier = Modifier.navigationBarsPadding(),
             )
         },
         containerColor = Color.Transparent,
@@ -167,11 +162,8 @@ fun MeRoute(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    // 沉浸式底部：内容尾部避开「系统导航栏 + 浮动底栏」。
-                    // 壳层不再消费导航栏 inset，故 navigationBarsPadding() 全端恢复有值；
-                    // local 只含栏高 + 悬浮偏移（不含系统栏），两者相加不重复。
+                    // 沉浸式底部：内容尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
                     .navigationBarsPadding()
-                    .padding(bottom = LocalFloatingNavBottomInset.current)
                     .padding(Spacing.lg),
             ) {
                 // ── 个人头部（头像/名称/@account + 退出登录） ──

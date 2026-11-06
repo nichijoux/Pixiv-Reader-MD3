@@ -49,7 +49,6 @@ import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
-import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -165,14 +164,12 @@ private fun FollowFeedList(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：尾部避开「浮动底栏 + 系统导航栏」。壳层不再消费导航栏 inset，
-        // 故 navigationBarsPadding 分量在此自行叠加（rail 模式 local=0，仅剩系统栏）。
+        // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
         contentPadding = PaddingValues(
             start = Spacing.smPlus,
             end = Spacing.smPlus,
             top = Spacing.smPlus,
-            bottom = Spacing.lg + LocalFloatingNavBottomInset.current +
-                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
@@ -230,14 +227,12 @@ private fun FollowFeedGrid(
         state = gridState,
         columns = StaggeredGridCells.Adaptive(240.dp),
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：尾部避开「浮动底栏 + 系统导航栏」。壳层不再消费导航栏 inset，
-        // 故 navigationBarsPadding 分量在此自行叠加（rail 模式 local=0，仅剩系统栏）。
+        // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
         contentPadding = PaddingValues(
             start = Spacing.md,
             end = Spacing.md,
             top = Spacing.md,
-            bottom = Spacing.lg + LocalFloatingNavBottomInset.current +
-                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalItemSpacing = Spacing.sm,
@@ -272,14 +267,12 @@ private fun FollowFeedListSkeleton() {
     val color = skeletonPulseColor(label = "followFeedSkeleton")
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：尾部避开「浮动底栏 + 系统导航栏」。壳层不再消费导航栏 inset，
-        // 故 navigationBarsPadding 分量在此自行叠加（rail 模式 local=0，仅剩系统栏）。
+        // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
         contentPadding = PaddingValues(
             start = Spacing.smPlus,
             end = Spacing.smPlus,
             top = Spacing.smPlus,
-            bottom = Spacing.lg + LocalFloatingNavBottomInset.current +
-                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {

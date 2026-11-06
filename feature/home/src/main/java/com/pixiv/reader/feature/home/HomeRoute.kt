@@ -6,10 +6,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -58,7 +56,6 @@ import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
-import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ui.theme.Spacing
 
@@ -127,9 +124,8 @@ fun HomeRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：Scaffold 不垫高内容（平板上系统导航栏区域留给列表/详情直通）。
-        // 手机端不再有壳层 bottomBar——底部浮动胶囊叠在内容之上，尾部避让由
-        // LocalFloatingNavBottomInset 与各滚动容器的 navigationBarsPadding 分别承担。
+        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
+        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
@@ -298,14 +294,6 @@ private fun HomeFeedContent(
                 onOpenUser = onOpenUser,
                 onTagClick = onSearchTag,
                 scrollToTopKey = scrollToTopKey,
-                // 尾部避让：浮动底栏高度（壳层下发）+ 系统导航栏（壳层不再消费，自行叠加）
-                contentPadding = PaddingValues(
-                    start = Spacing.md,
-                    end = Spacing.md,
-                    top = Spacing.sm,
-                    bottom = Spacing.xl + LocalFloatingNavBottomInset.current +
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
-                ),
             )
         }
     }
