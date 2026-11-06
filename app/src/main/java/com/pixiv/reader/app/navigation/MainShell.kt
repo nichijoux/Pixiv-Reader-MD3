@@ -29,6 +29,11 @@ import com.pixiv.reader.feature.watchlist.WatchlistSegment
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavItem
 import com.pixiv.reader.core.ui.component.layout.AdaptiveNavScaffold
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.pixivTabFadeIn
 import com.pixiv.reader.core.ui.theme.pixivTabFadeOut
 import com.pixiv.reader.feature.discover.ui.DiscoverRoute
@@ -42,18 +47,43 @@ import com.pixiv.reader.feature.user.ui.MeRoute
 /** 首页搜索框 ↔ 发现页搜索栏的共享元素 key（hero container transform）。 */
 private const val SHARED_SEARCH_BAR_KEY = "search_bar"
 
-/** 底部导航五项：首页 / 作品 / 小说 / 关注 / 我的（发现页由首页搜索框等入口进入，不在底栏）。 */
+/**
+ * 底部导航五项：首页 / 作品 / 小说 / 关注 / 我的（发现页由首页搜索框等入口进入，不在底栏）。
+ * 每项配一个点缀色（蓝/紫/绿/粉/青），选中态指示器、图标与标签取该色；
+ * 彩色风格关闭时由导航壳经 resolveAccent 统一回退主题 primary。
+ */
 @Composable
 private fun rememberTabs(): List<AdaptiveNavItem> = listOf(
-    AdaptiveNavItem("home_tab", stringResource(R.string.main_tab_home), Icons.Filled.Home),
-    AdaptiveNavItem("manga_tab", stringResource(R.string.main_tab_manga), Icons.Filled.Collections),
+    AdaptiveNavItem(
+        "home_tab",
+        stringResource(R.string.main_tab_home),
+        Icons.Filled.Home,
+        accent = SettingAccentBlue,
+    ),
+    AdaptiveNavItem(
+        "manga_tab",
+        stringResource(R.string.main_tab_manga),
+        Icons.Filled.Collections,
+        accent = SettingAccentViolet,
+    ),
     AdaptiveNavItem(
         "novel_tab",
         stringResource(R.string.main_tab_novel),
-        Icons.AutoMirrored.Filled.MenuBook
+        Icons.AutoMirrored.Filled.MenuBook,
+        accent = SettingAccentTeal,
     ),
-    AdaptiveNavItem("follow_tab", stringResource(R.string.main_tab_follow), Icons.Filled.Favorite),
-    AdaptiveNavItem("me_tab", stringResource(R.string.main_tab_me), Icons.Filled.Person),
+    AdaptiveNavItem(
+        "follow_tab",
+        stringResource(R.string.main_tab_follow),
+        Icons.Filled.Favorite,
+        accent = SettingAccentPink,
+    ),
+    AdaptiveNavItem(
+        "me_tab",
+        stringResource(R.string.main_tab_me),
+        Icons.Filled.Person,
+        accent = SettingAccentGreen,
+    ),
 )
 
 /**

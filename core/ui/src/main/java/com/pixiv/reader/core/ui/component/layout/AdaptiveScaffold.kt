@@ -19,8 +19,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationItemColors
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.WideNavigationRail
@@ -31,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -42,14 +46,25 @@ import com.pixiv.reader.core.common.ui.classifyWindowWidth
 import com.pixiv.reader.core.common.ui.useRail
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
+import com.pixiv.reader.core.ui.theme.resolveAccent
 import kotlinx.coroutines.launch
 
-/** 底部/侧边导航项（自适应导航壳的数据单元）。 */
+/**
+ * 底部/侧边导航项（自适应导航壳的数据单元）。
+ *
+ * @param route 路由标识（用于选中匹配）
+ * @param label 显示文案
+ * @param icon 未选中图标
+ * @param selectedIcon 选中态图标（默认同 [icon]）
+ * @param accent 选中态点缀色（图标 + 指示器 + 标签）；[Color.Unspecified] 回退主题 primary。
+ *   彩色风格关闭时经 [resolveAccent] 统一回退为 primary。
+ */
 data class AdaptiveNavItem(
     val route: String,
     val label: String,
     val icon: ImageVector,
     val selectedIcon: ImageVector = icon,
+    val accent: Color = Color.Unspecified,
 )
 
 /** 当前窗口尺寸类（基于屏幕宽度，无需额外依赖）。 */
@@ -99,8 +114,13 @@ fun AdaptiveNavScaffold(
             ) {
                 NavigationBar {
                     items.forEach { item ->
+                        val selected = selectedRoute == item.route
+                        // 选中态点缀色：未指定时回退 primary，彩色风格关闭时 resolveAccent 统一回 primary
+                        val accent = resolveAccent(
+                            if (item.accent == Color.Unspecified) MaterialTheme.colorScheme.primary else item.accent,
+                        )
                         NavigationBarItem(
-                            selected = selectedRoute == item.route,
+                            selected = selected,
                             onClick = {
                                 // 仅切换页签时响 SELECT（重复点当前页签只做回顶，不响）
                                 if (selectedRoute != item.route) {
@@ -110,11 +130,19 @@ fun AdaptiveNavScaffold(
                             },
                             icon = {
                                 Icon(
-                                    imageVector = if (selectedRoute == item.route) item.selectedIcon else item.icon,
+                                    imageVector = if (selected) item.selectedIcon else item.icon,
                                     contentDescription = item.label,
                                 )
                             },
                             label = { Text(item.label) },
+                            // 选中指示器/图标/标签都取该 Tab 的点缀色淡底与本色，与页面彩色体系一致
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = accent,
+                                selectedTextColor = accent,
+                                indicatorColor = accent.copy(alpha = 0.16f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                         )
                     }
                 }
@@ -152,6 +180,10 @@ fun AdaptiveNavScaffold(
                 ) {
                     val railExpanded = railState.targetValue == WideNavigationRailValue.Expanded
                     items.forEach { item ->
+                        // 选中态点缀色：未指定时回退 primary，彩色风格关闭时 resolveAccent 统一回 primary
+                        val railAccent = resolveAccent(
+                            if (item.accent == Color.Unspecified) MaterialTheme.colorScheme.primary else item.accent,
+                        )
                         WideNavigationRailItem(
                             selected = selectedRoute == item.route,
                             onClick = {
@@ -169,6 +201,17 @@ fun AdaptiveNavScaffold(
                             },
                             label = { Text(item.label) },
                             railExpanded = railExpanded,
+                            // 选中态同样取该 Tab 的点缀色（彩色风格关闭时回退 primary）
+                            colors = NavigationItemColors(
+                                selectedIconColor = railAccent,
+                                selectedTextColorTopIconPosition = railAccent,
+                                selectedTextColorStartIconPosition = railAccent,
+                                selectedIndicatorColor = railAccent.copy(alpha = 0.16f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                                disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                            ),
                         )
                     }
                 }
