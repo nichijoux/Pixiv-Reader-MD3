@@ -21,6 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,13 +48,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
 import com.pixiv.api.model.SearchLangOption
+import com.pixiv.reader.core.ui.component.input.AccentIconBadge
 import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
+import com.pixiv.reader.core.ui.component.layout.SectionTitle
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.AiFilter
 import com.pixiv.reader.feature.discover.state.R18Filter
@@ -59,6 +66,8 @@ import com.pixiv.reader.feature.discover.state.SearchFilters
 import com.pixiv.reader.feature.discover.state.SearchType
 import com.pixiv.reader.core.ui.component.list.formatDatePickerMillis
 import com.pixiv.reader.core.ui.component.list.parseDatePickerMillis
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -344,7 +353,10 @@ private fun MainFilterContent(
                 .padding(horizontal = Spacing.lgPlus),
         ) {
             // A 段：检索范围 / 排序方式
-            FilterCard {
+            FilterCard(
+                icon = Icons.Filled.Tune,
+                accent = SettingAccentBlue,
+            ) {
                 FilterRow(
                     stringResource(R.string.filter_row_target),
                     targetSummary(draft.searchTarget)
@@ -359,7 +371,10 @@ private fun MainFilterContent(
                 }
             }
             // B 段：内容条件（按类型显隐）
-            FilterCard {
+            FilterCard(
+                icon = Icons.Filled.FilterAlt,
+                accent = SettingAccentTeal,
+            ) {
                 FilterRow(stringResource(R.string.filter_row_duration), durationSummary(draft)) {
                     onOpenPicker(Picker.Duration)
                 }
@@ -417,7 +432,11 @@ private fun MainFilterContent(
                 }
             }
             // C 段：其他条件
-            FilterCard {
+            FilterCard(
+                icon = Icons.Filled.MoreHoriz,
+                // 中性色：不参与七色点缀，保持与其他两组区分但视觉更轻
+                accent = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
                 FilterRow(stringResource(R.string.filter_row_other), otherSummary(draft, type)) {
                     onOpenPicker(Picker.Other)
                 }
@@ -451,17 +470,54 @@ private fun MainFilterContent(
     }
 }
 
-/** 筛选分组卡片（Material surfaceContainer，圆角 16dp，组内行分隔）。 */
+/**
+ * 筛选分组卡片（Material surfaceContainer，圆角 16dp，组内行分隔）。
+ *
+ * 可选在卡片顶部渲染彩色图标徽标作为分组标记；彩色风格关闭时经 resolveAccent 回退主题单色。
+ *
+ * @param modifier 外部 Modifier
+ * @param icon 分组图标；null 不渲染徽标（保持纯行式列表）
+ * @param accent 图标徽标点缀色（[Color.Unspecified] 时由徽标组件回退主题 primary）
+ * @param content 卡片内容（通常为若干 [FilterRow]）
+ * @return 无返回值
+ */
 @Composable
-private fun FilterCard(content: @Composable ColumnScope.() -> Unit) {
+private fun FilterCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    accent: Color = Color.Unspecified,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.large,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(bottom = Spacing.md),
     ) {
-        Column(content = content)
+        Column {
+            // 分组徽标行：仅 icon 非空时出现，作为卡片顶部左侧的分组标记
+            if (icon != null) {
+                Row(
+                    modifier = Modifier.padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        top = Spacing.md,
+                        bottom = Spacing.xs,
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AccentIconBadge(
+                        icon = icon,
+                        accent = accent,
+                        size = Sizes.s28,
+                        cornerRadius = 9.dp,
+                        iconSize = Sizes.s16,
+                    )
+                }
+            }
+            Column(content = content)
+        }
     }
 }
 
@@ -862,7 +918,13 @@ private fun OtherPickerContent(
                 .padding(horizontal = Spacing.lgPlus)
                 .verticalScroll(rememberScrollState()),
         ) {
-            SectionTitle(stringResource(R.string.filter_ai))
+            // 分组标题统一走共享 SectionTitle；保留原 labelLarge + primary 的强调层级与顶部间距
+            SectionTitle(
+                text = stringResource(R.string.filter_ai),
+                modifier = Modifier.padding(top = Spacing.lg),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
             // AI 三选一（全 App 统一胶囊分段）
             val aiOptions = listOf(
                 AiFilter.ALL to R.string.filter_all,
@@ -877,7 +939,12 @@ private fun OtherPickerContent(
             )
 
             if (!isNovel) {
-                SectionTitle(stringResource(R.string.filter_row_tool))
+                SectionTitle(
+                    text = stringResource(R.string.filter_row_tool),
+                    modifier = Modifier.padding(top = Spacing.lg),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -899,7 +966,12 @@ private fun OtherPickerContent(
             }
 
             if (isNovel) {
-                SectionTitle(stringResource(R.string.filter_row_novel_switches))
+                SectionTitle(
+                    text = stringResource(R.string.filter_row_novel_switches),
+                    modifier = Modifier.padding(top = Spacing.lg),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 SwitchRow(
                     stringResource(R.string.filter_original_only),
                     originalOnly
@@ -910,7 +982,12 @@ private fun OtherPickerContent(
                 ) { replaceableOnly = it }
             }
 
-            SectionTitle(stringResource(R.string.filter_r18))
+            SectionTitle(
+                text = stringResource(R.string.filter_r18),
+                modifier = Modifier.padding(top = Spacing.lg),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
             // R18 三选一（全 App 统一胶囊分段）
             val r18Options = listOf(
                 R18Filter.ALL to R.string.filter_all,
@@ -940,16 +1017,6 @@ private fun OtherPickerContent(
             ) { Text(stringResource(R.string.common_confirm)) }
         }
     }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = Spacing.lg, bottom = Spacing.xs),
-    )
 }
 
 @Composable

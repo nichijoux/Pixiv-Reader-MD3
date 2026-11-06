@@ -105,6 +105,8 @@
     <string name="me_theme_dark">深色</string>
     <string name="me_dynamic_color">动态取色</string>
     <string name="me_dynamic_color_desc">Android 12+ 使用壁纸取色</string>
+    <string name="me_color_style">彩色风格</string>
+    <string name="me_color_style_desc">图标与空态使用多彩点缀，关闭则回到 Material Design 单色</string>
     <string name="me_font_scale">字号缩放</string>
     <string name="me_font_scale_desc">调整应用内文字显示大小</string>
     <string name="me_language">语言</string>

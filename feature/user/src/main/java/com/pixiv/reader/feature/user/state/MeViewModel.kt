@@ -112,6 +112,10 @@ class MeViewModel @Inject constructor(
     val dynamicColor: StateFlow<Boolean> =
         userPreferences.dynamicColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    /** 彩色风格开关（false = 纯 M3 单色，默认关闭）。 */
+    val colorStyleEnabled: StateFlow<Boolean> =
+        userPreferences.colorStyleEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** 应用字号缩放（0.8~1.3；MainActivity 覆盖 fontScale 即时生效）。 */
     val appFontScale: StateFlow<Float> =
         userPreferences.appFontScale.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
@@ -178,6 +182,17 @@ class MeViewModel @Inject constructor(
 
     fun setDynamicColor(value: Boolean) {
         viewModelScope.launch { userPreferences.setDynamicColor(value) }
+    }
+
+    /**
+     * 设置彩色风格开关：开启后各页使用彩色点缀，关闭回到纯 M3 单色（MainActivity 经
+     * CompositionLocal 下发，写入落盘后全局即时生效）。
+     *
+     * @param value true = 彩色风格，false = 纯 M3 单色
+     * @return 无返回值；写入在 [viewModelScope] 协程内异步完成
+     */
+    fun setColorStyleEnabled(value: Boolean) {
+        viewModelScope.launch { userPreferences.setColorStyleEnabled(value) }
     }
 
     fun setAppFontScale(value: Float) {

@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +51,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
+import com.pixiv.reader.core.ui.component.input.AccentIconBadgeCircle
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
+import com.pixiv.reader.core.ui.component.layout.SectionTitle
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
+import com.pixiv.reader.core.ui.theme.SettingAccentOrange
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -97,19 +106,13 @@ internal fun IdlePanel(
                             .padding(top = Spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            Icons.Filled.History,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(Sizes.s18)
-                        )
-                        Text(
+                        SectionTitle(
                             text = stringResource(R.string.search_history_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .padding(start = Spacing.xsPlus)
-                                .weight(1f),
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Filled.History,
+                            accent = SettingAccentBlue,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         TextButton(onClick = {
                             confirmClear = true
@@ -148,23 +151,14 @@ internal fun IdlePanel(
             // 强调 + 序号圆徽，其余中性胶囊；按压 spring 微缩（MotionScheme 弹性触感）
             if (hotTags.isNotEmpty()) {
                 item(key = "hot_title") {
-                    Row(
-                        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.Whatshot,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(Sizes.s18),
-                        )
-                        Text(
-                            text = stringResource(R.string.search_hot_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = Spacing.xsPlus),
-                        )
-                    }
+                    SectionTitle(
+                        text = stringResource(R.string.search_hot_title),
+                        modifier = Modifier.padding(top = Spacing.sm),
+                        icon = Icons.Filled.Whatshot,
+                        accent = SettingAccentOrange,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
                 item(key = "hot_chips") {
                     FlowRow(
@@ -340,24 +334,15 @@ private fun DiscoverEntries(
     onOpenWallpaperRanking: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
-        // 分区标题
-        Row(
-            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Filled.Explore,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(Sizes.s18),
-            )
-            Text(
-                text = stringResource(R.string.discover_entries_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = Spacing.xsPlus),
-            )
-        }
+        // 分区标题：页面级分区用 titleMedium 层级（与设置页 labelMedium 分组标签区分）
+        SectionTitle(
+            text = stringResource(R.string.discover_entries_title),
+            modifier = Modifier.padding(top = Spacing.sm),
+            icon = Icons.Filled.Explore,
+            accent = SettingAccentViolet,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -367,12 +352,14 @@ private fun DiscoverEntries(
                 label = stringResource(R.string.discover_entry_pixivision),
                 onClick = onOpenPixivision,
                 modifier = Modifier.weight(1f),
+                accent = SettingAccentTeal,
             )
             DiscoverEntryCard(
                 icon = Icons.Filled.Groups,
                 label = stringResource(R.string.discover_entry_user_ranking),
                 onClick = onOpenUserRanking,
                 modifier = Modifier.weight(1f),
+                accent = SettingAccentPink,
             )
         }
         Spacer(Modifier.height(Spacing.sm))
@@ -385,12 +372,14 @@ private fun DiscoverEntries(
                 label = stringResource(R.string.discover_entry_ai_ranking),
                 onClick = onOpenAiRanking,
                 modifier = Modifier.weight(1f),
+                accent = SettingAccentViolet,
             )
             DiscoverEntryCard(
                 icon = Icons.Filled.History,
                 label = stringResource(R.string.discover_entry_era_ranking),
                 onClick = onOpenEraRanking,
                 modifier = Modifier.weight(1f),
+                accent = SettingAccentAmber,
             )
         }
         Spacer(Modifier.height(Spacing.sm))
@@ -403,6 +392,7 @@ private fun DiscoverEntries(
                 label = stringResource(R.string.discover_entry_wallpaper_ranking),
                 onClick = onOpenWallpaperRanking,
                 modifier = Modifier.weight(1f),
+                accent = SettingAccentGreen,
             )
             // 补位：保持与上行等宽的两列节奏
             Spacer(modifier = Modifier.weight(1f))
@@ -411,12 +401,15 @@ private fun DiscoverEntries(
 }
 
 /**
- * 发现入口小卡：圆形图标底 + 标题 + 箭头（surfaceContainer 卡，整卡可点）。
+ * 发现入口小卡：圆形图标徽标 + 标题 + 箭头（surfaceContainer 卡，整卡可点）。
+ *
+ * 图标底统一走 [AccentIconBadgeCircle]（彩色风格关闭时经 resolveAccent 回退主题单色）。
  *
  * @param icon 入口图标
  * @param label 入口标题
  * @param onClick 点击回调
  * @param modifier 布局参数（两列布局调用方传 `weight(1f)`）
+ * @param accent 入口点缀色（五个入口各分配一种邻近色相，避免相邻同色）
  * @return 无返回值
  */
 @Composable
@@ -425,6 +418,7 @@ private fun DiscoverEntryCard(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    accent: Color = Color.Unspecified,
 ) {
     Row(
         modifier = modifier
@@ -435,19 +429,13 @@ private fun DiscoverEntryCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Box(
-            modifier = Modifier
-                .size(Sizes.s32)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), AppShapes.circle),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(Sizes.s18),
-            )
-        }
+        // 未指定点缀色时保持主题 primary（老语义），指定后统一由徽标组件解析
+        AccentIconBadgeCircle(
+            icon = icon,
+            accent = if (accent == Color.Unspecified) MaterialTheme.colorScheme.primary else accent,
+            size = Sizes.s32,
+            iconSize = Sizes.s18,
+        )
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,

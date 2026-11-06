@@ -93,8 +93,14 @@ import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.resolveAccent
 
 /**
  * 插画详情渲染块（core:ui 下沉，供详情路由与排行榜右栏共用）。
@@ -649,18 +655,21 @@ fun IllustInfoSection(
                 value = formatCount((illust.total_view ?: 0).toLong()),
                 label = strings.statView,
                 modifier = Modifier.weight(1f),
+                iconAccent = SettingAccentBlue,
             )
             StatBlock(
                 icon = Icons.Filled.Favorite,
                 value = formatCount((illust.total_bookmarks ?: 0).toLong()),
                 label = strings.statBookmark,
                 modifier = Modifier.weight(1f),
+                iconAccent = SettingAccentPink,
             )
             StatBlock(
                 icon = Icons.Filled.Collections,
                 value = "${illust.page_count}P",
                 label = strings.statPages,
                 modifier = Modifier.weight(1f),
+                iconAccent = SettingAccentAmber,
             )
         }
         // 标签：可点击跳搜索该 tag
@@ -743,6 +752,9 @@ fun IllustInfoSection(
 /**
  * 操作按钮行（标签下方）：收藏 / 全屏 / 下载 / 评论（不固定，跟随内容滚动）。
  *
+ * 四个按钮各配语义点缀色（收藏红 / 全屏紫 / 下载蓝 / 评论青），
+ * 未激活态经 `VerticalActionButton` 内部 `resolveAccent` 解析——彩色风格关闭时统一回退 primary。
+ *
  * @param illustId 当前作品 id（作为收藏弹跳「上一态」记忆的 key——平板 pane 不按 id 重建组合，
  *   切换作品时须重置，否则 A 未收藏 → 选中已收藏 B 会误播弹跳与触觉）
  * @param isBookmarked 是否已收藏
@@ -799,8 +811,9 @@ private fun ActionButtonsRow(
             enabled = !isBookmarking,
             onClick = onToggleBookmark,
             modifier = Modifier.weight(1f),
-            // 收藏激活用红心（保留 App 收藏色习惯）
+            // 收藏激活用红心（保留 App 收藏色习惯）；未激活态也用红色点缀保持语义一致
             activeIconTint = FavoriteRed,
+            accent = FavoriteRed,
             // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
             iconModifier = Modifier.graphicsLayer {
                 scaleX = favoriteBounce.value
@@ -814,6 +827,7 @@ private fun ActionButtonsRow(
             enabled = true,
             onClick = onOpenViewer,
             modifier = Modifier.weight(1f),
+            accent = SettingAccentViolet,
         )
         VerticalActionButton(
             icon = Icons.Filled.Download,
@@ -822,6 +836,7 @@ private fun ActionButtonsRow(
             enabled = true,
             onClick = onDownload,
             modifier = Modifier.weight(1f),
+            accent = SettingAccentBlue,
         )
         VerticalActionButton(
             icon = Icons.Filled.ModeComment,
@@ -830,17 +845,28 @@ private fun ActionButtonsRow(
             enabled = true,
             onClick = onOpenComments,
             modifier = Modifier.weight(1f),
+            accent = SettingAccentTeal,
         )
     }
 }
 
-/** 统计块：图标 + 数值 + 标签（weight(1f) 均分整行，块内水平居中）。 */
+/**
+ * 统计块：图标 + 数值 + 标签（weight(1f) 均分整行，块内水平居中）。
+ *
+ * @param icon 左侧小图标
+ * @param value 主数值文案（已格式化）
+ * @param label 数值下方说明文案
+ * @param modifier 外部 Modifier（调用方用 weight 均分）
+ * @param iconAccent 图标点缀色；[Color.Unspecified] 保持 onSurfaceVariant 中性，否则经 [resolveAccent] 取色
+ * @return 无返回值
+ */
 @Composable
 private fun StatBlock(
     icon: ImageVector,
     value: String,
     label: String,
     modifier: Modifier = Modifier,
+    iconAccent: Color = Color.Unspecified,
 ) {
     Column(
         modifier = modifier,
@@ -850,7 +876,12 @@ private fun StatBlock(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                // 未指定点缀色时保持中性文字色（纯 M3 观感）
+                tint = if (iconAccent == Color.Unspecified) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    resolveAccent(iconAccent)
+                },
                 modifier = Modifier.size(Sizes.s16),
             )
             Text(

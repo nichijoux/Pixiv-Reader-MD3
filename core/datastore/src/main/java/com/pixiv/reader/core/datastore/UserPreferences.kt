@@ -92,6 +92,9 @@ class UserPreferences @Inject constructor(
 
     // ── 图片 / 外观 ──
     val dynamicColor: Flow<Boolean> = context.dataStore.data.map { it[KEY_DYNAMIC_COLOR] ?: true }
+    /** 彩色点缀风格（false = 纯 M3 单色，默认关闭） */
+    val colorStyleEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_COLOR_STYLE] ?: false }
     /** 应用主题模式：跟随系统 / 浅色 / 深色 */
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.from(it[KEY_THEME_MODE] ?: ThemeMode.FOLLOW_SYSTEM.value) }
     /** 应用字号缩放（0.8~1.3，默认 1.0 = 系统「标准」档；MainActivity 覆盖 fontScale 即时生效） */
@@ -174,6 +177,9 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderParagraphSpacing(value: Float) = context.dataStore.edit { it[KEY_PARAGRAPH_SPACING] = value }
     suspend fun setReaderLetterSpacing(value: Float) = context.dataStore.edit { it[KEY_LETTER_SPACING] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
+    /** 设置彩色点缀风格：true 启用彩色，false 回到纯 M3 单色。 */
+    suspend fun setColorStyleEnabled(value: Boolean) =
+        context.dataStore.edit { it[KEY_COLOR_STYLE] = value }
     suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
     suspend fun setAppFontScale(value: Float) = context.dataStore.edit { it[KEY_APP_FONT_SCALE] = value }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
@@ -236,6 +242,8 @@ class UserPreferences @Inject constructor(
         val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
         val KEY_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        /** 彩色风格开关（默认 false = 纯 M3 单色） */
+        val KEY_COLOR_STYLE = booleanPreferencesKey("color_style_enabled")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")

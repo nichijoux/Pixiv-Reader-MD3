@@ -2,6 +2,7 @@ package com.pixiv.reader.core.ui.component.input
 
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.resolveAccent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
@@ -34,13 +35,16 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 竖排卡片按钮（插画/小说详情页底部操作条共用，HTML `.abtn`）：icon 上 / label 下，56dp 高，圆角 12。
- * - 未激活：surfaceContainerLow 底 + outlineVariant 边框 + primary 图标 + onSurface 文字
- * - 激活：primaryContainer 底 + primary 边框 + [activeIconTint]（null 时 primary）图标 + onPrimaryContainer 文字
+ * - 未激活：surfaceContainerLow 底 + outlineVariant 边框 + primary（或 [accent] 解析色）图标 + onSurface 文字
+ * - 激活：primaryContainer 底 + primary 边框 + [activeIconTint]（null 时 primary/accent 解析色）图标 + onPrimaryContainer 文字
  * - disabled：整体 0.45 透明度，图标 onSurfaceVariant
  * - 按压：Expressive spring 缩放（按下微缩 → 松手弹性回弹，跟随 [MaterialTheme.motionScheme]）
  * - 图标可经 [iconModifier] 追加调用方动效（如收藏成功的心形弹跳），不影响按钮自身缩放
  *
- * @param activeIconTint 激活态图标色（如收藏按钮传 FavoriteRed 红心）；null 用 primary
+ * 容器底与边框始终保持 M3 主题色（不随 [accent] 变化），避免文字/容器对比度风险。
+ *
+ * @param activeIconTint 激活态图标色（如收藏按钮传 FavoriteRed 红心）；null 用 primary（或 [accent] 解析色）
+ * @param accent 未激活态图标点缀色；[Color.Unspecified] 回退 primary；关闭彩色风格时统一回 primary
  * @param onLongClick 长按回调（如小说收藏按钮长按打开收藏设置）；null 不挂长按手势
  * @param iconModifier 追加在图标上的 Modifier（调用方用于挂收藏弹跳等图标级动效；默认无）
  */
@@ -54,6 +58,7 @@ fun VerticalActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     activeIconTint: Color? = null,
+    accent: Color = Color.Unspecified,
     onLongClick: (() -> Unit)? = null,
     iconModifier: Modifier = Modifier,
 ) {
@@ -64,6 +69,10 @@ fun VerticalActionButton(
         targetValue = if (pressed) 0.95f else 1f,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "verticalActionPressScale",
+    )
+    // 图标点缀色：Unspecified 回退 primary；否则经 resolveAccent（彩色风格关闭时自动回 primary）
+    val accentTint = resolveAccent(
+        if (accent == Color.Unspecified) MaterialTheme.colorScheme.primary else accent,
     )
     Column(
         modifier = modifier
@@ -111,8 +120,9 @@ fun VerticalActionButton(
             modifier = iconModifier.size(19.dp),
             tint = when {
                 !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
-                active -> activeIconTint ?: MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.primary
+                // 激活态优先调用方指定的语义色（红心等），否则用解析后的点缀色
+                active -> activeIconTint ?: accentTint
+                else -> accentTint
             },
         )
         Text(

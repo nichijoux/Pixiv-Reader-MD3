@@ -1,20 +1,15 @@
 package com.pixiv.reader.feature.user.ui
 
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
@@ -39,29 +34,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
+import com.pixiv.reader.core.ui.component.input.AccentIconBadge
 import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.Sizes
-
-/** 我的页区块标题。 */
-@Composable
-internal fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xsPlus),
-    )
-}
-
-/** 我的页区块间间距。 */
-@Composable
-internal fun SectionSpacer() {
-    Spacer(Modifier.height(20.dp))
-}
 
 /**
  * 设置分组面板（Material 3 Expressive）：相关设置聚为一张 28dp extraLarge 圆角卡，
@@ -90,30 +68,17 @@ internal fun MeGroupCard(
 }
 
 /**
- * 分组设置行前置图标：40dp 圆角方形容器（12dp 圆角）+ 点缀色 12% 透明度底 + 同色 20dp 图标。
+ * 分组设置行前置图标：委托统一徽标组件 [AccentIconBadge]（40dp 圆角方形容器 12dp 圆角
+ * + 点缀色淡底 + 同色 20dp 图标），与全 App 共享同一图标语汇。
+ * 点缀色在 [AccentIconBadge] 内部经 `resolveAccent` 解析：彩色风格关闭时回退主题 primary。
  *
  * @param icon 图标
- * @param accent 点缀色（容器淡底与图标 tint 同源；调用方已解析兜底色）
+ * @param accent 点缀色（未指定时由调用方 [MeRow] 回退为主题 primary）
  * @return 无返回值
  */
 @Composable
 private fun MeRowIcon(icon: ImageVector, accent: Color) {
-    Box(
-        modifier = Modifier
-            .size(Sizes.s40)
-            .background(
-                color = accent.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(12.dp),
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = accent,
-            modifier = Modifier.size(Sizes.s20),
-        )
-    }
+    AccentIconBadge(icon = icon, accent = accent)
 }
 
 /**

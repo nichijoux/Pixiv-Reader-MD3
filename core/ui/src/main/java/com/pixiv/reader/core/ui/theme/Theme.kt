@@ -37,6 +37,18 @@ private val LightColors = lightColorScheme(
     onSurfaceVariant = OnSurfaceVariant,
     outline = Outline,
     outlineVariant = OutlineVariant,
+    // M3 容器/反向角色：显式定义避免落到 M3 基线紫灰，保持蓝调中性同相
+    surfaceDim = SurfaceDim,
+    surfaceBright = SurfaceBright,
+    surfaceContainerLowest = SurfaceContainerLowest,
+    surfaceContainerLow = SurfaceContainerLow,
+    surfaceContainer = SurfaceContainer,
+    surfaceContainerHigh = SurfaceContainerHigh,
+    surfaceContainerHighest = SurfaceContainerHighest,
+    surfaceTint = SurfaceTint,
+    inverseSurface = InverseSurface,
+    inverseOnSurface = InverseOnSurface,
+    inversePrimary = InversePrimary,
 )
 
 private val DarkColors = darkColorScheme(
@@ -61,6 +73,19 @@ private val DarkColors = darkColorScheme(
     onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
     outlineVariant = DarkOutlineVariant,
+    // M3 容器/反向角色（深色）：显式定义替换 M3 基线紫灰 #211F26；
+    // surfaceTint 与深色 primary 角色同值（= PrimaryContainer，容器与内容互换约定）
+    surfaceDim = DarkSurfaceDim,
+    surfaceBright = DarkSurfaceBright,
+    surfaceContainerLowest = DarkSurfaceContainerLowest,
+    surfaceContainerLow = DarkSurfaceContainerLow,
+    surfaceContainer = DarkSurfaceContainer,
+    surfaceContainerHigh = DarkSurfaceContainerHigh,
+    surfaceContainerHighest = DarkSurfaceContainerHighest,
+    surfaceTint = DarkSurfaceTint,
+    inverseSurface = DarkInverseSurface,
+    inverseOnSurface = DarkInverseOnSurface,
+    inversePrimary = DarkInversePrimary,
 )
 
 /**

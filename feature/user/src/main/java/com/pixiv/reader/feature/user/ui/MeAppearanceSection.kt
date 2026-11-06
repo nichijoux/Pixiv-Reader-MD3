@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Translate
@@ -24,17 +25,19 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 /**
- * 我的页「外观」设置：主题模式 / 动态取色 / 字号缩放 / 语言。
- * Expressive 分组面板：四项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
+ * 我的页「外观」设置：主题模式 / 动态取色 / 彩色风格 / 字号缩放 / 语言。
+ * Expressive 分组面板：各项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
  * 每行前置图标带各自点缀色。
  *
  * @param themeMode 当前主题模式
  * @param dynamicColor 当前动态取色开关
+ * @param colorStyleEnabled 当前彩色风格开关（false = 纯 M3 单色）
  * @param fontScale 当前全局字体缩放
  * @param appLanguage 当前应用语言（存储值）
  * @param switchingLanguage 语言切换写盘中（锁定重复触发）
  * @param onSetThemeMode 设置主题模式
  * @param onSetDynamicColor 设置动态取色
+ * @param onSetColorStyleEnabled 设置彩色风格开关
  * @param onSetFontScale 设置字体缩放（写入 DataStore 后 MainActivity 覆盖 fontScale 即时生效）
  * @param onSetAppLanguage 设置语言（参数 = 存储值 + 落盘完成回调）
  * @param onLanguageApplied 语言落盘完成回调（调用方重建 Activity 生效）
@@ -44,11 +47,13 @@ import kotlin.math.roundToInt
 internal fun MeAppearanceSection(
     themeMode: ThemeMode,
     dynamicColor: Boolean,
+    colorStyleEnabled: Boolean,
     fontScale: Float,
     appLanguage: String,
     switchingLanguage: Boolean,
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
+    onSetColorStyleEnabled: (Boolean) -> Unit,
     onSetFontScale: (Float) -> Unit,
     onSetAppLanguage: (String, () -> Unit) -> Unit,
     onLanguageApplied: () -> Unit,
@@ -76,6 +81,15 @@ internal fun MeAppearanceSection(
             checked = dynamicColor,
             accent = SettingAccentPink,
             onCheckedChange = onSetDynamicColor,
+        )
+        // 彩色风格（开关行）：关闭时全 App 图标/空态/徽标回退主题单色
+        MeSwitchRow(
+            icon = Icons.Filled.ColorLens,
+            title = stringResource(R.string.me_color_style),
+            subtitle = stringResource(R.string.me_color_style_desc),
+            checked = colorStyleEnabled,
+            accent = SettingAccentViolet,
+            onCheckedChange = onSetColorStyleEnabled,
         )
         // 字号缩放（滑杆行：标题 + 当前百分比，滑杆全宽）
         MeRow(

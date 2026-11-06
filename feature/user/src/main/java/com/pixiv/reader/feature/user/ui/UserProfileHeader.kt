@@ -17,6 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -31,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +47,11 @@ import com.pixiv.api.model.Profile
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
+import com.pixiv.reader.core.ui.component.input.AccentIconBadge
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -228,32 +240,66 @@ internal fun UserHeaderDetails(
                 }
             }
         }
-        // 统计格：插画 / 小说 / 收藏 / 关注（可点击）
+        // 统计格：插画 / 小说 / 收藏 / 关注（可点击，各配彩色图标徽标）
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.mdPlus),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            StatItem(stringResource(R.string.user_stat_illust), profile?.total_illusts) {
+            StatItem(
+                label = stringResource(R.string.user_stat_illust),
+                value = profile?.total_illusts,
+                icon = Icons.Filled.Image,
+                accent = SettingAccentViolet,
+            ) {
                 onScrollToSection(UserSection.ILLUST)
             }
-            StatItem(stringResource(R.string.user_stat_novel), profile?.total_novels) {
+            StatItem(
+                label = stringResource(R.string.user_stat_novel),
+                value = profile?.total_novels,
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                accent = SettingAccentGreen,
+            ) {
                 onScrollToSection(UserSection.NOVEL)
             }
-            StatItem(stringResource(R.string.user_stat_bookmark), profile?.total_bookmarks_public) {
+            StatItem(
+                label = stringResource(R.string.user_stat_bookmark),
+                value = profile?.total_bookmarks_public,
+                icon = Icons.Filled.BookmarkBorder,
+                accent = SettingAccentPink,
+            ) {
                 onOpenUserBookmarks()
             }
-            StatItem(stringResource(R.string.user_stat_follow), profile?.total_follow_users) {
+            StatItem(
+                label = stringResource(R.string.user_stat_follow),
+                value = profile?.total_follow_users,
+                icon = Icons.Filled.Person,
+                accent = SettingAccentBlue,
+            ) {
                 onOpenUserFollowing()
             }
         }
     }
 }
 
-/** 单个统计格（数值 + 标签，可点击）。 */
+/**
+ * 单个统计格（可选彩色图标徽标 + 数值 + 标签，可点击）。
+ *
+ * 图标渲染在数值上方，容器尺寸固定（24dp 徽标）并留出对称间距，
+ * 保证四格文字基线对齐、不因有无图标而高度错位（折叠裁剪区依赖稳定高度）。
+ *
+ * @param label 统计项文案
+ * @param value 统计数值；null 显示占位「-」
+ * @param icon 数值上方图标徽标；null 不渲染图标
+ * @param accent 图标点缀色（[Color.Unspecified] 时由徽标组件回退主题 primary）
+ * @param onClick 点击回调（插画/小说滚到分区，收藏/关注跳列表；置于末位以支持尾随 lambda）
+ * @return 无返回值
+ */
 @Composable
 private fun StatItem(
     label: String,
     value: Int?,
+    icon: ImageVector? = null,
+    accent: Color = Color.Unspecified,
     onClick: () -> Unit,
 ) {
     Column(
@@ -263,6 +309,17 @@ private fun StatItem(
             .clickable(onClick = onClick)
             .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus),
     ) {
+        // 图标徽标固定在数值上方，底部留 4dp 与文字分隔
+        if (icon != null) {
+            AccentIconBadge(
+                icon = icon,
+                accent = accent,
+                size = Sizes.s24,
+                cornerRadius = 8.dp,
+                iconSize = 14.dp,
+                modifier = Modifier.padding(bottom = Spacing.xs),
+            )
+        }
         Text(
             text = value?.toString() ?: "-",
             style = MaterialTheme.typography.titleSmall,

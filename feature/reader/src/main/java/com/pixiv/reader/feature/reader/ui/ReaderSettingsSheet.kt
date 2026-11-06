@@ -17,9 +17,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.FontDownload
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,8 +54,16 @@ import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
+import com.pixiv.reader.core.ui.component.input.AccentIconBadge
 import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
+import com.pixiv.reader.core.ui.component.layout.SectionTitle
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.reader.R
@@ -111,7 +127,14 @@ fun ReaderSettingsSheet(
             )
 
             // ── 排版：两两分组一行 ──
-            SectionLabel(stringResource(R.string.reader_settings_section_typography))
+            SectionTitle(
+                text = stringResource(R.string.reader_settings_section_typography),
+                modifier = Modifier.padding(top = 18.dp),
+                icon = Icons.Filled.FormatSize,
+                accent = SettingAccentAmber,
+                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
+                style = MaterialTheme.typography.labelLarge,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
                 // 字号：Stepper（MD3：outlined 按钮自带边框，中间值，间距拉开）
                 TypographyCard(
@@ -231,7 +254,14 @@ fun ReaderSettingsSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
             )
 
-            SectionLabel(stringResource(R.string.reader_settings_section_font))
+            SectionTitle(
+                text = stringResource(R.string.reader_settings_section_font),
+                modifier = Modifier.padding(top = 18.dp),
+                icon = Icons.Filled.FontDownload,
+                accent = SettingAccentBlue,
+                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
+                style = MaterialTheme.typography.labelLarge,
+            )
             SettingSegmentedRow(
                 options = READER_FONT_FAMILY_KEYS,
                 selected = fontFamilyKey,
@@ -256,7 +286,14 @@ fun ReaderSettingsSheet(
                 }
             }
 
-            SectionLabel(stringResource(R.string.reader_settings_section_theme))
+            SectionTitle(
+                text = stringResource(R.string.reader_settings_section_theme),
+                modifier = Modifier.padding(top = 18.dp),
+                icon = Icons.Filled.Palette,
+                accent = SettingAccentViolet,
+                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
+                style = MaterialTheme.typography.labelLarge,
+            )
             SettingSegmentedRow(
                 options = ReaderThemeMode.entries.toList(),
                 selected = theme,
@@ -283,7 +320,14 @@ fun ReaderSettingsSheet(
                 Switch(checked = followSystem, onCheckedChange = onFollowSystemChange)
             }
 
-            SectionLabel(stringResource(R.string.reader_settings_section_page_mode))
+            SectionTitle(
+                text = stringResource(R.string.reader_settings_section_page_mode),
+                modifier = Modifier.padding(top = 18.dp),
+                icon = Icons.Filled.SwapVert,
+                accent = SettingAccentTeal,
+                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
+                style = MaterialTheme.typography.labelLarge,
+            )
             SettingSegmentedRow(
                 options = ReaderPageMode.entries.toList(),
                 selected = pageMode,
@@ -294,7 +338,14 @@ fun ReaderSettingsSheet(
             )
 
             // 双页显示：翻页/仿真模式下按视口宽度对半分页并排成跨页（滑动模式不生效）
-            SectionLabel(stringResource(R.string.reader_settings_dual_page))
+            SectionTitle(
+                text = stringResource(R.string.reader_settings_dual_page),
+                modifier = Modifier.padding(top = 18.dp),
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                accent = SettingAccentGreen,
+                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
+                style = MaterialTheme.typography.labelLarge,
+            )
             SettingSegmentedRow(
                 options = ReaderDualPageMode.entries.toList(),
                 selected = dualPageMode,
@@ -306,7 +357,13 @@ fun ReaderSettingsSheet(
 
             // 简繁转换（仅应用语言为中文时显示；OpenCC 转换正文文本块）
             if (showChineseConvert) {
-                SectionLabel(stringResource(R.string.reader_settings_chinese_convert))
+                SectionTitle(
+                    text = stringResource(R.string.reader_settings_chinese_convert),
+                    modifier = Modifier.padding(top = 18.dp),
+                    icon = Icons.Filled.Translate,
+                    accent = SettingAccentPink,
+                    style = MaterialTheme.typography.labelLarge,
+                )
                 SettingSegmentedRow(
                     options = CHINESE_CONVERT_OPTIONS.map { it.first },
                     selected = chineseConvert,
@@ -381,12 +438,27 @@ private fun FontWeightCard(
     }
 }
 
-/** 排版卡片：标题 + 可选值 + 内容区（surfaceContainerLow 圆角卡，紧凑高度）。 */
+/**
+ * 排版卡片：标题 + 可选值 + 内容区（surfaceContainerLow 圆角卡，紧凑高度）。
+ *
+ * [icon] 非空时在标题左侧渲染 28dp 图标徽标。当前六个分组的图标统一由分组标题
+ * （[SectionTitle]）承载，卡片级图标留作后续「无分组标题的独立卡」备用，避免同组双图标。
+ *
+ * @param title 卡片标题
+ * @param modifier 外部 Modifier
+ * @param valueText 标题右侧当前值文案；null 不显示
+ * @param icon 标题左侧可选图标徽标；null 不渲染
+ * @param accent 图标徽标点缀色（[Color.Unspecified] 时由徽标组件回退主题 primary）
+ * @param content 卡片内容
+ * @return 无返回值
+ */
 @Composable
 private fun TypographyCard(
     title: String,
     modifier: Modifier = Modifier,
     valueText: String? = null,
+    icon: ImageVector? = null,
+    accent: Color = Color.Unspecified,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -395,29 +467,39 @@ private fun TypographyCard(
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = Spacing.smPlus, vertical = Spacing.xsPlus),
     ) {
-        if (valueText != null) {
+        // 标题行：可选图标徽标 + 标题 + 右侧当前值（单行，避免撑高卡片）
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
+                // 卡片级图标徽标（可选）：彩色风格关闭时自动回退主题单色
+                if (icon != null) {
+                    AccentIconBadge(
+                        icon = icon,
+                        accent = accent,
+                        size = Sizes.s28,
+                        cornerRadius = 9.dp,
+                        iconSize = Sizes.s16,
+                    )
+                }
                 Text(
                     title,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (valueText != null) {
                 Text(
                     valueText,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-        } else {
-            Text(
-                title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
         content()
     }
@@ -511,16 +593,6 @@ private fun formatEm(value: Float): String {
     return if (rounded == 0f) "0"
     else if (rounded > 0) "+${String.format(Locale.US, "%.2f", rounded)}"
     else String.format(Locale.US, "%.2f", rounded)
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 18.dp, bottom = Spacing.xsPlus),
-    )
 }
 
 /** 简繁转换三档：(值, 文案)。0 关闭 / 1 简体→繁体 / 2 繁体→简体。 */

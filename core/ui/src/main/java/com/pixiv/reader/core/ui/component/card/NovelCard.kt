@@ -64,6 +64,7 @@ import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
 import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -274,7 +275,8 @@ fun NovelCard(
                                 Icon(
                                     imageVector = Icons.Filled.Favorite,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
+                                    // 收藏角标统一走 App 收藏红（与详情页/操作栏一致）
+                                    tint = FavoriteRed,
                                     modifier = Modifier.size(14.dp),
                                 )
                                 Text(
@@ -319,7 +321,8 @@ fun NovelCard(
                             Icon(
                                 imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                                 contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
-                                tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                // 选中态统一收藏红，与详情页操作栏/卡片角标一致
+                                tint = if (favorite) FavoriteRed else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(Sizes.s24),
                             )
                         }

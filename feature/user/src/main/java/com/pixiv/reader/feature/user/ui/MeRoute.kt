@@ -36,11 +36,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.SectionSpacer
+import com.pixiv.reader.core.ui.component.layout.SectionTitle
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
@@ -58,6 +61,7 @@ import com.pixiv.reader.core.ui.theme.SettingAccentPink
 import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
@@ -94,6 +98,7 @@ fun MeRoute(
     val user by viewModel.user.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
+    val colorStyleEnabled by viewModel.colorStyleEnabled.collectAsStateWithLifecycle()
     val fontScale by viewModel.appFontScale.collectAsStateWithLifecycle()
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
@@ -120,8 +125,19 @@ fun MeRoute(
 
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    // 页面背景：主题色派生的纵向渐变（顶部 primaryContainer 淡色 → 底部 surface），
-    // 由主题色派生故深浅色与动态取色下自动协调；Scaffold 容器透明让渐变透出
+    // 页面背景：开启彩色风格时用主题色派生纵向渐变（顶部 primaryContainer 淡色 → 底部 surface，
+    // 深浅色与动态取色下自动协调）；关闭时回纯 surface，与其余页面保持一致。
+    // Scaffold 容器透明让背景透出
+    val pageBackground: Brush = if (LocalColorStyleEnabled.current) {
+        Brush.verticalGradient(
+            listOf(
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.40f),
+                MaterialTheme.colorScheme.surface,
+            ),
+        )
+    } else {
+        SolidColor(MaterialTheme.colorScheme.surface)
+    }
     Scaffold(
         snackbarHost = {
             // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏，
@@ -136,14 +152,7 @@ fun MeRoute(
         contentWindowInsets = WindowInsets.statusBars,
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.40f),
-                        MaterialTheme.colorScheme.surface,
-                    ),
-                ),
-            ),
+            .background(pageBackground),
     ) { padding ->
         AdaptiveContentBox(
             // 消费已应用的 padding，内部 navigationBarsPadding 按剩余可见 inset 自适应
@@ -240,11 +249,13 @@ fun MeRoute(
                 MeAppearanceSection(
                     themeMode = themeMode,
                     dynamicColor = dynamicColor,
+                    colorStyleEnabled = colorStyleEnabled,
                     fontScale = fontScale,
                     appLanguage = appLanguage,
                     switchingLanguage = switchingLanguage,
                     onSetThemeMode = viewModel::setThemeMode,
                     onSetDynamicColor = viewModel::setDynamicColor,
+                    onSetColorStyleEnabled = viewModel::setColorStyleEnabled,
                     onSetFontScale = viewModel::setAppFontScale,
                     onSetAppLanguage = { value, onDone ->
                         switchingLanguage = true

@@ -61,6 +61,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
 import com.pixiv.reader.feature.user.R as UserR
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
+import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import com.pixiv.reader.app.actions.AppCardActions
 import com.pixiv.reader.core.ui.component.actions.CardActionsHost
@@ -139,6 +140,10 @@ class MainActivity : ComponentActivity() {
             val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.FOLLOW_SYSTEM)
             val dynamicColor by userPreferences.dynamicColor.collectAsStateWithLifecycle(
                 initialValue = true
+            )
+            // 彩色风格开关：关闭（默认）时各页点缀色回退主题 primary（纯 M3 单色）
+            val colorStyleEnabled by userPreferences.colorStyleEnabled.collectAsStateWithLifecycle(
+                initialValue = false
             )
             val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
             val isDark = when (themeMode) {
@@ -248,65 +253,69 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isDark,
                 dynamicColor = dynamicColor,
             ) {
-                // 外层 Scaffold 不 padding（系统栏 insets 由内层 NavigationBar / 各页面自行处理），
-                // 保证 MainShell 底部导航延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
-                Scaffold(
-                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    // 外层 Scaffold 不处理系统栏 insets（沉浸式）：剪贴板链接提示等全局通知
-                    // 需自行避让系统导航栏，否则会贴底被手势条遮挡。
-                    // 避让 padding 放 contentModifier（仅卡片展示时占位）：若放宿主根节点，
-                    // 无通知时空宿主也会占非零高度，导致 bottom bar 上方残留空白
-                    snackbarHost = {
-                        NotificationHost(
-                            notificationHostState,
-                            contentModifier = Modifier
-                                .navigationBarsPadding()
-                                .padding(bottom = Spacing.sm),
-                        )
-                    },
-                ) { padding ->
-                    Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                        // hero 过渡 scope 提升到应用根部：内层 Tab 卡片（MainShell 内的 NavHost）
-                        // 与外层详情路由（顶层 NavHost）跨 NavHost 层级共享元素，必须同一个
-                        // SharedTransitionLayout 才有共同坐标系；scope 经 CompositionLocal 下发，
-                        // 卡片 / 详情组件内部自行消费，页面层无需透传
-                        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
-                            CompositionLocalProvider(LocalSharedTransitionScope provides this) {
-                                // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
-                                CardActionsHost(actions = appCardActions) {
-                                    PixivNavGraph(
-                                        isLoggedIn = isLoggedIn,
-                                        // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
-                                        onboardingComplete = readOnboardingCompleteSync(context),
-                                        onCompleteOnboarding = {
-                                            lifecycleScope.launch {
-                                                runCatching { userPreferences.setOnboardingComplete(true) }
-                                            }
-                                        },
-                                        onLogout = { sessionRepository.logout() },
-                                        navController = navController,
-                                    )
+                // 彩色风格通篇下发：开启时各页使用彩色点缀，关闭时组件经 resolveAccent
+                // 统一回退到主题 primary（纯 M3 单色）；包在内容最外层保证全路由可见
+                CompositionLocalProvider(LocalColorStyleEnabled provides colorStyleEnabled) {
+                    // 外层 Scaffold 不 padding（系统栏 insets 由内层 NavigationBar / 各页面自行处理），
+                    // 保证 MainShell 底部导航延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
+                    Scaffold(
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                        // 外层 Scaffold 不处理系统栏 insets（沉浸式）：剪贴板链接提示等全局通知
+                        // 需自行避让系统导航栏，否则会贴底被手势条遮挡。
+                        // 避让 padding 放 contentModifier（仅卡片展示时占位）：若放宿主根节点，
+                        // 无通知时空宿主也会占非零高度，导致 bottom bar 上方残留空白
+                        snackbarHost = {
+                            NotificationHost(
+                                notificationHostState,
+                                contentModifier = Modifier
+                                    .navigationBarsPadding()
+                                    .padding(bottom = Spacing.sm),
+                            )
+                        },
+                    ) { padding ->
+                        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                            // hero 过渡 scope 提升到应用根部：内层 Tab 卡片（MainShell 内的 NavHost）
+                            // 与外层详情路由（顶层 NavHost）跨 NavHost 层级共享元素，必须同一个
+                            // SharedTransitionLayout 才有共同坐标系；scope 经 CompositionLocal 下发，
+                            // 卡片 / 详情组件内部自行消费，页面层无需透传
+                            SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+                                CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                                    // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
+                                    CardActionsHost(actions = appCardActions) {
+                                        PixivNavGraph(
+                                            isLoggedIn = isLoggedIn,
+                                            // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
+                                            onboardingComplete = readOnboardingCompleteSync(context),
+                                            onCompleteOnboarding = {
+                                                lifecycleScope.launch {
+                                                    runCatching { userPreferences.setOnboardingComplete(true) }
+                                                }
+                                            },
+                                            onLogout = { sessionRepository.logout() },
+                                            navController = navController,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                // 启动自动检查到新版本：弹与「检测更新」按钮一致的更新对话框
-                // （changelog 正文 + 前往下载浏览器打开 Release 页 / 下次再说）
-                updateRelease.value?.let { release ->
-                    UpdateReleaseDialog(
-                        release = release,
-                        title = stringResource(UserR.string.me_update_available_title, release.tagName),
-                        confirmText = stringResource(UserR.string.me_update_download),
-                        dismissText = stringResource(UserR.string.me_update_later),
-                        onConfirm = {
-                            runCatching {
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
-                            }
-                            updateRelease.value = null
-                        },
-                        onDismiss = { updateRelease.value = null },
-                    )
+                    // 启动自动检查到新版本：弹与「检测更新」按钮一致的更新对话框
+                    // （changelog 正文 + 前往下载浏览器打开 Release 页 / 下次再说）
+                    updateRelease.value?.let { release ->
+                        UpdateReleaseDialog(
+                            release = release,
+                            title = stringResource(UserR.string.me_update_available_title, release.tagName),
+                            confirmText = stringResource(UserR.string.me_update_download),
+                            dismissText = stringResource(UserR.string.me_update_later),
+                            onConfirm = {
+                                runCatching {
+                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl)))
+                                }
+                                updateRelease.value = null
+                            },
+                            onDismiss = { updateRelease.value = null },
+                        )
+                    }
                 }
             }
             }

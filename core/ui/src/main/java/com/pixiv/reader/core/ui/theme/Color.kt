@@ -28,6 +28,24 @@ val DarkOnSurfaceVariant = Color(0xFFC3C7CF)
 val DarkOutline = Color(0xFF8D9199)
 val DarkOutlineVariant = Color(0xFF42474D)
 
+// ── M3 容器/反向角色（深色，由 DarkSurface #191C1F 种子派生）──
+// 与浅色同理：显式定义深色容器角色，替换 M3 基线紫灰（深色 #211F26），
+// 保持与 primary 蓝同相的冷调中性。注意本文件深色色板「容器与内容互换」的既有约定：
+// DarkColors 里 primary = PrimaryContainer（#CDE5FF），故 surfaceTint 取该值。
+
+val DarkSurfaceDim = Color(0xFF191C1F)
+val DarkSurfaceBright = Color(0xFF34383D)
+val DarkSurfaceContainerLowest = Color(0xFF131619)
+val DarkSurfaceContainerLow = Color(0xFF1D2125)
+val DarkSurfaceContainer = Color(0xFF21252A)
+val DarkSurfaceContainerHigh = Color(0xFF2B3035)
+val DarkSurfaceContainerHighest = Color(0xFF363B41)
+/** surfaceTint：深色下与 primary 角色一致（= PrimaryContainer #CDE5FF） */
+val DarkSurfaceTint = Color(0xFFCDE5FF)
+val DarkInverseSurface = Color(0xFFE1E2E8)
+val DarkInverseOnSurface = Color(0xFF2F3033)
+val DarkInversePrimary = Color(0xFF00639B)
+
 val Background = Color(0xFFFDFCFF)
 val OnBackground = Color(0xFF1A1C1E)
 val Surface = Color(0xFFFDFCFF)
@@ -36,6 +54,24 @@ val SurfaceVariant = Color(0xFFDFE2EB)
 val OnSurfaceVariant = Color(0xFF42474D)
 val Outline = Color(0xFF73777E)
 val OutlineVariant = Color(0xFFC3C7CF)
+
+// ── M3 容器/反向角色（浅色，由 Surface #FDFCFF 种子派生）──
+// M3 容器角色此前未显式定义，全项目 72 处 surfaceContainer* 消费点实际拿到 M3 基线
+// 紫灰色（浅色 #F3EDF7），与本色板的蓝调中性冲突。以下 token 以同色相低饱和蓝调微调，
+// 保证卡片底/导航指示器/对话框等容器角色与 primary 蓝同相，不出现紫灰。
+
+val SurfaceDim = Color(0xFFDCDADF)
+val SurfaceBright = Color(0xFFFDFCFF)
+val SurfaceContainerLowest = Color(0xFFFFFFFF)
+val SurfaceContainerLow = Color(0xFFF7F9FC)
+val SurfaceContainer = Color(0xFFF1F4F9)
+val SurfaceContainerHigh = Color(0xFFEBEFF5)
+val SurfaceContainerHighest = Color(0xFFE5EAF1)
+/** surfaceTint = Primary：M3 高亮蒙层用主色，保持与 primary 同一色相 */
+val SurfaceTint = Color(0xFF00639B)
+val InverseSurface = Color(0xFF2F3033)
+val InverseOnSurface = Color(0xFFF1F0F4)
+val InversePrimary = Color(0xFF98CBFF)
 
 // ── 语义色（跨模块统一，禁止在业务代码写裸色值） ──
 

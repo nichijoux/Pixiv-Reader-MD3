@@ -36,8 +36,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.resolveAccent
 
 /** 创作者档案数据（用户搜索 / 浏览历史用户类共用）。 */
 data class CreatorProfile(
@@ -114,7 +116,7 @@ fun CreatorProfileCard(
                 .padding(start = Spacing.mdPlus, end = Spacing.mdPlus, bottom = Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 64dp 圆形头像：2dp 主题色边框，上移 24dp 重叠封面区
+            // 64dp 圆形头像：2dp 点缀色边框（彩色风格关闭时回退主题 primary），上移 24dp 重叠封面区
             Box(modifier = Modifier.offset(y = (-24).dp)) {
                 AsyncImage(
                     model = profile.avatarUrl,
@@ -123,7 +125,7 @@ fun CreatorProfileCard(
                     modifier = Modifier
                         .size(Sizes.s64)
                         .clip(CircleShape)
-                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        .border(2.dp, resolveAccent(SettingAccentViolet), CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 )
             }

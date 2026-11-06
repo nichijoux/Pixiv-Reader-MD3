@@ -22,12 +22,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.input.AccentIconBadge
+import com.pixiv.reader.core.ui.theme.SettingAccentOrange
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -47,17 +50,22 @@ fun LoadingBox(modifier: Modifier = Modifier) {
 }
 
 /**
- * 三态占位的大图标（错误 / 空态共用）：48dp 线性图标 + effects 快档淡入。
+ * 三态占位的大图标（错误 / 空态共用）：默认 48dp 线性图标 + effects 快档淡入；
+ * 传入点缀色时改为 64dp 图标徽标（淡底 + 同色图标）。
  *
  * ## UI 设计方式
- * 次级色 40% 透明度（`onSurfaceVariant.copy(alpha = 0.4f)`），弱化到「氛围插画」而非信息层级；
- * 组合期捕获 MotionScheme 的 `fastEffectsSpec`，由 [Animatable] 从 0 → 1 淡入，避免三态切换硬闪。
+ * - 未传点缀色（[Color.Unspecified]）：次级色 40% 透明度（`onSurfaceVariant.copy(alpha = 0.4f)`）裸图标，
+ *   弱化到「氛围插画」而非信息层级（既有 26 处调用的观感保持不变）。
+ * - 传入点缀色：交给 [AccentIconBadge] 渲染 64dp 容器（16dp 圆角、32dp 图标），
+ *   容器淡底与图标色同源且经 `resolveAccent` 解析（彩色风格关闭时自动回退主题单色）。
+ * - 两种形态都由 [Animatable] 从 0 → 1 淡入（透明度挂在外层 Box），避免三态切换硬闪。
  *
  * @param icon 图标（错误态 CloudOff / 空态 Inbox）
+ * @param accent 点缀色；[Color.Unspecified] 保持中性裸图标观感
  * @return 无返回值（Composable 渲染图标）
  */
 @Composable
-private fun StateIllustration(icon: ImageVector) {
+private fun StateIllustration(icon: ImageVector, accent: Color = Color.Unspecified) {
     // 组合期捕获动效规格：Animatable 的 animateTo 调用点不在组合上下文
     val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val alpha = remember { Animatable(0f) }
@@ -65,22 +73,38 @@ private fun StateIllustration(icon: ImageVector) {
         // 进场淡入：单次播放，重组不重播（LaunchedEffect 以 Unit 为 key）
         alpha.animateTo(1f, animationSpec = fadeSpec)
     }
-    Icon(
-        imageVector = icon,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+    Box(
         modifier = Modifier
             .padding(bottom = Spacing.md)
-            .size(48.dp)
             .graphicsLayer { this.alpha = alpha.value },
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        if (accent == Color.Unspecified) {
+            // 中性形态：保持与既有一致的 48dp 弱化裸图标（无容器底）
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(48.dp),
+            )
+        } else {
+            // 彩色形态：淡底 + 同色图标的统一徽标语汇（accent 由 AccentIconBadge 内 resolveAccent 解析）
+            AccentIconBadge(
+                icon = icon,
+                accent = accent,
+                size = 64.dp,
+                cornerRadius = 16.dp,
+                iconSize = 32.dp,
+            )
+        }
+    }
 }
 
 /**
  * 错误占位：居中显示错误信息 + 重试按钮。
  *
  * ## UI 设计方式
- * `Column` 垂直居中：48dp 云断开图标（次级色 40%，淡入）+ 错误文本（`error` 色，居中）
+ * `Column` 垂直居中：64dp 橙色图标徽标（CloudOff，淡底 + 同色图标，淡入）+ 错误文本（`error` 色，居中）
  * + "重试" `Button`（带刷新图标）。
  *
  * @param message 错误信息
@@ -100,8 +124,8 @@ fun ErrorBox(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // 氛围图标：弱化视觉重量，仅作情绪提示
-        StateIllustration(Icons.Outlined.CloudOff)
+        // 氛围图标：橙色徽标提示「网络/请求异常」，文案仍用 error 色保持错误语义
+        StateIllustration(Icons.Outlined.CloudOff, accent = SettingAccentOrange)
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
@@ -119,20 +143,22 @@ fun ErrorBox(
  * 空态占位：居中显示收件箱图标 + 提示文本（次级色）。
  *
  * ## UI 设计方式
- * `Column` 垂直居中（`fillMaxSize`）：48dp 收件箱图标（次级色 40%，淡入）+ 单行提示文本。
+ * `Column` 垂直居中（`fillMaxSize`）：图标（淡入）+ 单行提示文本。
+ * 未传 [accent] 时为 48dp 次级色 40% 裸图标（既有调用观感不变）；传入后改为 64dp 图标徽标。
  *
  * @param text 空态提示文案（如"暂无收藏"）
  * @param modifier 外部传入的 Modifier
+ * @param accent 可选点缀色；[Color.Unspecified] 保持中性裸图标观感
  */
 @Composable
-fun EmptyBox(text: String, modifier: Modifier = Modifier) {
+fun EmptyBox(text: String, modifier: Modifier = Modifier, accent: Color = Color.Unspecified) {
     Column(
         modifier = modifier.fillMaxSize().padding(Spacing.xl),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // 氛围图标：与错误态同规格，保持三态视觉语言一致
-        StateIllustration(Icons.Outlined.Inbox)
+        StateIllustration(Icons.Outlined.Inbox, accent = accent)
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,

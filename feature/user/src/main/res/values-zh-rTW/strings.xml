@@ -105,6 +105,8 @@
     <string name="me_theme_dark">深色</string>
     <string name="me_dynamic_color">動態取色</string>
     <string name="me_dynamic_color_desc">Android 12+ 使用桌布取色</string>
+    <string name="me_color_style">彩色風格</string>
+    <string name="me_color_style_desc">圖示與空狀態使用多彩點綴，關閉則回到 Material Design 單色</string>
     <string name="me_language">語言</string>
     <string name="me_language_follow_system">跟隨系統</string>
     <string name="me_language_chinese">簡體中文</string>
