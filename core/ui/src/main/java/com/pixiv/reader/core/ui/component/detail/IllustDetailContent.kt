@@ -882,20 +882,23 @@ private fun StatBlock(
                 } else {
                     resolveAccent(iconAccent)
                 },
-                modifier = Modifier.size(Sizes.s16),
+                // 与数值字号同档放大：16dp 在详情页整页比例下偏小，提到 20dp
+                modifier = Modifier.size(Sizes.s20),
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleSmall,
+                // titleSmall(14sp) → titleMedium(16sp)，与图标放大同档
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 5.dp),
+                modifier = Modifier.padding(start = Spacing.xsPlus),
             )
         }
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            // 说明文案与数值同档放大（labelMedium 12sp → bodyMedium 14sp），避免整行头重脚轻
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Spacing.xxs),
+            modifier = Modifier.padding(top = Spacing.xs),
         )
     }
 }

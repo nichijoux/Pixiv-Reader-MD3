@@ -284,19 +284,22 @@ internal fun NovelStatBlock(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(Sizes.s16),
+                // 与数值同档放大：16dp 在详情页整页比例下偏小，提到 20dp
+                modifier = Modifier.size(Sizes.s20),
                 tint = MaterialTheme.colorScheme.primary,
             )
             Text(
                 text = value,
                 style = novelStatValueStyle(),
-                modifier = Modifier.padding(start = Spacing.xs),
+                modifier = Modifier.padding(start = Spacing.xsPlus),
             )
         }
         Text(
             text = label,
-            style = novelSmallLabelStyle(),
+            // 说明文案放大一档（labelMedium 12sp → bodyMedium 14sp），与数值层级平衡
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xxs),
         )
     }
 }
