@@ -1,5 +1,6 @@
 package com.pixiv.reader.core.ui.component.layout
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
@@ -7,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -31,10 +34,12 @@ import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -129,9 +134,13 @@ fun AdaptiveNavScaffold(
                                 onSelect(item.route)
                             },
                             icon = {
-                                Icon(
-                                    imageVector = if (selected) item.selectedIcon else item.icon,
-                                    contentDescription = item.label,
+                                // 图标切换动画：M3 默认只动指示器，图标本体是硬切；
+                                // 这里给选中/未选中图标各挂淡入淡出 + 缩放，让切换有过渡感
+                                NavBarIcon(
+                                    selected = selected,
+                                    icon = item.icon,
+                                    selectedIcon = item.selectedIcon,
+                                    label = item.label,
                                 )
                             },
                             label = { Text(item.label) },
@@ -220,6 +229,63 @@ fun AdaptiveNavScaffold(
                 content(padding)
             }
         }
+    }
+}
+
+/**
+ * 导航栏条目的图标过渡：选中/未选中图标交叉淡入淡出 + 选中态轻微弹性缩放。
+ *
+ * M3 `NavigationBarItem` 只对指示器胶囊做动画，图标本体是硬切（`if (selected) a else b`），
+ * 切换到带独立 `selectedIcon` 的条目时观感突兀。这里用 [AnimatedContent] 以选中态为 key
+ * 做交叉淡入淡出，动画走 [MaterialTheme.motionScheme] 的 effects 档
+ * （遵守项目动效规范：不使用裸 tween 时长）。
+ *
+ * @param selected 当前是否选中
+ * @param icon 未选中图标
+ * @param selectedIcon 选中态图标
+ * @param label 无障碍描述（取自导航项文案）
+ * @return 无返回值
+ */
+@Composable
+private fun NavBarIcon(
+    selected: Boolean,
+    icon: ImageVector,
+    selectedIcon: ImageVector,
+    label: String,
+) {
+    // 组合期捕获动效规格：AnimatedContent 的 transitionSpec 不在组合上下文求值
+    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val effectsSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+    // 选中态弹起：未选 0.82 → 选中 1.0（含轻微过冲由 spring 提供），
+    // 与指示器胶囊同时进场形成「按下弹起」的层次
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.82f,
+        animationSpec = spatialSpec,
+        label = "navBarIconScale",
+    )
+    // 选中态额外叠一层不透明度，未选图标更「沉」，增强选中/未选的层次差
+    val iconAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.86f,
+        animationSpec = effectsSpec,
+        label = "navBarIconAlpha",
+    )
+    AnimatedContent(
+        targetState = selected,
+        transitionSpec = {
+            // 交叉淡入淡出：旧图标快速淡出、新图标淡入（effects 档为快节奏，适配导航切换）
+            fadeIn(animationSpec = effectsSpec) togetherWith fadeOut(animationSpec = effectsSpec)
+        },
+        label = "navBarIcon",
+        modifier = Modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+            alpha = iconAlpha
+        },
+    ) { isSelected ->
+        Icon(
+            imageVector = if (isSelected) selectedIcon else icon,
+            contentDescription = label,
+        )
     }
 }
 
