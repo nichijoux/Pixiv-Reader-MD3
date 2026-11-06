@@ -1,5 +1,10 @@
 package com.pixiv.reader.core.ui.component.layout
 
+import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.AppShapes
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.remember
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
@@ -9,15 +14,29 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
@@ -117,44 +136,14 @@ fun AdaptiveNavScaffold(
                 enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
                 exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
             ) {
-                NavigationBar {
-                    items.forEach { item ->
-                        val selected = selectedRoute == item.route
-                        // 选中态点缀色：未指定时回退 primary，彩色风格关闭时 resolveAccent 统一回 primary
-                        val accent = resolveAccent(
-                            if (item.accent == Color.Unspecified) MaterialTheme.colorScheme.primary else item.accent,
-                        )
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                // 仅切换页签时响 SELECT（重复点当前页签只做回顶，不响）
-                                if (selectedRoute != item.route) {
-                                    haptic(PixivHaptics.HapticCue.SELECT)
-                                }
-                                onSelect(item.route)
-                            },
-                            icon = {
-                                // 图标切换动画：M3 默认只动指示器，图标本体是硬切；
-                                // 这里给选中/未选中图标各挂淡入淡出 + 缩放，让切换有过渡感
-                                NavBarIcon(
-                                    selected = selected,
-                                    icon = item.icon,
-                                    selectedIcon = item.selectedIcon,
-                                    label = item.label,
-                                )
-                            },
-                            label = { Text(item.label) },
-                            // 选中指示器/图标/标签都取该 Tab 的点缀色淡底与本色，与页面彩色体系一致
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = accent,
-                                selectedTextColor = accent,
-                                indicatorColor = accent.copy(alpha = 0.16f),
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                        )
-                    }
-                }
+                // 自绘导航栏：M3 NavigationBarItem 的指示器是每个 item 各自淡入淡出（无法跨 item 位移），
+                // 这里改为「单一滑块 + 位移动画」，实现指示器从前一个选中项滑到新选中项
+                SlidingIndicatorNavigationBar(
+                    items = items,
+                    selectedRoute = selectedRoute,
+                    onSelect = onSelect,
+                    haptic = haptic,
+                )
             }
         },
         modifier = Modifier.fillMaxSize(),
@@ -244,6 +233,7 @@ fun AdaptiveNavScaffold(
  * @param icon 未选中图标
  * @param selectedIcon 选中态图标
  * @param label 无障碍描述（取自导航项文案）
+ * @param tint 图标着色（选中取该 Tab 点缀色、未选取 onSurfaceVariant）
  * @return 无返回值
  */
 @Composable
@@ -252,6 +242,7 @@ private fun NavBarIcon(
     icon: ImageVector,
     selectedIcon: ImageVector,
     label: String,
+    tint: Color,
 ) {
     // 组合期捕获动效规格：AnimatedContent 的 transitionSpec 不在组合上下文求值
     val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
@@ -285,9 +276,152 @@ private fun NavBarIcon(
         Icon(
             imageVector = if (isSelected) selectedIcon else icon,
             contentDescription = label,
+            tint = tint,
         )
     }
 }
+
+/**
+ * 自绘底部导航栏：单一指示器胶囊跨 item 位移。
+ *
+ * ## 为什么不用 M3 `NavigationBar`
+ * M3 的 `NavigationBarItem` 指示器在每个 item 内部各自缩放淡入淡出，切换时是
+ * 「旧指示器缩没 + 新指示器长大」，无法表达「指示器从前一项滑到新项」。
+ * 这里改为在整栏上叠**唯一**一个指示器，用 `animateDpAsState` 对其 x 位移做动画。
+ *
+ * ## 结构
+ * `Box` 铺满栏宽：底层指示器（按选中索引偏移 + 宽 56dp）+ 上层等分条目（图标+标签）。
+ * 尺寸沿用 M3 规范：栏高 80dp、指示器 56×32dp、图标 24dp、标签 labelMedium。
+ * 选中色取该 Tab 的 `accent`（经 [resolveAccent]，彩色风格关闭时回退 primary）。
+ *
+ * @param items 导航项列表
+ * @param selectedRoute 当前选中路由（null 时无指示器）
+ * @param onSelect 点击导航项回调
+ * @param haptic 触觉回调（SELECT 档，仅真正切页时触发）
+ * @return 无返回值
+ */
+@Composable
+private fun SlidingIndicatorNavigationBar(
+    items: List<AdaptiveNavItem>,
+    selectedRoute: String?,
+    onSelect: (String) -> Unit,
+    haptic: (PixivHaptics.HapticCue) -> Unit,
+) {
+    if (items.isEmpty()) return
+    val colorScheme = MaterialTheme.colorScheme
+    // 选中索引：用于指示器位移目标；无选中时 -1（不渲染指示器）
+    val selectedIndex = items.indexOfFirst { it.route == selectedRoute }
+    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
+    val colorsSpec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            // 底栏背景延伸进系统导航栏区域（M3 默认行为：容器色铺满 + 内容避让 inset）
+            .background(colorScheme.surfaceContainer)
+            .windowInsetsPadding(NavigationBarDefaults.windowInsets),
+    ) {
+        // 每个条目的可用宽度（栏宽均分）；指示器在其中水平居中
+        val itemWidth = maxWidth / items.size
+        val indicatorWidth = NavIndicatorWidth
+        // 指示器目标水平偏移：第 i 项中心 - 指示器半宽
+        val targetOffset = if (selectedIndex >= 0) {
+            itemWidth * selectedIndex + (itemWidth - indicatorWidth) / 2
+        } else {
+            0.dp
+        }
+        val offset by animateDpAsState(
+            targetValue = targetOffset,
+            animationSpec = spatialSpec,
+            label = "navIndicatorOffset",
+        )
+        // 指示器颜色跟随选中项 accent；切换时颜色也做淡变，避免瞬间跳色
+        val indicatorColor by animateColorAsState(
+            targetValue = if (selectedIndex >= 0) {
+                val selectedItem = items[selectedIndex]
+                resolveAccent(
+                    if (selectedItem.accent == Color.Unspecified) colorScheme.primary else selectedItem.accent,
+                ).copy(alpha = 0.16f)
+            } else {
+                Color.Transparent
+            },
+            animationSpec = colorsSpec,
+            label = "navIndicatorColor",
+        )
+
+        // 指示器层：唯一滑块，随选中索引横向滑动
+        if (selectedIndex >= 0) {
+            Box(
+                modifier = Modifier
+                    .offset(x = offset)
+                    // 指示器水平居中于条目区、垂直与图标对齐（距顶 12dp，与 M3 一致）
+                    .padding(top = NavIndicatorTopPadding)
+                    .size(width = indicatorWidth, height = NavIndicatorHeight)
+                    .clip(AppShapes.pill)
+                    .background(indicatorColor),
+            )
+        }
+
+        // 条目前景层：等分铺满，每项可点
+        Row(modifier = Modifier.fillMaxWidth()) {
+            items.forEach { item ->
+                val selected = item.route == selectedRoute
+                val accent = resolveAccent(
+                    if (item.accent == Color.Unspecified) colorScheme.primary else item.accent,
+                )
+                // 无涟漪：由指示器滑块与图标缩放表达选中态，涟漪会盖住滑块层次
+                val interactionSource = remember { MutableInteractionSource() }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(NavBarHeight)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                        ) {
+                            // 仅切换页签时响 SELECT（重复点当前页签只做回顶，不响）
+                            if (!selected) {
+                                haptic(PixivHaptics.HapticCue.SELECT)
+                            }
+                            onSelect(item.route)
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    // 图标区固定 32dp 高，与指示器垂直对齐
+                    Box(
+                        modifier = Modifier.height(NavIndicatorHeight),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        NavBarIcon(
+                            selected = selected,
+                            icon = item.icon,
+                            selectedIcon = item.selectedIcon,
+                            label = item.label,
+                            tint = if (selected) accent else colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) accent else colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Spacing.xxs),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 导航栏内容高度（不含系统导航栏 inset），M3 TallContainerHeight。 */
+private val NavBarHeight = 80.dp
+
+/** 选中指示器尺寸（M3 ActiveIndicatorWidth × ActiveIndicatorHeight）。 */
+private val NavIndicatorWidth = 56.dp
+private val NavIndicatorHeight = 32.dp
+
+/** 指示器距栏顶偏移：与图标垂直居中位置对齐。 */
+private val NavIndicatorTopPadding = 12.dp
 
 /**
  * 平板内容宽度约束：内容居中且不超过 [maxWidth]（默认 `MAX_CONTENT_WIDTH_DP`=760dp）。
