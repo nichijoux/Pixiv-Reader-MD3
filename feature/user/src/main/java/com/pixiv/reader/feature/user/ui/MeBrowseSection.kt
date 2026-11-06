@@ -12,10 +12,16 @@ import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
+import com.pixiv.reader.core.ui.theme.SettingAccentOrange
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 
 /**
  * 我的页「浏览设置」：小说默认页 / 作品查看方向 / 关注页排序 / 剪贴板链接提示 / 小说下载命名。
- * Expressive 分组面板：五项聚入单张 28dp 圆角卡，组内行用分隔线区隔。
+ * Expressive 分组面板：五项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
+ * 每行前置图标带各自点缀色。
  *
  * @param novelDefaultTab 小说 Tab 默认页（推荐/关注）
  * @param viewerOrientation 全屏查看器滑动方向
@@ -52,9 +58,9 @@ internal fun MeBrowseSection(
                 NovelDefaultTab.RECOMMEND to R.string.me_novel_default_recommend,
                 NovelDefaultTab.FOLLOW to R.string.me_novel_default_follow,
             ),
+            accent = SettingAccentViolet,
             onSelect = onSetNovelDefaultTab,
         )
-        MeRowDivider()
         // 作品查看方向：宽控件行
         MeSegmentedRow(
             icon = Icons.Filled.ScreenRotation,
@@ -65,9 +71,9 @@ internal fun MeBrowseSection(
                 ViewerOrientation.VERTICAL to R.string.me_viewer_orientation_vertical,
                 ViewerOrientation.SEAMLESS to R.string.me_viewer_orientation_seamless,
             ),
+            accent = SettingAccentBlue,
             onSelect = onSetViewerOrientation,
         )
-        MeRowDivider()
         // 关注页排序（值行 + 下拉菜单，菜单锚定行尾值区右对齐展开）
         val sortOptions = listOf(
             FollowSortMode.FOLLOW_TIME to R.string.me_follow_sort_follow_time,
@@ -80,24 +86,25 @@ internal fun MeBrowseSection(
             title = stringResource(R.string.me_follow_sort),
             currentValue = stringResource(sortOptions.first { it.first == followSortMode }.second),
             options = sortOptions,
+            accent = SettingAccentTeal,
             onSelect = onSetFollowSortMode,
         )
-        MeRowDivider()
         // 剪贴板链接提示（开关行：整行可点切换）
         MeSwitchRow(
             icon = Icons.Filled.ContentPaste,
             title = stringResource(R.string.me_clipboard_link_prompt),
             subtitle = stringResource(R.string.me_clipboard_link_prompt_desc),
             checked = clipboardLinkPrompt,
+            accent = SettingAccentGreen,
             onCheckedChange = onSetClipboardLinkPrompt,
         )
-        MeRowDivider()
         // 小说下载命名（导航行：副文本显示当前模板，点击打开编辑弹窗）
         MeRow(
             icon = Icons.Filled.Description,
             title = stringResource(R.string.me_novel_file_name_template),
             subtitle = novelFileNameTemplate,
             subtitleMaxLines = 1,
+            accent = SettingAccentOrange,
             trailing = { MeArrowTrailing() },
             onClick = onOpenFileNameTemplate,
         )

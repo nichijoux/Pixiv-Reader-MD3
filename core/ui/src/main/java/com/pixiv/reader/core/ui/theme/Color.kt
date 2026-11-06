@@ -51,6 +51,18 @@ val SuccessGreen = Color(0xFF4CAF50)
 /** Pixiv 品牌蓝（登录等） */
 val PixivBlue = Color(0xFF0096FA)
 
+/**
+ * 设置行图标点缀色组（装饰层，不参与主题角色）：容器底 = 色值 12% alpha，图标 tint = 色值本身；
+ * 色值取高亮度档保证深色卡片上图标可见（蓝/绿与 PixivBlue/SuccessGreen 同值），浅深色通用（参照 Notification accent 范式）。
+ */
+val SettingAccentViolet = Color(0xFF7C57FF)
+val SettingAccentBlue = Color(0xFF0096FA)
+val SettingAccentTeal = Color(0xFF00A5A5)
+val SettingAccentGreen = Color(0xFF4CAF50)
+val SettingAccentAmber = Color(0xFFFFB300)
+val SettingAccentOrange = Color(0xFFFF8A3D)
+val SettingAccentPink = Color(0xFFE85D8A)
+
 // ── 小说阅读器 4 主题调色板（源：feature/reader ReaderTheme.kt 实际渲染色值） ──
 
 val ReaderDayBackground = Color(0xFFFFFFFF)

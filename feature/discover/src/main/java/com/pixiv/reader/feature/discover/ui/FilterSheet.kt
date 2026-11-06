@@ -33,9 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,6 +51,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
 import com.pixiv.api.model.SearchLangOption
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.AiFilter
 import com.pixiv.reader.feature.discover.state.R18Filter
@@ -865,23 +863,18 @@ private fun OtherPickerContent(
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionTitle(stringResource(R.string.filter_ai))
-            // AI 三选一（Expressive 分段选择，与全 App 设置面板口径一致）
+            // AI 三选一（全 App 统一胶囊分段）
             val aiOptions = listOf(
                 AiFilter.ALL to R.string.filter_all,
                 AiFilter.HUMAN_ONLY to R.string.filter_ai_human,
                 AiFilter.AI_ONLY to R.string.filter_ai_only,
             )
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                aiOptions.forEachIndexed { index, (value, labelRes) ->
-                    SegmentedButton(
-                        selected = ai == value,
-                        onClick = { ai = value },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = aiOptions.size),
-                        modifier = Modifier.weight(1f),
-                        label = { Text(stringResource(labelRes)) },
-                    )
-                }
-            }
+            PillSegmentedRow(
+                options = aiOptions,
+                selected = ai,
+                onSelect = { ai = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             if (!isNovel) {
                 SectionTitle(stringResource(R.string.filter_row_tool))
@@ -918,23 +911,18 @@ private fun OtherPickerContent(
             }
 
             SectionTitle(stringResource(R.string.filter_r18))
-            // R18 三选一（Expressive 分段选择）
+            // R18 三选一（全 App 统一胶囊分段）
             val r18Options = listOf(
                 R18Filter.ALL to R.string.filter_all,
                 R18Filter.SAFE_ONLY to R.string.filter_r18_safe,
                 R18Filter.R18_ONLY to R.string.filter_r18_only,
             )
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                r18Options.forEachIndexed { index, (value, labelRes) ->
-                    SegmentedButton(
-                        selected = r18 == value,
-                        onClick = { r18 = value },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = r18Options.size),
-                        modifier = Modifier.weight(1f),
-                        label = { Text(stringResource(labelRes)) },
-                    )
-                }
-            }
+            PillSegmentedRow(
+                options = r18Options,
+                selected = r18,
+                onSelect = { r18 = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Button(
                 onClick = {

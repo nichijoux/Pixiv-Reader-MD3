@@ -25,9 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
@@ -45,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.format.renderNovelFileName
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -126,27 +124,18 @@ internal fun NovelFileNameTemplateDialog(
                 text = stringResource(R.string.me_novel_file_name_template),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             )
-            // 范围切换：单本下载 / 系列导出
-            SingleChoiceSegmentedButtonRow(
+            // 范围切换：单本下载 / 系列导出（全 App 统一胶囊分段）
+            PillSegmentedRow(
+                options = listOf(
+                    false to R.string.me_file_name_scope_single,
+                    true to R.string.me_file_name_scope_series,
+                ),
+                selected = editingSeries,
+                onSelect = { series -> activeScope = if (series) 1 else 0 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = Spacing.lg),
-            ) {
-                SegmentedButton(
-                    selected = !editingSeries,
-                    onClick = { activeScope = 0 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                ) {
-                    Text(stringResource(R.string.me_file_name_scope_single))
-                }
-                SegmentedButton(
-                    selected = editingSeries,
-                    onClick = { activeScope = 1 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                ) {
-                    Text(stringResource(R.string.me_file_name_scope_series))
-                }
-            }
+            )
             OutlinedTextField(
                 value = activeTemplate,
                 onValueChange = { value ->

@@ -28,9 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -49,7 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.pixiv.reader.core.common.config.ReaderDualPageMode
 import com.pixiv.reader.core.common.config.ReaderPageMode
 import com.pixiv.reader.core.common.config.ReaderThemeMode
-import com.pixiv.reader.core.ui.component.input.SegmentedButtonLabel
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -238,8 +235,8 @@ fun ReaderSettingsSheet(
             SettingSegmentedRow(
                 options = READER_FONT_FAMILY_KEYS,
                 selected = fontFamilyKey,
-                label = { key ->
-                    stringResource(READER_FONT_FAMILY_NAME_RES[READER_FONT_FAMILY_KEYS.indexOf(key)])
+                labelRes = { key ->
+                    READER_FONT_FAMILY_NAME_RES[READER_FONT_FAMILY_KEYS.indexOf(key)]
                 },
                 onSelect = onFontFamilyChange,
             )
@@ -265,8 +262,8 @@ fun ReaderSettingsSheet(
                 selected = theme,
                 // 跟随系统深色模式时四档主题锁定不可选
                 enabled = { !followSystem },
-                label = { mode ->
-                    stringResource(READER_THEME_NAME_RES[ReaderThemeMode.entries.indexOf(mode)])
+                labelRes = { mode ->
+                    READER_THEME_NAME_RES[ReaderThemeMode.entries.indexOf(mode)]
                 },
                 onSelect = onThemeChange,
             )
@@ -290,8 +287,8 @@ fun ReaderSettingsSheet(
             SettingSegmentedRow(
                 options = ReaderPageMode.entries.toList(),
                 selected = pageMode,
-                label = { mode ->
-                    stringResource(READER_PAGE_MODE_NAME_RES[ReaderPageMode.entries.indexOf(mode)])
+                labelRes = { mode ->
+                    READER_PAGE_MODE_NAME_RES[ReaderPageMode.entries.indexOf(mode)]
                 },
                 onSelect = onPageModeChange,
             )
@@ -301,8 +298,8 @@ fun ReaderSettingsSheet(
             SettingSegmentedRow(
                 options = ReaderDualPageMode.entries.toList(),
                 selected = dualPageMode,
-                label = { mode ->
-                    stringResource(READER_DUAL_PAGE_NAME_RES[ReaderDualPageMode.entries.indexOf(mode)])
+                labelRes = { mode ->
+                    READER_DUAL_PAGE_NAME_RES[ReaderDualPageMode.entries.indexOf(mode)]
                 },
                 onSelect = onDualPageModeChange,
             )
@@ -313,8 +310,8 @@ fun ReaderSettingsSheet(
                 SettingSegmentedRow(
                     options = CHINESE_CONVERT_OPTIONS.map { it.first },
                     selected = chineseConvert,
-                    label = { value ->
-                        stringResource(CHINESE_CONVERT_OPTIONS.first { it.first == value }.second)
+                    labelRes = { value ->
+                        CHINESE_CONVERT_OPTIONS.first { it.first == value }.second
                     },
                     onSelect = onChineseConvertChange,
                 )
@@ -359,6 +356,9 @@ private fun FontWeightCard(
             DropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
+                // 全 App 统一浮层：高圆角 + 抬高一层容器色
+                shape = AppShapes.large,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.reader_settings_font_weight_thin)) },
@@ -476,15 +476,15 @@ private fun roundStep(value: Float, step: Float): Float =
     Math.round(value / step) * step
 
 /**
- * 通用分段选择行：SingleChoiceSegmentedButtonRow + SegmentedButton 惯式收敛
+ * 通用分段选择行：全 App 统一胶囊分段（[PillSegmentedRow]）惯式收敛
  * （字体 / 主题 / 翻页模式 / 双页显示 / 简繁转换五处共用）。
- * 标签用 [SegmentedButtonLabel] 单行缩字，防止长文案换行把分段撑高错位。
+ * 长文案由分段标签自身缩字处理，不会换行把轨道撑高错位。
  *
  * @param T 选项类型
  * @param options 选项列表（顺序 = 分段顺序）
  * @param selected 当前选中项
- * @param enabled 各选项是否可点（默认全部可用）
- * @param label 选项文案（Composable 上下文，可直接 stringResource）
+ * @param enabled 各选项是否可点（映射到 [PillSegmentedRow] 的 `optionEnabled`）
+ * @param labelRes 选项文案资源（在组合期由 [PillSegmentedRow] 内部 stringResource 解析）
  * @param onSelect 选项点击回调
  * @return 无返回值（UI 渲染）
  */
@@ -493,22 +493,16 @@ private fun <T> SettingSegmentedRow(
     options: List<T>,
     selected: T,
     enabled: (T) -> Boolean = { true },
-    label: @Composable (T) -> String,
+    labelRes: (T) -> Int,
     onSelect: (T) -> Unit,
 ) {
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, option ->
-            SegmentedButton(
-                selected = selected == option,
-                onClick = { onSelect(option) },
-                enabled = enabled(option),
-                shape = SegmentedButtonDefaults.itemShape(
-                    index = index,
-                    count = options.size
-                ),
-            ) { SegmentedButtonLabel(label(option)) }
-        }
-    }
+    PillSegmentedRow(
+        options = options.map { it to labelRes(it) },
+        selected = selected,
+        onSelect = onSelect,
+        optionEnabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** em 值格式化：0 → "0"；+0.05 → "+0.05"；-0.05 → "-0.05"。 */

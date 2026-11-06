@@ -25,10 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +45,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.comic.R
 import com.pixiv.reader.feature.comic.state.ComicHomeViewModel
@@ -56,7 +53,7 @@ import com.pixiv.reader.feature.comic.state.ComicRankingState
 import com.pixiv.reader.feature.comic.state.ComicTopState
 import kotlinx.coroutines.launch
 
-/** 首页双页签（沿项目 SegmentedButton + Pager 惯式）。 */
+/** 首页双页签（胶囊分段 + Pager 惯式）。 */
 private enum class ComicHomeTab(val labelRes: Int) {
     /** 更新页（banner + 最近更新）。 */
     TOP(R.string.comic_tab_top),
@@ -110,22 +107,15 @@ fun ComicHomeRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding).fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                // tab 分段：点击反向滚页（选中态跟 Pager 落页）
-                SingleChoiceSegmentedButtonRow(
+                // tab 分段：以页码为值，点击反向滚页（选中态跟 Pager 落页）
+                PillSegmentedRow(
+                    options = ComicHomeTab.entries.mapIndexed { index, tab -> index to tab.labelRes },
+                    selected = pagerState.currentPage,
+                    onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                ) {
-                    ComicHomeTab.entries.forEachIndexed { index, tab ->
-                        SegmentedButton(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = ComicHomeTab.entries.size),
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(tab.labelRes)) },
-                        )
-                    }
-                }
+                )
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                     when (ComicHomeTab.entries.getOrNull(page)) {
                         ComicHomeTab.TOP -> ComicTopTab(top = top, onOpenWork = onOpenWork, onRetry = viewModel::loadTop)
@@ -274,28 +264,19 @@ private fun ComicRankingTab(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "comic_ranking_modes") {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    val modes = ComicRankingMode.entries
-                    modes.forEachIndexed { index, mode ->
-                        SegmentedButton(
-                            selected = ranking.selectedMode == mode,
-                            onClick = { onSelectMode(mode) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                            modifier = Modifier.weight(1f),
-                            label = {
-                                Text(
-                                    stringResource(
-                                        if (mode == ComicRankingMode.WEEKLY) {
-                                            R.string.comic_ranking_mode_weekly
-                                        } else {
-                                            R.string.comic_ranking_mode_popularity
-                                        },
-                                    ),
-                                )
-                            },
-                        )
-                    }
-                }
+                val modes = ComicRankingMode.entries
+                PillSegmentedRow(
+                    options = modes.map { mode ->
+                        mode to if (mode == ComicRankingMode.WEEKLY) {
+                            R.string.comic_ranking_mode_weekly
+                        } else {
+                            R.string.comic_ranking_mode_popularity
+                        }
+                    },
+                    selected = ranking.selectedMode,
+                    onSelect = onSelectMode,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             item(span = { GridItemSpan(maxLineSpan) }, key = "comic_ranking_labels") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {

@@ -19,9 +19,6 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.BookmarkTag
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -86,22 +84,15 @@ fun BookmarkEditSheet(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             )
             // 可见性二选段：公开收藏 / 私密收藏（私密仅自己可见）
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = Spacing.md)) {
-                SegmentedButton(
-                    selected = restrict == PixivConstants.RESTRICT_PUBLIC,
-                    onClick = { onRestrictChange(PixivConstants.RESTRICT_PUBLIC) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(R.string.bookmark_restrict_public)) },
-                )
-                SegmentedButton(
-                    selected = restrict == PixivConstants.RESTRICT_PRIVATE,
-                    onClick = { onRestrictChange(PixivConstants.RESTRICT_PRIVATE) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(R.string.bookmark_restrict_private)) },
-                )
-            }
+            PillSegmentedRow(
+                options = listOf(
+                    PixivConstants.RESTRICT_PUBLIC to R.string.bookmark_restrict_public,
+                    PixivConstants.RESTRICT_PRIVATE to R.string.bookmark_restrict_private,
+                ),
+                selected = restrict,
+                onSelect = onRestrictChange,
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+            )
             // 标签目录：FlowRow 多选 chip（目录拉取中转圈占位）
             if (tagsLoading) {
                 Row(

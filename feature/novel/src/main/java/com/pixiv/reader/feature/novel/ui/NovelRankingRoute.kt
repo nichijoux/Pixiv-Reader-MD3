@@ -48,6 +48,7 @@ import com.pixiv.reader.core.ui.component.layout.isDetailPaneEnabled
 import com.pixiv.reader.core.ranking.ui.RankingDateChipRow
 import com.pixiv.reader.core.ranking.ui.RankingDatePickerButton
 import com.pixiv.reader.core.ranking.ui.RankingList
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelLanguageFilter
@@ -182,6 +183,9 @@ fun NovelRankingRoute(
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
+                            // 全 App 统一浮层：高圆角 + 抬高一层容器色
+                            shape = AppShapes.large,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         ) {
                             NovelLanguageFilter.entries.forEach { option ->
                                 DropdownMenuItem(

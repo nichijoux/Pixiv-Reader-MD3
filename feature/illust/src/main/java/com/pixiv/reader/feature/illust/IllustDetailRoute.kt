@@ -67,6 +67,7 @@ import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
 import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -163,6 +164,9 @@ fun IllustDetailRoute(
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
+                            // 全 App 统一浮层：高圆角 + 抬高一层容器色
+                            shape = AppShapes.large,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.illust_menu_download_original)) },

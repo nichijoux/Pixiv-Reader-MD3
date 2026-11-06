@@ -13,10 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +35,7 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.SeriesCard
 import com.pixiv.reader.core.ui.component.card.SeriesCardData
 import com.pixiv.reader.core.ui.component.card.toCardData
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
 
@@ -147,26 +144,17 @@ internal fun SectionSeries(
     // 二段切换（true = 漫画系列）
     var mangaTab by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
-        SingleChoiceSegmentedButtonRow(
+        PillSegmentedRow(
+            options = listOf(
+                false to R.string.user_series_tab_novel,
+                true to R.string.user_series_tab_manga,
+            ),
+            selected = mangaTab,
+            onSelect = { mangaTab = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-        ) {
-            SegmentedButton(
-                selected = !mangaTab,
-                onClick = { mangaTab = false },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                modifier = Modifier.weight(1f),
-                label = { Text(stringResource(R.string.user_series_tab_novel)) },
-            )
-            SegmentedButton(
-                selected = mangaTab,
-                onClick = { mangaTab = true },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                modifier = Modifier.weight(1f),
-                label = { Text(stringResource(R.string.user_series_tab_manga)) },
-            )
-        }
+        )
         if (!mangaTab) {
             NovelSeriesList(
                 paged = paged,

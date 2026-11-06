@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
@@ -32,7 +35,8 @@ private val DOWNLOAD_DOCUMENT_URI = Uri.parse(
 
 /**
  * 我的页「系统设置」：自动更新 / 下载位置（SAF）/ 清除缓存。
- * Expressive 分组面板：三项聚入单张 28dp 圆角卡，组内行用分隔线区隔。
+ * Expressive 分组面板：三项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
+ * 每行前置图标带各自点缀色。
  *
  * @param autoUpdate 自动更新开关
  * @param novelExportDir 小说导出目录（SAF tree URI；空串 = 应用默认）
@@ -76,15 +80,16 @@ internal fun MeSystemSection(
             title = stringResource(R.string.me_auto_update),
             subtitle = stringResource(R.string.me_auto_update_desc),
             checked = autoUpdate,
+            accent = SettingAccentGreen,
             onCheckedChange = onSetAutoUpdate,
         )
-        MeRowDivider()
         // 下载位置（导航行：点击打开 SAF 选择器；已配置时尾随「重置」行内动作）
         MeRow(
             icon = Icons.Filled.FolderOpen,
             title = stringResource(R.string.me_export_dir),
             subtitle = stringResource(R.string.me_export_dir_value, exportDirName),
             subtitleMaxLines = 1,
+            accent = SettingAccentBlue,
             trailing = {
                 if (novelExportDir.isNotBlank()) {
                     TextButton(onClick = onResetExportDir) {
@@ -95,13 +100,13 @@ internal fun MeSystemSection(
             // 初始定位到 Download：避免用户从存储根进入时被系统「保护隐私」限制拦截
             onClick = { exportDirLauncher.launch(DOWNLOAD_DOCUMENT_URI) },
         )
-        MeRowDivider()
         // 清除缓存（动作行：行内「清除」与整行点击均走确认弹窗，弹窗由 MeRoute 持有）
         MeRow(
             icon = Icons.Filled.DeleteSweep,
             title = stringResource(R.string.me_clear_cache),
             subtitle = stringResource(R.string.me_cache_size, cacheSize),
             subtitleMaxLines = 1,
+            accent = SettingAccentAmber,
             trailing = {
                 TextButton(onClick = onClearCache) {
                     Text(stringResource(R.string.me_clear), color = MaterialTheme.colorScheme.error)

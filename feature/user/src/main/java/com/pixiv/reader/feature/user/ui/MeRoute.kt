@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.user.ui
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,11 +34,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.LocalFloatingNavBottomInset
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
@@ -46,6 +51,13 @@ import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentGreen
+import com.pixiv.reader.core.ui.theme.SettingAccentOrange
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.feature.user.R
@@ -109,18 +121,34 @@ fun MeRoute(
 
     UiMessageEffect(viewModel.message, notificationHostState)
 
+    // 页面背景：主题色派生的纵向渐变（顶部 primaryContainer 淡色 → 底部 surface），
+    // 由主题色派生故深浅色与动态取色下自动协调；Scaffold 容器透明让渐变透出
     Scaffold(
         snackbarHost = {
-            // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏，
-            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
+            // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏；
+            // 通知条须落在浮动底栏（LocalFloatingNavBottomInset）之上。
+            // 壳层已不再消费导航栏 inset —— navigationBarsPadding() 两端均有值，
+            // 与 local（只含栏高 + 悬浮偏移、不含系统栏）相加不重复。
             NotificationHost(
                 notificationHostState,
-                modifier = Modifier.navigationBarsPadding(),
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(bottom = LocalFloatingNavBottomInset.current),
             )
         },
+        containerColor = Color.Transparent,
         // 沉浸式底部：底部 inset 置 0（内容直通系统导航栏），顶部保留状态栏避让（本页无 TopAppBar）
         contentWindowInsets = WindowInsets.statusBars,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.40f),
+                        MaterialTheme.colorScheme.surface,
+                    ),
+                ),
+            ),
     ) { padding ->
         AdaptiveContentBox(
             // 消费已应用的 padding，内部 navigationBarsPadding 按剩余可见 inset 自适应
@@ -139,8 +167,11 @@ fun MeRoute(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    // 沉浸式底部：内容尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+                    // 沉浸式底部：内容尾部避开「系统导航栏 + 浮动底栏」。
+                    // 壳层不再消费导航栏 inset，故 navigationBarsPadding() 全端恢复有值；
+                    // local 只含栏高 + 悬浮偏移（不含系统栏），两者相加不重复。
                     .navigationBarsPadding()
+                    .padding(bottom = LocalFloatingNavBottomInset.current)
                     .padding(Spacing.lg),
             ) {
                 // ── 个人头部（头像/名称/@account + 退出登录） ──
@@ -155,12 +186,12 @@ fun MeRoute(
                 SectionSpacer()
                 SectionTitle(stringResource(R.string.me_section_content))
                 val contentItems = listOf(
-                    SettingsCardItem(Icons.Filled.Favorite, stringResource(R.string.me_bookmarks_title), stringResource(R.string.me_bookmarks_desc), onClick = onOpenBookmarks),
-                    SettingsCardItem(Icons.Filled.History, stringResource(R.string.me_history_title), stringResource(R.string.me_history_desc), onClick = onOpenHistory),
-                    SettingsCardItem(Icons.Filled.Schedule, stringResource(R.string.me_read_later_title), stringResource(R.string.me_read_later_desc), onClick = onOpenReadLater),
-                    SettingsCardItem(Icons.Filled.Notifications, stringResource(R.string.me_watchlist_title), stringResource(R.string.me_watchlist_desc), onClick = onOpenWatchlist),
-                    SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), onClick = onOpenDownloads),
-                    SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), onClick = onOpenBlocked),
+                    SettingsCardItem(Icons.Filled.Favorite, stringResource(R.string.me_bookmarks_title), stringResource(R.string.me_bookmarks_desc), accent = SettingAccentPink, onClick = onOpenBookmarks),
+                    SettingsCardItem(Icons.Filled.History, stringResource(R.string.me_history_title), stringResource(R.string.me_history_desc), accent = SettingAccentBlue, onClick = onOpenHistory),
+                    SettingsCardItem(Icons.Filled.Schedule, stringResource(R.string.me_read_later_title), stringResource(R.string.me_read_later_desc), accent = SettingAccentOrange, onClick = onOpenReadLater),
+                    SettingsCardItem(Icons.Filled.Notifications, stringResource(R.string.me_watchlist_title), stringResource(R.string.me_watchlist_desc), accent = SettingAccentGreen, onClick = onOpenWatchlist),
+                    SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), accent = SettingAccentViolet, onClick = onOpenDownloads),
+                    SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), accent = SettingAccentTeal, onClick = onOpenBlocked),
                 )
                 MeItemGroup(contentItems)
 
@@ -173,6 +204,7 @@ fun MeRoute(
                         Icons.Filled.FavoriteBorder,
                         fanboxTitle,
                         stringResource(R.string.me_fanbox_desc),
+                        accent = SettingAccentAmber,
                         // FANBOX 按登录态分流：已登录（cookie 含 FANBOXSESSID）进原生首页，
                         // 否则进 App 内可见 WebView 登录（不走系统浏览器与网页 SSO 门控）
                         onClick = {
@@ -185,23 +217,26 @@ fun MeRoute(
                             }
                         },
                     ),
-    SettingsCardItem(
-        Icons.Filled.AutoStories,
-        stringResource(R.string.me_comic_title),
-        stringResource(R.string.me_comic_desc),
-        // COMIC 免费内容无需登录，直达原生首页（排行/详情/阅读器全原生）
-        onClick = onOpenComic,
-    ),
+                    SettingsCardItem(
+                        Icons.Filled.AutoStories,
+                        stringResource(R.string.me_comic_title),
+                        stringResource(R.string.me_comic_desc),
+                        accent = SettingAccentOrange,
+                        // COMIC 免费内容无需登录，直达原生首页（排行/详情/阅读器全原生）
+                        onClick = onOpenComic,
+                    ),
                     SettingsCardItem(
                         Icons.Filled.Email,
                         stringResource(R.string.me_talk_title),
                         stringResource(R.string.me_talk_desc),
+                        accent = SettingAccentBlue,
                         onClick = { viewModel.openEcosystemPage("https://www.pixiv.net/message.php") },
                     ),
                     SettingsCardItem(
                         Icons.Filled.TravelExplore,
                         stringResource(R.string.me_pixivision_title),
                         stringResource(R.string.me_pixivision_desc),
+                        accent = SettingAccentTeal,
                         onClick = onOpenPixivision,
                     ),
                 )

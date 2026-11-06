@@ -23,7 +23,7 @@ fun classifyWindowWidth(widthDp: Int): WindowSizeClass = when {
 
 /**
  * 是否应使用侧边导航（平板）。
- * Medium 及以上使用 NavigationRail，Compact 使用底部 NavigationBar。
+ * Medium 及以上使用 NavigationRail，Compact 使用底部浮动胶囊底栏（内容可穿栏）。
  */
 fun WindowSizeClass.useRail(): Boolean = this != WindowSizeClass.Compact
 

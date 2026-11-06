@@ -16,12 +16,17 @@ import androidx.compose.ui.res.stringResource
 import com.pixiv.reader.core.common.config.AppLanguage
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentPink
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 /**
  * 我的页「外观」设置：主题模式 / 动态取色 / 字号缩放 / 语言。
- * Expressive 分组面板：四项聚入单张 28dp 圆角卡，组内行用分隔线区隔。
+ * Expressive 分组面板：四项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
+ * 每行前置图标带各自点缀色。
  *
  * @param themeMode 当前主题模式
  * @param dynamicColor 当前动态取色开关
@@ -60,23 +65,24 @@ internal fun MeAppearanceSection(
             title = stringResource(R.string.me_theme_mode),
             selected = themeMode,
             options = themeModes,
+            accent = SettingAccentViolet,
             onSelect = onSetThemeMode,
         )
-        MeRowDivider()
         // 动态取色（开关行：整行可点切换）
         MeSwitchRow(
             icon = Icons.Filled.AutoAwesome,
             title = stringResource(R.string.me_dynamic_color),
             subtitle = stringResource(R.string.me_dynamic_color_desc),
             checked = dynamicColor,
+            accent = SettingAccentPink,
             onCheckedChange = onSetDynamicColor,
         )
-        MeRowDivider()
         // 字号缩放（滑杆行：标题 + 当前百分比，滑杆全宽）
         MeRow(
             icon = Icons.Filled.FormatSize,
             title = stringResource(R.string.me_font_scale),
             subtitle = stringResource(R.string.me_font_scale_desc),
+            accent = SettingAccentBlue,
             trailing = {
                 // 语言中性 token：百分比档位（80%~130%）
                 Text(
@@ -96,13 +102,13 @@ internal fun MeAppearanceSection(
                 .fillMaxWidth()
                 .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
         )
-        MeRowDivider()
         // 语言（值行 + 下拉菜单；切换写入落盘后由调用方重建 Activity 生效）
         MeDropdownRow(
             icon = Icons.Filled.Translate,
             title = stringResource(R.string.me_language),
             currentValue = languageLabel(appLanguage),
             options = LANG_OPTIONS,
+            accent = SettingAccentTeal,
             onSelect = { value ->
                 // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
                 if (!switchingLanguage && appLanguage != value) {

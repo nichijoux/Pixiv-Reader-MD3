@@ -28,9 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,6 +60,7 @@ import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.layout.ListDetailOverlay
@@ -91,7 +89,7 @@ private enum class FanboxHomeTab(@param:StringRes val labelRes: Int) {
 }
 
 /**
- * FANBOX 首页：SegmentedButton + Pager 双 tab（沿项目 Downloads/History 惯式）——
+ * FANBOX 首页：胶囊分段 + Pager 双 tab（全 App 统一分段口径，沿 Downloads/History 惯式）——
  * 「投稿」流（触底翻页）与「推荐创作者」（单页，点击进创作者网页）。
  * 会话过期（401）时以「重新登录」引导替代普通错误态；从登录页返回本页时自动重试
  * （cookie 换新后无需手动点重试，仍 401 则继续展示过期引导）。
@@ -160,22 +158,15 @@ fun FanboxHomeRoute(
             listContent = { listMax ->
                 AdaptiveContentBox(maxWidth = listMax) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                // tab 分段：点击反向滚页（选中态跟 Pager 落页）
-                SingleChoiceSegmentedButtonRow(
+                // tab 分段：以页码为值，点击反向滚页（选中态跟 Pager 落页）
+                PillSegmentedRow(
+                    options = FanboxHomeTab.entries.mapIndexed { index, tab -> index to tab.labelRes },
+                    selected = pagerState.currentPage,
+                    onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                ) {
-                    FanboxHomeTab.entries.forEachIndexed { index, tab ->
-                        SegmentedButton(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = FanboxHomeTab.entries.size),
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(tab.labelRes)) },
-                        )
-                    }
-                }
+                )
                 HorizontalPager(state = pagerState) { page ->
                     when (FanboxHomeTab.entries.getOrNull(page)) {
                         FanboxHomeTab.POSTS -> PostsPage(

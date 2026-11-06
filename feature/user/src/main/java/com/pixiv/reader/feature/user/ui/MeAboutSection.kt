@@ -27,6 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.pixiv.reader.feature.user.R
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -53,7 +56,7 @@ private fun drawableToBitmap(drawable: Drawable): Bitmap {
 
 /**
  * 我的页「关于」：应用信息 / 开源仓库 / 开源许可 / 检查更新。
- * Expressive 分组面板：应用信息头 + 三行导航，单张 28dp 圆角卡。
+ * Expressive 分组面板：应用信息头 + 三行导航，单张 28dp 圆角卡（行间无分割线）。
  *
  * @param versionName 当前版本号
  * @param onCheckUpdate 手动检查更新
@@ -98,13 +101,13 @@ internal fun MeAboutSection(
                 modifier = Modifier.padding(top = Spacing.smPlus),
             )
         }
-        MeRowDivider()
         // 开源仓库（外链行）
         MeRow(
             icon = Icons.AutoMirrored.Filled.OpenInNew,
             title = stringResource(R.string.me_open_source_repo),
             subtitle = OPEN_SOURCE_URL_DISPLAY,
             subtitleMaxLines = 1,
+            accent = SettingAccentBlue,
             trailing = {
                 MeArrowTrailing(Icons.AutoMirrored.Filled.OpenInNew)
             },
@@ -114,12 +117,12 @@ internal fun MeAboutSection(
                 }
             },
         )
-        MeRowDivider()
         // 开源许可（外链行）
         MeRow(
             icon = Icons.Filled.Code,
             title = stringResource(R.string.me_open_source_license),
             subtitle = stringResource(R.string.me_open_source_license_desc),
+            accent = SettingAccentTeal,
             trailing = {
                 MeArrowTrailing(Icons.AutoMirrored.Filled.OpenInNew)
             },
@@ -129,11 +132,11 @@ internal fun MeAboutSection(
                 }
             },
         )
-        MeRowDivider()
         // 检查更新
         MeRow(
             icon = Icons.Filled.SystemUpdate,
             title = stringResource(R.string.me_check_update),
+            accent = SettingAccentViolet,
             trailing = { MeArrowTrailing() },
             onClick = onCheckUpdate,
         )

@@ -34,9 +34,6 @@ import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +57,7 @@ import com.pixiv.reader.core.comment.R
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
@@ -238,7 +236,7 @@ private val FieldMinHeight = 48.dp
 private val ButtonSide = 40.dp
 
 /**
- * 评论表情选择面板：`HorizontalPager` 左右滑动切换「文本表情 / 贴纸」两段（配 Expressive 分段控件）。
+ * 评论表情选择面板：`HorizontalPager` 左右滑动切换「文本表情 / 贴纸」两段（配胶囊分段控件）。
  * 文本表情点击回调 [onEmojiPick]（光标处插入草稿）；贴纸点击回调 [onStampPick]（直接发送）。
  * 高度由调用方给定（对齐上次键盘高度），不再自带导航栏 padding（外层列统一处理）。
  * @OptIn 试验 API FlowRow。
@@ -254,27 +252,18 @@ private fun CommentEmojiPanel(
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     Column(modifier = modifier) {
-            // 类型分段：文本表情 / 贴纸（选中态跟 Pager 落页，点击反向滚页）
-            SingleChoiceSegmentedButtonRow(
+            // 类型分段：文本表情 / 贴纸（以页码为值，选中态跟 Pager 落页，点击反向滚页）
+            PillSegmentedRow(
+                options = listOf(
+                    0 to R.string.comment_emoji_title,
+                    1 to R.string.comment_stamp_title,
+                ),
+                selected = pagerState.currentPage,
+                onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-            ) {
-                SegmentedButton(
-                    selected = pagerState.currentPage == 0,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(R.string.comment_emoji_title)) },
-                )
-                SegmentedButton(
-                    selected = pagerState.currentPage == 1,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(R.string.comment_stamp_title)) },
-                )
-            }
+            )
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier

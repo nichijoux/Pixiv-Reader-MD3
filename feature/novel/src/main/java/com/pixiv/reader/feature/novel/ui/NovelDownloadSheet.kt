@@ -27,9 +27,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -46,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.common.format.formatCountForNovel
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -153,35 +151,26 @@ internal fun DownloadSheet(
             )
             if (isSeriesPage || (config as? DownloadSheetConfig.Detail)?.hasSeries == true) {
                 // 范围选择器：系列页「整个系列 / 选取部分」；详情页「单个文件 / 整个系列」
-                val labels = if (isSeriesPage) {
+                // （全 App 统一等宽胶囊分段，行为与原先非等宽 trailing 写法一致）
+                val options = if (isSeriesPage) {
                     listOf(
-                        R.string.novel_download_scope_series to NovelDownloadScope.SERIES,
-                        R.string.novel_download_scope_partial to NovelDownloadScope.PARTIAL,
+                        NovelDownloadScope.SERIES to R.string.novel_download_scope_series,
+                        NovelDownloadScope.PARTIAL to R.string.novel_download_scope_partial,
                     )
                 } else {
                     listOf(
-                        R.string.novel_download_scope_single to NovelDownloadScope.SINGLE,
-                        R.string.novel_download_scope_series to NovelDownloadScope.SERIES,
+                        NovelDownloadScope.SINGLE to R.string.novel_download_scope_single,
+                        NovelDownloadScope.SERIES to R.string.novel_download_scope_series,
                     )
                 }
-                SingleChoiceSegmentedButtonRow(
+                PillSegmentedRow(
+                    options = options,
+                    selected = scope,
+                    onSelect = { scope = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.lgPlus, vertical = Spacing.xs),
-                ) {
-                    labels.forEachIndexed { index, (labelRes, s) ->
-                        SegmentedButton(
-                            selected = scope == s,
-                            onClick = { scope = s },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = labels.size
-                            ),
-                        ) {
-                            Text(stringResource(labelRes))
-                        }
-                    }
-                }
+                )
             }
             // 部分下载：分册多选列表（限高可滚动，避免章节太多把下方导出格式挤出屏幕）
             if (isSeriesPage && scope == NovelDownloadScope.PARTIAL) {

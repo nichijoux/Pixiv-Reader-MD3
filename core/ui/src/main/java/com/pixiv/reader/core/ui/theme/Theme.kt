@@ -68,8 +68,8 @@ private val DarkColors = darkColorScheme(
  *
  * 背景：动态取色（Android 12+ 壁纸取色）下系统会按壁纸生成多条色板，accent2 派生的
  * secondary 系常与主色异相（典型如 primary 蓝而 secondaryContainer 淡紫），而 M3 的
- * NavigationBarItem 指示器、SegmentedButton 选中段、FilterChip 等组件默认取
- * secondaryContainer，导致界面出现蓝紫混色。统一镜像为 primary 系可保证全局单一色相，
+ * FilterChip、Switch 轨道、导航指示器等组件默认取 secondaryContainer，
+ * 导致界面出现蓝紫混色。统一镜像为 primary 系可保证全局单一色相，
  * 且动态/静态色板行为一致。
  *
  * @param scheme 原始色板（动态或静态均可）

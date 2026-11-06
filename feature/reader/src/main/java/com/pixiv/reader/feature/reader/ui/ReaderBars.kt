@@ -126,7 +126,11 @@ internal fun ReaderTopBar(
                     }
                     DropdownMenu(
                         expanded = menuOpen,
-                        onDismissRequest = { menuOpen = false }) {
+                        onDismissRequest = { menuOpen = false },
+                        // 全 App 统一浮层：高圆角 + 抬高一层容器色
+                        shape = AppShapes.large,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
                         DropdownMenuItem(
                             text = {
                                 Text(

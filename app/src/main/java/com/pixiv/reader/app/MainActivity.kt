@@ -248,8 +248,8 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isDark,
                 dynamicColor = dynamicColor,
             ) {
-                // 外层 Scaffold 不 padding（系统栏 insets 由内层 NavigationBar / 各页面自行处理），
-                // 保证 MainShell 底部导航延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
+                // 外层 Scaffold 不 padding（系统栏 insets 由内层浮动底栏 / 各页面自行处理），
+                // 保证 MainShell 内容延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
                 Scaffold(
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     // 外层 Scaffold 不处理系统栏 insets（沉浸式）：剪贴板链接提示等全局通知

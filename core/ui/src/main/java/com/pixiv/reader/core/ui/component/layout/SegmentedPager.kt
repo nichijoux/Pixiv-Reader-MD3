@@ -5,22 +5,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 /**
- * 泛型分段页签容器：SingleChoiceSegmentedButtonRow 页签 + HorizontalPager 内容，双向同步
- * （点击页签滚动 Pager / 滑动落页回调 [onSelect]）。本组件不引入额外容器——页签行、[between]
- * 槽与 Pager 直接按序发射到调用方的 Column 中（与各页面原布局树一致）；Pager 的 weight 等
+ * 泛型分页签容器：胶囊分段页签（[PillSegmentedRow]，全 App 统一口径）+ HorizontalPager 内容，
+ * 双向同步（点击页签滚动 Pager / 滑动落页回调 [onSelect]）。本组件不引入额外容器——页签行、
+ * [between] 槽与 Pager 直接按序发射到调用方的 Column 中（与各页面原布局树一致）；Pager 的 weight 等
  * 尺寸约束须经 [pagerModifier] 从调用方的 ColumnScope 传入。
  *
  * 同步策略（与历史/下载/稍后再看/用户/收藏五页原写法一致的多数派）：
@@ -58,22 +54,15 @@ fun <T> SegmentedPager(
             onSelect(tabs[page])
         }
     }
-    // 页签行：选中态跟 Pager 落页，点击反向滚页
-    SingleChoiceSegmentedButtonRow(
+    // 页签行：以页码为值（PillSegmentedRow 回调只给值不给 index），点击反向滚页
+    PillSegmentedRow(
+        options = tabs.mapIndexed { index, tab -> index to tabLabel(tab) },
+        selected = state.currentPage,
+        onSelect = { index -> scope.launch { state.animateScrollToPage(index) } },
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-    ) {
-        tabs.forEachIndexed { index, tab ->
-            SegmentedButton(
-                selected = state.currentPage == index,
-                onClick = { scope.launch { state.animateScrollToPage(index) } },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
-                modifier = Modifier.weight(1f),
-                label = { Text(stringResource(tabLabel(tab))) },
-            )
-        }
-    }
+    )
     between()
     HorizontalPager(state = state, modifier = pagerModifier) { page ->
         pageContent(page, tabs[page])

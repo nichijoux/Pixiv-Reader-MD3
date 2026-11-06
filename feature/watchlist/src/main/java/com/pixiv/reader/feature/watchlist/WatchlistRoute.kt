@@ -28,9 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +56,7 @@ import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
+import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
@@ -71,7 +69,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
  *
  * 两种形态（按入口 `type` 参数）：
  * - 作品 Tab 顶栏铃铛（`type=manga`）：**单分段纯漫画**——不显示类型切换，漫画系列瀑布流。
- * - 我的页入口（默认 novel）：小说 / 漫画 SegmentedButton 分段；小说为 [SeriesCard] 列表
+ * - 我的页入口（默认 novel）：小说 / 漫画胶囊分段；小说为 [SeriesCard] 列表
  *   （与小说 Tab 追更页签完全一致：封面/简介/完结态/字数经 [com.pixiv.reader.core.network.session.SeriesDetailCache]
  *   进程缓存补齐，点击打开系列详情页），漫画段与作品入口同款瀑布流。
  *
@@ -122,28 +120,19 @@ fun WatchlistRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：仅多类型形态显示（作品入口纯漫画不显示）
+                // 类型分段：仅多类型形态显示（作品入口纯漫画不显示；全 App 统一胶囊分段）
                 if (!mangaOnly) {
-                    SingleChoiceSegmentedButtonRow(
+                    PillSegmentedRow(
+                        options = listOf(
+                            WatchlistViewModel.TYPE_NOVEL to R.string.watchlist_type_novel,
+                            WatchlistViewModel.TYPE_MANGA to R.string.watchlist_type_manga,
+                        ),
+                        selected = type,
+                        onSelect = viewModel::selectType,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                    ) {
-                        SegmentedButton(
-                            selected = type == WatchlistViewModel.TYPE_NOVEL,
-                            onClick = { viewModel.selectType(WatchlistViewModel.TYPE_NOVEL) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(R.string.watchlist_type_novel)) },
-                        )
-                        SegmentedButton(
-                            selected = type == WatchlistViewModel.TYPE_MANGA,
-                            onClick = { viewModel.selectType(WatchlistViewModel.TYPE_MANGA) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(R.string.watchlist_type_manga)) },
-                        )
-                    }
+                    )
                 }
                 when {
                     isLoading && items.isEmpty() -> LoadingBox()
