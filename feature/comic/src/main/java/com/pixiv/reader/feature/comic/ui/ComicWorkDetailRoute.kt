@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -261,9 +262,14 @@ private fun ComicWorkHeader(work: ComicWork) {
 private fun ComicTagRow(work: ComicWork) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         items(work.categories.orEmpty(), key = { "cat-${it.id}" }) { category ->
+            val tagColor = remember(category.color) {
+                runCatching {
+                    Color(AndroidColor.parseColor(category.color.orEmpty().ifEmpty { "#888888" }))
+                }.getOrElse { Color(0xFF888888) }
+            }
             Surface(
                 shape = MaterialTheme.shapes.small,
-                color = Color(AndroidColor.parseColor(category.color.orEmpty().ifEmpty { "#888888" })),
+                color = tagColor,
             ) {
                 Text(
                     text = category.name.orEmpty(),

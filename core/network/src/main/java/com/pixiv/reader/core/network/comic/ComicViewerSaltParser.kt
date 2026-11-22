@@ -1,7 +1,8 @@
 package com.pixiv.reader.core.network.comic
 
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 
 /**
  * 从 COMIC viewer 页 HTML（Next.js SSR 输出）解析阅读签名所需的随机 salt。
@@ -25,29 +26,16 @@ object ComicViewerSaltParser {
      * 解析 viewer 页 HTML 中的 salt。
      *
      * @param html viewer 页完整 HTML
-     * @return salt 字符串；无 __NEXT_DATA__ 块 / JSON 解析失败 / salt 缺失时返回 null
+     * @return 非空白 salt 字符串。页面块缺失、解析失败或字段无效时返回 null。
      */
-    fun parse(html: String): String? {
-        // 先用正则取出内嵌 JSON 全文，再交 Gson 按需取字段——只关心一条路径，
-        // 整棵 props 树没必要建模
-        val json = NEXT_DATA_REGEX.find(html)?.groupValues?.get(1) ?: return null
-        return runCatching {
-            Gson().fromJson(json, NextData::class.java)?.props?.pageProps?.salt?.takeIf { it.isNotEmpty() }
-        }.getOrNull()
-    }
-
-    /** __NEXT_DATA__ 的最小建模：只取 props.pageProps.salt 一条路径。 */
-    private class NextData(
-        val props: Props? = null,
-    )
-
-    /** [NextData.props] 层。 */
-    private class Props(
-        val pageProps: PageProps? = null,
-    )
-
-    /** [Props.pageProps] 层。 */
-    private class PageProps(
-        val salt: String? = null,
-    )
+    fun parse(html: String): String? = runCatching {
+        // 提取内嵌 JSON 后按原始键逐层读取，避免字段名受混淆影响。
+        val json = NEXT_DATA_REGEX.find(html)?.groupValues?.get(1) ?: return@runCatching null
+        val root = JsonParser.parseString(json) as? JsonObject ?: return@runCatching null
+        val props = root["props"] as? JsonObject ?: return@runCatching null
+        val pageProps = props["pageProps"] as? JsonObject ?: return@runCatching null
+        val salt = pageProps["salt"] as? JsonPrimitive ?: return@runCatching null
+        // 只接受 JSON 字符串，避免数字和布尔值被 Gson 转成签名输入。
+        salt.takeIf { it.isString }?.asString?.takeIf { it.isNotBlank() }
+    }.getOrNull()
 }

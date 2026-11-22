@@ -51,61 +51,73 @@ class ComicHomeViewModel @Inject constructor(
     private val comicRepository: ComicRepository,
 ) : MessageViewModel() {
 
-    private val _top = MutableStateFlow(ComicTopState(isLoading = true))
+    private val _top = MutableStateFlow(ComicTopState())
     val top: StateFlow<ComicTopState> = _top.asStateFlow()
 
-    private val _ranking = MutableStateFlow(ComicRankingState(isLoading = true))
+    private val _ranking = MutableStateFlow(ComicRankingState())
     val ranking: StateFlow<ComicRankingState> = _ranking.asStateFlow()
-
-    /** 排行标签的加载标记（标签列表失败时可整页重试）。 */
-    private var labelsLoaded = false
 
     init {
         loadTop()
         loadLabels()
     }
 
-    /** 拉取首页 top（banner + 最近更新）。 */
+    /**
+     * 拉取首页更新数据（banner + 最近更新）。
+     *
+     * @return 无返回值
+     */
     fun loadTop() {
+        // 请求发起时占用加载标志，连续点击重试只保留一个请求。
         if (_top.value.isLoading) return
         _top.value = _top.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
                 val data = comicRepository.api.top().data
-                _top.value = ComicTopState(
+                _top.value = _top.value.copy(
                     banners = data?.banners.orEmpty(),
                     recentWorks = data?.recentUpdatedOfficialWorks.orEmpty(),
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _top.value = ComicTopState(error = e.message)
+                _top.value = _top.value.copy(error = e.message.orEmpty())
                 notifyFailure(e)
+            } finally {
+                // 成功、失败或取消均释放首页的加载标志。
+                _top.value = _top.value.copy(isLoading = false)
             }
         }
     }
 
-    /** 拉取排行分类标签（成功后自动加载默认榜单：周榜 × 総合）。 */
-    fun loadLabels() {
+    /**
+     * 拉取排行分类标签，并加载首个标签对应的榜单。
+     *
+     * @return 无返回值
+     */
+    private fun loadLabels() {
+        // 标签请求与榜单请求共用排行加载标志。
         if (_ranking.value.isLoading) return
         _ranking.value = _ranking.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
-                // 两个榜单目前共用一组标签，以周榜为准；服务端未来分化时切模式会重查
+                // 两个榜单共用周榜的标签列表。
                 val labels = comicRepository.api.weeklyRankingLabels().data?.labels.orEmpty()
-                labelsLoaded = true
                 _ranking.value = _ranking.value.copy(
                     labels = labels,
                     selectedLabel = labels.firstOrNull(),
-                    isLoading = false,
                 )
-                labels.firstOrNull()?.let { loadRanking() }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _ranking.value = _ranking.value.copy(isLoading = false, error = e.message)
+                _ranking.value = _ranking.value.copy(error = e.message.orEmpty())
                 notifyFailure(e)
+                return@launch
+            } finally {
+                // 释放排行加载标志后，榜单请求才可接续。
+                _ranking.value = _ranking.value.copy(isLoading = false)
             }
+            loadRanking()
         }
     }
 
@@ -113,9 +125,11 @@ class ComicHomeViewModel @Inject constructor(
      * 切换排行模式（周榜 / 人气），切换即重拉当前标签的榜单。
      *
      * @param mode 目标模式
+     * @return 无返回值
      */
     fun selectRankingMode(mode: ComicRankingMode) {
         if (_ranking.value.selectedMode == mode) return
+        // 在途请求结束后读取最新选择，避免并发拉榜。
         _ranking.value = _ranking.value.copy(selectedMode = mode)
         loadRanking()
     }
@@ -124,27 +138,34 @@ class ComicHomeViewModel @Inject constructor(
      * 切换排行分类标签，切换即重拉榜单。
      *
      * @param label 目标标签（日文原文）
+     * @return 无返回值
      */
     fun selectLabel(label: String) {
         if (_ranking.value.selectedLabel == label) return
+        // 在途请求结束后读取最新选择，避免并发拉榜。
         _ranking.value = _ranking.value.copy(selectedLabel = label)
         loadRanking()
     }
 
-    /** 整页重试（top 与排行并行）。 */
+    /**
+     * 重试排行页失败的请求，保留用户当前选择。
+     *
+     * @return 无返回值
+     */
     fun retry() {
-        loadTop()
-        if (_ranking.value.error != null || _ranking.value.labels.isEmpty()) {
-            _ranking.value = ComicRankingState()
-            labelsLoaded = false
-            loadLabels()
-        }
+        // 已取得标签时可直接重试当前榜单。
+        if (_ranking.value.labels.isEmpty()) loadLabels() else loadRanking()
     }
 
-    /** 按当前模式 + 标签拉取榜单（整榜下发；标签未就绪或已在加载时忽略）。 */
-    fun loadRanking() {
+    /**
+     * 按当前模式和标签拉榜。在途时只记录后续选择，完成后再加载其对应榜单。
+     *
+     * @return 无返回值
+     */
+    private fun loadRanking() {
         val snapshot = _ranking.value
         val label = snapshot.selectedLabel ?: return
+        // 读取选中项并占用加载标志，确保任一时刻只有一条榜单请求。
         if (snapshot.isLoading) return
         _ranking.value = snapshot.copy(works = emptyList(), isLoading = true, error = null)
         viewModelScope.launch {
@@ -155,14 +176,34 @@ class ComicHomeViewModel @Inject constructor(
                     ComicRankingMode.POPULARITY ->
                         comicRepository.api.popularityRanking(label).data?.ranking.orEmpty()
                 }
-                _ranking.value = _ranking.value.copy(works = items, isLoading = false)
+                // 等待响应期间切换了选项时，旧榜单不可写入当前选择。
+                if (isRankingSelectionCurrent(snapshot)) {
+                    _ranking.value = _ranking.value.copy(works = items)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _ranking.value = _ranking.value.copy(isLoading = false, error = e.message)
-                notifyFailure(e)
+                if (isRankingSelectionCurrent(snapshot)) {
+                    _ranking.value = _ranking.value.copy(error = e.message.orEmpty())
+                    notifyFailure(e)
+                }
+            } finally {
+                // 释放加载标志，让最新选项或重试可以发起下一次请求。
+                _ranking.value = _ranking.value.copy(isLoading = false)
             }
+            if (!isRankingSelectionCurrent(snapshot)) loadRanking()
         }
+    }
+
+    /**
+     * 判断榜单请求对应的模式和标签是否仍处于选中状态。
+     *
+     * @param snapshot 请求发起时的排行状态
+     * @return 两个选项仍相同时为 true
+     */
+    private fun isRankingSelectionCurrent(snapshot: ComicRankingState): Boolean {
+        val current = _ranking.value
+        return current.selectedMode == snapshot.selectedMode && current.selectedLabel == snapshot.selectedLabel
     }
 
     /** 统一失败通知（reason + fallback 文案映射）。 */

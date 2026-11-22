@@ -11,6 +11,7 @@ import com.pixiv.reader.feature.comic.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,7 @@ class ComicSearchViewModel @Inject constructor(
 ) : MessageViewModel() {
 
     /** 搜索结果分页（关键词变更时 reset 重建）。 */
-    val resultsPaged = PagedState<ComicWork>()
+    val resultsPaged = PagedState<ComicWork>(keySelector = { it.id })
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -35,27 +36,61 @@ class ComicSearchViewModel @Inject constructor(
     /** 当前生效关键词（新搜索进行中时防旧词触底续页）。 */
     private var activeKeyword: String? = null
 
-    /** 下一次触底要取的页号（闭包计数，随 reset 重排）。 */
+    /** 下一次触底要取的页号（成功取得该页后才推进，避免重试跳过失败页）。 */
     private var nextPage = 1
 
+    private var searchJob: Job? = null
+
     /**
-     * 发起搜索（空词忽略；同词重复提交忽略）。
+     * 发起搜索（空词忽略；同词成功且无错误时忽略，失败或新词则取消在途搜索并重查）。
      *
      * @param keyword 关键词
+     * @return 无返回值
      */
     fun search(keyword: String) {
         val kw = keyword.trim()
-        if (kw.isEmpty() || kw == activeKeyword) return
+        if (kw.isEmpty()) return
+        if (kw == activeKeyword && resultsPaged.error.value == null && searchJob?.isActive != true) {
+            return
+        }
+        searchJob?.cancel()
         activeKeyword = kw
         _query.value = kw
         nextPage = 1
-        viewModelScope.launch {
+        searchJob = viewModelScope.launch {
             resultsPaged.reset()
             resultsPaged.loadInitial(
                 fetch = { searchPage(kw, 1) },
                 fetchNext = {
-                    // 游标 URL 仅作非空标记，页号由本地计数器推进
-                    searchPage(kw, ++nextPage)
+                    val targetPage = nextPage + 1
+                    searchPage(kw, targetPage).also {
+                        // 仅在请求成功后推进页号，防止失败重试跳过该页。
+                        nextPage = targetPage
+                    }
+                },
+            )
+        }
+    }
+
+    /**
+     * 重试当前关键词的首屏搜索。
+     *
+     * @return 无返回值
+     */
+    fun retry() {
+        val kw = activeKeyword ?: _query.value.trim()
+        if (kw.isEmpty()) return
+        searchJob?.cancel()
+        nextPage = 1
+        searchJob = viewModelScope.launch {
+            resultsPaged.reset()
+            resultsPaged.loadInitial(
+                fetch = { searchPage(kw, 1) },
+                fetchNext = {
+                    val targetPage = nextPage + 1
+                    searchPage(kw, targetPage).also {
+                        nextPage = targetPage
+                    }
                 },
             )
         }

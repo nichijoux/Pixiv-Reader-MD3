@@ -6,7 +6,7 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 /**
- * pixiv COMIC 请求头拦截器（`/api/app/` 各端点有 WAF：缺浏览器 UA 一律 403）。
+ * pixiv COMIC 站点请求头拦截器，仅向 HTTPS 站点请求注入专用头。
  *
  * - `User-Agent` 固定 [PixivConstants.WEB_USER_AGENT]、`Referer` / `Origin` 指向
  *   comic.pixiv.net、`X-Requested-With: pixivcomic`——三者缺一可能被 WAF 拒绝（实测组合）；
@@ -16,8 +16,18 @@ import okhttp3.Response
  */
 class ComicHeaderInterceptor : Interceptor {
 
+    /**
+     * 为发往 COMIC 站点的网络请求补齐站点头和 WebView Cookie。
+     *
+     * @param chain 当前网络请求的拦截器链
+     * @return 下游网络响应
+     */
     override fun intercept(chain: Interceptor.Chain): Response {
-        val builder = chain.request().newBuilder()
+        val request = chain.request()
+        // 正文 CDN 请求由加载器单独设置必要头，跨域重定向也不得获得站点 Cookie。
+        if (request.url.host != COMIC_HOST || !request.url.isHttps) return chain.proceed(request)
+
+        val builder = request.newBuilder()
             .header("Origin", COMIC_ORIGIN)
             .header("Referer", "$COMIC_ORIGIN/")
             .header("X-Requested-With", X_REQUESTED_WITH)
@@ -28,6 +38,9 @@ class ComicHeaderInterceptor : Interceptor {
     }
 
     companion object {
+        /** 允许注入 COMIC 站点头的目标域名。 */
+        private const val COMIC_HOST = "comic.pixiv.net"
+
         /** COMIC 站点 origin（请求头 Origin 值、Referer 与 cookie 取值基址）。 */
         const val COMIC_ORIGIN = "https://comic.pixiv.net"
 

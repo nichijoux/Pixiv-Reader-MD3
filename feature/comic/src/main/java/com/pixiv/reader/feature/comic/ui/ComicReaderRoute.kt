@@ -161,9 +161,11 @@ private fun ComicReaderPager(
     val episode = state.episode ?: return
     val listState = rememberLazyListState()
     var chromeVisible by remember { mutableStateOf(true) }
-    // 当前页码 = 最近完整可见项（供顶栏指示器）
+    // 当前页码 = 最近完整可见项（空列表保护，避免 upperBound < 0 抛 IllegalArgumentException）
     val currentPage by remember {
-        derivedStateOf { listState.firstVisibleItemIndex.coerceAtMost(state.pages.size - 1) }
+        derivedStateOf {
+            listState.firstVisibleItemIndex.coerceIn(0, (state.pages.size - 1).coerceAtLeast(0))
+        }
     }
 
     Box(

@@ -25,15 +25,18 @@ import okhttp3.Request
  *
  * 正文图 CDN（img-comic.pximg.net）的鉴权是「每页一签名」：请求必须同时带
  * `Referer: https://comic.pixiv.net/`（缺则 403）与
- * `x-cobalt-thumber-parameter-gridshuffle-key: {page.key}`（缺则 400），二者
- * 按 ComicPage 动态变化，无法走全局图片拦截器，因此不经 Coil、由本类直下。
+ * `x-cobalt-thumber-parameter-gridshuffle-key: {page.key}`（缺则 400）。
+ * 签名头按 ComicPage 动态变化，因此由本类直接下载。
  * 已还原页落盘在 `cacheDir/comic_pages/{episodeId}/{index}.jpg`，重读零开销，
  * 目录属系统缓存可随时回收。
+ *
+ * @param context 应用上下文，用于定位缓存目录
+ * @param okHttpClient COMIC 专用客户端
  */
 @Singleton
 class ComicPageLoader @Inject constructor(
     @ApplicationContext context: Context,
-    private val okHttpClient: OkHttpClient,
+    @param:ComicHttpClient private val okHttpClient: OkHttpClient,
 ) {
 
     /** 还原页缓存根目录。 */
@@ -52,7 +55,7 @@ class ComicPageLoader @Inject constructor(
      * @param index 页序号（缓存文件名键，从 0 起）
      * @param page 页数据（url / key / gridsize）
      * @return 还原后的 JPEG 文件
-     * @throws IOException 下载失败 / 非 2xx / 解码失败
+     * @throws IOException 下载、解码或 JPEG 缓存写入失败
      */
     suspend fun loadPage(episodeId: Long, index: Int, page: ComicPage): File =
         withContext(ioContext) {
@@ -65,24 +68,32 @@ class ComicPageLoader @Inject constructor(
                 val scrambledBytes = download(page)
                 val scrambled = BitmapFactory.decodeByteArray(scrambledBytes, 0, scrambledBytes.size)
                     ?: throw IOException("page decode failed, episodeId=$episodeId page=$index")
-                val clean = try {
-                    ComicGridUnscrambler.unscramble(scrambled, page.gridsize, page.key.orEmpty())
-                } finally {
-                    scrambled.recycle()
-                }
+                // 去扰失败或原样返回时，原图同样由当前调用释放。
+                var clean = scrambled
                 try {
-                    // 先建目录再写文件；写临时文件后改名，避免中断留下半张图被误命中
-                    cache.parentFile?.mkdirs()
-                    val tmp = File(cache.parentFile, "${cache.name}.tmp")
-                    FileOutputStream(tmp).use { out ->
-                        clean.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
-                    }
-                    if (!tmp.renameTo(cache)) {
+                    clean = ComicGridUnscrambler.unscramble(scrambled, page.gridsize, page.key.orEmpty())
+                    // 每次写入使用独立临时文件，编码完成后才发布缓存。
+                    val parent = cache.parentFile
+                    parent?.mkdirs()
+                    val tmp = File.createTempFile("${cache.name}.", ".tmp", parent)
+                    try {
+                        val compressed = FileOutputStream(tmp).use { out ->
+                            clean.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                        }
+                        if (!compressed) {
+                            throw IOException("page encode failed, episodeId=$episodeId page=$index")
+                        }
+                        if (!tmp.renameTo(cache)) {
+                            throw IOException("cache rename failed, episodeId=$episodeId page=$index")
+                        }
+                    } finally {
+                        // 写入或改名失败时清理本次临时文件。
                         tmp.delete()
-                        throw IOException("cache rename failed, episodeId=$episodeId page=$index")
                     }
                 } finally {
-                    clean.recycle()
+                    // 编码结束后按实例回收，原图和副本指向同一实例时只回收一次。
+                    if (clean !== scrambled) clean.recycle()
+                    scrambled.recycle()
                 }
                 cache
             }

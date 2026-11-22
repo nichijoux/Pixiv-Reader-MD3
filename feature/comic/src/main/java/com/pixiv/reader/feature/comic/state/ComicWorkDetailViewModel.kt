@@ -43,7 +43,7 @@ class ComicWorkDetailViewModel @Inject constructor(
     /** 作品 id（路由参数；缺省 0 时加载必然失败，走错误态）。 */
     private val workId: Long = savedStateHandle["workId"] ?: 0L
 
-    private val _work = MutableStateFlow(ComicWorkState(isLoading = true))
+    private val _work = MutableStateFlow(ComicWorkState())
     val work: StateFlow<ComicWorkState> = _work.asStateFlow()
 
     private val _episodes = MutableStateFlow(ComicEpisodesState())
@@ -54,39 +54,56 @@ class ComicWorkDetailViewModel @Inject constructor(
         loadEpisodes()
     }
 
-    /** 拉取作品信息。 */
+    /**
+     * 拉取作品信息。
+     *
+     * @return 无返回值
+     */
     fun loadWork() {
+        // 请求发起时占用加载标志，避免重复拉取作品。
         if (_work.value.isLoading) return
         _work.value = _work.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
                 val data = comicRepository.api.work(workId).data?.officialWork
-                _work.value = ComicWorkState(work = data)
+                // 缺少作品时进入可重试的错误态，由界面使用本地化兜底文案。
+                _work.value = _work.value.copy(work = data, error = if (data == null) "" else null)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _work.value = ComicWorkState(error = e.message)
+                _work.value = _work.value.copy(error = e.message.orEmpty())
                 trySendMessage(loadFailureMessage(e, R.string.comic_load_failed_reason, R.string.comic_load_failed))
+            } finally {
+                // 请求退出时释放加载标志，允许后续重试。
+                _work.value = _work.value.copy(isLoading = false)
             }
         }
     }
 
-    /** 按当前排序方向拉取章节列表。 */
+    /**
+     * 按当前排序方向拉取章节列表。
+     *
+     * @return 无返回值
+     */
     fun loadEpisodes() {
-        val ascending = _episodes.value.ascending
+        // 锁定请求使用的排序方向，加载结束前忽略重复操作。
         if (_episodes.value.isLoading) return
+        val ascending = _episodes.value.ascending
         _episodes.value = _episodes.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
                 val entries = comicRepository.api
                     .episodes(workId, if (ascending) "asc" else "desc")
                     .data?.episodes.orEmpty()
-                _episodes.value = _episodes.value.copy(entries = entries, isLoading = false)
+                _episodes.value = _episodes.value.copy(entries = entries)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _episodes.value = _episodes.value.copy(isLoading = false, error = e.message)
+                _episodes.value = _episodes.value.copy(error = e.message.orEmpty())
                 trySendMessage(loadFailureMessage(e, R.string.comic_load_failed_reason, R.string.comic_load_failed))
+            } finally {
+                // 请求退出时恢复排序与重试入口。
+                _episodes.value = _episodes.value.copy(isLoading = false)
             }
         }
     }

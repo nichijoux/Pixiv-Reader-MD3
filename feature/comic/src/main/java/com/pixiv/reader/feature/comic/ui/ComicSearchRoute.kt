@@ -37,6 +37,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.ErrorBox
+import com.pixiv.reader.core.ui.component.feedback.LoadingBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
@@ -132,12 +134,17 @@ fun ComicSearchRoute(
         snackbarHost = { NotificationHost(notificationHost) },
     ) { padding ->
         when {
-            // 尚未搜索：占位
-            items.isEmpty() && !isLoading && error == null -> EmptyBox(
+            query.isEmpty() -> EmptyBox(
                 text = stringResource(R.string.comic_search_hint),
                 modifier = Modifier.padding(padding),
             )
-            items.isEmpty() && error != null -> EmptyBox(
+            isLoading && items.isEmpty() -> LoadingBox(modifier = Modifier.padding(padding))
+            error != null && items.isEmpty() -> ErrorBox(
+                message = error,
+                onRetry = viewModel::retry,
+                modifier = Modifier.padding(padding),
+            )
+            items.isEmpty() -> EmptyBox(
                 text = stringResource(R.string.comic_search_empty),
                 modifier = Modifier.padding(padding),
             )
@@ -161,7 +168,11 @@ fun ComicSearchRoute(
                 }
                 if (hasMore || isLoadingMore) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "comic_search_more") {
-                        LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
+                        LoadMoreItem(
+                            isLoadingMore = isLoadingMore,
+                            onLoadMore = viewModel::loadMore,
+                            error = error,
+                        )
                     }
                 }
             }

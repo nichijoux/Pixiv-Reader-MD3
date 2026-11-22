@@ -58,21 +58,24 @@ object ComicGridUnscrambler {
     }
 
     /**
-     * 还原一张打乱图。不构成打乱条件（尺寸不足两个块 / gridsize 非法）时原样返回。
+     * 还原一张打乱图。
      *
      * @param src 打乱原图（调用方负责回收）
      * @param gridsize 方块边长（read_v4 返回的 `ComicPage.gridsize`）
      * @param pageKey 页签名 key（参与种子派生）
-     * @return 还原后的新 Bitmap（ARGB_8888）
+     * @return 还原后的可变 ARGB_8888 Bitmap。不构成打乱条件或无法分配副本时返回 [src] 同一实例。
      */
     fun unscramble(src: Bitmap, gridsize: Int, pageKey: String): Bitmap {
-        val g = gridsize.coerceAtLeast(1)
+        // 非法块大小无法生成有效网格，保留原图。
+        if (gridsize <= 0) return src
+        val g = gridsize
         val cols = src.width / g
         val rows = src.height / g
         // 少于两个可换位的块时洗牌无意义（未打乱变换的图 / 异常数据），原样返回
         if (cols < 2 || rows < 1) return src
 
-        val out = src.copy(Bitmap.Config.ARGB_8888, false) ?: return src
+        // Canvas 只能写入可变位图，先复制原图以保留网格外的边缘条带。
+        val out = src.copy(Bitmap.Config.ARGB_8888, true) ?: return src
         val canvas = Canvas(out)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG)
         val perms = permutationsFor(pageKey, cols, rows)
