@@ -2,6 +2,9 @@ package com.pixiv.reader.feature.watchlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,9 +33,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +66,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -325,12 +331,12 @@ private fun MangaWatchlistCard(
             } else {
                 SeriesBookCover(modifier = Modifier.fillMaxSize(), iconSize = 48.dp)
             }
-            // 左上话数徽章（黑底白字，与排行卡徽标同语汇）
+            // 左上话数徽章（ImageScrim 70% 黑底白字，与排行卡徽标同语汇）
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(Spacing.sm),
-                color = Color.Black.copy(alpha = 0.45f),
+                color = ImageScrim,
                 shape = AppShapes.small,
             ) {
                 Text(
@@ -340,23 +346,35 @@ private fun MangaWatchlistCard(
                     color = Color.White,
                 )
             }
-            // 右上取消追更（半透明圆底小钮，与收藏浮层按钮同规格）
+            // 右上取消追更（外层 48dp 热区满足 M3 最小触控目标，内层 32dp ImageScrim 视觉圆底）
+            val removeInteraction = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(Spacing.sm)
-                    .size(Sizes.s28)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.35f))
-                    .clickable(onClick = onRemove),
+                    .size(Sizes.s48)
+                    .clickable(
+                        role = Role.Button,
+                        interactionSource = removeInteraction,
+                        indication = null,
+                        onClick = onRemove,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.NotificationsOff,
-                    contentDescription = stringResource(R.string.watchlist_unwatch),
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(Sizes.s32)
+                        .clip(CircleShape)
+                        .background(ImageScrim)
+                        .indication(removeInteraction, ripple(bounded = true, color = Color.White)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.NotificationsOff,
+                        contentDescription = stringResource(R.string.watchlist_unwatch),
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
         Column(modifier = Modifier.padding(Spacing.smPlus)) {

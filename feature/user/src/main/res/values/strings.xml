@@ -41,7 +41,10 @@
     <string name="user_section_series">系列</string>
 
     <!-- 我的页 MeRoute -->
+    <string name="me_section_account">账号</string>
+    <string name="me_account_view_profile">查看个人主页</string>
     <string name="me_logout">退出登录</string>
+    <string name="me_logout_desc">退出当前登录的账号</string>
     <string name="me_logout_confirm_title">退出登录？</string>
     <string name="me_logout_confirm_message">退出后需要重新登录才能继续使用。</string>
     <string name="me_section_content">用户内容管理</string>

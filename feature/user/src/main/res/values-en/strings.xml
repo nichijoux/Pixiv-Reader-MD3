@@ -41,7 +41,10 @@
     <string name="user_section_series">Series</string>
 
     <!-- Me -->
+    <string name="me_section_account">Account</string>
+    <string name="me_account_view_profile">View profile</string>
     <string name="me_logout">Sign out</string>
+    <string name="me_logout_desc">Sign out of your current account</string>
     <string name="me_logout_confirm_title">Sign out?</string>
     <string name="me_logout_confirm_message">You\'ll need to log in again to continue using the app.</string>
     <string name="me_section_content">Content</string>

@@ -3,7 +3,6 @@ package com.pixiv.reader.feature.user.ui
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -35,9 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -50,7 +46,6 @@ import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.NotificationType
-import com.pixiv.reader.core.ui.component.card.ProfileHeader
 import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
@@ -63,7 +58,6 @@ import com.pixiv.reader.core.ui.theme.SettingAccentPink
 import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
@@ -71,9 +65,9 @@ import kotlinx.coroutines.launch
 
 /**
  * 我的 Tab：个人中心/设置页——
- * ProfileHeader（头像/名称/@account/退出登录）+ Expressive 分组设置面板（导航行 / 外观 / 浏览 / 系统 / 关于）。
+ * Expressive 分组设置面板（账号 / 内容管理 / pixiv 生态 / 外观 / 浏览 / 系统 / 关于）。
  * 数据驱动（SettingsCardItem + MeRow），Material 主题，自适应布局。
- * 各区块组件见 [MeAppearanceSection] / [MeBrowseSection] / [MeSystemSection] / [MeAboutSection]。
+ * 各区块组件见 [MeAccountSection] / [MeAppearanceSection] / [MeBrowseSection] / [MeSystemSection] / [MeAboutSection]。
  *
  * @param onOpenFanbox 打开 FANBOX 原生首页（生态区 FANBOX 条目，已登录 FANBOX 时）
  * @param onOpenFanboxWeb 打开 FANBOX 内置网页（url, title）：未登录登录引导 / 创作者主页等
@@ -130,19 +124,7 @@ fun MeRoute(
 
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    // 页面背景：开启彩色风格时用主题色派生纵向渐变（顶部 primaryContainer 淡色 → 底部 surface，
-    // 深浅色与动态取色下自动协调）；关闭时回纯 surface，与其余页面保持一致。
-    // Scaffold 容器透明让背景透出
-    val pageBackground: Brush = if (LocalColorStyleEnabled.current) {
-        Brush.verticalGradient(
-            listOf(
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.40f),
-                MaterialTheme.colorScheme.surface,
-            ),
-        )
-    } else {
-        SolidColor(MaterialTheme.colorScheme.surface)
-    }
+    // 遵循 MD3 不透明 tonal 表面层级：页面底纯 surface + 分组卡纯 surfaceContainer
     Scaffold(
         snackbarHost = {
             // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏，
@@ -152,12 +134,10 @@ fun MeRoute(
                 modifier = Modifier.navigationBarsPadding(),
             )
         },
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.surface,
         // 沉浸式底部：底部 inset 置 0（内容直通系统导航栏），顶部保留状态栏避让（本页无 TopAppBar）
         contentWindowInsets = WindowInsets.statusBars,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(pageBackground),
+        modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(
             // 消费已应用的 padding，内部 navigationBarsPadding 按剩余可见 inset 自适应
@@ -180,12 +160,12 @@ fun MeRoute(
                     .navigationBarsPadding()
                     .padding(Spacing.lg),
             ) {
-                // ── 个人头部（头像/名称/@account + 退出登录） ──
-                ProfileHeader(
+                // ── 账号信息（个人资料 + 退出登录，与下方设置统一分组卡片风格） ──
+                SectionTitle(stringResource(R.string.me_section_account))
+                MeAccountSection(
                     profile = ProfileHeaderData(user),
-                    onClickProfile = { viewModel.ownUid?.let(onOpenUser) },
-                    actionLabel = stringResource(R.string.me_logout),
-                    onAction = { showLogoutConfirm = true },
+                    onClickProfile = viewModel.ownUid?.let { uid -> { onOpenUser(uid) } },
+                    onLogout = { showLogoutConfirm = true },
                 )
 
                 // ── 用户内容管理 ──

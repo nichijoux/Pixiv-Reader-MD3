@@ -5,8 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,11 +38,11 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +86,7 @@ import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.google.gson.Gson
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import java.io.File
@@ -250,12 +254,12 @@ private fun IllustDownloadList(
                     )
                     if (entry.status == DownloadEntryEntity.STATUS_FAILED) {
                         RetryOverlay(
-                            modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
+                            modifier = Modifier.align(Alignment.TopStart),
                             onRetry = { onRetry(entry) },
                         )
                     }
                     DeleteOverlay(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
+                        modifier = Modifier.align(Alignment.TopEnd),
                         onDelete = { onDelete(entry) },
                     )
                 }
@@ -333,12 +337,12 @@ private fun NovelDownloadList(
                     )
                     if (entry.status == DownloadEntryEntity.STATUS_FAILED) {
                         RetryOverlay(
-                            modifier = Modifier.align(Alignment.TopStart).padding(Spacing.xs),
+                            modifier = Modifier.align(Alignment.TopStart),
                             onRetry = { onRetry(entry) },
                         )
                     }
                     DeleteOverlay(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
+                        modifier = Modifier.align(Alignment.TopEnd),
                         onDelete = { onDelete(entry) },
                     )
                 }
@@ -414,8 +418,7 @@ private fun RetryOverlay(
 }
 
 /**
- * 封面角落圆形浮钮（28dp 半透明黑底白图标，下载卡专用）。
- * 保持 28dp 小尺寸（FilledTonalIconButton 最小 40dp 会撑破封面角标布局），
+ * 封面角落圆形浮钮（外层 48dp 热区满足 M3 最小触控目标，内层 32dp ImageScrim 视觉圆底）。
  * 按压时 spring 微缩提供 Expressive 触感。
  *
  * @param icon 图标
@@ -438,37 +441,49 @@ private fun OverlayCircleButton(
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "overlayPressScale",
     )
-    IconButton(
-        onClick = onClick,
-        interactionSource = interaction,
+    Box(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .size(Sizes.s28)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.45f)),
+            .size(Sizes.s48)
+            .clickable(
+                role = Role.Button,
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(14.dp),
-        )
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .size(Sizes.s32)
+                .clip(CircleShape)
+                .background(ImageScrim)
+                .indication(interaction, ripple(bounded = true, color = Color.White)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 
 // ── 数据转换（见 SnapshotRestore.kt） ────────────────────────────────────────
 
-/** 下载类型胶囊（封面右上角浮层）：图标 + 格式文字，深色半透明底 + 白色内容（浅色封面上可读）。 */
+/** 下载类型胶囊（封面右上角浮层）：图标 + 格式文字，ImageScrim 深底 + 白色内容（浅色封面上可读）。 */
 @Composable
 private fun DownloadFormatBadge(format: String) {
     val info = formatInfo(format) ?: return
     Row(
         modifier = Modifier
             .clip(AppShapes.small)
-            .background(Color.Black.copy(alpha = 0.45f))
+            .background(ImageScrim)
             .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {

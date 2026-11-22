@@ -44,7 +44,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 /**
  * 设置分组面板（Material 3 Expressive）：相关设置聚为一张 28dp extraLarge 圆角卡，
  * 组内行去分割线、以留白与前置点位颜色区分层级。
- * 容器为 92% 不透明度，让页面主题色渐变隐约透出（见 MeRoute 的渐变背景）。
+ * 容器使用不透明 `surfaceContainer`（遵循 MD3 tonal 表面层级规范）。
  *
  * @param modifier 外部传入的 Modifier
  * @param content 组内内容（ColumnScope，通常为若干 [MeRow]）
@@ -59,8 +59,7 @@ internal fun MeGroupCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            // 半透明卡让页面渐变隐约透出，保持分组卡与背景的层次而非硬边切分
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
     ) {
         Column(content = content)
