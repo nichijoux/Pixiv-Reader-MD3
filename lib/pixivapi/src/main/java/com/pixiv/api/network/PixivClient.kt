@@ -54,7 +54,7 @@ object PixivClient {
         val appOkHttp = baseClient()
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .addInterceptor(HeaderInterceptor(session))
-            .addInterceptor(TokenInterceptor(session, refresher))
+            .addInterceptor(TokenInterceptor(session, refresher, onInvalidRefreshToken))
             .apply { if (debug) addLogging() }
             .build()
 

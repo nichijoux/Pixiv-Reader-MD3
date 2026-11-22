@@ -11,10 +11,12 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -97,8 +99,8 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
  * 自适应导航：手机 = 底部 NavigationBar；平板 = 左侧 NavigationRail。
  *
  * 内层 Tab 的跨 Tab 搜索：各 Tab 标签点击 → pendingSearch 缓存（[SearchLaunch]）→
- * 切到 discover_tab 后 DiscoverRoute 以 initialQuery/initialTagType 消费（一次性）。
- * 顶层路由 `main?search={search}` 进入时同样走 pendingSearch 通道（默认搜作品），且内层起点
+ * 切到 discover_tab 后由该条目接收并交给 DiscoverRoute 的 initialQuery/initialTagType。
+ * 顶层路由 `main?search={search}` 也交给同一个接收点（默认搜作品），且内层起点
  * 直达发现页（单条目栈）。该深链进入的搜索会话实例在发现页按返回时经 [onExitSearchSession]
  * 直接离开（回到来源页）。
  *
@@ -122,11 +124,16 @@ data class SearchLaunch(val query: String, val tagType: TagType = TagType.ILLUST
  * @param onOpenMangaRanking 打开漫画排行榜
  * @param onOpenIllustRanking 打开插画排行榜
  * @param onOpenNovelRanking 打开小说排行榜
+ * @param onOpenFanbox 打开 FANBOX 原生首页
+ * @param onOpenFanboxWeb 打开 FANBOX 内置网页（URL 与标题）
+ * @param onOpenComic 打开 pixiv COMIC 原生首页
  * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
  * @param onOpenReader 打开小说阅读器（小说 pane「开始阅读」入口）
  * @param onOpenCover 打开封面/头像全屏大图（系列 pane 封面点击）
  * @param onExitSearchSession 搜索会话返回（经 main?search 深链进入时发现页按返回，离开本 main 实例回到来源页）
  * @param initialSearch 初始搜索词（顶层路由 `main?search=` 单次消费；null 无搜索）
+ * @param initialSearchTagType 初始搜索的标签类型（空时默认搜作品）
+ * @return 无返回值
  */
 @Composable
 fun MainShell(
@@ -172,16 +179,9 @@ fun MainShell(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val tabs = rememberTabs()
-    // 待搜索载荷（关键词 + 类型）：Tab 标签点击 / main?search 深链一次性消费。
-    // 深链进入时必须以 initialSearch 同步构造初值（discover_tab 首次组合即读取，
-    // 不能延后到 LaunchedEffect，否则 initialQuery 丢失）
-    var pendingSearch by remember {
-        mutableStateOf(
-            initialSearch?.takeIf { it.isNotBlank() }?.let {
-                SearchLaunch(it, tagType = initialSearchTagType ?: TagType.ILLUST)
-            }
-        )
-    }
+    // 载荷留在壳层直到目标条目接收；记录初始查询是否已提交，避免返回时重新搜索。
+    var pendingSearch by remember { mutableStateOf<SearchLaunch?>(null) }
+    var initialSearchConsumed by rememberSaveable(initialSearch, initialSearchTagType) { mutableStateOf(false) }
 
     // 再次点击当前 Tab → 对应页面滚回顶部：每个 Tab 一个计数作为 key 下传，
     // 页面侧比较 key 变化才滚动（首次组合只记录不触发，避免带旧值进入页面误滚）
@@ -211,6 +211,7 @@ fun MainShell(
      *
      * @param tag 标签词
      * @param tagType 标签内容类型（默认作品）
+     * @return 无返回值
      */
     fun launchTagSearch(tag: String, tagType: TagType = TagType.ILLUST) {
         pendingSearch = SearchLaunch(tag, tagType)
@@ -322,10 +323,19 @@ fun MainShell(
                 exitTransition = { pixivTabFadeOut(motionScheme) },
                 popEnterTransition = { pixivTabFadeIn(motionScheme) },
                 popExitTransition = { pixivTabFadeOut(motionScheme) },
-            ) {
-                // 一次性消费跨 Tab 搜索载荷（先取出再置空，避免双重消费）
-                val launch = pendingSearch
-                pendingSearch = null
+            ) { searchEntry ->
+                val pending = pendingSearch
+                val launch = pending ?: initialSearch?.takeIf { !initialSearchConsumed && it.isNotBlank() }
+                    ?.let { SearchLaunch(it, tagType = initialSearchTagType ?: TagType.ILLUST) }
+                var deliveredSearch by remember(searchEntry) { mutableStateOf<SearchLaunch?>(null) }
+                LaunchedEffect(launch, backStackEntry) {
+                    // 只向当前发现页条目交付。清理壳层载荷后仍保持已交付参数，直到该条目退出组合。
+                    if (launch != null && navController.currentBackStackEntry == searchEntry) {
+                        deliveredSearch = launch
+                        initialSearchConsumed = true
+                        if (pendingSearch === pending) pendingSearch = null
+                    }
+                }
                 DiscoverRoute(
                     onOpenIllust = onOpenIllust,
                     onOpenNovel = onOpenNovel,
@@ -336,8 +346,8 @@ fun MainShell(
                     onOpenAiRanking = onOpenAiRanking,
                     onOpenEraRanking = onOpenEraRanking,
                     onOpenWallpaperRanking = onOpenWallpaperRanking,
-                    initialQuery = launch?.query,
-                    initialTagType = launch?.tagType,
+                    initialQuery = deliveredSearch?.query,
+                    initialTagType = deliveredSearch?.tagType,
                     // hero：发现页搜索栏共享元素修饰（与首页搜索框同 key）；
                     // scope 来自根部 SharedTransitionLayout，可见性作用域为本 Tab 的 composable
                     modifier = Modifier.heroBoundsModifier(SHARED_SEARCH_BAR_KEY, this@composable),

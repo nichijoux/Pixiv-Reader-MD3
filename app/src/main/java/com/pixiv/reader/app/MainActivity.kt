@@ -27,11 +27,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -51,6 +54,7 @@ import com.pixiv.reader.core.datastore.readAppLanguageSync
 import com.pixiv.reader.core.datastore.readOnboardingCompleteSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.update.AppRelease
 import com.pixiv.reader.core.network.update.AppUpdateChecker
 import com.pixiv.reader.core.network.update.AppUpdateVersion
@@ -65,6 +69,7 @@ import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import com.pixiv.reader.app.actions.AppCardActions
 import com.pixiv.reader.core.ui.component.actions.CardActionsHost
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
 import com.pixiv.reader.core.ui.component.detail.LocalSharedTransitionScope
 import com.pixiv.reader.core.ui.theme.Spacing
 import dagger.hilt.android.AndroidEntryPoint
@@ -74,6 +79,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlin.time.Duration.Companion.milliseconds
+
+private const val STATE_PENDING_DEEP_LINK = "pendingContentDeepLink"
 
 /**
  * 应用唯一 Activity：装配根导航 + 主题（UserPreferences.themeMode/dynamicColor 生效）。
@@ -103,6 +110,12 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var appCardActions: AppCardActions
 
+    /** 全局收藏与关注状态宿主（同步所有列表卡片与详情页状态）。 */
+    @Inject
+    lateinit var favoriteActions: FavoriteActions
+
+    private var pendingDeepLink by mutableStateOf<Intent?>(null)
+
     /**
      * 应用 i18n：在 Hilt 装配前同步读取应用语言设置，按需用 createConfigurationContext 覆盖资源配置；
      * 同时设置 [Locale.setDefault]（供纯函数格式化读取）与网络语言 holder [PixivLang]。
@@ -111,7 +124,13 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         val lang = readAppLanguageSync(newBase)
         val locale = localeFor(lang)
-        val effectiveLocale = locale ?: Locale.getDefault()
+        // 跟随系统时必须读取基础 Configuration 的主系统 Locale，防止沿用同进程上次切换留下的 Locale.getDefault()。
+        val systemLocale = if (!newBase.resources.configuration.locales.isEmpty) {
+            newBase.resources.configuration.locales[0]
+        } else {
+            Locale.getDefault()
+        }
+        val effectiveLocale = locale ?: systemLocale
         Locale.setDefault(effectiveLocale)
         PixivLang.code = pixivLanguageCode(effectiveLocale)
         val wrapped = if (locale != null) {
@@ -123,6 +142,12 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(wrapped)
     }
 
+    /**
+     * 初始化窗口、应用导航，并分发首次启动的链接。
+     *
+     * @param savedInstanceState 上次保存的 Activity 状态；首次启动时为空
+     * @return 无返回值
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         // 系统导航栏透明（无 scrim）：底部导航背景延伸覆盖导航栏，实现沉浸式。
         // 各页面（含沉浸式小说阅读器）自行处理 navigationBarsPadding，不受影响。
@@ -133,8 +158,23 @@ class MainActivity : ComponentActivity() {
             ),
         )
         super.onCreate(savedInstanceState)
-        handleIntent(intent)
+        // 统一由根导航在引导及会话就绪后处理内容链接，防止 NavHost 装载图时提前消费。
+        val launchIntent = intent
+        if (launchIntent?.data?.scheme == "pixiv") {
+            setIntent(Intent(launchIntent).apply { data = null })
+        }
+        if (savedInstanceState == null) {
+            handleIntent(launchIntent)
+        } else {
+            pendingDeepLink = savedInstanceState.getString(STATE_PENDING_DEEP_LINK)?.let { uri ->
+                Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+            }
+        }
         setContent {
+            // 每个 Activity 实例只读取一次；完成引导后立即更新内存状态，再异步写盘。
+            var onboardingComplete by rememberSaveable {
+                mutableStateOf(readOnboardingCompleteSync(this@MainActivity))
+            }
             val isLoggedIn by sessionRepository.isLoggedIn.collectAsStateWithLifecycle()
             val fontScale by userPreferences.appFontScale.collectAsStateWithLifecycle(initialValue = 1f)
             val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.FOLLOW_SYSTEM)
@@ -146,10 +186,17 @@ class MainActivity : ComponentActivity() {
                 initialValue = false
             )
             val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
+            val isSystemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
-                else -> isSystemInDarkTheme()
+                else -> isSystemDark
+            }
+            // 应用内明暗主题覆盖系统配置时，系统栏仍需匹配 Compose 背景的明暗。
+            LaunchedEffect(isDark, isSystemDark) {
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = !isDark
+                controller.isAppearanceLightNavigationBars = !isDark
             }
             val notificationHostState = rememberNotificationHostState()
             // 启动自动检查到的新版本 Release：非空时弹更新对话框（与「检测更新」按钮一致）
@@ -279,20 +326,27 @@ class MainActivity : ComponentActivity() {
                             // SharedTransitionLayout 才有共同坐标系；scope 经 CompositionLocal 下发，
                             // 卡片 / 详情组件内部自行消费，页面层无需透传
                             SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
-                                CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                                CompositionLocalProvider(
+                                    LocalSharedTransitionScope provides this,
+                                    LocalFavoriteActions provides favoriteActions,
+                                ) {
                                     // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
                                     CardActionsHost(actions = appCardActions) {
                                         PixivNavGraph(
                                             isLoggedIn = isLoggedIn,
-                                            // 启动时同步读一次引导完成标记（DataStore 文件极小，毫秒级）；完成后经回调写回
-                                            onboardingComplete = readOnboardingCompleteSync(context),
+                                            onboardingComplete = onboardingComplete,
                                             onCompleteOnboarding = {
+                                                onboardingComplete = true
                                                 lifecycleScope.launch {
                                                     runCatching { userPreferences.setOnboardingComplete(true) }
                                                 }
                                             },
                                             onLogout = { sessionRepository.logout() },
                                             navController = navController,
+                                            pendingDeepLink = pendingDeepLink,
+                                            onDeepLinkHandled = { handled ->
+                                                if (pendingDeepLink === handled) pendingDeepLink = null
+                                            },
                                         )
                                     }
                                 }
@@ -322,10 +376,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * 接收已有实例的 OAuth 回调或内容链接。
+     *
+     * @param intent Android 交给现有 Activity 的 Intent
+     * @return 无返回值
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
         handleIntent(intent)
+    }
+
+    /**
+     * 保存等待会话就绪的内容 URI，以便 Activity 重建后继续导航。
+     *
+     * @param outState Android 提供的状态容器
+     * @return 无返回值
+     */
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // OAuth 回调由会话层消费，状态容器只保留未导航的内容链接。
+        pendingDeepLink?.dataString?.let { outState.putString(STATE_PENDING_DEEP_LINK, it) }
     }
 
 /** 应用字号缩放：覆盖 fontScale（屏幕密度不变），默认 1.0 = 系统「标准」档，
@@ -339,11 +410,21 @@ private fun StandardFontSize(fontScale: Float, content: @Composable () -> Unit) 
     )
 }
 
-    /** 转发 OAuth 深链回调（pixiv://account/login?code=…）到会话层 */
+    /**
+     * 将 OAuth 回调交给会话层，内容链接交给已就绪的根导航。
+     *
+     * @param intent Activity 收到的启动或热启动 Intent
+     * @return 无返回值
+     */
     private fun handleIntent(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (sessionRepository.isOAuthCallback(uri)) {
-            sessionRepository.onOAuthCallback(uri)
+        if (uri.scheme != "pixiv") return
+        if (uri.host == "account" && uri.path == "/login") {
+            // OAuth 库的回调判断可能只检查 scheme，先区分登录路径与作品路径。
+            if (sessionRepository.isOAuthCallback(uri)) sessionRepository.onOAuthCallback(uri)
+        } else if (uri.host in setOf("illust", "novel", "reader", "user")) {
+            // 只传 URI，避免外部 Intent 的任务标志触发 Navigation 重启 Activity。
+            pendingDeepLink = Intent(Intent.ACTION_VIEW, uri)
         }
     }
 }

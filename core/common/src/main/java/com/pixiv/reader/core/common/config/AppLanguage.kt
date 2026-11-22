@@ -36,8 +36,11 @@ fun localeFor(appLanguage: String): Locale? = when (appLanguage) {
  * 未匹配的语言回退为 英语，保证接口可用。
  */
 fun pixivLanguageCode(locale: Locale): String = when {
-    // 繁体中文（zh-TW / zh-Hant 区域）→ zh-TW；其余中文 → zh-CN
-    locale.language.equals("zh", ignoreCase = true) && locale.country.equals("TW", ignoreCase = true) -> "zh-TW"
+    // 繁体中文（zh-TW / zh-HK / zh-MO / zh-Hant 脚本）→ zh-TW；其余中文 → zh-CN
+    locale.language.equals("zh", ignoreCase = true) && (
+        locale.script.equals("Hant", ignoreCase = true) ||
+            locale.country.uppercase(Locale.ROOT) in setOf("TW", "HK", "MO")
+        ) -> "zh-TW"
     locale.language.equals("zh", ignoreCase = true) -> "zh-CN"
     locale.language.equals("ja", ignoreCase = true) -> "ja"
     else -> "en"

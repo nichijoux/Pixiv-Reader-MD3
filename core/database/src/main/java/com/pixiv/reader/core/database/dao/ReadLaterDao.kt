@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -47,6 +48,18 @@ interface ReadLaterDao {
     /** 插入/覆盖记录（配合 [deleteByTarget] 使用实现去重置顶）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ReadLaterEntity)
+
+    /**
+     * 原子删旧并置顶插入稍后再看记录，避免重复键冲突或先删后插空窗。
+     *
+     * @param entity 待写入的稍后再看实体
+     * @return 无返回值
+     */
+    @Transaction
+    suspend fun replaceTop(entity: ReadLaterEntity) {
+        deleteByTarget(entity.targetType, entity.targetId)
+        upsert(entity)
+    }
 
     /** 删除单条记录（稍后再看页长按移除 / 打开后移除）。 */
     @Delete

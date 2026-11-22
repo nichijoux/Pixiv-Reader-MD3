@@ -9,6 +9,7 @@ import com.pixiv.api.auth.SessionStore
 import com.pixiv.api.auth.SimpleSessionManager
 import com.pixiv.reader.core.network.session.MmkvSessionStore
 import com.pixiv.reader.core.network.session.MmkvVerifierStore
+import com.pixiv.reader.core.network.session.SessionEvents
 import com.tencent.mmkv.MMKV
 import dagger.Module
 import dagger.Provides
@@ -49,10 +50,13 @@ object NetworkModule {
     fun providePixivApi(
         session: SessionManager,
         verifierStore: VerifierStore,
+        sessionEvents: SessionEvents,
     ): PixivApi = PixivApi.create(
         session = session,
         verifierStore = verifierStore,
         config = PixivOAuthConfig.PIXIV_ANDROID,
         debug = false,
+        // refresh_token 被吐销时只清底层会话，UI 侧登录态靠事件总线同步（否则永远卡在已登录）
+        onInvalidRefreshToken = { sessionEvents.notifyInvalidated() },
     )
 }

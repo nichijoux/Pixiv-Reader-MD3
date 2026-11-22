@@ -130,10 +130,12 @@ internal fun restoreNovelCardData(
             publishDate = parsed.publishDate ?: fallbackPublishDate,
             seriesTitle = parsed.seriesTitle ?: fallbackSeriesTitle,
             seriesId = parsed.seriesId ?: fallbackSeriesId,
-            favoriteCount = parsed.favoriteCount,
-            wordCount = parsed.wordCount,
+            // 旧快照缺失整数字段时 Gson 会填 0，仅在大于 0 时覆盖历史实体兜底计数。
+            favoriteCount = parsed.favoriteCount.takeIf { it > 0 } ?: fallbackFavoriteCount,
+            wordCount = parsed.wordCount.takeIf { it > 0 } ?: fallbackWordCount,
             tags = parsed.tags.orEmpty(),
             isFavorite = parsed.isFavorite,
+            serverMuted = parsed.serverMuted,
         )
     }
     return NovelCardData(

@@ -1,15 +1,23 @@
 package com.pixiv.reader.core.network.session
 
 import android.net.Uri
+import android.webkit.CookieManager
 import com.pixiv.api.PixivApi
 import com.pixiv.api.auth.PixivAuthResult
 import com.pixiv.api.auth.SessionManager
 import com.pixiv.api.model.AccountResponse
+import com.pixiv.reader.core.network.fanbox.FanboxWebBridge
+import com.pixiv.reader.core.network.favorite.FavoriteActions
+import com.pixiv.reader.core.network.feed.FeedSnapshotStore
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * 会话仓库：登录态可观察化 + OAuth 回调桥接。
@@ -22,10 +30,30 @@ import kotlinx.coroutines.flow.asStateFlow
 @Singleton
 class SessionRepository @Inject constructor(
     private val pixivApi: PixivApi,
+    private val sessionEvents: SessionEvents,
+    private val favoriteActions: FavoriteActions,
+    private val fanboxWebBridge: FanboxWebBridge,
+    private val feedSnapshotStore: FeedSnapshotStore,
 ) {
 
     private val _isLoggedIn = MutableStateFlow(pixivApi.session.isLoggedIn)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    /** 会话失效事件的收集作用域：与单例同生命周期（进程级），不随页面销毁取消。 */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    init {
+        scope.launch {
+            sessionEvents.invalidations.collect {
+                // 拦截器已清空底层会话，同步清理登录态与会话派生缓存，避免跨账号残留。
+                val loggedIn = pixivApi.session.isLoggedIn
+                _isLoggedIn.value = loggedIn
+                if (!loggedIn) {
+                    clearSessionState()
+                }
+            }
+        }
+    }
 
     private val _pendingOAuthUri = MutableStateFlow<Uri?>(null)
     val pendingOAuthUri: StateFlow<Uri?> = _pendingOAuthUri.asStateFlow()
@@ -73,10 +101,12 @@ class SessionRepository @Inject constructor(
         webSsoCompleted = true
     }
 
-    /** 消费回调并换取 token；成功后更新登录态 */
+    /** 消费回调并换取 token；成功后更新登录态并清理旧会话覆盖状态 */
     suspend fun processLogin(uri: Uri): PixivAuthResult {
         return when (val result = pixivApi.oauth.handleCallback(uri)) {
             is PixivAuthResult.Success -> {
+                favoriteActions.clearSessionOverrides()
+                feedSnapshotStore.clearAll()
                 pixivApi.session.saveSession(result.account)
                 _isLoggedIn.value = true
                 _pendingOAuthUri.value = null
@@ -89,9 +119,30 @@ class SessionRepository @Inject constructor(
         }
     }
 
-    /** 主动登出：清会话并同步登录态（MainShell 回调链触发）。 */
+    /** 主动登出：清会话、WebView Cookie 与会话缓存，并同步登录态（MainShell 回调链触发）。 */
     fun logout() {
         pixivApi.session.logout()
         _isLoggedIn.value = false
+        clearSessionState()
+        // FANBOX / COMIC 网页侧用的是 WebView Cookie 体系，与 OAuth token 独立：
+        // 不清 Cookie 会导致切换账号后仍沿用上一个账号的网页身份
+        runCatching {
+            CookieManager.getInstance().apply {
+                removeAllCookies(null)
+                flush()
+            }
+        }
+    }
+
+    /**
+     * 清理依赖当前账号会话的内存覆盖状态、无屏 WebView 壳页及首页快照。
+     *
+     * @return 无返回值
+     */
+    private fun clearSessionState() {
+        webSsoCompleted = false
+        favoriteActions.clearSessionOverrides()
+        fanboxWebBridge.release()
+        scope.launch { feedSnapshotStore.clearAll() }
     }
 }

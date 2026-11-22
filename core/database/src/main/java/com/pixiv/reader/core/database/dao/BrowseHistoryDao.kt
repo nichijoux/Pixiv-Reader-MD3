@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.pixiv.reader.core.database.entity.BrowseHistoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -30,6 +31,18 @@ interface BrowseHistoryDao {
     /** 插入/覆盖记录（配合 [deleteByTarget] 使用实现去重置顶）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: BrowseHistoryEntity)
+
+    /**
+     * 原子删旧并置顶插入历史记录，避免先删后插并发竞态导致记录丢失。
+     *
+     * @param entity 待写入的最新浏览历史实体
+     * @return 无返回值
+     */
+    @Transaction
+    suspend fun replaceTop(entity: BrowseHistoryEntity) {
+        deleteByTarget(entity.targetType, entity.targetId)
+        upsert(entity)
+    }
 
     /** 删除单条记录。 */
     @Delete

@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -48,6 +49,7 @@ import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.NotificationType
 import com.pixiv.reader.core.ui.component.card.ProfileHeader
 import com.pixiv.reader.core.ui.component.card.ProfileHeaderData
 import com.pixiv.reader.core.ui.component.input.SettingsCardItem
@@ -65,6 +67,7 @@ import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
+import kotlinx.coroutines.launch
 
 /**
  * 我的 Tab：个人中心/设置页——
@@ -112,8 +115,10 @@ fun MeRoute(
     val novelExportDir by viewModel.novelExportDir.collectAsStateWithLifecycle()
     val clipboardLinkPrompt by viewModel.clipboardLinkPrompt.collectAsStateWithLifecycle()
     val notificationHostState = rememberNotificationHostState()
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val activity = context as? Activity
+    val exportDirPermFailed = stringResource(R.string.me_export_dir_permission_failed)
     // 语言切换防抖：落盘期间忽略重复点击，避免连点导致 DataStore 并发写竞态
     var switchingLanguage by remember { mutableStateOf(false) }
     // 清除缓存确认
@@ -259,9 +264,9 @@ fun MeRoute(
                     onSetFontScale = viewModel::setAppFontScale,
                     onSetAppLanguage = { value, onDone ->
                         switchingLanguage = true
-                        viewModel.setAppLanguage(value) {
+                        viewModel.setAppLanguage(value) { success ->
                             switchingLanguage = false
-                            onDone()
+                            if (success) onDone()
                         }
                     },
                     onLanguageApplied = { activity?.recreate() },
@@ -292,13 +297,20 @@ fun MeRoute(
                     cacheSize = cacheSize,
                     onSetAutoUpdate = viewModel::setAutoUpdate,
                     onPickExportDir = { uri ->
-                        runCatching {
+                        // 仅当持久化目录权限授予成功时才覆盖下载位置，失败则提示用户保持原配置。
+                        val granted = runCatching {
                             context.contentResolver.takePersistableUriPermission(
                                 uri,
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                             )
+                        }.isSuccess
+                        if (granted) {
+                            viewModel.setNovelExportDir(uri.toString())
+                        } else {
+                            scope.launch {
+                                notificationHostState.show(exportDirPermFailed, NotificationType.Error)
+                            }
                         }
-                        viewModel.setNovelExportDir(uri.toString())
                     },
                     onResetExportDir = viewModel::resetNovelExportDir,
                     onClearCache = { showClearCache = true },

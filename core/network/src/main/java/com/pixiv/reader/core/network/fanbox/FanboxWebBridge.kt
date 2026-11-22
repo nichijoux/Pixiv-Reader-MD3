@@ -16,8 +16,9 @@ import android.webkit.WebViewClient
 import com.pixiv.reader.core.network.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayInputStream
+import java.net.URI
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -28,6 +29,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 
 /**
  * 无屏（不上屏）WebView 桥：专门负责从 WebView 里发 `post.info`——该端点被 Cloudflare
@@ -38,7 +40,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  *    自己种 cookie）——断网时 onPageFinished 渲染的是错误页、origin 不对，**认 URL 才算就绪**；
  * 2. 之后所有请求都在这张页面里 `fetch(credentials:'include')`，结果经
  *    `@JavascriptInterface` 桥（token 防并发串扰）回传；非 200 或超时一律返 null；
- * 3. `shouldInterceptRequest` 把 fanbox.cc 以外的子资源全掐成空响应——首屏那 5MB SPA
+ * 3. `shouldInterceptRequest` 仅放行壳页与 API 域的 HTTPS 请求——首屏那 5MB SPA
  *    （s.pxpx.net）一点用没有，实际只下 8KB 左右的壳；
  * 4. UA **保持 WebView 默认**，禁止换成 `WEB_USER_AGENT` 常量——它钉死在 Chrome/131，
  *    与设备 WebView 真实 TLS/HTTP2 指纹不符正是 CF 判机器人的典型信号（PRD D7）。
@@ -56,7 +58,6 @@ class FanboxWebBridge @Inject constructor(
 
     /** 串行化请求：单 WebView 单页面，并发 fetch 会互相踩壳页就绪状态。 */
     private val requestMutex = Mutex()
-    private val sequence = AtomicLong(0L)
     private val pending = ConcurrentHashMap<String, CancellableContinuation<String?>>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val idleRelease = Runnable { release() }
@@ -81,18 +82,22 @@ class FanboxWebBridge @Inject constructor(
     /**
      * GET 一个 api.fanbox.cc 上的接口，返回响应体。
      *
-     * @param url 完整接口地址（须为 fanbox.cc 域，否则不保证行为）
-     * @return 响应体字符串；非 200（含 CF 拦截页）/ 超时 / WebView 不可用一律 null，
+     * @param url 完整接口地址（仅接受 api.fanbox.cc 的 HTTPS 地址）
+     * @return 响应体字符串；地址非法、非 200、超时或 WebView 不可用时返回 null，
      *         调用方自行决定是否退回 OkHttp 只读元数据接口
      */
     suspend fun get(url: String): String? = withTimeoutOrNull(TIMEOUT_MS) {
+        // 校验目标来源后才允许创建 WebView 或在壳页发起带凭证的请求。
+        val apiUri = secureFanboxUri(url, API_HOST) ?: return@withTimeoutOrNull null
+        // 调用方可能拼出双斜杠路径，先规范化，避免依赖服务端重定向。
+        val apiUrl = apiUri.normalize().toASCIIString()
         requestMutex.withLock {
             withContext(Dispatchers.Main) {
                 mainHandler.removeCallbacks(idleRelease)
                 try {
                     val view = ensureWebView() ?: return@withContext null
                     if (!ensurePageLoaded(view)) return@withContext null
-                    fetchInPage(view, url)
+                    fetchInPage(view, apiUrl)
                 } finally {
                     // 无论成败都重起空闲倒计时；下一次 get 进来会先取消它
                     mainHandler.postDelayed(idleRelease, IDLE_RELEASE_MS)
@@ -146,6 +151,8 @@ class FanboxWebBridge @Inject constructor(
         view.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            allowFileAccess = false
+            allowContentAccess = false
             // UA 保持 WebView 默认（见类 KDoc 第 4 点，PRD D7）
         }
         CookieManager.getInstance().apply {
@@ -154,12 +161,32 @@ class FanboxWebBridge @Inject constructor(
         }
         view.addJavascriptInterface(JsBridge(), BRIDGE_NAME)
         view.webViewClient = object : WebViewClient() {
+            /**
+             * 限制承载 JS 接口的 WebView 留在同源壳页。
+             *
+             * @param view 发起导航的 WebView
+             * @param request 待加载的导航请求
+             * @return 目标不是壳页来源时拦截导航
+             */
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                secureFanboxUri(request.url.toString(), SHELL_HOST) == null
+
+            /**
+             * 验证已加载页面的来源并唤醒等待壳页的请求。
+             *
+             * @param view 完成导航的 WebView
+             * @param url 已加载的页面地址
+             * @return 无返回值
+             */
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // 断网时 WebView 也会 onPageFinished（渲染错误页），认 URL 才算壳页就绪，
-                // 否则后面每次 fetch 都吃 CORS
-                pageLoaded = url.orEmpty().startsWith(ORIGIN)
-                pageWaiter?.let { waiter -> pageWaiter = null; waiter.resume(Unit) }
+                // 回调地址与当前页面都必须仍在壳页来源；恢复前检查 isActive 防止超时后重复恢复抛异常。
+                pageLoaded = secureFanboxUri(url, SHELL_HOST) != null &&
+                    secureFanboxUri(view?.url, SHELL_HOST) != null
+                pageWaiter?.let { waiter ->
+                    pageWaiter = null
+                    if (waiter.isActive) waiter.resume(Unit)
+                }
             }
 
             override fun onReceivedError(
@@ -170,21 +197,29 @@ class FanboxWebBridge @Inject constructor(
                 super.onReceivedError(view, request, error)
                 // 主文档挂了就别让调用方干等超时，立即放行走兜底
                 if (request?.isForMainFrame == true) {
-                    pageWaiter?.let { waiter -> pageWaiter = null; waiter.resume(Unit) }
+                    pageWaiter?.let { waiter ->
+                        pageWaiter = null
+                        if (waiter.isActive) waiter.resume(Unit)
+                    }
                 }
             }
 
+            /**
+             * 只允许壳页来源的文档及通过 HTTPS 访问 FANBOX API 的子资源请求。
+             *
+             * @param view 发起请求的 WebView
+             * @param request 待加载的资源请求
+             * @return 拦截时返回空响应，放行时交给 WebView
+             */
             override fun shouldInterceptRequest(
                 view: WebView?,
                 request: WebResourceRequest?,
             ): WebResourceResponse? {
-                val host = request?.url?.host
-                // 放行整个 fanbox.cc——api.fanbox.cc 是这张页面存在的理由，掐掉的话 fetch
-                // 拿到本地伪造空响应、报 CORS 错误，与被 CF 挡了一模一样、极难分辨。
-                // 其余全掐：s.pximg.net 的 SPA、GA、Twitter widget 一个都用不上。
-                if (host != null && host != FANBOX_DOMAIN && !host.endsWith(".$FANBOX_DOMAIN")) {
-                    return EMPTY_RESPONSE
-                }
+                val url = request?.url?.toString()
+                // API 可作为 fetch 目标，主文档必须留在壳页来源。
+                val allowed = secureFanboxUri(url, SHELL_HOST) != null ||
+                    (request?.isForMainFrame == false && secureFanboxUri(url, API_HOST) != null)
+                if (!allowed) return EMPTY_RESPONSE
                 return super.shouldInterceptRequest(view, request)
             }
         }
@@ -199,10 +234,14 @@ class FanboxWebBridge @Inject constructor(
      * @return 壳页 origin 校验通过为 true；加载失败 / 超时 false
      */
     private suspend fun ensurePageLoaded(view: WebView): Boolean {
-        if (pageLoaded) return true
+        if (pageLoaded && secureFanboxUri(view.url, SHELL_HOST) != null) return true
+        // 复用前重新确认当前页面的来源，导航变化时重新加载壳页。
+        pageLoaded = false
         suspendCancellableCoroutine { cont ->
             pageWaiter = cont
-            cont.invokeOnCancellation { pageWaiter = null }
+            cont.invokeOnCancellation {
+                if (pageWaiter === cont) pageWaiter = null
+            }
             view.loadUrl(ORIGIN)
         }
         return pageLoaded
@@ -216,7 +255,8 @@ class FanboxWebBridge @Inject constructor(
      * @return 响应体；非 200 / 异常 null
      */
     private suspend fun fetchInPage(view: WebView, url: String): String? {
-        val token = "fb-${sequence.incrementAndGet()}"
+        // JS 接口对所有框架可见，回传令牌仅交给通过同源校验的请求脚本。
+        val token = UUID.randomUUID().toString()
         return suspendCancellableCoroutine { cont ->
             pending[token] = cont
             cont.invokeOnCancellation { pending.remove(token) }
@@ -225,24 +265,44 @@ class FanboxWebBridge @Inject constructor(
     }
 
     /**
-     * 生成页内 fetch 脚本（token 防并发串扰；URL 做引号转义）。
+     * 生成页内 fetch 脚本，使用 JSON 字面量编码令牌与 URL。
      *
      * @param token 本次请求的回传令牌
      * @param url 目标接口地址
      * @return 可执行 JS 片段
      */
     private fun fetchScript(token: String, url: String): String {
-        val safeUrl = url.replace("\\", "\\\\").replace("'", "\\'")
+        val quotedToken = JSONObject.quote(token)
+        val quotedUrl = JSONObject.quote(url)
+        val quotedOrigin = JSONObject.quote(FanboxHeaderInterceptor.FANBOX_ORIGIN)
+        // 执行时再验证壳页来源，并阻止带凭证的 fetch 跟随重定向。
         return """
             (function(){
-                var t = '$token';
-                fetch('$safeUrl', { credentials: 'include', headers: { 'Accept': 'application/json' } })
+                if (location.origin !== $quotedOrigin) return;
+                var t = $quotedToken;
+                fetch($quotedUrl, { credentials: 'include', redirect: 'error', headers: { 'Accept': 'application/json' } })
                     .then(function(r){
                         return r.text().then(function(body){ $BRIDGE_NAME.onResult(t, r.status, body); });
                     })
                     .catch(function(e){ $BRIDGE_NAME.onResult(t, -1, String(e)); });
             })();
         """.trimIndent()
+    }
+
+    /**
+     * 校验 URL 是否属于指定的 FANBOX HTTPS 来源。
+     *
+     * @param url 待校验的地址
+     * @param host 允许的精确主机名
+     * @return 使用 HTTPS 默认端口且匹配主机名的 URI，校验失败时为 null
+     */
+    private fun secureFanboxUri(url: String?, host: String): URI? {
+        if (url == null) return null
+        val uri = runCatching { URI(url) }.getOrNull() ?: return null
+        return uri.takeIf {
+            it.scheme.equals("https", ignoreCase = true) && it.host.equals(host, ignoreCase = true) &&
+                it.userInfo == null && (it.port == -1 || it.port == 443)
+        }
     }
 
     /** JS 回调落点：非 static 内部类，回调落回本 bridge 实例的 pending 表。 */
@@ -259,7 +319,8 @@ class FanboxWebBridge @Inject constructor(
     private companion object {
         const val TAG = "FanboxWebBridge"
         const val ORIGIN = FanboxHeaderInterceptor.FANBOX_URL
-        const val FANBOX_DOMAIN = "fanbox.cc"
+        const val SHELL_HOST = "www.fanbox.cc"
+        const val API_HOST = "api.fanbox.cc"
         const val BRIDGE_NAME = "FanboxNativeBridge"
         const val TIMEOUT_MS = 25_000L
 

@@ -23,6 +23,7 @@ import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -200,15 +201,23 @@ class MeViewModel @Inject constructor(
     }
 
     /**
-     * 设置应用语言。
+     * 设置应用语言并异步落盘，结束后通过 [onDone] 告知写入是否成功（取消时正常向上传播）。
      *
-     * DataStore 写入为异步；[onDone] 在**落盘完成后**才回调，避免调用方
-     * 立即 recreate 时写入协程被取消导致语言未生效（"点了中文却显示英文"）。
+     * @param value 目标语言存储值（system / zh / zh-TW / en）
+     * @param onDone 落盘结束回调（true = 成功，false = 写入失败）
+     * @return 无返回值
      */
-    fun setAppLanguage(value: String, onDone: () -> Unit = {}) {
+    fun setAppLanguage(value: String, onDone: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            userPreferences.setAppLanguage(value)
-            onDone()
+            val success = try {
+                userPreferences.setAppLanguage(value)
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+            onDone(success)
         }
     }
 

@@ -16,6 +16,8 @@
     <application
         android:name=".PixivApp"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
         android:enableOnBackInvokedCallback="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -50,6 +52,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -60,14 +63,17 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="pixiv" android:host="account" android:pathPrefix="/login" />
+                <data android:scheme="pixiv" android:host="account" android:path="/login" />
             </intent-filter>
-            <!-- 作品深链：pixiv://illust/{id} -->
+            <!-- 内容深链：各 host 的路径 ID 由 NavGraph 按路由参数校验。 -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="pixiv" android:host="illust" />
+                <data android:scheme="pixiv" android:host="illust" android:pathPattern="/..*" />
+                <data android:scheme="pixiv" android:host="novel" android:pathPattern="/..*" />
+                <data android:scheme="pixiv" android:host="reader" android:pathPattern="/..*" />
+                <data android:scheme="pixiv" android:host="user" android:pathPattern="/..*" />
             </intent-filter>
         </activity>
     </application>

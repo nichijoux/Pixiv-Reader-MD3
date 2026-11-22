@@ -1,6 +1,7 @@
 package com.pixiv.reader.app.navigation
 
 import android.app.Activity
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -12,8 +13,12 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -81,6 +86,8 @@ const val ROUTE_ONBOARDING = "onboarding"
  * 可通过 `main?search={search}` 携带搜索词跨 Tab 直达发现页搜索。
  */
 const val ROUTE_MAIN = "main"
+
+private const val MAIN_ROUTE_PATTERN = "main?search={search}&sn={sn}"
 
 /** 插画详情（全屏路由，隐藏底部导航）。 */
 const val ROUTE_ILLUST = "illust/{illustId}"
@@ -165,7 +172,7 @@ const val ROUTE_IMAGE_PREVIEW = "image_preview?url={url}&title={title}"
 
 /**
  * 本地文件阅读（TXT / EPUB 解析后直接渲染，跳过网络）。
- * novelId 对应 LocalReaderStore 的存储键，正文经 `LocalReaderStore.consume()` 单次取走。
+ * novelId 是路由参数，正文由该返回栈条目从 LocalReaderStore 的单槽中取走。
  */
 const val ROUTE_LOCAL_READER = "local_reader/{novelId}"
 
@@ -197,8 +204,14 @@ const val ROUTE_COMIC_SEARCH = "comic_search"
  * 深链 scheme: `pixiv://`（illust/novel/reader/user 支持，OAuth 回调走 `pixiv://account/login`）。
  * 导航约定：顶层路由回调统一在此接线；内层 Tab 无法直达顶层路由，必须经 MainShell 回调上抛。
  *
+ * @param isLoggedIn 当前 Pixiv 会话是否已登录
  * @param onboardingComplete 首次引导是否已完成（启动时同步读取，完成后经 [onCompleteOnboarding] 写回）
- * @param onCompleteOnboarding 引导完成/跳过回调：调用方写 DataStore 标记（本函数负责随后跳转）
+ * @param onCompleteOnboarding 完成或跳过引导时更新完成标记
+ * @param onLogout 清理会话并更新登录态
+ * @param navController 应用根导航控制器
+ * @param pendingDeepLink 等待引导和会话就绪的内容深链
+ * @param onDeepLinkHandled 内容深链处理完成后清理该事件
+ * @return 无返回值
  */
 @Composable
 fun PixivNavGraph(
@@ -207,18 +220,23 @@ fun PixivNavGraph(
     onCompleteOnboarding: () -> Unit,
     onLogout: () -> Unit,
     navController: NavHostController = rememberNavController(),
+    pendingDeepLink: Intent? = null,
+    onDeepLinkHandled: (Intent) -> Unit = {},
 ) {
-    // 嵌套 NavHost（外层 main 含 MainShell 内层 Tab）：内层 back handler 到 start（home_tab）后让位外层，
-    // 外层若再 pop startDestination 会栈空白屏。此处：外层当前为 startDestination 时系统返回直接退出 app。
-    // 注意：不能在 NavHost 组合前访问 navController.graph（会 IllegalStateException），故用 route pattern 判断。
+    // 图的起点只由首次装配决定；后续状态变化只替换返回栈，保留已安装的图。
+    val rootRoute = when {
+        !onboardingComplete -> ROUTE_ONBOARDING
+        isLoggedIn -> ROUTE_MAIN
+        else -> ROUTE_AUTH
+    }
+    val startDestination = rememberSaveable { rootRoute }
+    val rootRoutePattern = if (rootRoute == ROUTE_MAIN) MAIN_ROUTE_PATTERN else rootRoute
+
+    // 内层 Tab 栈让位时，只有外层确实位于栈底才退出；叠加的搜索主壳仍可正常返回。
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val startRoutePattern =
-        if (!onboardingComplete) ROUTE_ONBOARDING
-        else if (isLoggedIn) "main?search={search}&sn={sn}"
-        else ROUTE_AUTH
     val activity = LocalContext.current as? Activity
-    BackHandler(enabled = currentRoute == startRoutePattern) {
+    BackHandler(enabled = currentRoute == rootRoutePattern && navController.previousBackStackEntry == null) {
         activity?.finish()
     }
 
@@ -227,11 +245,7 @@ fun PixivNavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = when {
-            !onboardingComplete -> ROUTE_ONBOARDING
-            isLoggedIn -> ROUTE_MAIN
-            else -> ROUTE_AUTH
-        },
+        startDestination = startDestination,
         // 全局默认过渡：轻量水平位移 + 淡入（Expressive spring 规格，见 core:ui theme/Motion.kt）。
         // composable 级自定义过渡（如阅读器 220ms 方向 slide）自动覆盖这里的默认值。
         enterTransition = { pixivNavEnter(motionScheme) },
@@ -240,30 +254,15 @@ fun PixivNavGraph(
         popExitTransition = { pixivNavPopExit(motionScheme) },
     ) {
         composable(ROUTE_ONBOARDING) {
-            OnboardingRoute(
-                onFinished = {
-                    // 先写完成标记（失败不影响本次跳转，下次启动兜底重新引导）
-                    onCompleteOnboarding()
-                    navController.navigate(if (isLoggedIn) ROUTE_MAIN else ROUTE_AUTH) {
-                        // 清空引导页栈，返回键不回到引导页
-                        popUpTo(ROUTE_ONBOARDING) { inclusive = true }
-                    }
-                },
-            )
+            OnboardingRoute(onFinished = onCompleteOnboarding)
         }
         composable(ROUTE_AUTH) {
-            AuthRoute(
-                onLoginSuccess = {
-                    // 登录成功后清空登录页栈，避免返回键回到登录页
-                    navController.navigate(ROUTE_MAIN) {
-                        popUpTo(ROUTE_AUTH) { inclusive = true }
-                    }
-                },
-            )
+            // 登录成功统一由下方会话状态 effect 处理，避免事件和登录态各自导航。
+            AuthRoute(onLoginSuccess = {})
         }
         // 主壳：携带 search 参数跨 Tab 搜索（发现页初始查询词；sn=1 表示小说标签）
         composable(
-            route = "main?search={search}&sn={sn}",
+            route = MAIN_ROUTE_PATTERN,
             arguments = listOf(
                 navArgument("search") {
                     type = NavType.StringType; nullable = true; defaultValue = null
@@ -279,13 +278,7 @@ fun PixivNavGraph(
             // 与详情路由（incoming）在同一 SharedTransitionScope 内按 key 匹配
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 MainShell(
-                    onLogout = {
-                        onLogout()
-                        // 登出：清空主壳栈回到登录页
-                        navController.navigate(ROUTE_AUTH) {
-                            popUpTo(ROUTE_MAIN) { inclusive = true }
-                        }
-                    },
+                    onLogout = onLogout,
                     onOpenIllust = { illustId ->
                         navController.navigate("illust/$illustId")
                     },
@@ -838,13 +831,23 @@ fun PixivNavGraph(
                 onRetry = { entry -> retryScope.launch { retryDownload(context, entry) } },
             )
         }
-        // 本地文件阅读：正文经 LocalReaderStore.consume() 单次取走（仅一次，避免重复消费）
+        // 本地文档跟随返回栈条目，打开正文插图或重建 Activity 后仍可继续显示。
         composable(
             route = ROUTE_LOCAL_READER,
             arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
         ) { backStackEntry ->
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
-            val local = LocalReaderStore.consume()
+            val localEntry: LocalReaderEntry = viewModel(viewModelStoreOwner = backStackEntry) {
+                LocalReaderEntry()
+            }
+            val local = localEntry.documentAndTitle
+            if (local == null) {
+                // 进程重建后内存正文不可恢复，返回入口以便重新打开本地文件。
+                LaunchedEffect(backStackEntry) {
+                    if (navController.currentBackStackEntry == backStackEntry) navController.safeBack()
+                }
+                return@composable
+            }
             ReaderRoute(
                 novelId = novelId,
                 onBack = { navController.safeBack() },
@@ -855,8 +858,8 @@ fun PixivNavGraph(
                     // 本地书正文插图全屏查看
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
-                localDocument = local?.first,
-                localTitle = local?.second,
+                localDocument = local.first,
+                localTitle = local.second,
             )
         }
         // pixivision 特辑列表：点击文章跳系统浏览器打开原文
@@ -1098,19 +1101,55 @@ fun PixivNavGraph(
             )
         }
     }
+
+    LaunchedEffect(navController, rootRoute, pendingDeepLink) {
+        // NavHost 已安装图。引导完成、登录及登出时替换整栈；已登录的内容页保留当前栈。
+        val route = navController.currentDestination?.route
+        val replaceRoot = when (rootRoute) {
+            ROUTE_MAIN -> route == ROUTE_ONBOARDING || route == ROUTE_AUTH
+            else -> route != rootRoute
+        }
+        if (replaceRoot) {
+            navController.navigate(rootRoute) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+
+        // 内容深链等会话就绪后再交给 Navigation；OAuth 回调已在 Activity 分流。
+        if (rootRoute == ROUTE_MAIN && pendingDeepLink != null) {
+            navController.handleDeepLink(pendingDeepLink)
+            onDeepLinkHandled(pendingDeepLink)
+        }
+    }
 }
 
 /**
- * 安全返回：栈只剩 startDestination 时静默忽略。
+ * 每个本地阅读返回栈条目只消费一次正文；条目出栈时由 ViewModelStore 释放引用。
+ */
+private class LocalReaderEntry : ViewModel() {
+    val documentAndTitle = LocalReaderStore.consume()
+}
+
+/**
+ * 安全返回：普通导航到栈底后静默忽略；外部深链直达的内容页可返回首页。
  *
  * BackHandler 只拦截系统返回键，拦不住页面按钮的 onBack → navigateUp。快速操作场景
  * （如 pop 过渡动画中，上层不可点击区域穿透命中下层仍在退出的返回按钮）会触发第二次
  * navigateUp，此时外层栈已只剩 startDestination（main），若照常 pop 会清空 start 导致
- * 空栈 + 过渡竞态（表现为页面重新进入刷新 / 返回桌面）。故栈底时一律忽略，不 pop 也不退出。
+ * 空栈及过渡竞态（表现为页面重新进入刷新或返回桌面）。
+ *
+ * @return 无返回值
  */
 private fun NavHostController.safeBack() {
     if (previousBackStackEntry != null) {
         navigateUp()
+    } else if (currentDestination?.route in setOf(ROUTE_ILLUST, ROUTE_NOVEL, ROUTE_READER, ROUTE_USER)) {
+        // 单页深链栈没有可弹出的上一页，显式回到已登录主壳。
+        navigate(ROUTE_MAIN) {
+            popUpTo(graph.id) { inclusive = true }
+            launchSingleTop = true
+        }
     } else {
         Log.d("PixivNavGraph", "safeBack: 栈底忽略（穿透/误触/越界返回），避免空栈")
     }

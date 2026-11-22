@@ -13,10 +13,16 @@ import java.io.IOException
  * - 检测 HTTP 400 + "Error occurred at the OAuth process" → access_token 过期
  * - 用 refresh_token 换新 token，重放原请求
  * - "Invalid refresh token" → refresh_token 被吊销，触发登出
+ *
+ * @param session 会话管理（清空 token）
+ * @param refresher token 刷新器（拦截器内阻塞刷新）
+ * @param onInvalidRefreshToken refresh_token 被吊销回调：拦截器线程无法直接更新 UI 登录态，
+ *   由装配层注入事件总线通知可观察层
  */
 class TokenInterceptor(
     private val session: SessionManager,
     private val refresher: AuthRefresher,
+    private val onInvalidRefreshToken: () -> Unit = {},
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -44,6 +50,8 @@ class TokenInterceptor(
         if (body.contains(TOKEN_ERROR_OAUTH)) return true
         if (body.contains(TOKEN_ERROR_INVALID_REFRESH)) {
             session.logout()
+            // 清完会话必须通知可观察层：否则 UI 仍以为已登录，后续请求全部失败而无提示
+            onInvalidRefreshToken()
         }
         return false
     }

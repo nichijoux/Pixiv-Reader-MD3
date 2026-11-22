@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -22,6 +23,18 @@ interface SearchHistoryDao {
     /** 插入/覆盖记录（配合 [deleteByKeyword] 实现去重置顶）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: SearchHistoryEntity)
+
+    /**
+     * 原子删旧并置顶写入搜索关键词，防止并发写入出现短暂空白。
+     *
+     * @param entity 待写入的最新搜索历史实体
+     * @return 无返回值
+     */
+    @Transaction
+    suspend fun replaceTop(entity: SearchHistoryEntity) {
+        deleteByKeyword(entity.keyword)
+        upsert(entity)
+    }
 
     /** 删除单条记录。 */
     @Delete

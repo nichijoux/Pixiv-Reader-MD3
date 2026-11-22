@@ -2,9 +2,11 @@ package com.pixiv.reader.core.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -28,7 +30,11 @@ import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
-internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "pixiv_prefs")
+// 启动读与运行期监听共用同一个实例；文件损坏时统一恢复为默认偏好。
+internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "pixiv_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+)
 
 internal val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
 internal val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
@@ -196,6 +202,46 @@ class UserPreferences @Inject constructor(
     suspend fun setHotTagsUpdatedAt(value: Long) = context.dataStore.edit { it[KEY_HOT_TAGS_AT] = value }
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
+
+    /**
+     * 原子追加一条屏蔽标签；空白标签忽略，已存在时不重复追加。
+     *
+     * @param tag 待屏蔽的标签文本
+     * @return 无返回值
+     */
+    suspend fun addMutedTag(tag: String) {
+        val trimmed = tag.trim()
+        if (trimmed.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEY_MUTED_TAGS]
+                ?.split("\n")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+            if (trimmed !in current) {
+                prefs[KEY_MUTED_TAGS] = (current + trimmed).joinToString("\n")
+            }
+        }
+    }
+
+    /**
+     * 原子移除一条屏蔽标签；不存在或空白时静默忽略。
+     *
+     * @param tag 待移除的标签文本
+     * @return 无返回值
+     */
+    suspend fun removeMutedTag(tag: String) {
+        val trimmed = tag.trim()
+        if (trimmed.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val updated = prefs[KEY_MUTED_TAGS]
+                ?.split("\n")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() && it != trimmed }
+                .orEmpty()
+            prefs[KEY_MUTED_TAGS] = updated.joinToString("\n")
+        }
+    }
 
     /** 加入本地屏蔽（幂等：同目标重复添加不产生重复条目）。 */
     suspend fun addBlockedTarget(type: String, id: Long) =

@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.pixiv.api.model.FanboxPost
 import com.pixiv.api.model.FanboxPostDetailResponse
 import com.pixiv.api.network.FanboxApi
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,7 +38,8 @@ class FanboxRepository @Inject constructor(
      * @return 含 type / body / coverImageUrl 的帖子对象；失败 null
      */
     suspend fun fetchPostInfo(postId: String): FanboxPost? {
-        val raw = webBridge.get("$FANBOX_API_BASE/post.info?postId=$postId") ?: return null
+        val encodedId = URLEncoder.encode(postId, "UTF-8")
+        val raw = webBridge.get("${FANBOX_API_BASE}post.info?postId=$encodedId") ?: return null
         return runCatching {
             gson.fromJson(raw, FanboxPostDetailResponse::class.java).body?.post
         }.getOrElse {

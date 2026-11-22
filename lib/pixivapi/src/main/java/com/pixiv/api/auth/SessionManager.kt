@@ -45,12 +45,19 @@ interface SessionManager {
 }
 
 /**
- * 默认内存实现（配合外部持久化回调）
+ * 默认内存实现（配合外部持久化回调）。
+ *
+ * 会话会被 OkHttp 拦截器线程（刷新 token）与主线程 / 协程并发读写，
+ * 因此所有读写都走 [lock] 并给 [account] 加 `@Volatile`：否则可能出现
+ * 「刷新结果晚到，把刚被吐销的账号覆写回来」的复活竞态。
  */
 open class SimpleSessionManager(
     private val store: SessionStore,
 ) : SessionManager {
 
+    private val lock = Any()
+
+    @Volatile
     private var account: AccountResponse? = null
 
     override val isLoggedIn: Boolean get() = account?.access_token != null
@@ -72,28 +79,39 @@ open class SimpleSessionManager(
     override fun cookie(): String = store.getCookie()
 
     override fun saveSession(account: AccountResponse) {
-        this.account = account
-        store.saveAccount(account)
+        synchronized(lock) {
+            this.account = account
+            store.saveAccount(account)
+        }
     }
 
     override fun applyTokenRefresh(accessToken: String, refreshToken: String, expiresIn: Int) {
-        val updated = (account ?: AccountResponse()).copy(
-            access_token = accessToken,
-            refresh_token = refreshToken,
-            expires_in = expiresIn,
-        )
-        this.account = updated
-        store.saveAccount(updated)
+        synchronized(lock) {
+            // 已登出（并发 logout）时丢弃刷新结果：否则会用空 user 重建会话，
+            // 「复活」刚被吐销的账号并让 UI 卡在已登录
+            val current = account ?: return
+            val updated = current.copy(
+                access_token = accessToken,
+                refresh_token = refreshToken,
+                expires_in = expiresIn,
+            )
+            account = updated
+            store.saveAccount(updated)
+        }
     }
 
     override fun logout() {
-        account = null
-        store.clear()
+        synchronized(lock) {
+            account = null
+            store.clear()
+        }
     }
 
     /** 启动时恢复会话 */
     fun restore() {
-        account = store.loadAccount()
+        synchronized(lock) {
+            account = store.loadAccount()
+        }
     }
 }
 
