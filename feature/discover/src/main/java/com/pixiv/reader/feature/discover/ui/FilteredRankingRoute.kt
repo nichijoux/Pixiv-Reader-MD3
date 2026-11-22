@@ -240,38 +240,40 @@ private fun EraHeader(
     eraChips: Boolean,
     viewModel: FilteredRankingViewModel,
 ) {
-    if (!eraChips) return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-    ) {
-        listOf(
-            "2010" to "2010-12-31",
-            "2015" to "2015-12-31",
-            "2020" to "2020-12-31",
-            "2024" to "2024-12-31",
-        ).forEach { (label, date) ->
-            Surface(
-                color = if (selectedDate == date) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                },
-                shape = AppShapes.pill,
-                modifier = Modifier.clip(AppShapes.pill).clickable { viewModel.selectDate(date) },
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
+    // 年代快捷项与已选日期独立显示，所有榜单都可以清除日期。
+    if (eraChips) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            listOf(
+                "2010" to "2010-12-31",
+                "2015" to "2015-12-31",
+                "2020" to "2020-12-31",
+                "2024" to "2024-12-31",
+            ).forEach { (label, date) ->
+                Surface(
                     color = if (selectedDate == date) {
-                        MaterialTheme.colorScheme.onPrimary
+                        MaterialTheme.colorScheme.primary
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme.surfaceContainerHigh
                     },
-                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                )
+                    shape = AppShapes.pill,
+                    modifier = Modifier.clip(AppShapes.pill).clickable { viewModel.selectDate(date) },
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selectedDate == date) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                    )
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 <resources>
     <string name="load_failed">加载失败</string>
     <string name="retry">重试</string>
+    <string name="load_more">加载更多</string>
     <!-- 收藏编辑弹层（BookmarkEditSheet：公开/私密 + 标签） -->
     <string name="bookmark_edit_title">收藏设置</string>
     <string name="bookmark_restrict_public">公开收藏</string>

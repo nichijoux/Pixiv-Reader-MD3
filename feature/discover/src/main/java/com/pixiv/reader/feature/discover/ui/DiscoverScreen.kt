@@ -82,9 +82,8 @@ fun DiscoverRoute(
         }
     }
 
-    // 跨 Tab 标签搜索：从别处带关键词进入则自动搜索；携带 pixiv 链接则直接跳详情。
-    // 类型预选在搜索前切换（setType 会按类型归一匹配方式，hasSearched=false 时不触发重复搜索）
-    LaunchedEffect(initialQuery) {
+    // 跨 Tab 标签搜索：从别处带关键词或标签类型变化进入时自动搜索；携带 pixiv 链接则直接跳详情。
+    LaunchedEffect(initialQuery, initialTagType) {
         if (!initialQuery.isNullOrBlank()) {
             when (initialTagType) {
                 TagType.NOVEL -> viewModel.setType(SearchType.NOVEL)
@@ -163,7 +162,9 @@ fun DiscoverRoute(
             onDismiss = { showFilter = false },
             onApply = {
                 viewModel.applyFilters(it)
-                viewModel.search()
+                if (query.isNotBlank() || hasSearched) {
+                    viewModel.search()
+                }
                 showFilter = false
             },
         )

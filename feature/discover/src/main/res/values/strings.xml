@@ -20,6 +20,7 @@
     <string name="search_id_section_title">按 ID 打开</string>
     <string name="search_type_series">系列</string>
     <string name="search_no_hot">暂无热门作品</string>
+    <string name="search_empty_result">未找到相关结果</string>
 
     <!-- 筛选面板 -->
     <string name="filter_title_default">高级筛选</string>
@@ -94,6 +95,11 @@
     <string name="filter_body_length_custom_char">指定文字数</string>
     <string name="filter_body_length_custom_word">指定单词数</string>
     <string name="filter_reading_time_custom">指定阅读预计用时</string>
+    <string name="filter_body_length_minimum">最小值</string>
+    <string name="filter_body_length_maximum">最大值</string>
+    <string name="filter_body_length_bounds_hint">至少填写一项，留空的一端不限。</string>
+    <string name="filter_body_length_minutes_hint">以分钟为单位。至少填写一项，留空的一端不限。</string>
+    <string name="filter_body_length_invalid_bounds">请输入有效的正整数，最小值不能大于最大值。</string>
     <string name="filter_body_length_custom_char_fmt">指定：%1$s 字</string>
     <string name="filter_body_length_custom_word_fmt">指定：%1$s 词</string>
     <string name="filter_reading_time_custom_fmt">指定：%1$s 分钟</string>

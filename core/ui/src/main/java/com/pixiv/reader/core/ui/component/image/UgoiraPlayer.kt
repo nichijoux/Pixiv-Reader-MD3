@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.ui.R
 import java.io.File
@@ -48,20 +51,31 @@ fun UgoiraPlayer(
     contentScale: ContentScale = ContentScale.Fit,
     loadingContent: (@Composable () -> Unit)? = null,
 ) {
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var bitmap by remember(frames) { mutableStateOf<Bitmap?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(frames) {
-        if (frames.isEmpty()) return@LaunchedEffect
-        // 首帧先解码（无预解码可用），随后进入双缓冲循环
-        var index = 0
-        bitmap = withContext(Dispatchers.IO) { decodeSampled(frames[index].file, maxDecodeSize) }
-        while (true) {
-            val nextIndex = (index + 1) % frames.size
-            // 后台预解码下一帧，与当前帧的停留时间并行（LaunchedEffect 取消时自动取消）
-            val next = async(Dispatchers.IO) { decodeSampled(frames[nextIndex].file, maxDecodeSize) }
-            delay(frames[index].delayMs.toLong().milliseconds)
-            bitmap = next.await()
-            index = nextIndex
+    LaunchedEffect(frames, lifecycleOwner) {
+        if (frames.isEmpty()) {
+            bitmap = null
+            return@LaunchedEffect
+        }
+        // 首帧先解码，页面处于前台（STARTED）期间才持续运行双缓冲帧调度循环。
+        bitmap = withContext(Dispatchers.IO) { decodeSampled(frames[0].file, maxDecodeSize) }
+        if (frames.size <= 1) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var index = 0
+            while (true) {
+                val nextIndex = (index + 1) % frames.size
+                // 后台预解码下一帧，与当前帧停留时间并行。
+                val next = async(Dispatchers.IO) { decodeSampled(frames[nextIndex].file, maxDecodeSize) }
+                val delayMs = frames[index].delayMs.coerceAtLeast(16).toLong()
+                delay(delayMs.milliseconds)
+                val decoded = next.await()
+                if (decoded != null) {
+                    bitmap = decoded
+                }
+                index = nextIndex
+            }
         }
     }
 

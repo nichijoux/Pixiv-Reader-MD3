@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,13 +38,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.SearchGenreOption
@@ -91,6 +94,16 @@ private sealed interface Picker {
  * 高级筛选底部面板（对齐 Pixiv-Shaft V3 交互）：
  * 主视图 = 行式列表（检索范围/排序/…/其他条件），行右侧显示当前值摘要，点击行弹对应 picker；
  * 底部全宽「搜索」按钮一次生效。行按类型显隐（插画/小说专属维度）。
+ *
+ * @param filters 打开面板时的筛选条件
+ * @param type 当前搜索类型
+ * @param toolOptions 可用的绘制工具
+ * @param genreOptions 可用的小说题材
+ * @param langOptions 可用的作品语言
+ * @param isPremium 当前账号是否为会员
+ * @param onDismiss 关闭筛选面板的回调
+ * @param onApply 提交筛选草稿的回调
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,7 +119,6 @@ internal fun FilterBottomSheet(
 ) {
     var draft by remember { mutableStateOf(filters) }
     var picker by remember { mutableStateOf<Picker?>(null) }
-    val isNovel = type == SearchType.NOVEL
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
     // 主面板 ↔ 二级 picker 切换动画：前进（进 picker）右滑入、返回（回主面板）左滑入，无跳变。
@@ -186,13 +198,7 @@ internal fun FilterBottomSheet(
                     min = draft.bodyLengthMin,
                     max = draft.bodyLengthMax,
                     onPick = { unit, min, max ->
-                        draft = draft.copy(
-                            bodyLengthUnit = unit.takeIf { it >= 0 },
-                            bodyLengthMin = min, bodyLengthMax = max,
-                        )
-                        picker = null
-                    },
-                    onPickCustom = { unit, min, max ->
+                        // 预设与自定义范围均先写入草稿，搜索按钮统一提交。
                         draft = draft.copy(
                             bodyLengthUnit = unit.takeIf { it >= 0 },
                             bodyLengthMin = min, bodyLengthMax = max,
@@ -775,15 +781,25 @@ private fun DateFieldRow(label: String, value: String?, onClick: () -> Unit) {
 // 正文长度 picker（对齐 Shaft：一段单选列表，文字数/单词数/阅读用时三组 × 4 预设 + 指定）
 // ──────────────────────────────────────────────────────────────────────────
 
+/**
+ * 显示三种正文长度的预设档位，并按所选单位打开自定义范围。
+ *
+ * @param unit 草稿中现有的长度单位
+ * @param min 草稿中现有的下限
+ * @param max 草稿中现有的上限
+ * @param onPick 保存单位与上下限的回调
+ * @param onClose 关闭长度选择页的回调
+ * @return 无返回值
+ */
 @Composable
 private fun BodyLengthPickerContent(
     unit: Int?,
     min: Int?,
     max: Int?,
     onPick: (Int, Int?, Int?) -> Unit,
-    onPickCustom: (Int, Int?, Int?) -> Unit,
     onClose: () -> Unit,
 ) {
+    var customUnit by remember { mutableStateOf<Int?>(null) }
     val labels = buildList {
         add(stringResource(R.string.filter_body_length_all))
         add(stringResource(R.string.filter_body_length_section_char))
@@ -803,8 +819,107 @@ private fun BodyLengthPickerContent(
         labels = labels,
         selected = bodyLengthSelectedIdx(unit, min, max),
         headerIndices = headers,
-        onSelect = { idx -> handleBodyLengthPick(idx, onPick, onPickCustom) },
+        onSelect = { idx -> handleBodyLengthPick(idx, onPick) { customUnit = it } },
         onClose = onClose,
+    )
+
+    // 只预填同单位的范围，避免把字符数带入阅读分钟等字段。
+    customUnit?.let { selectedUnit ->
+        BodyLengthRangeDialog(
+            unit = selectedUnit,
+            initialMin = min.takeIf { unit == selectedUnit },
+            initialMax = max.takeIf { unit == selectedUnit },
+            onDismiss = { customUnit = null },
+            onConfirm = { lower, upper ->
+                customUnit = null
+                onPick(selectedUnit, lower, upper)
+            },
+        )
+    }
+}
+
+/**
+ * 收集可选的正文长度上下限，并在确认前校验输入。
+ *
+ * @param unit 长度单位（0 字符数，1 单词数，2 阅读分钟）
+ * @param initialMin 同单位的已选下限
+ * @param initialMax 同单位的已选上限
+ * @param onDismiss 取消输入的回调
+ * @param onConfirm 提交有效上下限的回调
+ * @return 无返回值
+ */
+@Composable
+private fun BodyLengthRangeDialog(
+    unit: Int,
+    initialMin: Int?,
+    initialMax: Int?,
+    onDismiss: () -> Unit,
+    onConfirm: (Int?, Int?) -> Unit,
+) {
+    var minInput by remember { mutableStateOf(initialMin?.toString().orEmpty()) }
+    var maxInput by remember { mutableStateOf(initialMax?.toString().orEmpty()) }
+    // 空白表示不限制该端点；非空必须能转为接口接受的正整数。
+    val min = minInput.trim().toIntOrNull()?.takeIf { it > 0 }
+    val max = maxInput.trim().toIntOrNull()?.takeIf { it > 0 }
+    val invalidMin = minInput.isNotBlank() && min == null
+    val invalidMax = maxInput.isNotBlank() && max == null
+    val reversed = min != null && max != null && min > max
+    val valid = !invalidMin && !invalidMax && !reversed && (min != null || max != null)
+    val title = when (unit) {
+        0 -> R.string.filter_body_length_custom_char
+        1 -> R.string.filter_body_length_custom_word
+        else -> R.string.filter_reading_time_custom
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    stringResource(
+                        if (unit == 2) R.string.filter_body_length_minutes_hint
+                        else R.string.filter_body_length_bounds_hint,
+                    ),
+                )
+                OutlinedTextField(
+                    value = minInput,
+                    onValueChange = { minInput = it },
+                    label = { Text(stringResource(R.string.filter_body_length_minimum)) },
+                    singleLine = true,
+                    isError = invalidMin || reversed,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = maxInput,
+                    onValueChange = { maxInput = it },
+                    label = { Text(stringResource(R.string.filter_body_length_maximum)) },
+                    singleLine = true,
+                    isError = invalidMax || reversed,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (invalidMin || invalidMax || reversed) {
+                    Text(
+                        text = stringResource(R.string.filter_body_length_invalid_bounds),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { onConfirm(min, max) }) {
+                Text(stringResource(R.string.common_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        },
     )
 }
 
@@ -827,11 +942,20 @@ private fun bodyLengthSelectedIdx(unit: Int?, min: Int?, max: Int?): Int = when 
     else -> 0
 }
 
+/**
+ * 将单选项映射为预设范围或对应单位的自定义输入。
+ *
+ * @param idx 选择项的列表位置
+ * @param onPick 应用预设上下限的回调
+ * @param onPickCustom 打开指定单位的输入对话框的回调
+ * @return 无返回值
+ */
 private fun handleBodyLengthPick(
     idx: Int,
     onPick: (Int, Int?, Int?) -> Unit,
-    onPickCustom: (Int, Int?, Int?) -> Unit,
+    onPickCustom: (Int) -> Unit,
 ) {
+    // 自定义行只打开输入框，确认前不修改草稿。
     when (idx) {
         0 -> onPick(-1, null, null)  // 不限
         in 2..5 -> {
@@ -839,19 +963,19 @@ private fun handleBodyLengthPick(
             onPick(0, b.min, b.max)
         }
 
-        6 -> onPickCustom(0, null, null)
+        6 -> onPickCustom(0)
         in 8..11 -> {
             val b = WORD_BUCKETS[idx - 8]
             onPick(1, b.min, b.max)
         }
 
-        12 -> onPickCustom(1, null, null)
+        12 -> onPickCustom(1)
         in 14..17 -> {
             val b = TIME_BUCKETS[idx - 14]
             onPick(2, b.min, b.max)
         }
 
-        18 -> onPickCustom(2, null, null)
+        18 -> onPickCustom(2)
     }
 }
 

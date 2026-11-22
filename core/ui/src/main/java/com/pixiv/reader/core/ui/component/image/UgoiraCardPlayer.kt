@@ -44,15 +44,18 @@ fun UgoiraCardPlayer(
     maxDecodeSize: Int,
     modifier: Modifier = Modifier,
 ) {
-    // 进度用 StateFlow（线程安全）：zip 下载回调来自 IO 线程，Compose mutableStateOf 跨线程写会抛异常
-    val progress = remember { MutableStateFlow<Float?>(null) }
+    // 按 illustId 绑定进度与帧缓存，避免列表项复用同一槽位时残留旧作品动图。
+    val progress = remember(illustId) { MutableStateFlow<Float?>(null) }
     val progressValue by progress.collectAsState()
-    var frames by remember { mutableStateOf<List<UgoiraFrame>?>(null) }
+    var frames by remember(illustId) { mutableStateOf<List<UgoiraFrame>?>(null) }
 
     LaunchedEffect(illustId) {
         progress.value = 0f
-        frames = loader.prepare(illustId) { p -> progress.value = p }
-        progress.value = null
+        try {
+            frames = loader.prepare(illustId) { p -> progress.value = p }
+        } finally {
+            progress.value = null
+        }
     }
 
     val ready = frames

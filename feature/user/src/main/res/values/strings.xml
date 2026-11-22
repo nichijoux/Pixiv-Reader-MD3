@@ -120,6 +120,7 @@
     <string name="me_export_dir_value">当前：%1$s</string>
     <string name="me_export_dir_default">下载/PixivReader</string>
     <string name="me_export_dir_reset">恢复默认</string>
+    <string name="me_export_dir_permission_failed">无法获取目录持久访问权限</string>
     <string name="me_clear_cache">清除缓存</string>
     <string name="me_cache_size">当前占用 %1$s（图片/调试文件）</string>
     <string name="me_cache_calculating">计算中…</string>
@@ -168,6 +169,7 @@
     <string name="downloads_status_pending">待同步（联网后自动开始）</string>
     <string name="downloads_downloading">下载中 %1$d%%</string>
     <string name="downloads_failed">下载失败</string>
+    <string name="downloads_open_failed">无法打开文件</string>
     <string name="downloads_retry">重试</string>
     <string name="downloads_format_txt">TXT</string>
     <string name="downloads_format_epub">EPUB</string>

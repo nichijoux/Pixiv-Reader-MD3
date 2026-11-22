@@ -66,19 +66,29 @@ class BlockedViewModel @Inject constructor(
 
     // ── 本地过滤标签 ──
 
+    /**
+     * 原子追加本地过滤标签（避免读改写覆盖并发或未订阅初始空列表）。
+     *
+     * @param tag 待添加标签文本
+     * @return 无返回值
+     */
     fun addLocalTag(tag: String) {
         val t = tag.trim()
         if (t.isBlank()) return
         viewModelScope.launch {
-            runCatching {
-                if (t !in localTags.value) userPreferences.setMutedTags(localTags.value + t)
-            }
+            runCatching { userPreferences.addMutedTag(t) }
         }
     }
 
+    /**
+     * 原子移除本地过滤标签。
+     *
+     * @param tag 待移除标签文本
+     * @return 无返回值
+     */
     fun removeLocalTag(tag: String) {
         viewModelScope.launch {
-            runCatching { userPreferences.setMutedTags(localTags.value - tag) }
+            runCatching { userPreferences.removeMutedTag(tag) }
         }
     }
 

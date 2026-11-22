@@ -12,7 +12,9 @@ import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.session.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -86,7 +88,7 @@ class CommentListViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
 ) : MessageViewModel() {
 
-    private var target: CommentTarget = CommentTarget.from(savedStateHandle.get<String>("type"))
+    private val target: CommentTarget = CommentTarget.from(savedStateHandle.get<String>("type"))
     private val targetId: Long = savedStateHandle.get<Long>("targetId") ?: 0L
 
     /** 当前评论目标类型（pane 场景经 [switchTo] 切换）。 */
@@ -98,9 +100,11 @@ class CommentListViewModel @Inject constructor(
     /** 当前评论目标（可变：排行右栏随选中项切换；无路由参数时初始为 novel/0 待 [switchTo]）。 */
     private val _type = MutableStateFlow(target)
     private val _targetId = MutableStateFlow(targetId)
+    private var targetGeneration = 0
+    private val posting = AtomicBoolean(false)
 
     /** 分页评论列表（数据驻留 VM，触底加载更多）。 */
-    val commentsPaged = PagedState<Comment>()
+    val commentsPaged = PagedState<Comment>(keySelector = { it.id.takeIf { id -> id > 0L } })
 
     /** 顶层评论排序方向（默认最新在前，与 pixiv 官方列表一致）。 */
     private val _sortOrder = MutableStateFlow(CommentSortOrder.NEWEST_FIRST)
@@ -140,6 +144,7 @@ class CommentListViewModel @Inject constructor(
     /** pixiv 贴纸目录（表情面板展示；加载失败则面板只显示文本表情）。 */
     private val _stamps = MutableStateFlow<List<Stamp>>(emptyList())
     val stamps: StateFlow<List<Stamp>> = _stamps.asStateFlow()
+    private var stampsRequested = false
 
     init {
         // 评论路由必有 type+targetId；排行右栏（无路由参数）不预载，等 switchTo
@@ -155,11 +160,13 @@ class CommentListViewModel @Inject constructor(
      * 清空旧评论状态后重新加载；排序方向属用户偏好，不在切换时重置。
      *
      * @param newTarget 新评论目标类型（插画 / 小说）
-     * @param newTargetId 新作品 id（与当前相同或非正数时忽略）
+     * @param newTargetId 新作品 id（非正数或类型和 id 均未改变时忽略）
      * @return 无返回值
      */
     fun switchTo(newTarget: CommentTarget, newTargetId: Long) {
-        if (newTargetId == _targetId.value || newTargetId <= 0L) return
+        if (newTargetId <= 0L || (newTarget == _type.value && newTargetId == _targetId.value)) return
+        // 作废旧作品的异步结果，再重置分页、草稿和回复树。
+        targetGeneration++
         _type.value = newTarget
         _targetId.value = newTargetId
         commentsPaged.reset()
@@ -170,6 +177,7 @@ class CommentListViewModel @Inject constructor(
         _replyTarget.value = null
         _replyTargetTopId.value = null
         loadComments()
+        loadStamps()
     }
 
     /**
@@ -187,11 +195,22 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /** 加载 pixiv 贴纸目录（供表情面板选贴纸发评论）。 */
+    /**
+     * 为全屏评论页和 pane 加载同一份贴纸目录，每个 ViewModel 只请求一次。
+     *
+     * @return 无返回值，请求结果通过 [stamps] 暴露
+     */
     private fun loadStamps() {
+        // 贴纸目录与作品无关，切换作品时沿用成功结果；失败时允许下次重试。
+        if (stampsRequested) return
+        stampsRequested = true
         viewModelScope.launch {
             runCatching { pixivRepository.api.getStamps() }
                 .onSuccess { _stamps.value = it.stamps }
+                .onFailure {
+                    stampsRequested = false
+                    if (it is CancellationException) throw it
+                }
         }
     }
 
@@ -228,16 +247,30 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /** 按需加载某父评论的子回复（防重；成功后写缓存并保持展开态）。 */
+    /**
+     * 按需加载父评论下的子回复，仅向发起请求时的评论区回填结果。
+     *
+     * @param parentId 父评论 id
+     * @return 无返回值，请求结果和加载状态通过状态流暴露
+     */
     fun loadReplies(parentId: Long) {
         if (_replies.value.containsKey(parentId) || _repliesLoading.value.contains(parentId)) return
+        val generation = targetGeneration
+        val apiType = _type.value.apiValue
+        _repliesLoading.value += parentId
         viewModelScope.launch {
-            _repliesLoading.value += parentId
-            runCatching { pixivRepository.api.getCommentReplies(_type.value.apiValue, parentId) }
-                .onSuccess { resp ->
+            try {
+                val resp = pixivRepository.api.getCommentReplies(apiType, parentId)
+                // 切换作品后，旧回复不得回填新作品的缓存。
+                if (generation == targetGeneration) {
                     _replies.value += (parentId to resp.comments)
                 }
-            _repliesLoading.value -= parentId
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+            } finally {
+                // 只结束本次加载，避免清除新作品中恰好同 id 的加载状态。
+                if (generation == targetGeneration) _repliesLoading.value -= parentId
+            }
         }
     }
 
@@ -262,26 +295,34 @@ class CommentListViewModel @Inject constructor(
 
     /**
      * 发布评论 / 贴纸（按 type 分流，成功后清空草稿/回复目标并刷新列表）。
-     * [stampId] 非空时发贴纸（comment 留空，pixiv API 规则）；否则发文本评论。
+     *
+     * @param stampId 贴纸 id，非空时按 Pixiv API 规则发送纯贴纸，否则发送文本
+     * @return 无返回值，操作结果通过消息通道提示
      */
     fun postComment(stampId: Long? = null) {
-        val text = _commentDraft.value.trim()
-        // 纯贴纸：文本可空（stampId 非空），否则文本必须非空
+        val draft = _commentDraft.value
+        val text = draft.trim()
         if (text.isEmpty() && stampId == null) return
+        // 启动协程前占用发送标记，阻止文本与贴纸入口同时提交。
+        if (!posting.compareAndSet(false, true)) return
+        val generation = targetGeneration
+        val commentType = _type.value
+        val workId = _targetId.value
+        val parentId = _replyTarget.value?.id
+        val repliedTopId = _replyTargetTopId.value ?: parentId
         viewModelScope.launch {
             runCatching {
                 val commentText = if (stampId != null) "" else text
-                val parentId = _replyTarget.value?.id
-                if (_type.value == CommentTarget.ILLUST) {
+                if (commentType == CommentTarget.ILLUST) {
                     pixivRepository.api.postIllustComment(
-                        illustId = _targetId.value,
+                        illustId = workId,
                         comment = commentText,
                         parentCommentId = parentId,
                         stampId = stampId,
                     )
                 } else {
                     pixivRepository.api.postNovelComment(
-                        novelId = _targetId.value,
+                        novelId = workId,
                         comment = commentText,
                         parentCommentId = parentId,
                         stampId = stampId,
@@ -289,12 +330,13 @@ class CommentListViewModel @Inject constructor(
                 }
             }
                 .onSuccess {
-                    // 刷新目标：回复目标所属顶层评论（顶层评论回复 = 自身；子评论回复 = 外层顶层）
-                    val repliedTopId = _replyTargetTopId.value ?: _replyTarget.value?.id
-                    _commentDraft.value = ""
-                    _replyTarget.value = null
-                    _replyTargetTopId.value = null
-                    sendMessage(UiMessage(CoreR.string.core_comment_published))
+                    // 只更新原评论区，并保留发送期间新编辑的草稿或回复对象。
+                    if (generation != targetGeneration) return@onSuccess
+                    if (draft == _commentDraft.value && parentId == _replyTarget.value?.id) {
+                        _commentDraft.value = ""
+                        _replyTarget.value = null
+                        _replyTargetTopId.value = null
+                    }
                     loadComments()
                     // 刷新并自动展开该顶层评论，保证新子回复即时可见
                     if (repliedTopId != null) {
@@ -302,35 +344,50 @@ class CommentListViewModel @Inject constructor(
                         _replies.value -= repliedTopId
                         loadReplies(repliedTopId)
                     }
+                    trySendMessage(UiMessage(CoreR.string.core_comment_published))
                 }
                 .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_comment_failed,
-                        listOf(it.message ?: "")
-                    ))
+                    if (it is CancellationException) throw it
+                    if (generation == targetGeneration) {
+                        trySendMessage(UiMessage(
+                            CoreR.string.core_comment_failed,
+                            listOf(it.message ?: "")
+                        ))
+                    }
                 }
+        }.invokeOnCompletion {
+            // 成功、失败或在启动前取消均释放发送标记。
+            posting.set(false)
         }
     }
 
     /**
      * 删除自己的评论（长按评论确认后调用；按 type 分流走 v1/{type}/comment/delete）。
-     * 成功后全量刷新评论列表；子回复场景由刷新整体覆盖，无需单独处理。
+     * 成功后清空子回复缓存并刷新评论列表；切换作品代次变化时丢弃旧操作回写。
      *
      * @param commentId 待删除的评论 id（顶层评论或子回复均可）
      * @return 无返回值；结果经消息通道提示
      */
     fun deleteComment(commentId: Long) {
+        val generation = targetGeneration
+        val apiType = _type.value.apiValue
         viewModelScope.launch {
-            runCatching { pixivRepository.api.deleteComment(_type.value.apiValue, commentId) }
+            runCatching { pixivRepository.api.deleteComment(apiType, commentId) }
                 .onSuccess {
+                    if (generation != targetGeneration) return@onSuccess
                     sendMessage(UiMessage(CoreR.string.core_comment_deleted))
+                    // 清空子回复缓存，避免删除子回复后展开区仍保留旧缓存。
+                    _replies.value = emptyMap()
                     loadComments()
                 }
                 .onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_comment_delete_failed,
-                        listOf(it.message ?: "")
-                    ))
+                    if (it is CancellationException) throw it
+                    if (generation == targetGeneration) {
+                        sendMessage(UiMessage(
+                            CoreR.string.core_comment_delete_failed,
+                            listOf(it.message ?: "")
+                        ))
+                    }
                 }
         }
     }

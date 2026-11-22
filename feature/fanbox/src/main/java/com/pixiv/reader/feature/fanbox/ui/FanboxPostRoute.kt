@@ -310,24 +310,30 @@ private fun SectionContent(
 @Composable
 private fun ParagraphText(section: FanboxSection.Paragraph, openLink: (String) -> Unit) {
     val linkColor = MaterialTheme.colorScheme.primary
+    val maxLen = section.text.length
     val annotated = buildAnnotatedString {
         append(section.text)
         section.boldSpans.forEach { span ->
-            if (span.length > 0) {
-                addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), span.offset, span.offset + span.length)
+            // 服务端风格偏移按字符索引下发，钳制到文本边界防止越界崩溃。
+            val start = span.offset.coerceIn(0, maxLen)
+            val end = (span.offset + span.length).coerceIn(start, maxLen)
+            if (end > start) {
+                addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), start, end)
             }
         }
         section.links.forEach { link ->
             val url = link.url ?: return@forEach
-            if (link.length > 0) {
+            val start = link.offset.coerceIn(0, maxLen)
+            val end = (link.offset + link.length).coerceIn(start, maxLen)
+            if (end > start) {
                 addLink(
                     androidx.compose.ui.text.LinkAnnotation.Url(
                         url = url,
                         styles = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)),
                         linkInteractionListener = { openLink(url) },
                     ),
-                    link.offset,
-                    link.offset + link.length,
+                    start,
+                    end,
                 )
             }
         }

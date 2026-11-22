@@ -52,18 +52,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.milliseconds
 
 /** 通知类型：决定图标与强调色。 */
 enum class NotificationType { Info, Success, Error }
 
-/** 一条待展示的通知数据。 */
+/** 一条待展示的通知数据（带单调递增 [id]，保证同文案连续通知也能触发重发射与计时重置）。 */
 data class NotificationData(
     val text: String,
     val type: NotificationType,
     val actionText: String? = null,
     val onAction: (() -> Unit)? = null,
-)
+    val id: Long = nextId.incrementAndGet(),
+) {
+    companion object {
+        private val nextId = AtomicLong(0L)
+    }
+}
 
 /**
  * 自定义 Material3 风格通知宿主状态（替代 Material `Snackbar`）。

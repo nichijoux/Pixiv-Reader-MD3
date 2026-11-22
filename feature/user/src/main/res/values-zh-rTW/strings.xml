@@ -118,6 +118,7 @@
     <string name="me_export_dir_value">當前：%1$s</string>
     <string name="me_export_dir_default">下載/PixivReader</string>
     <string name="me_export_dir_reset">恢復預設</string>
+    <string name="me_export_dir_permission_failed">無法取得目錄持久存取權限</string>
     <string name="me_clear_cache">清除快取</string>
     <string name="me_cache_size">當前佔用 %1$s（圖片/除錯檔案）</string>
     <string name="me_cache_calculating">計算中…</string>
@@ -166,6 +167,7 @@
     <string name="downloads_status_pending">待同步（連網後自動開始）</string>
     <string name="downloads_downloading">下載中 %1$d%%</string>
     <string name="downloads_failed">下載失敗</string>
+    <string name="downloads_open_failed">無法開啟檔案</string>
     <string name="downloads_retry">重試</string>
     <string name="downloads_format_txt">TXT</string>
     <string name="downloads_format_epub">EPUB</string>

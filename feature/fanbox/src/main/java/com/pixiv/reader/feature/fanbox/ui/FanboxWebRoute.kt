@@ -1,7 +1,9 @@
 package com.pixiv.reader.feature.fanbox.ui
 
+import android.content.Context
 import android.content.Intent
-import android.util.Log
+import android.graphics.Bitmap
+import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -34,8 +36,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
 import com.pixiv.reader.core.network.fanbox.FanboxHeaderInterceptor
 import com.pixiv.reader.feature.fanbox.R
+import java.net.URI
+import org.json.JSONObject
 
-private const val TAG = "FanboxWebRoute"
+private const val PIXIV_ACCOUNTS_HOST = "accounts.pixiv.net"
+private const val FANBOX_API_HOST = "api.fanbox.cc"
 
 /**
  * FANBOX 移动版侧边栏修复脚本（onPageFinished 注入）。
@@ -72,12 +77,50 @@ private const val FANBOX_SIDEBAR_FIX_JS = """(function(){
 })();"""
 
 /**
+ * 解析可在 WebView 或浏览器中打开的网页地址。
+ *
+ * @param url 待解析的原始地址
+ * @return 具有有效主机名且使用 HTTP 或 HTTPS 的地址，否则为 null
+ */
+private fun parseWebUrl(url: String?): URI? {
+    if (url == null) return null
+    val uri = runCatching { URI(url) }.getOrNull() ?: return null
+    val scheme = uri.scheme?.lowercase()
+    return uri.takeIf { (scheme == "http" || scheme == "https") && it.host != null && it.userInfo == null }
+}
+
+/**
+ * 检查是否可在内置 WebView 中加载网页。
+ *
+ * @param url 已解析的网页地址
+ * @param authFlow 是否为 FANBOX 登录流程
+ * @return 地址匹配 HTTPS 白名单时为 true
+ */
+private fun isAllowedWebUrl(url: URI, authFlow: Boolean): Boolean {
+    if (!url.scheme.equals("https", ignoreCase = true) || (url.port != -1 && url.port != 443)) return false
+    val host = url.host?.lowercase() ?: return false
+    // 登录流程会跳转第三方 SSO 或反爬验证域名，放行标准 HTTPS 站点以免中断登录回调。
+    return if (authFlow) true else FanboxHeaderInterceptor.isAllowedWebHost(host)
+}
+
+/**
+ * 通过系统浏览器打开合法的网页地址。
+ *
+ * @param context 用于发起跳转的上下文
+ * @param url 待打开的原始地址
+ * @return 无返回值
+ */
+private fun openExternalWebUrl(context: Context, url: String?) {
+    // Intent 仅接收校验过的 HTTP(S) 地址，避免把其他协议交给外部应用。
+    val target = parseWebUrl(url) ?: return
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target.toString()))) }
+}
+
+/**
  * FANBOX 可见 WebView 页：登录引导、创作者主页、方案页、详情网页兜底等统一入口。
  *
- * 约束（PRD FR-8）：加载前做 host 白名单校验——仅 `*.fanbox.cc` 与 `accounts.pixiv.net`
- * 在本页加载，站外链接一律转系统浏览器；**登录模式**（入口为 [FanboxHeaderInterceptor.FANBOX_LOGIN_URL]）
- * 额外放行 `*.pixiv.net`——选号「继续使用此账号」可能经 www.pixiv.net 做会话中转，
- * 拦下转系统浏览器会导致 SSO 凭证落进浏览器而非 App CookieManager，登录必然失败。
+ * 普通浏览允许 FANBOX 站内页和 Pixiv 账号域；登录模式按精确主机名放行
+ * FANBOX、Pixiv 账号页与 Pixiv 会话中转页，站外 HTTP(S) 链接交给系统浏览器。
  * WebView 启用 JS / DOM storage / 第三方 cookie（登录流程跨域种 cookie 必需）。
  * 登录完成（走过 accounts 登录域 + 回到 fanbox 域 + FANBOXSESSID 存在）时**自动关闭
  * 本页**，由首页 ON_RESUME 的自动重试刷出原生内容，用户无需手动返回。
@@ -85,6 +128,7 @@ private const val FANBOX_SIDEBAR_FIX_JS = """(function(){
  * @param url 目标地址（非白名单域时转系统浏览器，本页仅留空白）
  * @param title 顶栏标题（null 用默认文案）
  * @param onBack 返回上一页
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,26 +140,21 @@ fun FanboxWebRoute(
     val context = LocalContext.current
     val resolvedTitle = title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fanbox_web_title)
 
-    // host 白名单：非白名单域不进 WebView，转系统浏览器（本页留空白）
-    val host = url?.let { runCatching { android.net.Uri.parse(it).host }.getOrNull() }
-    val allowed = FanboxHeaderInterceptor.isAllowedWebHost(host)
-    // 登录模式：整个 pixiv 域族放行（SSO 会话中转可能经过 www.pixiv.net 等）
-    val authFlow = url?.startsWith(FanboxHeaderInterceptor.FANBOX_LOGIN_URL) == true
+    // 按实际主机与路径识别登录入口，再用同一白名单校验初始地址和后续导航。
+    val initialUrl = remember(url) { parseWebUrl(url) }
+    val authFlow = initialUrl?.let {
+        it.host.equals("www.fanbox.cc", ignoreCase = true) && it.rawPath.trimEnd('/') == "/login"
+    } == true
+    val allowed = initialUrl?.let { isAllowedWebUrl(it, authFlow) } == true
     LaunchedEffect(url) {
-        if (url != null && !allowed) {
-            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
-        }
+        if (initialUrl != null && !allowed) openExternalWebUrl(context, url)
     }
 
-    // WebView 引用：BackHandler 据此决定回退历史还是退出页面
+    // 由 WebView 的历史回调更新状态，BackHandler 随导航重新判断是否可回退。
     var webView by remember { mutableStateOf<WebView?>(null) }
-    // 登录完成检测：直接访问 fanbox.cc 也会种下游客 FANBOXSESSID（非登录态），且选号页
-    // （accounts 域）上游客 cookie 同样存在——必须「走过 accounts 登录域 + 已回到 fanbox 域 +
-    // cookie 存在」三条件同时满足才判定完成，随后自动关闭本页回到原生（首页自动重试刷新）
-    var sawAccountsLogin by remember { mutableStateOf(false) }
-    var loginDone by remember { mutableStateOf(false) }
+    var canGoBack by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = webView?.canGoBack() == true) {
+    BackHandler(enabled = canGoBack) {
         webView?.goBack()
     }
 
@@ -129,9 +168,9 @@ fun FanboxWebRoute(
                     }
                 },
                 actions = {
-                    if (url != null) {
+                    if (initialUrl != null) {
                         IconButton(onClick = {
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                            openExternalWebUrl(context, url)
                         }) {
                             Icon(Icons.Filled.OpenInBrowser, contentDescription = stringResource(R.string.fanbox_web_open_external))
                         }
@@ -150,6 +189,8 @@ fun FanboxWebRoute(
                         settings.apply {
                             javaScriptEnabled = true
                             domStorageEnabled = true
+                            allowFileAccess = false
+                            allowContentAccess = false
                             // 视口与窗口相关（缺 WebChromeClient / 视口设置时，页面 JS 对话框、
                             // window.open、target=_blank 会静默失效——侧边栏「登录」即此类）
                             useWideViewPort = true
@@ -165,55 +206,100 @@ fun FanboxWebRoute(
                         // 不启用多窗口：target=_blank 在当前视图内导航（仍走白名单分流）
                         webChromeClient = WebChromeClient()
                         webViewClient = object : WebViewClient() {
+                            private var sawAccountsLogin = false
+                            private var loginDone = false
+
+                            /**
+                             * 按来源分流页内导航和站外链接。
+                             *
+                             * @param view 发起导航的 WebView
+                             * @param request 待加载的导航请求
+                             * @return 本页已拦截或交由系统浏览器处理时为 true
+                             */
                             override fun shouldOverrideUrlLoading(
                                 view: WebView,
                                 request: WebResourceRequest,
                             ): Boolean {
-                                val target = request.url
-                                // 登录模式：照搬 Shaft 的通用 WebView——零拦截，任何 http/https
-                                // 都在页内加载。SSO 链会经过无法穷举的中间域，踢去系统浏览器 =
-                                // 凭证落进浏览器 cookie 库而 App 的 CookieManager 拿不到，登录必败
-                                if (authFlow) {
-                                    if (target.scheme == "http" || target.scheme == "https") {
-                                        Log.d(TAG, "fanbox login nav: $target")
-                                        return false
-                                    }
-                                    return true
+                                val url = request.url.toString()
+                                val target = parseWebUrl(url) ?: return true
+                                if (isAllowedWebUrl(target, authFlow)) return false
+                                // 子框架的站外跳转不应主动启动外部浏览器。
+                                if (request.isForMainFrame) {
+                                    openExternalWebUrl(ctx, url)
                                 }
-                                // 普通模式：只对 http/https 做白名单分流；其余 scheme（javascript:/
-                                // 页内 # 锚点等）交给 WebView 自己处理，避免误拦页内导航
-                                if (target.scheme != "http" && target.scheme != "https") return true
-                                if (FanboxHeaderInterceptor.isAllowedWebHost(target.host)) return false
-                                // 站外 http/https：转系统浏览器（留痕便于排查误踢）
-                                Log.w(TAG, "fanbox web → browser: $target")
-                                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, target)) }
                                 return true
                             }
 
+                            /**
+                             * 复核未经过导航回调的主文档加载。
+                             *
+                             * @param view 开始加载的 WebView
+                             * @param url 主文档地址
+                             * @param favicon 页面图标，可空
+                             * @return 无返回值
+                             */
+                            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                                super.onPageStarted(view, url, favicon)
+                                val target = parseWebUrl(url)
+                                if (target != null && isAllowedWebUrl(target, authFlow)) return
+                                // 表单提交等导航可能绕过 shouldOverrideUrlLoading。
+                                view.stopLoading()
+                                if (target != null) openExternalWebUrl(ctx, url)
+                            }
+
+                            /**
+                             * 将 WebView 的历史变更同步给系统返回键处理器。
+                             *
+                             * @param view 更新历史的 WebView
+                             * @param url 历史记录对应的地址
+                             * @param isReload 是否是当前页重载
+                             * @return 无返回值
+                             */
+                            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                                super.doUpdateVisitedHistory(view, url, isReload)
+                                canGoBack = view.canGoBack()
+                            }
+
+                            /**
+                             * 在 FANBOX 网页修复侧边栏并检查 SSO 是否完成。
+                             *
+                             * @param view 完成导航的 WebView
+                             * @param finishedUrl 回调报告的页面地址
+                             * @return 无返回值
+                             */
                             override fun onPageFinished(view: WebView?, finishedUrl: String?) {
                                 super.onPageFinished(view, finishedUrl)
-                                // 移动版侧边栏修复：菜单容器在本 WebView 内打开态高度为 0（不可见），
-                                // 打开时以 inline !important 强制视口高度、关闭时撤除（防止遮罩挡住页面点击）
-                                view?.evaluateJavascript(FANBOX_SIDEBAR_FIX_JS, null)
+                                val finished = parseWebUrl(finishedUrl) ?: return
+                                val page = view?.takeIf { it.url == finishedUrl } ?: return
+                                if (!isAllowedWebUrl(finished, authFlow)) return
+                                val finishedHost = finished.host?.lowercase() ?: return
+                                if (finishedHost == PIXIV_ACCOUNTS_HOST) sawAccountsLogin = true
+                                val onFanbox = finishedHost == "fanbox.cc" || finishedHost.endsWith(".fanbox.cc")
+                                if (!onFanbox || finishedHost == FANBOX_API_HOST) return
+
+                                // JS 执行时也确认来源，防止回调与下一次导航竞争时注入其他页面。
+                                val origin = JSONObject.quote("https://$finishedHost")
+                                page.evaluateJavascript(
+                                    "if (location.origin === $origin) $FANBOX_SIDEBAR_FIX_JS",
+                                    null,
+                                )
                                 // 登录完成检测：走过 accounts 登录域 + 已回到 fanbox 域 + FANBOXSESSID 存在。
                                 // 三条件缺一不可：游客 cookie 在 fanbox 首页与选号页上都存在，只看 cookie
                                 // 会在选号页提前误关
-                                val finishedHost = finishedUrl?.let {
-                                    runCatching { android.net.Uri.parse(it).host }.getOrNull()
-                                }
-                                if (finishedHost == "accounts.pixiv.net") sawAccountsLogin = true
-                                val onFanbox = finishedHost != null &&
-                                    (finishedHost == "fanbox.cc" || finishedHost.endsWith(".fanbox.cc"))
+                                if (!sawAccountsLogin || loginDone) return
                                 val has = runCatching {
                                     CookieManager.getInstance()
                                         .getCookie(FanboxHeaderInterceptor.FANBOX_URL)
                                         ?.contains("${FanboxHeaderInterceptor.SESSION_COOKIE}=") == true
                                 }.getOrDefault(false)
-                                if (has && sawAccountsLogin && onFanbox && !loginDone) {
+                                if (has) {
                                     loginDone = true
+                                    // 登录完成后立即将 WebView Cookie 刷盘，确保后续请求立即可见。
+                                    android.webkit.CookieManager.getInstance().flush()
                                     // 登录完成：清掉 SSO 链历史并自动关闭本页；
                                     // 首页 ON_RESUME 自动重试即刷出原生内容，无需用户手动返回
-                                    view?.clearHistory()
+                                    page.clearHistory()
+                                    canGoBack = false
                                     onBack()
                                 }
                             }
@@ -222,8 +308,29 @@ fun FanboxWebRoute(
                         loadUrl(url)
                     }
                 },
-                onRelease = { it.destroy() },
+                onRelease = {
+                    webView = null
+                    canGoBack = false
+                    // 离开前停止加载并移出父容器，避免后台继续执行脚本或泄漏视图。
+                    it.stopLoading()
+                    it.webChromeClient = null
+                    (it.parent as? android.view.ViewGroup)?.removeView(it)
+                    it.destroy()
+                },
             )
+            // 随页面生命周期暂停/恢复 WebView，避免退到后台后继续计时或耗电。
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    when (event) {
+                        androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> webView?.onPause()
+                        androidx.lifecycle.Lifecycle.Event.ON_RESUME -> webView?.onResume()
+                        else -> Unit
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
         }
     }
 }

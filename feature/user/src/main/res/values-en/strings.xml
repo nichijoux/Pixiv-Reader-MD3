@@ -120,6 +120,7 @@
     <string name="me_export_dir_value">Current: %1$s</string>
     <string name="me_export_dir_default">Downloads/PixivReader</string>
     <string name="me_export_dir_reset">Reset</string>
+    <string name="me_export_dir_permission_failed">Failed to persist folder permission</string>
     <string name="me_clear_cache">Clear cache</string>
     <string name="me_cache_size">Currently using %1$s (images / debug files)</string>
     <string name="me_cache_calculating">Calculating…</string>
@@ -168,6 +169,7 @@
     <string name="downloads_status_pending">Pending sync (starts automatically when online)</string>
     <string name="downloads_downloading">Downloading %1$d%%</string>
     <string name="downloads_failed">Download failed</string>
+    <string name="downloads_open_failed">Unable to open file</string>
     <string name="downloads_retry">Retry</string>
     <string name="downloads_format_txt">TXT</string>
     <string name="downloads_format_epub">EPUB</string>

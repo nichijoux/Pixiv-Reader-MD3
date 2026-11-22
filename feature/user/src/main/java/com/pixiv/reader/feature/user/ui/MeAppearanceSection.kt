@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.pixiv.reader.core.common.config.AppLanguage
@@ -58,6 +59,12 @@ internal fun MeAppearanceSection(
     onSetAppLanguage: (String, () -> Unit) -> Unit,
     onLanguageApplied: () -> Unit,
 ) {
+    val selectedFontScale = snapAppearanceFontScale(fontScale)
+    // 将旧版滑块写入的档间值迁到最近的档位，使预览与实际字号一致。
+    LaunchedEffect(fontScale, selectedFontScale) {
+        if (fontScale != selectedFontScale) onSetFontScale(selectedFontScale)
+    }
+
     MeGroupCard {
         // 主题模式：宽控件行（标题行 + 全宽分段选择）
         val themeModes = listOf(
@@ -100,18 +107,18 @@ internal fun MeAppearanceSection(
             trailing = {
                 // 语言中性 token：百分比档位（80%~130%）
                 Text(
-                    text = "${(fontScale * 100).roundToInt()}%",
+                    text = "${(selectedFontScale * 100).roundToInt()}%",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
             },
         )
         Slider(
-            value = fontScale,
-            onValueChange = onSetFontScale,
+            value = selectedFontScale,
+            onValueChange = { onSetFontScale(snapAppearanceFontScale(it)) },
             valueRange = 0.8f..1.3f,
-            // 六档：0.80 / 0.90 / 1.00 / 1.10 / 1.20 / 1.30
-            steps = 5,
+            // 四个内部刻度加两个端点，按 10% 递增。
+            steps = 4,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
@@ -131,6 +138,18 @@ internal fun MeAppearanceSection(
             },
         )
     }
+}
+
+/**
+ * 将字号比例对齐到 80% 至 130% 的 10% 刻度。
+ *
+ * @param value 存储或滑杆产生的字号比例
+ * @return 对齐后的字号比例
+ */
+private fun snapAppearanceFontScale(value: Float): Float {
+    // 异常偏好值回到 100%，避免 NaN 转整数时抛出异常。
+    if (!value.isFinite()) return 1f
+    return (value * 10).roundToInt().coerceIn(8, 13) / 10f
 }
 
 /** 语言选项（存储值, 显示文案）；按本地名显示（与系统语言设置一致）。 */

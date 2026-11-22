@@ -17,13 +17,15 @@ import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -43,7 +45,6 @@ import java.time.LocalDate
  *
  * 类型与筛选模型见 [SearchType] / [SearchFilters]（DiscoverModels.kt）。
  */
-@OptIn(FlowPreview::class)
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -116,24 +117,29 @@ class DiscoverViewModel @Inject constructor(
     private val _popularNovelsLoading = MutableStateFlow(false)
     val popularNovelsLoading: StateFlow<Boolean> = _popularNovelsLoading.asStateFlow()
 
-    val illustPaged = PagedState<Illust>()
-    val novelPaged = PagedState<Novel>()
-    val userPaged = PagedState<UserPreview>()
+    // 搜索结果跨页重复 ID 会让列表撞 key 崩溃；用户预览无 user 时返回 null（不参与去重，避免捣掉数据）
+    val illustPaged = PagedState<Illust>(keySelector = { it.id })
+    val novelPaged = PagedState<Novel>(keySelector = { it.id })
+    val userPaged = PagedState<UserPreview>(keySelector = { it.user?.id })
+    private var searchJob: Job? = null
 
     init {
         loadHotTags()
         loadOptions()
         loadSavedFilters()
-        // 搜索联想（防抖）
+        // 新输入立即取消旧联想，再等待防抖间隔。
         viewModelScope.launch {
-            query.debounce(300).distinctUntilChanged().collect { q ->
-                if (q.isBlank()) {
-                    _suggestions.value = emptyList()
-                    return@collect
+            query.collectLatest { q ->
+                _suggestions.value = emptyList()
+                if (q.isBlank()) return@collectLatest
+
+                delay(300)
+                val result = runCatching { pixivRepository.api.searchAutocomplete(q) }
+                // 丢弃取消后返回的结果，以及收集器尚未来得及消费的新输入。
+                currentCoroutineContext().ensureActive()
+                if (query.value == q) {
+                    _suggestions.value = result.getOrNull()?.tags.orEmpty().take(8)
                 }
-                runCatching { pixivRepository.api.searchAutocomplete(q) }
-                    .onSuccess { _suggestions.value = it.tags.take(8) }
-                    .onFailure { _suggestions.value = emptyList() }
             }
         }
     }
@@ -143,13 +149,35 @@ class DiscoverViewModel @Inject constructor(
         query.value = value
     }
 
-    /** 清除搜索：清空关键词并回到初始态（热门 + 搜索历史）。 */
+    /**
+     * 清除关键词和搜索结果，回到热门标签与搜索历史。
+     *
+     * @return 无返回值
+     */
     fun clearSearch() {
+        // 先退出结果态，再作废首页和翻页请求。
         query.value = ""
         _hasSearched.value = false
         _suggestions.value = emptyList()
+        resetSearchResults()
+    }
+
+    /**
+     * 终止当前搜索并清空结果，让旧分页游标和热门预览失效。
+     *
+     * @return 无返回值
+     */
+    private fun resetSearchResults() {
+        searchJob?.cancel()
+        searchJob = null
+        // PagedState 的 reset 自增代次，在途翻页回包不会混入新列表。
+        illustPaged.reset()
+        novelPaged.reset()
+        userPaged.reset()
         _popularIllusts.value = emptyList()
         _popularNovels.value = emptyList()
+        _popularIllustsLoading.value = false
+        _popularNovelsLoading.value = false
     }
 
     /** 切换搜索类型；已搜索过则按当前词重新搜索。 */
@@ -227,32 +255,42 @@ class DiscoverViewModel @Inject constructor(
     }
 
     /**
-     * 提交搜索：空词忽略；立即置已搜索态（UI 切结果视图），实际请求挂起等待
-     * [filtersRestored]（DataStore 筛选恢复完成）后执行——否则非会员降级把 sort 写回
-     * popular_preview 后会被恢复值整体覆盖冲掉，渲染分支（按 filters.sort 选择）切到
-     * 从未加载的分页状态导致首屏空白。
+     * 提交非空关键词，取消上一次搜索，并在筛选条件恢复后发起请求。
      *
      * @return 无返回值（结果经 illustPaged/novelPaged/userPaged 与 popularIllusts/popularNovels 暴露）
      */
     fun search() {
         val rawWord = query.value.trim()
         if (rawWord.isBlank()) return
+        val searchType = type.value
+        resetSearchResults()
         _hasSearched.value = true
-        viewModelScope.launch {
-            // 等待筛选恢复完成：降级写回不再被覆盖，渲染分支与数据落点保持一致
+        searchJob = viewModelScope.launch {
+            // 等待筛选恢复，避免覆盖与本次请求对应的排序状态。
             filtersRestored.first { it }
-            executeSearch(rawWord)
+            ensureActive()
+            executeSearch(rawWord, searchType)
         }
     }
 
     /**
-     * 实际执行搜索（须在筛选恢复完成后调用）：非会员人气排序降级热门预览并写回 filters、
-     * 参数计算与按类型分派加载、记录搜索历史。
+     * 根据提交时的搜索类型选择接口，并为作品搜索计算筛选参数和有效排序。
      *
      * @param rawWord 调用方捕获的原始关键词（不含 users入り 后缀；历史只记原始词）
+     * @param searchType 本次提交的搜索类型
      * @return 无返回值（结果写入对应状态流）
      */
-    private suspend fun executeSearch(rawWord: String) {
+    private suspend fun executeSearch(rawWord: String, searchType: SearchType) {
+        recordHistory(rawWord)
+        // 用户接口只接受原始关键词，首屏返回的游标交给通用分页状态。
+        if (searchType == SearchType.USER) {
+            userPaged.loadInitial(
+                fetch = { pixivRepository.api.searchUsers(rawWord) },
+                fetchNext = { pixivRepository.api.getNextUsers(it) },
+            )
+            return
+        }
+
         val f = filters.value
         // 「Xusers入り」关键字后缀拼进请求（对齐 Pixiv-Shaft：非会员也可用的收藏量过滤）；
         // 搜索历史只记原始词
@@ -270,16 +308,23 @@ class DiscoverViewModel @Inject constructor(
         // 排序只能走 popular-preview，男/女性向两档同为 Premium 专属）。无借号系统 → 降级为热门预览，
         // 并写回 filters 让结果页渲染分支一致。
         val premiumSorts = setOf("popular_desc", "popular_male_desc", "popular_female_desc")
-        val effectiveSort = if (sort in premiumSorts && !pixivRepository.pixivApi.session.isPremium) {
-            filters.value = filters.value.copy(sort = "popular_preview")
-            "popular_preview"
-        } else {
-            sort
+        val usePopularPreview = sort == "popular_preview" ||
+            (sort in premiumSorts && !pixivRepository.pixivApi.session.isPremium)
+        val hasNovelLengthFilter = searchType == SearchType.NOVEL && f.bodyLengthUnit != null &&
+            (f.bodyLengthMin != null || f.bodyLengthMax != null)
+        val effectiveSort = when {
+            // 小说热门预览无正文长度参数，改走支持这些条件的分页搜索。
+            usePopularPreview && hasNovelLengthFilter -> "date_desc"
+            usePopularPreview -> "popular_preview"
+            else -> sort
+        }
+        if (usePopularPreview && effectiveSort != f.sort) {
+            filters.value = f.copy(sort = effectiveSort)
         }
         // 匹配方式按类型合法化（跨类型残留值会 400：插画不认 text/keyword、小说不认 title_and_caption）；
         // 默认档「标签部分一致」不传 search_target（对齐 Pixiv-Shaft #906：服务端合并 tag+标题命中）
         val searchTarget = f.searchTarget
-            .takeIf { it in if (type.value == SearchType.NOVEL) NOVEL_TARGETS else ILLUST_TARGETS }
+            .takeIf { it in if (searchType == SearchType.NOVEL) NOVEL_TARGETS else ILLUST_TARGETS }
             ?.takeUnless { it == "partial_match_for_tags" }
         // 官方 search_ai_type 只有 0/1（对齐 Pixiv-Shaft）：「仅人绘」发 1；「全部」「仅看 AI」都发 0——
         // 「仅看 AI」由客户端按真实 ai_type==2 过滤
@@ -288,16 +333,12 @@ class DiscoverViewModel @Inject constructor(
         val computed = durationRange(f.durationBucket)
         val startDate = computed?.first ?: f.startDate
         val endDate = computed?.second ?: f.endDate
-        recordHistory(rawWord)
-        // 已处于协程内，直接按类型分派加载（不再额外 launch）
-        when (type.value) {
+        // 已处于搜索协程内，直接调用对应接口。
+        when (searchType) {
             SearchType.ILLUST -> if (effectiveSort == "popular_preview") {
-                loadPopular(word, f, searchTarget, searchAiType, startDate, endDate)
+                loadPopular(searchType, word, f, searchTarget, searchAiType, startDate, endDate)
             } else {
-                val body = bodyRange(f)
                 val res = resolutionRange(f.resolutionBucket)
-                // reset 作废旧代次：上次搜索仍在途时重搜不被幂等忽略（PagedState 在途时 loadInitial 直接 return）
-                illustPaged.reset()
                 illustPaged.loadInitial(
                     fetch = {
                         val resp = pixivRepository.api.searchIllusts(
@@ -333,10 +374,9 @@ class DiscoverViewModel @Inject constructor(
                 )
             }
             SearchType.NOVEL -> if (effectiveSort == "popular_preview") {
-                loadPopular(word, f, searchTarget, searchAiType, startDate, endDate)
+                loadPopular(searchType, word, f, searchTarget, searchAiType, startDate, endDate)
             } else {
                 val body = bodyRange(f)
-                novelPaged.reset()
                 novelPaged.loadInitial(
                     fetch = {
                         val resp = pixivRepository.api.searchNovels(
@@ -373,13 +413,7 @@ class DiscoverViewModel @Inject constructor(
                     },
                 )
             }
-            SearchType.USER -> {
-                userPaged.reset()
-                userPaged.loadInitial(
-                    fetch = { pixivRepository.api.searchUsers(word) },
-                    fetchNext = { pixivRepository.api.getNextUsers(it) },
-                )
-            }
+            SearchType.USER -> Unit
         }
     }
 
@@ -387,6 +421,7 @@ class DiscoverViewModel @Inject constructor(
      * 按当前搜索类型分派 popular-preview 请求，结果写入 popularIllusts / popularNovels；
      * 请求在途期间置对应 loading 标记，供结果页在无数据时显示骨架屏而非空态。
      *
+     * @param searchType 本次提交的搜索类型
      * @param word 搜索关键词
      * @param f 当前搜索筛选条件（AI / R18 / 收藏数 / 工具 / 语言 / 比例）
      * @param searchTarget 搜索目标（热门预览按类型透传，可空）
@@ -396,6 +431,7 @@ class DiscoverViewModel @Inject constructor(
      * @return 无返回值（结果与在途状态写入对应 StateFlow）
      */
     private suspend fun loadPopular(
+        searchType: SearchType,
         word: String,
         f: SearchFilters,
         searchTarget: String?,
@@ -403,11 +439,11 @@ class DiscoverViewModel @Inject constructor(
         startDate: String?,
         endDate: String?,
     ) {
-        when (type.value) {
+        when (searchType) {
             SearchType.ILLUST -> {
                 // 在途标记：请求期间结果页显示骨架屏而非空态
                 _popularIllustsLoading.value = true
-                runCatching {
+                val result = runCatching {
                     pixivRepository.api.popularPreview(
                         word = word,
                         searchTarget = searchTarget,
@@ -419,30 +455,34 @@ class DiscoverViewModel @Inject constructor(
                         searchAiType = searchAiType,
                         ratioPattern = f.ratioPattern,
                     )
-                }.onSuccess {
-                    _popularIllusts.value = it.illusts.take(10).filter { i ->
+                }
+                // 旧请求即使回包也不能覆盖新结果或复位新请求的加载标记。
+                currentCoroutineContext().ensureActive()
+                _popularIllusts.value = result.getOrNull()?.illusts.orEmpty().take(10)
+                    .filter { i ->
                         (f.aiType != AiFilter.AI_ONLY || i.illust_ai_type == 2) && r18Accept(i.x_restrict, f.r18Mode)
                     }
-                }.onFailure { _popularIllusts.value = emptyList() }
-                // 请求结束（成功或失败）后清除在途标记
+                    .distinctBy { it.id }
                 _popularIllustsLoading.value = false
             }
             SearchType.NOVEL -> {
                 // 在途标记：请求期间结果页显示骨架屏而非空态
                 _popularNovelsLoading.value = true
-                runCatching {
+                val result = runCatching {
                     pixivRepository.api.popularNovelPreview(
                         word = word,
                         searchTarget = searchTarget,
                         startDate = startDate,
                         endDate = endDate,
                     )
-                }.onSuccess {
-                    _popularNovels.value = it.novels.take(10).filter { n ->
+                }
+                // 只有仍有效的请求可以写入结果和清除加载标记。
+                currentCoroutineContext().ensureActive()
+                _popularNovels.value = result.getOrNull()?.novels.orEmpty().take(10)
+                    .filter { n ->
                         (f.aiType != AiFilter.AI_ONLY || n.novel_ai_type == 2) && r18Accept(n.x_restrict, f.r18Mode)
                     }
-                }.onFailure { _popularNovels.value = emptyList() }
-                // 请求结束（成功或失败）后清除在途标记
+                    .distinctBy { it.id }
                 _popularNovelsLoading.value = false
             }
             SearchType.USER -> Unit
@@ -491,14 +531,20 @@ class DiscoverViewModel @Inject constructor(
         else -> true
     }
 
-    /** 加载更多（当前类型的下一页，触底时由 UI 调用）。 */
-    fun loadMore() {
+    /**
+     * 触底时用对应结果页的游标加载下一页。
+     *
+     * @param resultType 触发加载的结果页类型
+     * @return 无返回值
+     */
+    fun loadMore(resultType: SearchType) {
         viewModelScope.launch {
-            when (type.value) {
+            // Pager 可同时组合相邻页，只有当前搜索类型可以继续翻页。
+            if (!_hasSearched.value || type.value != resultType) return@launch
+            when (resultType) {
                 SearchType.ILLUST -> illustPaged.loadMore()
                 SearchType.NOVEL -> novelPaged.loadMore()
-                // 用户结果页无触底分页（UserSearchResults 不消费 hasMore/loadMore）
-                else -> Unit
+                SearchType.USER -> userPaged.loadMore()
             }
         }
     }
@@ -508,12 +554,16 @@ class DiscoverViewModel @Inject constructor(
 
     // ── 搜索历史 ──
 
-    /** 记录搜索历史（先删同词旧记录再插入，去重置顶）。 */
+    /**
+     * 记录搜索历史：通过 DAO 事务原子删除同词旧记录并置顶新记录，避免并发写入产生重复词条。
+     *
+     * @param keyword 搜索关键词
+     * @return 无返回值
+     */
     private fun recordHistory(keyword: String) {
         viewModelScope.launch {
             runCatching {
-                searchHistoryDao.deleteByKeyword(keyword)
-                searchHistoryDao.upsert(SearchHistoryEntity(keyword = keyword))
+                searchHistoryDao.replaceTop(SearchHistoryEntity(keyword = keyword))
             }
         }
     }

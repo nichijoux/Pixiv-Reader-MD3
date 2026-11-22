@@ -37,7 +37,7 @@ class MangaSeriesViewModel @Inject constructor(
     val detail: StateFlow<NovelSeriesDetail?> = _detail.asStateFlow()
 
     /** 系列内作品分页（PagedState 累积，触底加载）。 */
-    val paged = PagedState<Illust>()
+    val paged = PagedState<Illust>(keySelector = { it.id })
 
     /** 追更状态机（detail.watchlist_added 初始化为 ON/OFF；[toggleWatchlist] 驱动转移）。 */
     private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)

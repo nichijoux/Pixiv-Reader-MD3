@@ -5,15 +5,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -32,6 +30,8 @@ import com.pixiv.reader.feature.discover.state.UserRankingViewModel
  *
  * @param onBack 返回
  * @param onOpenUser 点击卡片 / 作者行打开用户主页
+ * @param viewModel 画师榜数据与分页操作
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,8 +62,11 @@ fun UserRankingRoute(
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
                 ) {
-                    // key 需全列表唯一：user id 优先，缺失回退条目哈希（防推荐接口重复 id 触发 duplicate key 崩溃）
-                    items(state.items, key = { "user_${it.user?.id ?: it.hashCode()}" }) { preview ->
+                    // 推荐接口可能重复返回同一用户，按位置区分重复和缺失 ID 的条目。
+                    itemsIndexed(
+                        state.items,
+                        key = { index, preview -> "user_${preview.user?.id}_$index" },
+                    ) { _, preview ->
                         val profile = preview.toCreatorProfile()
                         CreatorProfileCard(
                             profile = profile,
@@ -73,7 +76,12 @@ fun UserRankingRoute(
                             onClick = { profile.id.takeIf { it != 0L }?.let(onOpenUser) },
                         )
                     }
-                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
+                    loadMoreFooter(
+                        hasMore = state.hasMore,
+                        isLoadingMore = state.isLoadingMore,
+                        onLoadMore = viewModel::loadMore,
+                        error = state.error,
+                    )
                 }
             }
         }

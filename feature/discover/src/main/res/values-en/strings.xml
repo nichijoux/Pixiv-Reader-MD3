@@ -20,6 +20,7 @@
     <string name="search_id_section_title">Open by ID</string>
     <string name="search_type_series">Series</string>
     <string name="search_no_hot">No trending works</string>
+    <string name="search_empty_result">No results found</string>
 
     <!-- Filter sheet -->
     <string name="filter_title_default">Advanced filters</string>
@@ -94,6 +95,11 @@
     <string name="filter_body_length_custom_char">Custom characters</string>
     <string name="filter_body_length_custom_word">Custom words</string>
     <string name="filter_reading_time_custom">Custom reading time</string>
+    <string name="filter_body_length_minimum">Minimum</string>
+    <string name="filter_body_length_maximum">Maximum</string>
+    <string name="filter_body_length_bounds_hint">Enter at least one bound. Leave either field blank for no limit on that side.</string>
+    <string name="filter_body_length_minutes_hint">Enter at least one bound in minutes. Leave either field blank for no limit on that side.</string>
+    <string name="filter_body_length_invalid_bounds">Enter valid positive integers. The minimum cannot exceed the maximum.</string>
     <string name="filter_body_length_custom_char_fmt">Custom: %1$s chars</string>
     <string name="filter_body_length_custom_word_fmt">Custom: %1$s words</string>
     <string name="filter_reading_time_custom_fmt">Custom: %1$s min</string>
