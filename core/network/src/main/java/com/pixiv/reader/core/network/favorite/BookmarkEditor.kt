@@ -5,6 +5,7 @@ import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.BookmarkTag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,10 @@ class BookmarkEditor(
     private val _isOpen = MutableStateFlow(false)
     val isOpen: StateFlow<Boolean> = _isOpen.asStateFlow()
 
+    /** 已提交生效的收藏可见性（仅在详情加载或保存成功后更新，未保存的草稿切换不改此值）。 */
+    private val _committedRestrict = MutableStateFlow(PixivConstants.RESTRICT_PUBLIC)
+    val committedRestrict: StateFlow<String> = _committedRestrict.asStateFlow()
+
     /** 编辑中的收藏可见性：public（公开）/ private（私密）；保存时生效。 */
     private val _restrict = MutableStateFlow(PixivConstants.RESTRICT_PUBLIC)
     val restrict: StateFlow<String> = _restrict.asStateFlow()
@@ -54,6 +59,11 @@ class BookmarkEditor(
     /** 标签目录拉取中（弹层内占位）。 */
     private val _tagsLoading = MutableStateFlow(false)
     val tagsLoading: StateFlow<Boolean> = _tagsLoading.asStateFlow()
+
+    private var targetLoadJob: Job? = null
+    private var targetLoadGeneration = 0L
+    private var tagsJob: Job? = null
+    private var tagsGeneration = 0L
 
     /** 打开编辑弹层；标签目录未拉过时按当前 restrict 拉取。 */
     fun open() {
@@ -102,64 +112,100 @@ class BookmarkEditor(
     /**
      * 详情加载完成后回填编辑器状态（幂等：每次详情加载 / 切换作品都调用）。
      * 已收藏时拉 v2 bookmark/detail 得当前 restrict 与已选标签；失败静默（编辑器仍可用，仅无回显）。
-     * 发起前捕获目标 id，写回前校验仍是当前目标——排行右栏快速切换作品时丢弃过期响应。
+     * 发起前捕获目标 id 与代次，写回前双重校验，避免快速切换作品时旧响应覆盖新作品状态。
      *
      * @param isBookmarked 目标作品当前收藏态
+     * @return 无返回值
      */
     fun onTargetLoaded(isBookmarked: Boolean) {
+        targetLoadJob?.cancel()
+        tagsJob?.cancel()
+        val gen = ++targetLoadGeneration
+        ++tagsGeneration
+        _tagsLoading.value = false
         _savedTags.value = emptyList()
+        _committedRestrict.value = PixivConstants.RESTRICT_PUBLIC
         _restrict.value = PixivConstants.RESTRICT_PUBLIC
         _allTags.value = emptyList()
         if (!isBookmarked) return
         val requestedId = targetId()
-        scope.launch {
-            runCatching {
-                if (targetType == "illust") api.getIllustBookmarkDetail(targetId())
-                else api.getNovelBookmarkDetail(targetId())
-            }.onSuccess { resp ->
-                // 响应到达时已切到其他作品：丢弃（旧目标的 restrict/tags 不回填新目标）
-                if (targetId() != requestedId) return@onSuccess
-                val detail = resp.bookmark_detail ?: return@onSuccess
-                _restrict.value = detail.restrict ?: PixivConstants.RESTRICT_PUBLIC
+        targetLoadJob = scope.launch {
+            try {
+                // 使用捕获的 requestedId 发起请求，避免协程启动期间目标切换导致请求与校验不一致。
+                val resp = if (targetType == "illust") {
+                    api.getIllustBookmarkDetail(requestedId)
+                } else {
+                    api.getNovelBookmarkDetail(requestedId)
+                }
+                if (gen != targetLoadGeneration || targetId() != requestedId) return@launch
+                val detail = resp.bookmark_detail ?: return@launch
+                val restrictValue = detail.restrict ?: PixivConstants.RESTRICT_PUBLIC
+                _committedRestrict.value = restrictValue
+                _restrict.value = restrictValue
                 _savedTags.value = detail.tags.mapNotNull { it.name }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // 详情回显失败时保持编辑器可用，不做额外错误弹窗。
             }
         }
     }
 
     /**
      * 保存收藏（公开/私密 + 已选标签；按 targetType 分流端点）。
-     * 成功后更新收藏态并关闭弹层由调用方处理；本方法只负责网络与状态更新。
+     * 成功后同步 [committedRestrict]，关闭弹层等由调用方处理。
      *
      * @return 保存结果（成功 = Result.success；网络失败 = Result.failure 交由 VM 发消息提示）
      */
     suspend fun save(): Result<Unit> {
+        val requestedId = targetId()
+        val draftRestrict = _restrict.value
+        val draftTags = _savedTags.value
         val result = runCatching<Unit> {
             if (targetType == "illust") {
-                api.bookmarkIllust(targetId(), _restrict.value, _savedTags.value)
+                api.bookmarkIllust(requestedId, draftRestrict, draftTags)
             } else {
-                api.bookmarkNovel(targetId(), _restrict.value, _savedTags.value)
+                api.bookmarkNovel(requestedId, draftRestrict, draftTags)
             }
         }
         // 协程取消向上传播（不误报为保存失败）
         result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
+        if (result.isSuccess && targetId() == requestedId) {
+            _committedRestrict.value = draftRestrict
+        }
         return result
     }
 
-    /** 拉标签目录（按当前 restrict；重复触发时丢弃前序结果——只在最后一次完成后写状态）。 */
+    /**
+     * 按当前草稿可见性拉取标签目录，仅由最新一次请求复位加载标记，避免旧请求提前关闭转圈。
+     *
+     * @return 无返回值
+     */
     private fun loadTags() {
         val owner = uid()
         val restrict = _restrict.value
         if (owner <= 0L) return
-        scope.launch {
+        tagsJob?.cancel()
+        val gen = ++tagsGeneration
+        tagsJob = scope.launch {
             _tagsLoading.value = true
-            runCatching {
-                if (targetType == "illust") api.getIllustBookmarkTags(owner, restrict)
-                else api.getNovelBookmarkTags(owner, restrict)
-            }.onSuccess { resp ->
-                // restrict 联动快速切换时，仅采纳最后一次请求的结果（与当前 restrict 一致才写）
-                if (restrict == _restrict.value) _allTags.value = resp.tags
+            try {
+                val resp = if (targetType == "illust") {
+                    api.getIllustBookmarkTags(owner, restrict)
+                } else {
+                    api.getNovelBookmarkTags(owner, restrict)
+                }
+                // restrict 联动快速切换时，仅采纳最后一次同代次请求的结果。
+                if (gen == tagsGeneration && restrict == _restrict.value) {
+                    _allTags.value = resp.tags
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // 标签目录失败时静默，保留本地手动新增标签能力。
+            } finally {
+                if (gen == tagsGeneration) _tagsLoading.value = false
             }
-            _tagsLoading.value = false
         }
     }
 }

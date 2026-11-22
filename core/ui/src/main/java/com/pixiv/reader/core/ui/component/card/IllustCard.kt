@@ -56,7 +56,11 @@ import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
 import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
@@ -129,8 +133,24 @@ fun IllustCard(
     ugoiraLoader: UgoiraLoader? = null,
     download: DownloadBadge = DownloadBadge.None,
 ) {
-    // 收藏态：以作品初始收藏态初始化，点击切换（仅 UI 态，API 由外部回调处理）
-    var favorite by remember(illust.id) { mutableStateOf(illust.is_bookmarked == true) }
+    // 订阅进程级收藏覆盖态（按 ID 去重映射，保证失败回滚和详情页操作同步到此卡片）。
+    val favoriteActions = LocalFavoriteActions.current
+    val favoriteOverride by if (favoriteActions != null) {
+        remember(favoriteActions, illust.id) {
+            favoriteActions.illustBookmarks
+                .map { it[illust.id] }
+                .distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = favoriteActions.illustBookmarks.value[illust.id])
+    } else {
+        remember { mutableStateOf<Boolean?>(null) }
+    }
+    var localFavorite by remember(illust.id, illust.is_bookmarked) {
+        mutableStateOf(illust.is_bookmarked == true)
+    }
+    val favorite = favoriteOverride ?: localFavorite
+    val tagNames = remember(illust.tags) {
+        illust.tags.orEmpty().mapNotNull { it.name?.trim() }.filter { it.isNotEmpty() }
+    }
     // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
     val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
@@ -157,6 +177,8 @@ fun IllustCard(
             )
             onClick()
         },
+        tags = tagNames,
+        serverMuted = illust.is_muted == true,
     )
     // 卡片根容器：圆角 + 卡片底色 + 整卡点击（含屏蔽手势包装）
     // interactionSource 与整卡手势共享：按压缩放需要收到 pressed 态（自建 source 收不到）
@@ -280,8 +302,11 @@ fun IllustCard(
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.35f))
                         .clickable {
-                            favorite = !favorite
-                            onToggleFavorite(favorite)
+                            val next = !favorite
+                            if (favoriteActions == null) {
+                                localFavorite = next
+                            }
+                            onToggleFavorite(next)
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -387,7 +412,6 @@ fun IllustCard(
             }
             // 标签胶囊（与小说卡同款紧凑 chip，最多 3 个 + "+N" 折叠）：仅调用方提供
             // [onTagClick] 时展示，每个标签独立可点 → 跳发现页搜索该标签（作品类型）
-            val tagNames = illust.tags.orEmpty().mapNotNull { it.name }.filter { it.isNotBlank() }
             if (onTagClick != null && tagNames.isNotEmpty()) {
                 FlowRow(
                     modifier = Modifier.padding(top = Spacing.xs),

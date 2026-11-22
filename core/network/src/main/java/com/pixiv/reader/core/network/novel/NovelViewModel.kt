@@ -23,9 +23,13 @@ import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -91,21 +95,19 @@ class NovelViewModel @Inject constructor(
     val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
 
     /**
-     * 导出请求回调（feature 层接线：收到后调自己的 export 实现，如 NovelExportWorker 入队）。
-     * core 只负责把触发事件 + 导出中状态（downloading 复位）转发，不依赖 feature 导出实现。
-     * @param novelId 目标小说 id；@param seriesId 非空时导出整个系列；@param formatName NovelExportFormat.name
+     * 导出请求挂起回调（feature 层接线：先落库 pending 再以唯一任务入队 WorkManager）。
+     * core 只转发触发参数并管理导出态与错误提示，不依赖 feature 导出实现。
      */
-    var exportRequest: ((novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
+    var exportRequest: (suspend (novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
 
     /**
-     * 下载入队即建「待同步」索引条目（feature 层 Worker 入队前调用；feature:user 下载管理页复用）。
-     * 断网停留待同步，联网后 Worker 网络约束自动开始。
+     * 写入「待同步」下载索引条目（挂起等待落库完成，保证 Worker 启动前索引已存在）。
      *
      * @param entry 待入队的索引条目（status 强制置 pending）
      * @return 无返回值
      */
-    fun markDownloadPending(entry: DownloadEntryEntity) {
-        viewModelScope.launch { runCatching { DownloadQueue.markPending(downloadEntryDao, entry) } }
+    suspend fun markDownloadPending(entry: DownloadEntryEntity) {
+        DownloadQueue.markPending(downloadEntryDao, entry)
     }
 
     /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
@@ -117,7 +119,32 @@ class NovelViewModel @Inject constructor(
         uid = { pixivRepository.pixivApi.session.loggedInUid },
     )
 
+    private var exportObserverJob: Job? = null
+
     init {
+        // 同步跨页小说收藏与作者关注覆写流，保证卡片与详情双向一致。
+        viewModelScope.launch {
+            combine(_novel, favoriteActions.novelBookmarks) { current, map ->
+                val targetId = current?.id ?: 0L
+                targetId to map[targetId]
+            }.distinctUntilChanged().collect { (targetId, bookmarked) ->
+                if (targetId <= 0L || bookmarked == null) return@collect
+                if (!_bookmarkState.value.inFlight && _bookmarkState.value.isOn != bookmarked) {
+                    _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                    bookmarkEditor.onTargetLoaded(bookmarked)
+                }
+            }
+        }
+        viewModelScope.launch {
+            combine(_novel, favoriteActions.followedUsers) { current, map ->
+                current?.user?.id?.let { uid -> uid to map[uid] }
+            }.distinctUntilChanged().collect { pair ->
+                val (_, followed) = pair ?: return@collect
+                if (followed != null && !_authorFollowState.value.inFlight && _authorFollowState.value.isOn != followed) {
+                    _authorFollowState.value = if (followed) ToggleUiState.ON else ToggleUiState.OFF
+                }
+            }
+        }
         // 详情路由必有 id；排行右栏（无路由参数）不预载，等 switchTo
         if (novelId > 0L) load()
     }
@@ -130,6 +157,7 @@ class NovelViewModel @Inject constructor(
         // 与当前展示中的小说比较去重（内嵌场景 novelId=0，比较展示 id 而非路由参数）
         val currentShown = _novel.value?.id ?: novelId
         if (id == currentShown || id <= 0L) return
+        exportObserverJob?.cancel()
         _novel.value = null
         _seriesNovels.value = emptyList()
         _error.value = null
@@ -152,40 +180,47 @@ class NovelViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            runCatching { pixivRepository.api.getNovel(id) }
-                .onSuccess { resp ->
-                    // 响应到达时已切到其他小说：丢弃（旧数据不覆盖新目标状态）
-                    if (requestedId != id) return@onSuccess
-                    val detail = resp.novel ?: return@onSuccess
-                    _novel.value = detail
-                    _bookmarkState.value = if (detail.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
-                    bookmarkEditor.onTargetLoaded(detail.is_bookmarked == true)
-                    // 详情内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
-                    _authorFollowState.value = if (detail.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
-                    detail.user?.id?.let { loadAuthorFollowState(it) }
-                    recordHistory(detail)
-                    loadProgress(id)
-                    loadSeries(detail)
+            try {
+                val resp = pixivRepository.api.getNovel(id)
+                // 响应到达时已切到其他小说：丢弃（旧数据不覆盖新目标状态）
+                if (requestedId != id) return@launch
+                val detail = resp.novel
+                if (detail == null) {
+                    _error.value = UiMessage(CoreR.string.core_novel_load_failed)
+                    return@launch
                 }
-                .onFailure {
-                    if (requestedId != id) return@onFailure
-                    _error.value = loadFailureMessage(
-                        it,
-                        CoreR.string.core_novel_load_failed_reason,
-                        CoreR.string.core_novel_load_failed,
-                    )
-                }
-            if (requestedId == id) _isLoading.value = false
+                _novel.value = detail
+                val bookmarked = detail.is_bookmarked == true
+                _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                favoriteActions.setNovelBookmarkState(detail.id, bookmarked)
+                bookmarkEditor.onTargetLoaded(bookmarked)
+                // 详情内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
+                _authorFollowState.value = if (detail.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
+                detail.user?.id?.let { loadAuthorFollowState(it, id) }
+                recordHistory(detail)
+                loadProgress(id)
+                loadSeries(detail)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (requestedId != id) return@launch
+                _error.value = loadFailureMessage(
+                    e,
+                    CoreR.string.core_novel_load_failed_reason,
+                    CoreR.string.core_novel_load_failed,
+                )
+            } finally {
+                if (requestedId == id) _isLoading.value = false
+            }
         }
     }
 
-    /** 打开详情时写入浏览历史（先删旧记录避免重复；payloadJson 存完整卡片数据供历史页展示）。 */
+    /** 打开详情时原子写入浏览历史（先删旧再插实现去重置顶；payloadJson 存完整卡片数据供历史页展示）。 */
     private fun recordHistory(detail: Novel) {
         viewModelScope.launch {
             runCatching {
                 val card = detail.toCardData()
-                browseHistoryDao.deleteByTarget("novel", detail.id)
-                browseHistoryDao.upsert(
+                browseHistoryDao.replaceTop(
                     BrowseHistoryEntity(
                         targetType = "novel",
                         targetId = detail.id,
@@ -204,9 +239,11 @@ class NovelViewModel @Inject constructor(
 
     private fun loadSeries(detail: Novel) {
         val seriesId = detail.series?.id ?: return
+        val expectedNovelId = detail.id
         viewModelScope.launch {
             runCatching { pixivRepository.api.getNovelSeries(seriesId) }
                 .onSuccess { resp ->
+                    if ((_novel.value?.id ?: requestedId) != expectedNovelId) return@onSuccess
                     _seriesNovels.value = resp.novels.orEmpty()
                     _watchlistState.value =
                         if (resp.novel_series_detail?.watchlist_added == true) ToggleUiState.ON
@@ -226,7 +263,11 @@ class NovelViewModel @Inject constructor(
             _bookmarkState,
             CoreR.string.core_msg_bookmarked,
             CoreR.string.core_msg_unbookmarked,
-        ) { favoriteActions.toggleNovelFavorite(id, it) }
+        ) { target ->
+            favoriteActions.toggleNovelFavorite(id, target).onSuccess {
+                bookmarkEditor.onTargetLoaded(target)
+            }
+        }
     }
 
     /**
@@ -239,6 +280,7 @@ class NovelViewModel @Inject constructor(
             CoreR.string.core_msg_bookmark_updated,
             {
                 _bookmarkState.value = ToggleUiState.ON
+                favoriteActions.setNovelBookmarkState(_novel.value?.id ?: novelId, true)
                 bookmarkEditor.close()
             },
         ) { bookmarkEditor.save() }
@@ -261,13 +303,15 @@ class NovelViewModel @Inject constructor(
 
     // ── 关注作者 ─────────────────────────────────────────────────────────────
 
-    /** 用 user/detail 权威刷新作者关注态（best-effort，失败保留内嵌值）。 */
-    private fun loadAuthorFollowState(userId: Long) {
+    /** 用 user/detail 权威刷新作者关注态（best-effort，失败保留内嵌值，并校验目标未切换）。 */
+    private fun loadAuthorFollowState(userId: Long, expectedNovelId: Long) {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getUserDetail(userId) }
                 .onSuccess { resp ->
-                    resp.user?.is_followed?.let {
-                        _authorFollowState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
+                    if ((_novel.value?.id ?: requestedId) != expectedNovelId) return@onSuccess
+                    resp.user?.is_followed?.let { followed ->
+                        _authorFollowState.value = if (followed) ToggleUiState.ON else ToggleUiState.OFF
+                        favoriteActions.setUserFollowState(userId, followed)
                     }
                 }
         }
@@ -286,33 +330,54 @@ class NovelViewModel @Inject constructor(
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
     /**
-     * 导出小说（单本或整个系列）。core 层不依赖 feature 的导出实现：
-     * 仅触发 [exportRequest] 回调（feature 层入队 Worker），并管理导出中状态复位。
+     * 导出小说（单本或整个系列）。先挂起等待 feature 层写好 pending 索引并入队唯一 Worker，
+     * 随后按精确主键观察单条下载状态，避免历史其他格式的完成记录提前结束等待。
+     *
      * @param formatName NovelExportFormat.name（"TXT"/"EPUB"/"PDF"/"MARKDOWN"/"DOCX"）
+     * @param series true 表示导出所属整系列，false 表示仅导出当前单本
+     * @return 无返回值
      */
     fun export(formatName: String, series: Boolean = false) {
         val detail = _novel.value ?: return
         if (_downloading.value) return
         val seriesId = if (series) detail.series?.id else null
         if (series && seriesId == null) return
-        exportRequest?.invoke(detail.id, seriesId, formatName)
+        val requestHandler = exportRequest ?: return
+        val scopeKey = if ((seriesId ?: 0L) > 0L) "series" else ""
         _downloading.value = true
         _downloadProgress.value = context.getString(CoreR.string.core_msg_export_queued)
-        trySendMessage(UiMessage(CoreR.string.core_msg_export_queued))
-        observeExportStateReset(detail.id)
+        exportObserverJob?.cancel()
+        exportObserverJob = viewModelScope.launch {
+            try {
+                requestHandler(detail.id, seriesId, formatName)
+                trySendMessage(UiMessage(CoreR.string.core_msg_export_queued))
+                observeExportStateReset(detail.id, formatName, scopeKey)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _downloading.value = false
+                _downloadProgress.value = null
+                trySendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(e.message.orEmpty())))
+            }
+        }
     }
 
-    /** 观察导出结束：等 downloading 出现后，等 done/failed，复位导出中状态。
-     * 完成/失败通知由全局 DownloadCompletionNotifier 统一负责（离开页面也能收到）。
-     * 订阅走状态列定向查询（不取完整实体，避开进度写库时的大列反序列化）。 */
-    private fun observeExportStateReset(id: Long) {
-        viewModelScope.launch {
-            downloadEntryDao.observeStatuses("novel", id).first { statuses ->
-                statuses.any { it == DownloadEntryEntity.STATUS_DOWNLOADING }
+    /**
+     * 按完整复合主键精确等待导出结束（done / failed / 条目被删除），随后复位导出中状态。
+     *
+     * @param id 小说 ID
+     * @param format 导出格式名称
+     * @param scopeKey 下载作用域（""=单本 / "series"=整系列）
+     * @return 无返回值
+     */
+    private suspend fun observeExportStateReset(id: Long, format: String, scopeKey: String) {
+        try {
+            downloadEntryDao.observeStatus("novel", id, format, scopeKey).first { status ->
+                status == null ||
+                    status == DownloadEntryEntity.STATUS_DONE ||
+                    status == DownloadEntryEntity.STATUS_FAILED
             }
-            downloadEntryDao.observeStatuses("novel", id).first { statuses ->
-                statuses.any { it == DownloadEntryEntity.STATUS_DONE || it == DownloadEntryEntity.STATUS_FAILED }
-            }
+        } finally {
             _downloading.value = false
             _downloadProgress.value = null
         }

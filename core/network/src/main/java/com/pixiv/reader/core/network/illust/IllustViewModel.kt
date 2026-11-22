@@ -1,10 +1,13 @@
 package com.pixiv.reader.core.network.illust
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.await
 import androidx.work.workDataOf
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.ToggleUiState
@@ -32,10 +35,23 @@ import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * 插画详情 ViewModel（core:network 下沉，供 feature:illust 详情路由与 feature:manga 排行右栏共用）。
@@ -99,7 +115,7 @@ class IllustViewModel @Inject constructor(
     private val _seriesWatchlistState = MutableStateFlow(ToggleUiState.OFF)
     val seriesWatchlistState: StateFlow<ToggleUiState> = _seriesWatchlistState.asStateFlow()
 
-    val relatedPaged = PagedState<Illust>()
+    val relatedPaged = PagedState<Illust>(keySelector = { it.id })
 
     /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
     val bookmarkEditor = BookmarkEditor(
@@ -110,7 +126,32 @@ class IllustViewModel @Inject constructor(
         uid = { pixivRepository.pixivApi.session.loggedInUid },
     )
 
+    private var loadJob: Job? = null
+    private var relatedLoadJob: Job? = null
+
     init {
+        // 同步跨页收藏与关注覆写流（如从全屏查看器或列表卡片操作后返回详情页时实时更新）。
+        viewModelScope.launch {
+            combine(_illustId, favoriteActions.illustBookmarks) { id, map ->
+                id to map[id]
+            }.distinctUntilChanged().collect { (id, bookmarked) ->
+                if (id <= 0L || bookmarked == null || _illust.value?.id != id) return@collect
+                if (!_bookmarkState.value.inFlight && _bookmarkState.value.isOn != bookmarked) {
+                    _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                    bookmarkEditor.onTargetLoaded(bookmarked)
+                }
+            }
+        }
+        viewModelScope.launch {
+            combine(_illust, favoriteActions.followedUsers) { ill, map ->
+                ill?.user?.id?.let { uid -> uid to map[uid] }
+            }.distinctUntilChanged().collect { pair ->
+                val (_, followed) = pair ?: return@collect
+                if (followed != null && !_authorFollowState.value.inFlight && _authorFollowState.value.isOn != followed) {
+                    _authorFollowState.value = if (followed) ToggleUiState.ON else ToggleUiState.OFF
+                }
+            }
+        }
         // 详情路由必有 id；排行右栏（无路由参数）不预载，等 switchTo
         if (illustId > 0L) load()
     }
@@ -118,9 +159,16 @@ class IllustViewModel @Inject constructor(
     /**
      * 切换到另一作品（排行右栏选中项变化时调用）。
      * 清空旧作品全部状态后重新加载；加载期间旧内容先清空避免错位。
+     *
+     * @param id 新选中的作品 ID
+     * @return 无返回值
      */
     fun switchTo(id: Long) {
         if (id == _illustId.value || id <= 0L) return
+        // 先取消旧作品的详情、附属加载和相关推荐，再发布新作品状态。
+        loadJob?.cancel()
+        relatedLoadJob?.cancel()
+        relatedLoadJob = null
         _illustId.value = id
         _illust.value = null
         _pages.value = emptyList()
@@ -137,48 +185,68 @@ class IllustViewModel @Inject constructor(
         load()
     }
 
+    /**
+     * 加载当前作品详情，并在同一任务下启动只属于该作品的附属请求。
+     *
+     * @return 无返回值
+     */
     fun load() {
-        // 发起前捕获目标 id：右栏快速切换时旧响应到达但目标已变，直接丢弃（防旧数据覆盖新作品）
         val requestedId = _illustId.value
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            runCatching { pixivRepository.api.getIllust(requestedId) }
-                .onSuccess { resp ->
-                    if (_illustId.value != requestedId) return@onSuccess
-                    val ill = resp.illust ?: return@onSuccess
-                    _illust.value = ill
-                    _bookmarkState.value = if (ill.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
-                    bookmarkEditor.onTargetLoaded(ill.is_bookmarked == true)
-                    // 内嵌 user.is_followed 可能缺失，用 user/detail 权威刷新关注态（失败保留内嵌值）
-                    _authorFollowState.value = if (ill.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
-                    ill.user?.id?.let { loadAuthorFollowState(it) }
-                    // 漫画系列作品：拉系列详情回填追更态（详情页追更按钮）
-                    ill.series?.id?.takeIf { it > 0L }?.let { loadSeriesWatchlistState(it) }
-                    _pages.value = ill.toPages()
-                    recordHistory(ill)
-                    loadRelated()
-                    loadRealSizes()
-                    if (ill.isGif()) loadUgoira()
+            try {
+                val ill = pixivRepository.api.getIllust(requestedId).illust
+                ensureActive()
+                if (ill == null) {
+                    _error.value = UiMessage(CoreR.string.core_illust_load_failed)
+                    return@launch
                 }
-                .onFailure {
-                    if (_illustId.value != requestedId) return@onFailure
-                    _error.value = loadFailureMessage(
-                        it,
-                        CoreR.string.core_illust_load_failed_reason,
-                        CoreR.string.core_illust_load_failed,
-                    )
+                _illust.value = ill
+                _pages.value = ill.toPages()
+                val bookmarked = ill.is_bookmarked == true
+                _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                favoriteActions.setIllustBookmarkState(ill.id, bookmarked)
+                bookmarkEditor.onTargetLoaded(bookmarked)
+                // 先展示详情随附的关注态，再用对应作者和系列的详情各自校正。
+                val embeddedFollowed = ill.user?.is_followed == true
+                _authorFollowState.value = if (embeddedFollowed) ToggleUiState.ON else ToggleUiState.OFF
+                ill.user?.id?.let { userId -> launch { loadAuthorFollowState(userId) } }
+                ill.series?.id?.takeIf { it > 0L }?.let { seriesId ->
+                    launch { loadSeriesWatchlistState(seriesId) }
                 }
-            if (_illustId.value == requestedId) _isLoading.value = false
+                recordHistory(ill)
+                loadRelated()
+                launch { loadRealSizes(requestedId) }
+                if (ill.isGif()) launch { loadUgoira(requestedId) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ensureActive()
+                _error.value = loadFailureMessage(
+                    e,
+                    CoreR.string.core_illust_load_failed_reason,
+                    CoreR.string.core_illust_load_failed,
+                )
+            } finally {
+                // 取消的旧任务不能结束新作品的加载指示。
+                if (isActive) _isLoading.value = false
+            }
         }
     }
 
-    /** 打开详情时写入浏览历史（先删旧记录避免重复；payloadJson 存宽高等，供历史页完整显示）。 */
+    /**
+     * 独立记录实际打开过的作品，保存历史卡片需要的完整快照。
+     *
+     * @param ill 已打开的作品
+     * @return 无返回值
+     */
     private fun recordHistory(ill: Illust) {
         viewModelScope.launch {
-            runCatching {
-                browseHistoryDao.deleteByTarget("illust", ill.id)
-                browseHistoryDao.upsert(
+            try {
+                // 浏览过的作品即使随即切换也保留，在同一事务内原子去重置顶。
+                browseHistoryDao.replaceTop(
                     BrowseHistoryEntity(
                         targetType = "illust",
                         targetId = ill.id,
@@ -187,19 +255,32 @@ class IllustViewModel @Inject constructor(
                         payloadJson = ill.snapshotPayload(),
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "记录插画浏览历史失败", e)
             }
         }
     }
 
-    /** user/detail 权威刷新作者关注态（详情内嵌 user.is_followed 可能缺失）。 */
-    private fun loadAuthorFollowState(userId: Long) {
-        viewModelScope.launch {
-            runCatching { pixivRepository.api.getUserDetail(userId) }
-                .onSuccess { resp ->
-                    resp.user?.is_followed?.let {
-                        _authorFollowState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
-                    }
-                }
+    /**
+     * 从作者详情补齐作品内嵌信息可能缺失的关注态。
+     *
+     * @param userId 作品作者 ID
+     * @return 无返回值
+     * @throws CancellationException 作者详情请求被取消
+     */
+    private suspend fun loadAuthorFollowState(userId: Long) {
+        try {
+            val followed = pixivRepository.api.getUserDetail(userId).user?.is_followed ?: return
+            currentCoroutineContext().ensureActive()
+            _authorFollowState.value = if (followed) ToggleUiState.ON else ToggleUiState.OFF
+            favoriteActions.setUserFollowState(userId, followed)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 作者详情失败时继续沿用作品内嵌的关注态。
+            Log.w(TAG, "更新作者关注状态失败", e)
         }
     }
 
@@ -218,15 +299,23 @@ class IllustViewModel @Inject constructor(
         ) { favoriteActions.toggleFollowUser(userId, it) }
     }
 
-    /** 加载所属漫画系列的追更态（v1/illust/series 的 detail.watchlist_added；失败保留默认未追更）。 */
-    private fun loadSeriesWatchlistState(seriesId: Long) {
-        viewModelScope.launch {
-            runCatching { pixivRepository.api.getIllustSeries(seriesId) }
-                .onSuccess { resp ->
-                    resp.illust_series_detail?.watchlist_added?.let {
-                        _seriesWatchlistState.value = if (it) ToggleUiState.ON else ToggleUiState.OFF
-                    }
-                }
+    /**
+     * 从漫画系列详情补齐所属系列的追更态。
+     *
+     * @param seriesId 作品所属的漫画系列 ID
+     * @return 无返回值
+     * @throws CancellationException 系列详情请求被取消
+     */
+    private suspend fun loadSeriesWatchlistState(seriesId: Long) {
+        try {
+            val watching = pixivRepository.api.getIllustSeries(seriesId)
+                .illust_series_detail?.watchlist_added ?: return
+            currentCoroutineContext().ensureActive()
+            _seriesWatchlistState.value = if (watching) ToggleUiState.ON else ToggleUiState.OFF
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "更新漫画系列追更状态失败", e)
         }
     }
 
@@ -245,41 +334,74 @@ class IllustViewModel @Inject constructor(
         ) { favoriteActions.toggleMangaWatchlist(seriesId, it) }
     }
 
-    /** 网页接口补齐每 P 真实宽高（app-api 不提供） */
-    private fun loadRealSizes() {
-        viewModelScope.launch {
-            runCatching { pixivRepository.webApi.getIllustPages(_illustId.value) }
-                .onSuccess { resp ->
-                    val sizes = resp.body.orEmpty()
-                    if (sizes.isNotEmpty()) {
-                        val updated = _pages.value.mapIndexed { index, page ->
-                            val size = sizes.getOrNull(index)
-                            if (size != null && size.width > 0 && size.height > 0) {
-                                page.copy(width = size.width, height = size.height)
-                            } else {
-                                page
-                            }
-                        }
-                        _pages.value = updated
-                    }
+    /**
+     * 通过网页接口补齐当前作品的逐页原图尺寸。
+     *
+     * @param requestedId 发起请求时的作品 ID
+     * @return 无返回值
+     * @throws CancellationException 页面尺寸请求被取消
+     */
+    private suspend fun loadRealSizes(requestedId: Long) {
+        try {
+            val sizes = pixivRepository.webApi.getIllustPages(requestedId).body.orEmpty()
+            currentCoroutineContext().ensureActive()
+            // 网页接口按原页序给出尺寸，保留缺失尺寸的已有页面。
+            if (sizes.isEmpty()) return
+            _pages.value = _pages.value.mapIndexed { index, page ->
+                val size = sizes.getOrNull(index)
+                if (size != null && size.width > 0 && size.height > 0) {
+                    page.copy(width = size.width, height = size.height)
+                } else {
+                    page
                 }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "补齐插画页面尺寸失败", e)
         }
     }
 
-    /** 动图：加载 zip 帧（详情页 pager 播放；失败帧空则保持静态封面，查看器有失败提示）。 */
-    private fun loadUgoira() {
-        viewModelScope.launch {
-            _ugoiraProgress.value = 0f
-            _ugoiraFrames.value =
-                ugoiraLoader.prepare(_illustId.value) { p -> _ugoiraProgress.value = p }.orEmpty()
-            _ugoiraProgress.value = null
+    /**
+     * 读取当前作品的动图帧，并在主线程回填下载进度。
+     *
+     * @param requestedId 发起请求时的作品 ID
+     * @return 无返回值
+     * @throws CancellationException 动图加载被取消
+     */
+    private suspend fun loadUgoira(requestedId: Long) {
+        val scope = CoroutineScope(currentCoroutineContext())
+        _ugoiraProgress.value = 0f
+        try {
+            val frames = ugoiraLoader.prepare(requestedId) { progress ->
+                // 回调来自 IO；纳入同一任务后，切换作品会取消正在排队的进度更新。
+                scope.launch {
+                    if (_ugoiraProgress.value != null) _ugoiraProgress.value = progress
+                }
+            }
+            scope.ensureActive()
+            _ugoiraFrames.value = frames.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "加载插画动图失败", e)
+        } finally {
+            if (scope.isActive) _ugoiraProgress.value = null
         }
     }
 
+    /**
+     * 加载或重试当前作品的相关推荐首页。
+     *
+     * @return 无返回值
+     */
     fun loadRelated() {
-        viewModelScope.launch {
+        if (relatedLoadJob?.isActive == true) return
+        val requestedId = _illustId.value
+        relatedLoadJob = viewModelScope.launch {
+            // 请求固定使用发起时的 ID，切换时同时重置分页的游标代次。
             relatedPaged.loadInitial(
-                fetch = { pixivRepository.api.getRelatedIllusts(_illustId.value) },
+                fetch = { pixivRepository.api.getRelatedIllusts(requestedId) },
                 fetchNext = { pixivRepository.api.getNextIllusts(it) },
             )
         }
@@ -313,6 +435,7 @@ class IllustViewModel @Inject constructor(
             CoreR.string.core_msg_bookmark_updated,
             {
                 _bookmarkState.value = ToggleUiState.ON
+                favoriteActions.setIllustBookmarkState(_illustId.value, true)
                 bookmarkEditor.close()
             },
         ) { bookmarkEditor.save() }
@@ -321,48 +444,82 @@ class IllustViewModel @Inject constructor(
     /**
      * 下载整个作品到 filesDir/Downloads/，由 WorkManager 后台执行：
      * 静态插画走 [IllustDownloadWorker]（全部页），动图（ugoira）走 [UgoiraExportWorker]（默认 MP4）。
-     * 入队即建「待同步」索引条目（断网时停留待同步，联网后 Worker 网络约束自动开始）。
+     * 索引写入完成后才提交给 WorkManager，提交失败时回滚索引。
+     *
+     * @return 无返回值
      */
     fun download() {
+        // 固定目标及详情快照，避免切换右栏后下载记录写到其他作品。
+        val targetId = _illustId.value
+        if (targetId <= 0L) return
         val illust = _illust.value
         val isGif = illust?.isGif() == true
         val targetType = if (isGif) "ugoira" else "illust"
         val format = if (isGif) UgoiraExportFormat.MP4.format else ""
-        // 网络约束：断网时 Worker 挂起（条目停留待同步），联网自动开始；tag 供删除时精确取消
+        val workTag = DownloadQueue.workTag(targetType, targetId, format, "")
+        // 网络约束：断网时 Worker 挂起（条目停留待同步），联网自动开始；tag 供删除时精确取消与去重入队。
         val request = (if (isGif) {
             OneTimeWorkRequestBuilder<UgoiraExportWorker>()
                 .setInputData(
                     workDataOf(
-                        UgoiraExportWorker.KEY_ILLUST_ID to _illustId.value,
+                        UgoiraExportWorker.KEY_ILLUST_ID to targetId,
                         UgoiraExportWorker.KEY_FORMAT to UgoiraExportFormat.MP4.format,
                     )
                 )
         } else {
             OneTimeWorkRequestBuilder<IllustDownloadWorker>()
-                .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to _illustId.value))
+                .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to targetId))
         })
             .setConstraints(DownloadQueue.networkConstraints())
-            .addTag(DownloadQueue.workTag(targetType, _illustId.value, format, ""))
+            .addTag(workTag)
             .build()
-        // 入队即建「待同步」条目：卡片立即出现在下载管理页（断网也不丢），Worker 起跑覆写为下载中
+        val pending = DownloadEntryEntity(
+            targetId = targetId,
+            targetType = targetType,
+            title = illust?.title,
+            coverUrl = illust?.bestCoverUrl,
+            format = format,
+            pageCount = illust?.page_count ?: 0,
+            width = illust?.width ?: 0,
+            height = illust?.height ?: 0,
+            status = DownloadEntryEntity.STATUS_PENDING,
+        )
         viewModelScope.launch {
-            runCatching {
-                DownloadQueue.markPending(
-                    downloadEntryDao,
-                    DownloadEntryEntity(
-                        targetId = _illustId.value,
-                        targetType = targetType,
-                        title = illust?.title,
-                        coverUrl = illust?.bestCoverUrl,
-                        format = format,
-                        pageCount = illust?.page_count ?: 0,
-                        width = illust?.width ?: 0,
-                        height = illust?.height ?: 0,
-                    ),
-                )
+            try {
+                // 短暂保护索引和唯一入队交接，若任务已在队列或下载中则不覆盖现有进度。
+                withContext(NonCancellable + Dispatchers.IO) {
+                    downloadEnqueueMutex.withLock {
+                        val workManager = WorkManager.getInstance(context)
+                        val previous = downloadEntryDao.get(targetType, targetId, format)
+                        val alreadyActive = previous?.status == DownloadEntryEntity.STATUS_PENDING ||
+                            previous?.status == DownloadEntryEntity.STATUS_DOWNLOADING
+                        if (!alreadyActive) {
+                            downloadEntryDao.upsert(pending)
+                        }
+                        try {
+                            workManager.enqueueUniqueWork(workTag, ExistingWorkPolicy.KEEP, request).await()
+                        } catch (e: Exception) {
+                            // 仅回滚这次提交留下的标记，保留 Worker 或其他入口更新的记录。
+                            if (!alreadyActive && downloadEntryDao.get(targetType, targetId, format) == pending) {
+                                if (previous == null) downloadEntryDao.delete(pending)
+                                else downloadEntryDao.upsert(previous)
+                            }
+                            throw e
+                        }
+                    }
+                }
+                sendMessage(UiMessage(CoreR.string.core_illust_download_started))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "插画下载入队失败", e)
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(e.message.orEmpty())))
             }
         }
-        WorkManager.getInstance(context).enqueue(request)
-        trySendMessage(UiMessage(CoreR.string.core_illust_download_started))
+    }
+
+    private companion object {
+        const val TAG = "IllustViewModel"
+        val downloadEnqueueMutex = Mutex()
     }
 }

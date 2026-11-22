@@ -42,6 +42,12 @@ import com.pixiv.reader.core.ui.theme.Spacing
  * @param onBack 返回
  * @param onOpenIllust 打开作品详情
  * @param onOpenNovel 打开小说详情
+ * @param onOpenUser 打开作者主页
+ * @param onOpenSeries 打开小说系列
+ * @param onSearchTag 搜索标签
+ * @param onNovelSearchTag 搜索小说标签，空时复用通用标签入口
+ * @param viewModel 收藏页状态与操作入口
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,21 +115,27 @@ fun BookmarkRoute(
                         }
                     },
                     pageContent = { _, tab ->
+                        // 重试与触底分别绑定页面类型，预组合的相邻页不触发续页。
                         when (tab) {
                             BookmarkType.ILLUST -> BookmarkIllustList(
                                 paged = viewModel.illustPaged,
                                 onOpenIllust = onOpenIllust,
                                 onOpenUser = onOpenUser,
-                                onLoadMore = viewModel::loadMore,
+                                onToggleFavorite = viewModel::toggleIllustFavorite,
+                                onRetry = { viewModel.retry(tab) },
+                                onLoadMore = { viewModel.loadMore(tab) },
+                                isCurrentPage = tab == type,
                             )
                             BookmarkType.NOVEL -> BookmarkNovelList(
                                 paged = viewModel.novelPaged,
                                 onOpenNovel = onOpenNovel,
                                 onOpenUser = onOpenUser,
                                 onOpenSeries = onOpenSeries,
-                                onToggleFavorite = { id, fav -> viewModel.toggleNovelFavorite(id, fav) },
+                                onToggleFavorite = viewModel::toggleNovelFavorite,
                                 onTagClick = onNovelSearchTag ?: onSearchTag,
-                                onLoadMore = viewModel::loadMore,
+                                onRetry = { viewModel.retry(tab) },
+                                onLoadMore = { viewModel.loadMore(tab) },
+                                isCurrentPage = tab == type,
                             )
                         }
                     },
@@ -139,7 +151,10 @@ fun BookmarkRoute(
  * @param paged 插画收藏分页状态
  * @param onOpenIllust 卡片点击（打开作品详情）
  * @param onOpenUser 作者行点击（打开用户主页）
- * @param onLoadMore 触底加载更多回调（同时用作失败重试）
+ * @param onToggleFavorite 收藏切换回调
+ * @param onRetry 首屏失败重试回调
+ * @param onLoadMore 触底加载更多回调
+ * @param isCurrentPage 当前是否选中插画页
  * @return 无返回值
  */
 @Composable
@@ -147,20 +162,25 @@ private fun BookmarkIllustList(
     paged: PagedState<com.pixiv.api.model.Illust>,
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onToggleFavorite: (Long, Boolean) -> Unit,
+    onRetry: () -> Unit,
     onLoadMore: () -> Unit,
+    isCurrentPage: Boolean,
 ) {
     PagedFeed(
         paged = paged,
         emptyText = stringResource(R.string.bookmark_empty),
-        onRetry = onLoadMore,
+        onRetry = onRetry,
     ) { state ->
         IllustWaterfallGrid(
             illusts = state.items,
             onItemClick = onOpenIllust,
             onLoadMore = onLoadMore,
-            hasMore = state.hasMore,
+            hasMore = isCurrentPage && state.hasMore,
             isLoadingMore = state.isLoadingMore,
+            error = state.error,
             contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
+            onToggleFavorite = onToggleFavorite,
             onOpenUser = onOpenUser,
         )
     }
@@ -175,7 +195,9 @@ private fun BookmarkIllustList(
  * @param onOpenSeries 系列标题点击（打开系列详情）
  * @param onToggleFavorite 收藏切换回调
  * @param onTagClick 标签点击（跳搜索）
- * @param onLoadMore 触底加载更多回调（同时用作失败重试）
+ * @param onRetry 首屏失败重试回调
+ * @param onLoadMore 触底加载更多回调
+ * @param isCurrentPage 当前是否选中小说页
  * @return 无返回值
  */
 @Composable
@@ -186,14 +208,16 @@ private fun BookmarkNovelList(
     onOpenSeries: (Long) -> Unit,
     onToggleFavorite: (Long, Boolean) -> Unit,
     onTagClick: (String) -> Unit,
+    onRetry: () -> Unit,
     onLoadMore: () -> Unit,
+    isCurrentPage: Boolean,
 ) {
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
     PagedFeed(
         paged = paged,
         emptyText = stringResource(R.string.bookmark_empty),
-        onRetry = onLoadMore,
+        onRetry = onRetry,
     ) { state ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -215,7 +239,12 @@ private fun BookmarkNovelList(
                     ),
                 )
             }
-            loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
+            loadMoreFooter(
+                hasMore = isCurrentPage && state.hasMore,
+                isLoadingMore = state.isLoadingMore,
+                onLoadMore = onLoadMore,
+                error = state.error,
+            )
         }
     }
 }

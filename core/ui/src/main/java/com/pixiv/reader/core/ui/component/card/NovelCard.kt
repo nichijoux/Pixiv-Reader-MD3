@@ -57,7 +57,11 @@ import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
 import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
@@ -142,8 +146,19 @@ fun NovelCard(
     coverWidth: Dp = 104.dp,
     modifier: Modifier = Modifier,
 ) {
-    // 收藏态：初始化为数据模型中的 isFavorite，点击切换并回调外部执行 API
-    var favorite by remember(novel.id) { mutableStateOf(novel.isFavorite) }
+    // 订阅进程级小说收藏覆盖态（按 ID 去重映射，保证失败回滚和详情页操作同步）。
+    val favoriteActions = LocalFavoriteActions.current
+    val favoriteOverride by if (favoriteActions != null) {
+        remember(favoriteActions, novel.id) {
+            favoriteActions.novelBookmarks
+                .map { it[novel.id] }
+                .distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = favoriteActions.novelBookmarks.value[novel.id])
+    } else {
+        remember { mutableStateOf<Boolean?>(null) }
+    }
+    var localFavorite by remember(novel.id, novel.isFavorite) { mutableStateOf(novel.isFavorite) }
+    val favorite = favoriteOverride ?: localFavorite
 
     // 封面角标文字样式：白色加粗 + 轻文字阴影（无背景，保证浅色封面上可读）
     val badgeStyle = MaterialTheme.typography.labelMedium.copy(
@@ -173,6 +188,8 @@ fun NovelCard(
             )
             onClick()
         },
+        tags = novel.tags,
+        serverMuted = novel.serverMuted,
     )
 
     // 卡片 interactionSource：与整卡手势共享，供 pressScale 收集按压态
@@ -313,8 +330,11 @@ fun NovelCard(
                         )
                         IconButton(
                             onClick = {
-                                favorite = !favorite
-                                onToggleFavorite(favorite)
+                                val next = !favorite
+                                if (favoriteActions == null) {
+                                    localFavorite = next
+                                }
+                                onToggleFavorite(next)
                             },
                             modifier = Modifier.size(Sizes.s40),
                         ) {

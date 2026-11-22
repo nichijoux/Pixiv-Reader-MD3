@@ -35,6 +35,9 @@ class AppCardActions @Inject constructor(
     private val _blockedIds = MutableStateFlow<Set<String>>(emptySet())
     override val blockedIds: StateFlow<Set<String>> = _blockedIds.asStateFlow()
 
+    private val _mutedTags = MutableStateFlow<Set<String>>(emptySet())
+    override val mutedTags: StateFlow<Set<String>> = _mutedTags.asStateFlow()
+
     /**
      * 启动数据流同步（应用创建时调用一次）。
      *
@@ -53,11 +56,21 @@ class AppCardActions @Inject constructor(
         scope.launch {
             userPreferences.blockedTargets.collect { _blockedIds.value = it }
         }
+        // DataStore 屏蔽标签 → 统一小写非空集合，避免卡片高频渲染期重复规范化。
+        scope.launch {
+            userPreferences.mutedTags.collect { tags ->
+                _mutedTags.value = tags
+                    .asSequence()
+                    .map { it.trim().lowercase() }
+                    .filter { it.isNotEmpty() }
+                    .toSet()
+            }
+        }
     }
 
     /**
      * 加入 / 移出稍后再看：按数据流回灌的当前状态取反，仅落库（幂等）。
-     * 加入时先删旧再插（target 唯一），payloadJson 快照随行落库供离线还原卡片。
+     * 加入时在单事务内原子删旧再插（target 唯一），payloadJson 快照随行落库供离线还原卡片。
      */
     override fun toggleReadLater(target: CardActionTarget) {
         val key = keyOf(target)
@@ -65,8 +78,7 @@ class AppCardActions @Inject constructor(
             if (key in _readLaterIds.value) {
                 readLaterDao.deleteByTarget(target.targetType, target.targetId)
             } else {
-                readLaterDao.deleteByTarget(target.targetType, target.targetId)
-                readLaterDao.upsert(
+                readLaterDao.replaceTop(
                     ReadLaterEntity(
                         targetType = target.targetType,
                         targetId = target.targetId,

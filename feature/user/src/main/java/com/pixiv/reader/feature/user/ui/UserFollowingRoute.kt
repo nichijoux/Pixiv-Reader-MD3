@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +36,8 @@ import com.pixiv.reader.core.ui.theme.Spacing
  *
  * @param onBack 返回
  * @param onOpenUser 打开用户主页
+ * @param viewModel 关注列表数据与分页操作
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +79,11 @@ fun UserFollowingRoute(
                     contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
                     verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
                 ) {
-                    items(state.items, key = { it.user?.id ?: 0L }) { preview ->
+                    // 追加分页时位置不变，用户对象缺失或重复也不会产生相同键。
+                    itemsIndexed(
+                        state.items,
+                        key = { index, preview -> "user_${preview.user?.id}_$index" },
+                    ) { _, preview ->
                         FollowingUserCard(
                             preview = preview,
                             onClick = { preview.user?.id?.let(onOpenUser) },
@@ -87,7 +92,12 @@ fun UserFollowingRoute(
                             },
                         )
                     }
-                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
+                    loadMoreFooter(
+                        hasMore = state.hasMore,
+                        isLoadingMore = state.isLoadingMore,
+                        onLoadMore = viewModel::loadMore,
+                        error = state.error,
+                    )
                 }
             }
         }

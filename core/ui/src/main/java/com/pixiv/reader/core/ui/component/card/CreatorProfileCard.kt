@@ -35,6 +35,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pixiv.reader.core.ui.R
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -77,7 +81,19 @@ fun CreatorProfileCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var followed by remember(profile.id) { mutableStateOf(profile.isFollowed) }
+    // 订阅进程级画师关注覆盖态（按用户 ID 去重），保证取关/关注及失败回滚跨页实时同步。
+    val favoriteActions = LocalFavoriteActions.current
+    val followedOverride by if (favoriteActions != null) {
+        remember(favoriteActions, profile.id) {
+            favoriteActions.followedUsers
+                .map { it[profile.id] }
+                .distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = favoriteActions.followedUsers.value[profile.id])
+    } else {
+        remember { mutableStateOf<Boolean?>(null) }
+    }
+    var localFollowed by remember(profile.id, profile.isFollowed) { mutableStateOf(profile.isFollowed) }
+    val followed = followedOverride ?: localFollowed
 
     Column(
         modifier = modifier
@@ -142,8 +158,11 @@ fun CreatorProfileCard(
             Spacer(Modifier.width(10.dp))
             OutlinedButton(
                 onClick = {
-                    followed = !followed
-                    onToggleFollow(followed)
+                    val next = !followed
+                    if (favoriteActions == null) {
+                        localFollowed = next
+                    }
+                    onToggleFollow(next)
                 },
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.height(40.dp),

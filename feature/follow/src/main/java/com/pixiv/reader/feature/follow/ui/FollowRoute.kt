@@ -74,11 +74,13 @@ private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLU
  *
  * 回调经 MainShell 上抛到顶层导航（详情 / 查看器 / 用户页等全屏路由）。
  *
+ * @param reselectKey 再次选中关注页时的回顶信号
  * @param onOpenIllust 打开作品详情全屏路由（手机端点击作品卡）
  * @param onOpenNovel 打开小说详情全屏路由（手机端点击小说卡）
  * @param onOpenUser 打开用户主页全屏路由
  * @param onOpenSeries 打开系列页全屏路由
  * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
+ * @param onSearchTag 搜索小说卡标签
  * @param novelDetailPane 小说详情 pane 槽位（app 组合根注入；参数为选中小说 id、
  *   本页作用域的 [NovelViewModel] / [CommentListViewModel] 与「查看完整系列」回调
  *   （宿主分流 pane 内切换系列 pane / 全屏））
@@ -86,6 +88,7 @@ private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLU
  *   分册点击回调（宿主分流 pane 内切换小说详情 / 全屏）与分册卡系列标题回调
  *   （宿主压栈后原地切换系列））
  * @param viewModel 关注页 ViewModel
+ * @return 无返回值
  */
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,10 +128,24 @@ fun FollowRoute(
     // pane 间互跳返回栈（"N:小说"/"S:系列"/"I:作品"）：每次互跳压栈当前选中，
     // 返回键逐级还原上一个 pane，栈空才关闭 pane（防互跳链被返回键一步清空）
     var paneHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
+
+    /**
+     * 更新右栏唯一选中目标，三项均为空时关闭详情。
+     *
+     * @param novelId 选中的小说 ID
+     * @param illustId 选中的插画 ID
+     * @param seriesId 选中的系列 ID
+     * @return 无返回值
+     */
+    fun selectPane(novelId: Long? = null, illustId: Long? = null, seriesId: Long? = null) {
+        // 所有入口都同时清除其余类型，防止旧详情遮住新目标。
+        selectedNovelId = novelId
+        selectedIllustId = illustId
+        selectedSeriesId = seriesId
+    }
+
     val closePane = {
-        selectedNovelId = null
-        selectedIllustId = null
-        selectedSeriesId = null
+        selectPane()
         paneHistory = emptyList()
     }
     // 互跳前压栈当前选中（调用方先 push 再切换目标）
@@ -145,13 +162,12 @@ fun FollowRoute(
             closePane()
         } else {
             paneHistory = paneHistory.dropLast(1)
-            selectedNovelId = null
-            selectedIllustId = null
-            selectedSeriesId = null
+            val id = last.substringAfter(":").toLongOrNull()
             when (last.substringBefore(":")) {
-                "N" -> selectedNovelId = last.substringAfter(":").toLongOrNull()
-                "S" -> selectedSeriesId = last.substringAfter(":").toLongOrNull()
-                "I" -> selectedIllustId = last.substringAfter(":").toLongOrNull()
+                "N" -> selectPane(novelId = id)
+                "S" -> selectPane(seriesId = id)
+                "I" -> selectPane(illustId = id)
+                else -> selectPane()
             }
         }
     }
@@ -167,6 +183,7 @@ fun FollowRoute(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.isLoadingMore.collectAsStateWithLifecycle()
+    val feedTypesWithMore by viewModel.feedTypesWithMore.collectAsStateWithLifecycle()
     val feedError by viewModel.feedError.collectAsStateWithLifecycle()
 
     // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
@@ -264,23 +281,39 @@ fun FollowRoute(
                                             items = itemsByType.getValue(type),
                                             isLoading = isLoading,
                                             isLoadingMore = isLoadingMore,
+                                            // 只让当前页的尾项触发其自身来源分页。
+                                            hasMore = page == selectedIndex && type in feedTypesWithMore,
                                             hasError = feedError,
                                             windowClass = windowClass,
                                             scrollToTopKey = reselectKey,
                                             onSearchTag = onSearchTag,
-                                            onLoadMore = viewModel::loadMoreFeed,
+                                            onLoadMore = { viewModel.loadMoreFeed(type) },
                                             onRetry = viewModel::retry,
-                                            // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                                            // 列表点击开启新的右栏导航链，手机直接打开全屏详情。
                                             onOpenIllust = { id ->
-                                                if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
+                                                if (detailPaneEnabled) {
+                                                    paneHistory = emptyList()
+                                                    selectPane(illustId = id)
+                                                } else {
+                                                    onOpenIllust(id)
+                                                }
                                             },
                                             onOpenNovel = { id ->
-                                                if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
+                                                if (detailPaneEnabled) {
+                                                    paneHistory = emptyList()
+                                                    selectPane(novelId = id)
+                                                } else {
+                                                    onOpenNovel(id)
+                                                }
                                             },
                                             onOpenUser = onOpenUser,
-                                            // 系列 pane 启用 → 进右栏；否则全屏路由
                                             onOpenSeries = { id ->
-                                                if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
+                                                if (detailPaneEnabled) {
+                                                    paneHistory = emptyList()
+                                                    selectPane(seriesId = id)
+                                                } else {
+                                                    onOpenSeries(id)
+                                                }
                                             },
                                             onToggleIllustFavorite = viewModel::toggleIllustFavorite,
                                             onToggleNovelFavorite = viewModel::toggleNovelFavorite,
@@ -305,8 +338,7 @@ fun FollowRoute(
                                     { id ->
                                         if (detailPaneEnabled) {
                                             pushPaneHistory()
-                                            selectedNovelId = null
-                                            selectedSeriesId = id
+                                            selectPane(seriesId = id)
                                         } else {
                                             onOpenSeries(id)
                                         }
@@ -318,8 +350,7 @@ fun FollowRoute(
                                     { id ->
                                         if (detailPaneEnabled) {
                                             pushPaneHistory()
-                                            selectedSeriesId = null
-                                            selectedNovelId = id
+                                            selectPane(novelId = id)
                                         } else {
                                             onOpenNovel(id)
                                         }
@@ -327,7 +358,7 @@ fun FollowRoute(
                                     // 分册卡系列标题：压栈当前选中、原地切换系列（返回键可回退）
                                     { id ->
                                         pushPaneHistory()
-                                        selectedSeriesId = id
+                                        selectPane(seriesId = id)
                                     },
                                 )
                                 selectedIllustId != null -> IllustDetailPane(

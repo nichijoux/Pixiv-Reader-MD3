@@ -30,6 +30,8 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * 卡片屏蔽遮罩三态（[CardBlockGesture.state] 取值）。
@@ -73,6 +75,8 @@ class CardBlockGesture(
  * @param title 卡片标题供给函数（长按菜单副标题；惰性求值避免组合期取值）
  * @param payload 卡片快照 JSON 供给函数（加入稍后再看时落库；惰性求值避免组合期序列化）
  * @param onClick 原点击回调（非屏蔽态透传）
+ * @param tags 作品标签名列表，用于实时匹配本地屏蔽标签集合
+ * @param serverMuted 服务端返回的是否已屏蔽标记（如 `is_muted == true`）
  * @return [CardBlockGesture]（含 isBlocked/isRevealed 与包装后的点击/长按）
  */
 @Composable
@@ -82,19 +86,39 @@ internal fun rememberCardBlockGesture(
     title: () -> String?,
     payload: () -> String?,
     onClick: () -> Unit,
+    tags: List<String> = emptyList(),
+    serverMuted: Boolean = false,
 ): CardBlockGesture {
     val controller = LocalCardActionsHost.current
     val context = LocalContext.current
-    // 收集全局屏蔽集合（无宿主环境恒空集）
-    val blockedIds: Set<String> = if (controller != null) {
-        val ids by controller.blockedIds.collectAsStateWithLifecycle()
-        ids
+    // 仅订阅本卡片键是否命中屏蔽集合，避免任意卡片屏蔽变动引发全页卡片重组。
+    val isBlockedTarget by if (controller != null) {
+        val targetKey = controller.keyOf(targetType, targetId)
+        remember(controller, targetKey) {
+            controller.blockedIds
+                .map { targetKey in it }
+                .distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = targetKey in controller.blockedIds.value)
     } else {
-        emptySet()
+        remember { mutableStateOf(false) }
+    }
+    // 若存在本地屏蔽标签，仅订阅本卡片标签命中结果（忽略大小写与首尾空白）。
+    val hasMutedTag by if (controller != null && tags.isNotEmpty()) {
+        remember(controller, tags) {
+            controller.mutedTags
+                .map { muted -> tags.any { it.trim().lowercase() in muted } }
+                .distinctUntilChanged()
+        }.collectAsStateWithLifecycle(
+            initialValue = controller.mutedTags.value.let { muted ->
+                tags.any { it.trim().lowercase() in muted }
+            },
+        )
+    } else {
+        remember { mutableStateOf(false) }
     }
     // 本卡「已临时显示」标记：屏蔽态点击一次后解除模糊（remember(id) 切卡重置）
     var revealed by remember(targetType, targetId) { mutableStateOf(false) }
-    val rawBlocked = controller != null && controller.keyOf(targetType, targetId) in blockedIds
+    val rawBlocked = serverMuted || isBlockedTarget || hasMutedTag
     // 取消屏蔽后再次屏蔽：重置临时显示标记——否则上一次点开留下的 revealed=true
     // 会让遮罩永不恢复（历史 bug，枚举化前三态被拆成双 Boolean 时的踩坑记录）
     LaunchedEffect(rawBlocked) {
@@ -109,11 +133,10 @@ internal fun rememberCardBlockGesture(
         state = state,
         onClick = {
             // 非屏蔽态透传原点击；屏蔽态首次点击 = 临时显示；
-            // 已临时显示（仍在屏蔽名单）→ 提示无法打开详情，避免卡片静默无响应
+            // 已临时显示（仍在屏蔽名单或服务端屏蔽中）→ 安全提示无法打开详情
             when {
                 !rawBlocked -> onClick()
-                // rawBlocked 为真已蕴含 controller 非空（见其定义），直接弹提示
-                revealed -> controller.showMessage(
+                revealed -> controller?.showMessage(
                     context.getString(R.string.card_msg_blocked_no_detail),
                 )
                 else -> revealed = true

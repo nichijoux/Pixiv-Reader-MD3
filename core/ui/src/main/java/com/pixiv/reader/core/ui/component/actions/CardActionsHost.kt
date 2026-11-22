@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.NotificationType
@@ -64,6 +65,9 @@ interface CardActions {
 
     /** 本地屏蔽目标集合（`"illust:1"` 形式键）。 */
     val blockedIds: StateFlow<Set<String>>
+
+    /** 本地屏蔽标签集合（已转为小写并去首尾空白），供卡片实时匹配遮罩。 */
+    val mutedTags: StateFlow<Set<String>>
 
     /**
      * 加入 / 移出稍后再看（按目标当前状态取反）。
@@ -100,6 +104,9 @@ class CardActionsController internal constructor(
     /** 本地屏蔽目标集合。 */
     val blockedIds: StateFlow<Set<String>> get() = impl.blockedIds
 
+    /** 本地屏蔽标签集合（小写）。 */
+    val mutedTags: StateFlow<Set<String>> get() = impl.mutedTags
+
     /** 打开长按动作菜单（卡片 onLongClick 调用）。 */
     fun show(target: CardActionTarget) = openMenu(target)
 
@@ -123,6 +130,9 @@ class CardActionsController internal constructor(
 
 /** 长按动作宿主 CompositionLocal（app 根 [CardActionsHost] 提供；无宿主环境为 null，卡片长按静默）。 */
 val LocalCardActionsHost = staticCompositionLocalOf<CardActionsController?> { null }
+
+/** 全局收藏/关注动作状态宿主 CompositionLocal（供卡片按 ID 实时订阅最新收藏与关注覆盖状态）。 */
+val LocalFavoriteActions = staticCompositionLocalOf<FavoriteActions?> { null }
 
 /**
  * 卡片长按动作全局宿主：组合本地化下发 [CardActionsController] + 全局唯一长按菜单弹层。

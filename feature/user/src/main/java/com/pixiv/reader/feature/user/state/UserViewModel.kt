@@ -26,9 +26,12 @@ import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 private const val TAG = "UserSeries"
@@ -78,19 +81,30 @@ class UserViewModel @Inject constructor(
     private val _blockState = MutableStateFlow(ToggleUiState.OFF)
     val blockState: StateFlow<ToggleUiState> = _blockState.asStateFlow()
 
-    val illustPaged = PagedState<Illust>()
-    val mangaPaged = PagedState<Illust>()
-    val novelPaged = PagedState<Novel>()
-    val seriesPaged = PagedState<NovelSeriesItem>()
+    val illustPaged = PagedState<Illust>(keySelector = { it.id })
+    val mangaPaged = PagedState<Illust>(keySelector = { it.id })
+    val novelPaged = PagedState<Novel>(keySelector = { it.id })
+    val seriesPaged = PagedState<NovelSeriesItem>(keySelector = { it.id })
 
     /** 漫画系列列表（系列分区漫画段用；随系列分区首载一起拉取，单页 + 翻页）。 */
-    val mangaSeriesPaged = PagedState<MangaSeriesItem>()
+    val mangaSeriesPaged = PagedState<MangaSeriesItem>(keySelector = { it.id })
 
     /** 系列详情（seriesId → 封面/简介/连载状态/字数/更新时间）；列表项无这些字段，经 SeriesDetailLoader 批量补齐。 */
     private val _seriesInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
     val seriesInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _seriesInfos.asStateFlow()
 
     init {
+        // 同步跨页面作者关注覆盖流，列表卡片或详情页切换关注后用户主页即时响应。
+        viewModelScope.launch {
+            favoriteActions.followedUsers
+                .map { it[userId] }
+                .distinctUntilChanged()
+                .collect { followed ->
+                    if (followed != null && !_followState.value.inFlight && _followState.value.isOn != followed) {
+                        _followState.value = if (followed) ToggleUiState.ON else ToggleUiState.OFF
+                    }
+                }
+        }
         load()
     }
 
@@ -102,25 +116,32 @@ class UserViewModel @Inject constructor(
                 .onSuccess { resp ->
                     _user.value = resp.user
                     _profile.value = resp.profile
-                    _followState.value = if (resp.user?.is_followed == true) ToggleUiState.ON else ToggleUiState.OFF
+                    val followed = resp.user?.is_followed == true
+                    _followState.value = if (followed) ToggleUiState.ON else ToggleUiState.OFF
+                    favoriteActions.setUserFollowState(userId, followed)
                     recordHistory(resp.user)
                     loadSection(_section.value)
                     loadBlockState()
                 }
                 .onFailure {
+                    if (it is CancellationException) throw it
                     _error.value = UiMessage(R.string.user_load_failed, listOf(it.message ?: ""))
                 }
             _isLoading.value = false
         }
     }
 
-    /** 打开用户主页时写入浏览历史（先删旧记录避免重复）。 */
+    /**
+     * 打开用户主页时通过事务原子写入浏览历史，避免并发写入产生重复用户条目。
+     *
+     * @param user 用户详情对象
+     * @return 无返回值
+     */
     private fun recordHistory(user: User?) {
         if (user == null) return
         viewModelScope.launch {
             runCatching {
-                browseHistoryDao.deleteByTarget("user", user.id)
-                browseHistoryDao.upsert(
+                browseHistoryDao.replaceTop(
                     BrowseHistoryEntity(
                         targetType = "user",
                         targetId = user.id,
@@ -301,7 +322,7 @@ class UserViewModel @Inject constructor(
             if (token.isNullOrBlank()) {
                 return@runToggle Result.failure(CsrfUnavailableException())
             }
-            runCatching {
+            try {
                 pixivRepository.webApi.saveBlock(
                     token,
                     BlockSaveRequest(
@@ -309,6 +330,11 @@ class UserViewModel @Inject constructor(
                         action = if (target) "block" else "unblock",
                     ),
                 )
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
             }
         }
     }

@@ -19,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
@@ -63,15 +62,34 @@ import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
  * - 手机（Compact）：单列流（LazyColumn，卡片全宽）
  * - 平板：masonry 瀑布流（`StaggeredGridCells.Adaptive(240.dp)`：列宽 ≥240dp 时自动多列，
  *   保证 NovelCard 横版信息区不被挤压——用户 v5 确认的宽度下限）
- * - 触底：列表尾部加载 item 自动触发 [onLoadMore]（混合流交替推进两流下一页）
+ * - 触底：当前页尚有下一页时，列表尾项自动触发 [onLoadMore]
  *
  * 插画 / 小说卡片完全复用 core:ui 的 [IllustCard] / [NovelCard] 组件。
+ *
+ * @param items 当前类型段的作品
+ * @param isLoading 首屏是否加载中
+ * @param isLoadingMore 续页是否加载中
+ * @param hasMore 当前页是否应显示续页尾项
+ * @param hasError 首屏是否加载失败
+ * @param windowClass 当前窗口宽度级别
+ * @param scrollToTopKey 列表回顶信号
+ * @param onSearchTag 搜索标签
+ * @param onLoadMore 加载下一页
+ * @param onRetry 重试首屏
+ * @param onOpenIllust 打开插画
+ * @param onOpenNovel 打开小说
+ * @param onOpenUser 打开作者主页
+ * @param onOpenSeries 打开小说系列
+ * @param onToggleIllustFavorite 切换插画收藏
+ * @param onToggleNovelFavorite 切换小说收藏
+ * @return 无返回值
  */
 @Composable
 internal fun FollowFeed(
     items: List<FollowFeedItem>,
     isLoading: Boolean,
     isLoadingMore: Boolean,
+    hasMore: Boolean,
     hasError: Boolean,
     windowClass: WindowSizeClass,
     scrollToTopKey: Int = 0,
@@ -107,6 +125,8 @@ internal fun FollowFeed(
             FollowFeedList(
                 items = items,
                 isLoadingMore = isLoadingMore,
+                hasMore = hasMore,
+                loadMoreError = if (hasError) "" else null,
                 scrollToTopKey = scrollToTopKey,
                 onSearchTag = onSearchTag,
                 onLoadMore = onLoadMore,
@@ -121,6 +141,8 @@ internal fun FollowFeed(
             FollowFeedGrid(
                 items = items,
                 isLoadingMore = isLoadingMore,
+                hasMore = hasMore,
+                loadMoreError = if (hasError) "" else null,
                 scrollToTopKey = scrollToTopKey,
                 onSearchTag = onSearchTag,
                 onLoadMore = onLoadMore,
@@ -135,11 +157,29 @@ internal fun FollowFeed(
     }
 }
 
-/** 手机单列流。 */
+/**
+ * 渲染手机端单列动态流。
+ *
+ * @param items 当前类型段的作品
+ * @param isLoadingMore 续页是否加载中
+ * @param hasMore 当前页是否应显示续页尾项
+ * @param scrollToTopKey 列表回顶信号
+ * @param onSearchTag 搜索标签
+ * @param onLoadMore 加载下一页
+ * @param onOpenIllust 打开插画
+ * @param onOpenNovel 打开小说
+ * @param onOpenUser 打开作者主页
+ * @param onOpenSeries 打开小说系列
+ * @param onToggleIllustFavorite 切换插画收藏
+ * @param onToggleNovelFavorite 切换小说收藏
+ * @return 无返回值
+ */
 @Composable
 private fun FollowFeedList(
     items: List<FollowFeedItem>,
     isLoadingMore: Boolean,
+    hasMore: Boolean,
+    loadMoreError: String?,
     scrollToTopKey: Int = 0,
     onSearchTag: (String) -> Unit,
     onLoadMore: () -> Unit,
@@ -192,16 +232,40 @@ private fun FollowFeedList(
                 onToggleNovelFavorite = onToggleNovelFavorite,
             )
         }
-        // 关注流无 hasMore 概念（三态经 feedPhase 判定），恒挂触底项自动续载
-        loadMoreFooter(hasMore = true, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+        // 只有当前类型段仍可续页时才挂载触底项，出错时停用自动续载交由用户手动重试。
+        loadMoreFooter(
+            hasMore = hasMore,
+            isLoadingMore = isLoadingMore,
+            onLoadMore = onLoadMore,
+            error = loadMoreError,
+        )
     }
 }
 
-/** 平板瀑布流。 */
+/**
+ * 渲染平板端瀑布流动态列表。
+ *
+ * @param items 当前类型段的作品
+ * @param isLoadingMore 续页是否加载中
+ * @param hasMore 当前页是否应显示续页尾项
+ * @param loadMoreError 续页错误信息，非空时停止自动翻页并显示重试按钮
+ * @param scrollToTopKey 列表回顶信号
+ * @param onSearchTag 搜索标签
+ * @param onLoadMore 加载下一页
+ * @param onOpenIllust 打开插画
+ * @param onOpenNovel 打开小说
+ * @param onOpenUser 打开作者主页
+ * @param onOpenSeries 打开小说系列
+ * @param onToggleIllustFavorite 切换插画收藏
+ * @param onToggleNovelFavorite 切换小说收藏
+ * @return 无返回值
+ */
 @Composable
 private fun FollowFeedGrid(
     items: List<FollowFeedItem>,
     isLoadingMore: Boolean,
+    hasMore: Boolean,
+    loadMoreError: String?,
     scrollToTopKey: Int = 0,
     onSearchTag: (String) -> Unit,
     onLoadMore: () -> Unit,
@@ -256,8 +320,14 @@ private fun FollowFeedGrid(
                 onToggleNovelFavorite = onToggleNovelFavorite,
             )
         }
-        // 关注流无 hasMore 概念（三态经 feedPhase 判定），恒挂触底项自动续载
-        loadMoreFooter(hasMore = true, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore, span = StaggeredGridItemSpan.FullLine)
+        // 只有当前类型段仍可续页时才挂载通栏触底项，出错时停用自动续载交由用户手动重试。
+        loadMoreFooter(
+            hasMore = hasMore,
+            isLoadingMore = isLoadingMore,
+            onLoadMore = onLoadMore,
+            span = StaggeredGridItemSpan.FullLine,
+            error = loadMoreError,
+        )
     }
 }
 

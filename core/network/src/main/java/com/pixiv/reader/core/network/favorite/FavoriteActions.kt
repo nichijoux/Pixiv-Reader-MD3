@@ -3,6 +3,10 @@ package com.pixiv.reader.core.network.favorite
 import com.pixiv.api.PixivConstants
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.pixiv.reader.core.network.session.PixivRepository
 import javax.inject.Inject
@@ -20,6 +24,62 @@ class FavoriteActions @Inject constructor(
     private val pixivRepository: PixivRepository,
 ) {
 
+    private val _illustBookmarks = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    /** 进程级插画收藏覆盖状态映射（键为 illustId），用于跨页面卡片与详情状态实时同步。 */
+    val illustBookmarks: StateFlow<Map<Long, Boolean>> = _illustBookmarks.asStateFlow()
+
+    private val _novelBookmarks = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    /** 进程级小说收藏覆盖状态映射（键为 novelId），用于跨页面卡片与详情状态实时同步。 */
+    val novelBookmarks: StateFlow<Map<Long, Boolean>> = _novelBookmarks.asStateFlow()
+
+    private val _followedUsers = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    /** 进程级画师/作者关注覆盖状态映射（键为 userId），用于跨页面个人卡片与主页状态实时同步。 */
+    val followedUsers: StateFlow<Map<Long, Boolean>> = _followedUsers.asStateFlow()
+
+    /**
+     * 写入指定插画在当前会话中的已确认收藏状态。
+     *
+     * @param illustId 插画 ID
+     * @param isBookmarked 收藏状态（true=已收藏，false=未收藏）
+     * @return 无返回值
+     */
+    fun setIllustBookmarkState(illustId: Long, isBookmarked: Boolean) {
+        _illustBookmarks.update { it + (illustId to isBookmarked) }
+    }
+
+    /**
+     * 写入指定小说在当前会话中的已确认收藏状态。
+     *
+     * @param novelId 小说 ID
+     * @param isBookmarked 收藏状态（true=已收藏，false=未收藏）
+     * @return 无返回值
+     */
+    fun setNovelBookmarkState(novelId: Long, isBookmarked: Boolean) {
+        _novelBookmarks.update { it + (novelId to isBookmarked) }
+    }
+
+    /**
+     * 写入指定用户在当前会话中的已确认关注状态。
+     *
+     * @param userId 用户 ID
+     * @param isFollowed 关注状态（true=已关注，false=未关注）
+     * @return 无返回值
+     */
+    fun setUserFollowState(userId: Long, isFollowed: Boolean) {
+        _followedUsers.update { it + (userId to isFollowed) }
+    }
+
+    /**
+     * 清空当前会话的收藏与关注乐观覆盖状态（登出或切换账号时调用）。
+     *
+     * @return 无返回值
+     */
+    fun clearSessionOverrides() {
+        _illustBookmarks.value = emptyMap()
+        _novelBookmarks.value = emptyMap()
+        _followedUsers.value = emptyMap()
+    }
+
     /**
      * 收藏 / 取消收藏插画（nowFavorite 为目标状态）。
      *
@@ -34,7 +94,7 @@ class FavoriteActions @Inject constructor(
         nowFavorite: Boolean,
         restrict: String = PixivConstants.RESTRICT_PUBLIC,
         tags: List<String> = emptyList(),
-    ): Result<Unit> = runDirect {
+    ): Result<Unit> = runOptimisticToggle(_illustBookmarks, illustId, nowFavorite) {
         if (nowFavorite) pixivRepository.api.bookmarkIllust(illustId, restrict, tags)
         else pixivRepository.api.unbookmarkIllust(illustId)
     }
@@ -53,7 +113,7 @@ class FavoriteActions @Inject constructor(
         nowFavorite: Boolean,
         restrict: String = PixivConstants.RESTRICT_PUBLIC,
         tags: List<String> = emptyList(),
-    ): Result<Unit> = runDirect {
+    ): Result<Unit> = runOptimisticToggle(_novelBookmarks, novelId, nowFavorite) {
         if (nowFavorite) pixivRepository.api.bookmarkNovel(novelId, restrict, tags)
         else pixivRepository.api.unbookmarkNovel(novelId)
     }
@@ -70,9 +130,46 @@ class FavoriteActions @Inject constructor(
         userId: Long,
         nowFollowed: Boolean,
         restrict: String = PixivConstants.RESTRICT_PUBLIC,
-    ): Result<Unit> = runDirect {
+    ): Result<Unit> = runOptimisticToggle(_followedUsers, userId, nowFollowed) {
         if (nowFollowed) pixivRepository.api.followUser(userId, restrict)
         else pixivRepository.api.unfollowUser(userId)
+    }
+
+    /**
+     * 对指定状态流执行乐观更新并在失败或未完成前取消时回滚，避免并发请求互相覆盖。
+     *
+     * @param state 目标覆盖态 MutableStateFlow
+     * @param id 目标 ID
+     * @param targetValue 本次期待的目标布尔值
+     * @param action 实际执行网络请求的代码块
+     * @return 网络调用执行结果
+     */
+    private inline fun runOptimisticToggle(
+        state: MutableStateFlow<Map<Long, Boolean>>,
+        id: Long,
+        targetValue: Boolean,
+        action: () -> Unit,
+    ): Result<Unit> {
+        var previous: Boolean? = null
+        state.update { current ->
+            previous = current[id]
+            current + (id to targetValue)
+        }
+        val rollbackValue = previous ?: !targetValue
+        val result = try {
+            runDirect(action)
+        } catch (e: CancellationException) {
+            state.update { current ->
+                if (current[id] == targetValue) current + (id to rollbackValue) else current
+            }
+            throw e
+        }
+        if (result.isFailure) {
+            state.update { current ->
+                if (current[id] == targetValue) current + (id to rollbackValue) else current
+            }
+        }
+        return result
     }
 
     /**

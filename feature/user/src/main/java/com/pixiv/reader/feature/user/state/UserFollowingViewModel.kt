@@ -23,7 +23,7 @@ class UserFollowingViewModel @Inject constructor(
 
     private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
 
-    val paged = PagedState<UserPreview>()
+    val paged = PagedState<UserPreview>(keySelector = { it.user?.id })
 
     init {
         load()
