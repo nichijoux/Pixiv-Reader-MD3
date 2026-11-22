@@ -41,6 +41,7 @@ import com.pixiv.reader.core.common.format.formatCountForNovel
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -126,12 +127,13 @@ fun SeriesCard(
                     iconSize = 48.dp,
                 )
             }
-            // 底部信息条：半透明黑底 + [icon] N 篇 [icon] N 字（FlowRow 窄屏换行）
+            // 底部信息条：遮罩黑底 + [icon] N 篇 [icon] N 字（FlowRow 窄屏换行）；
+            // 用 ImageScrim 而非 55% 黑：白字在最浅封面上也能保证 ≥8:1 对比度
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.55f))
+                    .background(ImageScrim)
                     .padding(horizontal = Spacing.xsPlus, vertical = 3.dp),
             ) {
                 FlowRow(

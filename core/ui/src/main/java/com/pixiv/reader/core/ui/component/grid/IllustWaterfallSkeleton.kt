@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -74,7 +73,7 @@ fun IllustWaterfallSkeleton(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(SkeletonCoverHeights[index % SkeletonCoverHeights.size])
-                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
+                        .clip(AppShapes.cardLargeTop),
                     color = color,
                 )
                 Column(modifier = Modifier.padding(Spacing.smPlus)) {

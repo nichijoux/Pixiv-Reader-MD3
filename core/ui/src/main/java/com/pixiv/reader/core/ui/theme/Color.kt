@@ -78,6 +78,15 @@ val InversePrimary = Color(0xFF98CBFF)
 /** 全屏查看器 / 图片查看黑底 */
 val ViewerScrim = Color(0xFF0A0A0A)
 
+/**
+ * 图片上的文字/图标遮罩底（纯黑 70% alpha）。
+ *
+ * 用于角标文字、底部信息条等「在其上叠白字」的场景。取 0.7 而非 0.45 是为了 WCAG 对比度：
+ * 最坏情况（纯白封面）下底色为 #4C4C4C，白字 8.6:1、金色名次 6.4:1、橙色 5.4:1；
+ * 0.45 alpha 时底色 #8C8C8C，白字仅 3.3:1（小号文字 4.5:1 不达标）。
+ */
+val ImageScrim = Color(0xFF000000).copy(alpha = 0.70f)
+
 /** 收藏/爱心选中红 */
 val FavoriteRed = Color(0xFFFF5252)
 

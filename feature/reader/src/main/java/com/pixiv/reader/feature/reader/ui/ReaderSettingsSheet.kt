@@ -403,7 +403,7 @@ private fun FontWeightCard(
                 modifier = Modifier.fillMaxWidth().height(30.dp),
                 contentPadding = PaddingValues(horizontal = Spacing.smPlus),
             ) {
-                Text(label, fontSize = 13.sp)
+                Text(label, style = MaterialTheme.typography.labelLarge)
                 Icon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = null,
@@ -541,13 +541,11 @@ private fun SliderCard(
                 minLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp,
             )
             Text(
                 maxLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp,
             )
         }
     }

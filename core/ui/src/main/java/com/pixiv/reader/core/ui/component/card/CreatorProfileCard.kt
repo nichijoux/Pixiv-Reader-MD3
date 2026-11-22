@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -164,7 +163,8 @@ fun CreatorProfileCard(
                     }
                     onToggleFollow(next)
                 },
-                shape = RoundedCornerShape(20.dp),
+                // 形状走 M3 shapes token（large = 20dp），不再写死圆角
+                shape = MaterialTheme.shapes.large,
                 modifier = Modifier.height(40.dp),
             ) {
                 Text(if (followed) stringResource(R.string.following) else stringResource(R.string.follow))

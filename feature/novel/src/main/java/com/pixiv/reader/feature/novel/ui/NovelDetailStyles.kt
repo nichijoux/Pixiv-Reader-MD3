@@ -25,17 +25,17 @@ internal val NOVEL_TOC_PANEL_WIDTH = 264.dp
 
 // ── 文字样式（基于 core:ui 统一 Typography 派生，对齐 HTML 并整体 +1sp，禁止散落 magic number） ──
 
-/** 标题：titleLarge + 22sp Bold。 */
+/** 标题：titleLarge + Bold（字号走 type role，不再 +2sp 破坏字阶）。 */
 @Composable
-internal fun novelTitleStyle() = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold)
+internal fun novelTitleStyle() = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
 
-/** 作者名：bodyMedium + 15sp SemiBold。 */
+/** 作者名：titleSmall + SemiBold。 */
 @Composable
-internal fun novelAuthorStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+internal fun novelAuthorStyle() = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
 
-/** 次级信息（发布时间 / 查看完整系列 / 展开 / 下载进度）：bodyMedium 13sp。 */
+/** 次级信息（发布时间 / 查看完整系列 / 展开 / 下载进度）：bodySmall。 */
 @Composable
-internal fun novelMetaStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
+internal fun novelMetaStyle() = MaterialTheme.typography.bodySmall
 
 /** 统计数值：bodyLarge Bold。 */
 @Composable
@@ -45,9 +45,9 @@ internal fun novelStatValueStyle() = MaterialTheme.typography.bodyLarge.copy(fon
 @Composable
 internal fun novelSmallLabelStyle() = MaterialTheme.typography.labelMedium
 
-/** 简介：bodyMedium 14.5sp + 行高 25sp。 */
+/** 简介：bodyMedium（行高随 type role，避免 14.5sp / 25sp 这类非阶梯值）。 */
 @Composable
-internal fun novelIntroStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, lineHeight = 25.sp)
+internal fun novelIntroStyle() = MaterialTheme.typography.bodyMedium
 
 /** 阅读主按钮：titleMedium SemiBold。 */
 @Composable
@@ -61,14 +61,14 @@ internal fun novelTocTitleStyle() = MaterialTheme.typography.titleMedium.copy(fo
 @Composable
 internal fun novelTocRowStyle() = MaterialTheme.typography.bodyMedium
 
-/** 「当前」胶囊：labelMedium 11sp SemiBold。 */
+/** 「当前」胶囊：labelSmall + SemiBold。 */
 @Composable
-internal fun novelCurrentBadgeStyle() = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+internal fun novelCurrentBadgeStyle() = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
 
 /** 数量胶囊：labelMedium SemiBold。 */
 @Composable
 internal fun novelCountBadgeStyle() = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
 
-/** 下载对话框选项标题：bodyMedium 15sp Medium。 */
+/** 下载对话框选项标题：titleSmall。 */
 @Composable
-internal fun novelOptionTitleStyle() = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium)
+internal fun novelOptionTitleStyle() = MaterialTheme.typography.titleSmall

@@ -602,7 +602,7 @@ fun ReaderRoute(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = novel?.title.orEmpty(),
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                    style = MaterialTheme.typography.labelMedium,
                     // 随当前阅读器主题文字色自适应，防止系统浅色时夜间/黑底阅读模式下文字隐形。
                     color = themeColors.text.copy(alpha = 0.6f),
                     maxLines = 1,
@@ -612,7 +612,7 @@ fun ReaderRoute(
                 if (pageInfo.second > 0) {
                     Text(
                         text = "${pageInfo.first + 1} / ${pageInfo.second}",
-                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                        style = MaterialTheme.typography.labelMedium,
                         color = themeColors.text.copy(alpha = 0.6f),
                         modifier = Modifier.padding(start = Spacing.md),
                     )

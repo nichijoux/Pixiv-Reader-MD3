@@ -68,6 +68,7 @@ import com.pixiv.reader.core.ui.component.detail.illustCoverKey
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import kotlin.math.roundToInt
@@ -248,7 +249,7 @@ fun IllustCard(
                 // 其余名次小圆角矩形白字（与 NovelCard 排名徽标同语言）
                 if (rank != null) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.45f),
+                        color = ImageScrim,
                         shape = rankBadgeShape(rank),
                     ) {
                         Text(
@@ -263,7 +264,7 @@ fun IllustCard(
                 }
                 if (illust.isAi()) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.45f),
+                        color = ImageScrim,
                         shape = AppShapes.small,
                     ) {
                         Text(
@@ -276,7 +277,7 @@ fun IllustCard(
                 }
                 if (illust.page_count > 1) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.45f),
+                        color = ImageScrim,
                         shape = AppShapes.small,
                     ) {
                         Text(
@@ -323,7 +324,7 @@ fun IllustCard(
             if (bookmarkCount > 0) {
                 Surface(
                     modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.xsPlus),
-                    color = Color.Black.copy(alpha = 0.45f),
+                    color = ImageScrim,
                     shape = AppShapes.small,
                 ) {
                     Row(

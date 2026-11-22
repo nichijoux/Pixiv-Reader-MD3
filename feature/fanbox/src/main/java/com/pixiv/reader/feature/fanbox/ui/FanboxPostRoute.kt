@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.InsertDriveFile
@@ -57,6 +56,7 @@ import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.fanbox.R
@@ -373,7 +373,7 @@ private fun BodyImage(section: FanboxSection.Image, onOpenImage: (String, String
 @Composable
 private fun FileCard(section: FanboxSection.File) {
     Card(
-        shape = RoundedCornerShape(Spacing.md),
+        shape = AppShapes.card,
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
     ) {
         Row(
@@ -415,7 +415,7 @@ private fun FileCard(section: FanboxSection.File) {
 private fun EmbedCard(section: FanboxSection.Embed, openLink: (String) -> Unit) {
     val url = section.url
     Card(
-        shape = RoundedCornerShape(Spacing.md),
+        shape = AppShapes.card,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.lg, vertical = Spacing.xs)
@@ -473,7 +473,7 @@ private fun PlansSection(
             state.items.isEmpty() -> Unit
             else -> state.items.forEach { plan ->
                 Card(
-                    shape = RoundedCornerShape(Spacing.md),
+                    shape = AppShapes.card,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
                 ) {
                     Column(modifier = Modifier.padding(Spacing.md)) {

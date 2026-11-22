@@ -2,8 +2,9 @@ package com.pixiv.reader.core.ui.component.input
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,20 +23,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.theme.AppShapes
 
-/** 胶囊分段轨道高度（含滑块内边距）。 */
+/** 胶囊轨道的视觉高度（绘制轨道与滑块）。 */
 private val PillTrackHeight = 40.dp
+
+/**
+ * 触控目标高度：M3 规定最小 48dp。
+ * 视觉仍是 40dp 轨道，多出的 8dp 上下留白只扩展点击热区，不改变外观。
+ */
+private val PillTouchTargetHeight = 48.dp
 
 /** 滑块与轨道边缘的间距（上下左右统一）。 */
 private val PillEdgeThickness = 4.dp
+
+/** 按压/聚焦状态层不透明度（M3 state layer）。 */
+private const val PillStateLayerAlpha = 0.12f
 
 /**
  * iOS 风胶囊分段选择器（全 App 分段控件统一口径）。
@@ -50,6 +61,11 @@ private val PillEdgeThickness = 4.dp
  * 选中态 = 滑块 + `primary` 文字 + [FontWeight.Medium]；未选 = `onSurfaceVariant`；
  * 禁用 = `onSurfaceVariant` 40% 透明度且不可点。标签复用 [SegmentedButtonLabel]
  * 的单行缩字能力，长文案（英文）不会换行把轨道撑高。
+ *
+ * 无障碍约定：轨道视觉 40dp，但触控目标保持 M3 最小 **48dp**（上下各留 4dp 热区）；
+ * 交互反馈用 M3 state layer（按压/聚焦 12% `onSurface` 叠层）而非涟漪——涟漪会与滑块
+ * 位移动效打架，但完全去掉反馈层会让用户失去按压感知；语义用 `selectable` +
+ * [Role.RadioButton]（单选分段），TalkBack 可读到「已选中/未选中」。
  *
  * 布局为等宽分段 + LTR（项目语言 zh / zh-TW / en 均无 RTL 语序需求）。
  *
@@ -83,10 +99,17 @@ fun <T> PillSegmentedRow(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(PillTrackHeight)
-            .clip(AppShapes.pill)
-            .background(trackColor),
+            .height(PillTouchTargetHeight),
     ) {
+        // 轨道：视觉 40dp，在 48dp 触控区内垂直居中
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(PillTrackHeight)
+                .align(Alignment.CenterStart)
+                .clip(AppShapes.pill)
+                .background(trackColor),
+        )
         // 滑块宽 = (轨道宽 - 左右边距) / 选项数；轨道宽在这里已知，无需 onSizeChanged 换算
         val thumbWidth = (maxWidth - PillEdgeThickness * 2) / options.size
         if (selectedIndex >= 0) {
@@ -99,42 +122,53 @@ fun <T> PillSegmentedRow(
             )
             Box(
                 modifier = Modifier
-                    .offset(x = offset)
-                    .padding(vertical = PillEdgeThickness)
+                    .offset(
+                        x = offset,
+                        y = (PillTouchTargetHeight - PillTrackHeight) / 2 + PillEdgeThickness,
+                    )
                     .width(thumbWidth)
-                    .fillMaxHeight()
-                    .shadow(elevation = 1.dp, shape = AppShapes.pill)
+                    .height(PillTrackHeight - PillEdgeThickness * 2)
                     .clip(AppShapes.pill)
+                    // MD3 用 tonal 层级区分表面而非投影：滑块已取反一级容器色，不再叠阴影
                     .background(thumbColor),
             )
         }
-        // 选项层叠满轨道：每项等宽、整高可点（点击区域覆盖滑块）
+        // 选项层叠满 48dp 触控区：每项等宽、整高可点（点击区域覆盖滑块）
         Row(modifier = Modifier.fillMaxSize()) {
             options.forEach { (value, labelRes) ->
                 val enabled = optionEnabled(value)
                 val isSelected = value == selected
                 // 无涟漪点击源：胶囊分段以滑块位移表达状态，涟漪会与滑块动效打架
                 val interactionSource = remember { MutableInteractionSource() }
+                val pressed by interactionSource.collectIsPressedAsState()
+                val focused by interactionSource.collectIsFocusedAsState()
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .then(
-                            if (enabled) {
-                                Modifier.clickable(
-                                    interactionSource = interactionSource,
-                                    indication = null,
-                                ) {
-                                    // 触觉先行，再交给业务回调切状态（与全 App 分段控件一致）
-                                    haptic(PixivHaptics.HapticCue.SELECT)
-                                    onSelect(value)
-                                }
-                            } else {
-                                Modifier
-                            },
-                        ),
+                        .selectable(
+                            selected = isSelected,
+                            enabled = enabled,
+                            role = Role.RadioButton,
+                            interactionSource = interactionSource,
+                            indication = null,
+                        ) {
+                            // 触觉先行，再交给业务回调切状态（与全 App 分段控件一致）
+                            haptic(PixivHaptics.HapticCue.SELECT)
+                            onSelect(value)
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
+                    // M3 state layer：按压/聚焦时叠 12% onSurface，替代被移除的涟漪
+                    if (enabled && (pressed || focused)) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(PillTrackHeight)
+                                .clip(AppShapes.pill)
+                                .background(colorScheme.onSurface.copy(alpha = PillStateLayerAlpha)),
+                        )
+                    }
                     SegmentedButtonLabel(
                         text = stringResource(labelRes),
                         color = when {

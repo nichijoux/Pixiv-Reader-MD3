@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Modifier
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.res.stringResource
@@ -262,10 +263,19 @@ private fun ComicWorkHeader(work: ComicWork) {
 private fun ComicTagRow(work: ComicWork) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         items(work.categories.orEmpty(), key = { "cat-${it.id}" }) { category ->
-            val tagColor = remember(category.color) {
+            // 服务端下发的是任意色值：解析失败或为空时回退主题容器色（不再硬编码 #888888）
+            val parsedTagColor = remember(category.color) {
                 runCatching {
-                    Color(AndroidColor.parseColor(category.color.orEmpty().ifEmpty { "#888888" }))
-                }.getOrElse { Color(0xFF888888) }
+                    category.color?.takeIf { it.isNotBlank() }
+                        ?.let { Color(AndroidColor.parseColor(it)) }
+                }.getOrNull()
+            }
+            val tagColor = parsedTagColor ?: MaterialTheme.colorScheme.secondaryContainer
+            // 文字色按底色亮度取反：亮度 > 0.179 时黑字/白字均 ≥4.5:1，避免服务端浅色分类上白字看不清
+            val onTagColor = when {
+                parsedTagColor == null -> MaterialTheme.colorScheme.onSecondaryContainer
+                tagColor.luminance() > 0.179f -> Color(0xFF1B1B1B)
+                else -> Color.White
             }
             Surface(
                 shape = MaterialTheme.shapes.small,
@@ -274,7 +284,7 @@ private fun ComicTagRow(work: ComicWork) {
                 Text(
                     text = category.name.orEmpty(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                    color = onTagColor,
                     modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                 )
             }

@@ -69,6 +69,7 @@ import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
@@ -250,7 +251,7 @@ fun NovelCard(
                                 modifier = Modifier
                                     .padding(Spacing.xsPlus)
                                     .clip(rankBadgeShape(rank))
-                                    .background(Color.Black.copy(alpha = 0.45f))
+                                    .background(ImageScrim)
                                     .padding(horizontal = Spacing.sm, vertical = 3.dp),
                             ) {
                                 Text(

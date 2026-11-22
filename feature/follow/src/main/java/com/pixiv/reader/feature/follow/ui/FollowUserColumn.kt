@@ -188,7 +188,8 @@ private fun UserColumnItem(
             Text(
                 text = name,
                 color = contentColor,
-                fontSize = 9.5.sp,
+                // 字号走 type role（labelSmall 11sp）：原先 9.5sp 低于 M3 最小字阶，小屏可读性差
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

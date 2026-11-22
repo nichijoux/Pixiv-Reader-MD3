@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -170,7 +171,8 @@ internal fun BlockedOverlay(
 ) {
     Column(
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.5f))
+            // 遮罩用 ImageScrim（70% 黑）：下方白字的对比度不再依赖封面亮度
+            .background(ImageScrim)
             // 手势挂遮罩（最上层）而非内容层：屏蔽期间下层所有 clickable 一并失效
             .let { base ->
                 if (onClick != null) {
@@ -215,7 +217,7 @@ internal fun BlockedOverlay(
 @Composable
 internal fun BlockedRevealBadge() {
     Surface(
-        color = Color.Black.copy(alpha = 0.45f),
+        color = ImageScrim,
         shape = AppShapes.small,
     ) {
         Text(

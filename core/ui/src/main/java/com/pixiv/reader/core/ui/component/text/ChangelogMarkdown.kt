@@ -212,18 +212,20 @@ fun ChangelogMarkdownText(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val annotated = remember(body, colorScheme) {
+    // 字号取自 type role（bodyLarge / labelLarge），不再写死 16sp / 14sp
+    val typography = MaterialTheme.typography
+    val annotated = remember(body, colorScheme, typography) {
         parseChangelogMarkdown(
             body,
             ChangelogStyles(
                 headingLarge = SpanStyle(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = typography.bodyLarge.fontSize,
                     color = colorScheme.onSurface,
                 ),
                 headingSmall = SpanStyle(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = typography.labelLarge.fontSize,
                     color = colorScheme.onSurface,
                 ),
                 code = SpanStyle(
