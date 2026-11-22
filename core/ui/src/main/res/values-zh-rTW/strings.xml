@@ -44,4 +44,5 @@
     <string name="series_watchlisted">已追更</string>
     <!-- 排行榜日期篩選（RankingDatePickerButton / RankingDateChipRow） -->
     <string name="common_ok">確定</string>
+    <string name="notification_dismiss">關閉通知</string>
 </resources>

@@ -3,12 +3,15 @@ package com.pixiv.reader.core.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ── Material 3 静态配色（种子色 #0096FA 派生；动态取色不可用时回退） ──
-// secondary 系已由 PixivReaderTheme 镜像 primary 系，静态色板不再单独定义 secondary 系 token。
 
 val Primary = Color(0xFF00639B)
 val OnPrimary = Color(0xFFFFFFFF)
 val PrimaryContainer = Color(0xFFCDE5FF)
 val OnPrimaryContainer = Color(0xFF001D33)
+val Secondary = Color(0xFF51606F)
+val OnSecondary = Color(0xFFFFFFFF)
+val SecondaryContainer = Color(0xFFD5E4F7)
+val OnSecondaryContainer = Color(0xFF0E1D2A)
 val Tertiary = Color(0xFF66558B)
 val OnTertiary = Color(0xFFFFFFFF)
 val TertiaryContainer = Color(0xFFEBDCFF)
@@ -17,6 +20,24 @@ val Error = Color(0xFFBA1A1A)
 val ErrorContainer = Color(0xFFFFDAD6)
 val OnError = Color(0xFFFFFFFF)
 val OnErrorContainer = Color(0xFF410002)
+
+// ── 深色主色阶（MD3 标准 tone-80 / tone-20 / tone-30 / tone-90） ──
+val DarkPrimary = Color(0xFF98CBFF)
+val DarkOnPrimary = Color(0xFF003353)
+val DarkPrimaryContainer = Color(0xFF004A76)
+val DarkOnPrimaryContainer = Color(0xFFCDE5FF)
+val DarkSecondary = Color(0xFFB9C8DA)
+val DarkOnSecondary = Color(0xFF233240)
+val DarkSecondaryContainer = Color(0xFF3A4857)
+val DarkOnSecondaryContainer = Color(0xFFD5E4F7)
+val DarkTertiary = Color(0xFFD1BCFA)
+val DarkOnTertiary = Color(0xFF37275A)
+val DarkTertiaryContainer = Color(0xFF4E3E72)
+val DarkOnTertiaryContainer = Color(0xFFEBDCFF)
+val DarkError = Color(0xFFFFB4AB)
+val DarkOnError = Color(0xFF690005)
+val DarkErrorContainer = Color(0xFF93000A)
+val DarkOnErrorContainer = Color(0xFFFFDAD6)
 
 // ── 深色中性板（#0096FA 种子派生，DarkColors 专用；原缺失导致静态深色落到 M3 基线默认值）──
 val DarkBackground = Color(0xFF191C1F)
@@ -30,8 +51,7 @@ val DarkOutlineVariant = Color(0xFF42474D)
 
 // ── M3 容器/反向角色（深色，由 DarkSurface #191C1F 种子派生）──
 // 与浅色同理：显式定义深色容器角色，替换 M3 基线紫灰（深色 #211F26），
-// 保持与 primary 蓝同相的冷调中性。注意本文件深色色板「容器与内容互换」的既有约定：
-// DarkColors 里 primary = PrimaryContainer（#CDE5FF），故 surfaceTint 取该值。
+// 保持与 primary 蓝同相的冷调中性。
 
 val DarkSurfaceDim = Color(0xFF191C1F)
 val DarkSurfaceBright = Color(0xFF34383D)
@@ -40,8 +60,8 @@ val DarkSurfaceContainerLow = Color(0xFF1D2125)
 val DarkSurfaceContainer = Color(0xFF21252A)
 val DarkSurfaceContainerHigh = Color(0xFF2B3035)
 val DarkSurfaceContainerHighest = Color(0xFF363B41)
-/** surfaceTint：深色下与 primary 角色一致（= PrimaryContainer #CDE5FF） */
-val DarkSurfaceTint = Color(0xFFCDE5FF)
+/** surfaceTint：深色下与 DarkPrimary 角色一致（tone-80 #98CBFF） */
+val DarkSurfaceTint = Color(0xFF98CBFF)
 val DarkInverseSurface = Color(0xFFE1E2E8)
 val DarkInverseOnSurface = Color(0xFF2F3033)
 val DarkInversePrimary = Color(0xFF00639B)
@@ -87,38 +107,53 @@ val ViewerScrim = Color(0xFF0A0A0A)
  */
 val ImageScrim = Color(0xFF000000).copy(alpha = 0.70f)
 
-/** 收藏/爱心选中红 */
-val FavoriteRed = Color(0xFFFF5252)
+/** 收藏/爱心选中红（浅色表面 tone-40，在 SurfaceContainer 上 ≥4.5:1） */
+val FavoriteLight = Color(0xFFD32F2F)
 
-/** 成功通知绿 */
-val SuccessGreen = Color(0xFF4CAF50)
+/** 收藏/爱心选中红（深色表面与 ImageScrim 遮罩用 tone-80，在 70% 黑遮罩最坏底上 3.7:1） */
+val FavoriteDark = Color(0xFFFF8A80)
+
+/** 成功通知绿（浅色表面用 tone-40） */
+val SuccessLight = Color(0xFF2E7D32)
+
+/** 成功通知绿（深色表面与浅色反色通知条用 tone-80） */
+val SuccessDark = Color(0xFF81C784)
 
 /** Pixiv 品牌蓝（登录等） */
 val PixivBlue = Color(0xFF0096FA)
 
 /**
- * 设置行图标点缀色组（装饰层，不参与主题角色）：容器底 = 色值 12% alpha，图标 tint = 色值本身；
- * 色值取高亮度档保证深色卡片上图标可见（蓝/绿与 PixivBlue/SuccessGreen 同值），浅深色通用（参照 Notification accent 范式）。
+ * 设置行/导航点缀色组（浅色 tone-40 档）：容器底 = 12% alpha，图标 tint = 色值本身；
+ * 与 [DarkSettingAccent*] 配合由 [resolveAccent] 随明暗主题自动映射，在 12%/18% 淡底上均 ≥4.0:1。
  */
-val SettingAccentViolet = Color(0xFF7C57FF)
-val SettingAccentBlue = Color(0xFF0096FA)
-val SettingAccentTeal = Color(0xFF00A5A5)
-val SettingAccentGreen = Color(0xFF4CAF50)
-val SettingAccentAmber = Color(0xFFFFB300)
-val SettingAccentOrange = Color(0xFFFF8A3D)
-val SettingAccentPink = Color(0xFFE85D8A)
+val SettingAccentViolet = Color(0xFF5E3FDB)
+val SettingAccentBlue = Color(0xFF00639B)
+val SettingAccentTeal = Color(0xFF006A6A)
+val SettingAccentGreen = Color(0xFF2E7D32)
+val SettingAccentAmber = Color(0xFF8C5A00)
+val SettingAccentOrange = Color(0xFFB54A00)
+val SettingAccentPink = Color(0xFFB8255F)
+
+/** 设置行/导航点缀色组（深色 tone-80 档，在深色 18% 淡底上 ≥5.2:1）。 */
+val DarkSettingAccentViolet = Color(0xFFC4B5FF)
+val DarkSettingAccentBlue = Color(0xFF7CC7FF)
+val DarkSettingAccentTeal = Color(0xFF6AD9D9)
+val DarkSettingAccentGreen = Color(0xFF81C784)
+val DarkSettingAccentAmber = Color(0xFFFFD266)
+val DarkSettingAccentOrange = Color(0xFFFFB07A)
+val DarkSettingAccentPink = Color(0xFFFF9AB8)
 
 // ── 小说阅读器 4 主题调色板（源：feature/reader ReaderTheme.kt 实际渲染色值） ──
 
 val ReaderDayBackground = Color(0xFFFFFFFF)
 val ReaderDayText = Color(0xFF1A1A1A)
-val ReaderDaySecondary = Color(0xFF8A8A8A)
+val ReaderDaySecondary = Color(0xFF6E6E6E)
 val ReaderDayDivider = Color(0xFFE5E5E5)
 val ReaderDayTopBar = Color(0xFFFAFAFA)
 
 val ReaderPaperBackground = Color(0xFFF5EFE0)
 val ReaderPaperText = Color(0xFF3A3126)
-val ReaderPaperSecondary = Color(0xFF8A7A60)
+val ReaderPaperSecondary = Color(0xFF73634B)
 val ReaderPaperDivider = Color(0xFFE2D9C4)
 val ReaderPaperTopBar = Color(0xFFEDE4CF)
 
@@ -130,6 +165,6 @@ val ReaderNightTopBar = Color(0xFF1C1C1C)
 
 val ReaderDeepBlackBackground = Color(0xFF000000)
 val ReaderDeepBlackText = Color(0xFF9E9E9E)
-val ReaderDeepBlackSecondary = Color(0xFF555555)
+val ReaderDeepBlackSecondary = Color(0xFF757575)
 val ReaderDeepBlackDivider = Color(0xFF202020)
 val ReaderDeepBlackTopBar = Color(0xFF000000)

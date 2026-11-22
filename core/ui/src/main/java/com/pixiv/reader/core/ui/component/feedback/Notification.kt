@@ -37,17 +37,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.Durations
 import com.pixiv.reader.core.ui.theme.Spacing
-import com.pixiv.reader.core.ui.theme.SuccessGreen
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.extendedColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -188,23 +191,29 @@ private fun NotificationCard(
         delay(Durations.NOTIFICATION_TIMEOUT.milliseconds)
         onDismiss()
     }
+    val scheme = MaterialTheme.colorScheme
+    // 反色容器遵循 MD3 Snackbar 规范（inverseSurface + Level 3 阴影 + inverseOnSurface 内容）
     Surface(
-        modifier = modifier.clickable(onClick = onDismiss),
+        modifier = modifier.clickable(
+            onClickLabel = stringResource(R.string.notification_dismiss),
+            onClick = onDismiss,
+        ),
         shape = AppShapes.cardLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 4.dp,
+        color = scheme.inverseSurface,
+        shadowElevation = 6.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 类型图标徽标：语义色 15% alpha 圆底 + 实色图标
+            // 类型图标徽标：语义色低透明圆底 + 反色容器对比度达标图标
             val accent = notificationTypeColor(notification.type)
+            val badgeBgAlpha = if (scheme.inverseSurface.luminance() < 0.5f) 0.16f else 0.14f
             Box(
                 modifier = Modifier
                     .size(Sizes.s28)
                     .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.15f)),
+                    .background(accent.copy(alpha = badgeBgAlpha)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -218,7 +227,7 @@ private fun NotificationCard(
             Text(
                 text = notification.text,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = scheme.inverseOnSurface,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -230,35 +239,33 @@ private fun NotificationCard(
                     text = notification.actionText,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = scheme.inversePrimary,
                     modifier = Modifier
                         .clip(AppShapes.tiny)
                         .clickable {
                             notification.onAction.invoke()
                             onDismiss()
                         }
-                        .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                        .padding(horizontal = Spacing.sm, vertical = Spacing.xsPlus),
                 )
             }
             Spacer(Modifier.width(Spacing.sm))
             Icon(
                 imageVector = Icons.Filled.Close,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier
-                    .size(Sizes.s16)
-                    .clickable(onClick = onDismiss),
+                tint = scheme.inverseOnSurface.copy(alpha = 0.85f),
+                modifier = Modifier.size(Sizes.s16),
             )
         }
     }
 }
 
-/** 类型语义色：Info 用主题 primary、Success 固定绿、Error 用主题 error（明暗主题均对比清晰）。 */
+/** 反色通知容器上的类型语义色：Info 用 inversePrimary、Success/Error 走扩展色反色角色。 */
 @Composable
 private fun notificationTypeColor(type: NotificationType): Color = when (type) {
-    NotificationType.Info -> MaterialTheme.colorScheme.primary
-    NotificationType.Success -> SuccessGreen
-    NotificationType.Error -> MaterialTheme.colorScheme.error
+    NotificationType.Info -> MaterialTheme.colorScheme.inversePrimary
+    NotificationType.Success -> MaterialTheme.extendedColors.successOnInverse
+    NotificationType.Error -> MaterialTheme.extendedColors.errorOnInverse
 }
 
 /** 类型图标。 */

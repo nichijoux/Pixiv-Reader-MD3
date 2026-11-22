@@ -45,4 +45,5 @@
     <string name="series_watchlisted">Watching</string>
     <!-- Ranking date filter (RankingDatePickerButton / RankingDateChipRow) -->
     <string name="common_ok">OK</string>
+    <string name="notification_dismiss">Dismiss notification</string>
 </resources>

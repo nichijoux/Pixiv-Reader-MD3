@@ -79,10 +79,11 @@ import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.input.ConfirmDialogVariant
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
-import com.pixiv.reader.core.ui.theme.FavoriteRed
-import com.pixiv.reader.core.ui.theme.ViewerScrim
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.ViewerScrim
+import com.pixiv.reader.core.ui.theme.extendedColors
 
 /**
  * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
@@ -337,7 +338,7 @@ fun ViewerRoute(
                         .statusBarsPadding()
                         .padding(top = 52.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.45f))
+                        .background(ImageScrim)
                         .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus),
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -559,8 +560,8 @@ private fun ViewerActionBar(
         HorizontalFloatingToolbar(
             expanded = true,
             colors = FloatingToolbarDefaults.standardFloatingToolbarColors().copy(
-                // 黑底浏览场景：深色半透明胶囊 + 白色内容，融入底部渐变遮罩
-                toolbarContainerColor = Color.Black.copy(alpha = 0.55f),
+                // 黑底浏览场景：统一 ImageScrim（70% 黑）+ 白色/遮罩红内容
+                toolbarContainerColor = ImageScrim,
                 toolbarContentColor = Color.White,
             ),
         ) {
@@ -568,7 +569,7 @@ private fun ViewerActionBar(
                 Icon(
                     imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     contentDescription = stringResource(if (isBookmarked) R.string.viewer_cd_unbookmark else R.string.viewer_cd_bookmark),
-                    tint = if (isBookmarked) FavoriteRed else Color.White,
+                    tint = if (isBookmarked) MaterialTheme.extendedColors.favoriteOnScrim else Color.White,
                 )
             }
             IconButton(onClick = onDownload) {

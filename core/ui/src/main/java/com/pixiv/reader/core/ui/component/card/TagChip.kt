@@ -42,8 +42,7 @@ fun TagChip(
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val containerColor = accentColor?.copy(alpha = if (dark) 0.18f else 0.12f)
         ?: MaterialTheme.colorScheme.secondaryContainer
-    val contentColor = accentColor
-        ?: if (compact) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+    val contentColor = accentColor ?: MaterialTheme.colorScheme.onSecondaryContainer
     Text(
         text = text,
         style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,

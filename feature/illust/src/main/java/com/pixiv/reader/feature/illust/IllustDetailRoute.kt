@@ -66,9 +66,9 @@ import com.pixiv.reader.core.ui.component.detail.illustCoverKey
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
-import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.core.ui.theme.extendedColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,8 +236,8 @@ fun IllustDetailRoute(
                     enabled = !isBookmarking,
                     onClick = viewModel::toggleBookmark,
                     modifier = Modifier.weight(1f),
-                    // 收藏激活用红心（保留 App 收藏色习惯）
-                    activeIconTint = FavoriteRed,
+                    // 收藏激活用扩展语义红（浅/深双档合规）
+                    activeIconTint = MaterialTheme.extendedColors.favorite,
                 )
                 // 漫画系列追更按钮（作品属于漫画系列时显示，与小说详情页追更同语义）
                 if (seriesId != null) {

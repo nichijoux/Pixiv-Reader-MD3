@@ -9,6 +9,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -53,6 +56,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -92,7 +96,7 @@ import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.text.HtmlCaptionText
 import com.pixiv.reader.core.ui.theme.AppShapes
-import com.pixiv.reader.core.ui.theme.FavoriteRed
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.SettingAccentAmber
 import com.pixiv.reader.core.ui.theme.SettingAccentBlue
 import com.pixiv.reader.core.ui.theme.SettingAccentPink
@@ -100,6 +104,7 @@ import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.extendedColors
 import com.pixiv.reader.core.ui.theme.resolveAccent
 
 /**
@@ -465,7 +470,7 @@ fun IllustPagePager(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .background(ImageScrim)
                                         .clickable { retry() },
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -500,11 +505,11 @@ fun IllustPagePager(
                                     }
 
                                     ugoiraProgress != null -> {
-                                        // zip 下载中：半透明黑底 + 转圈 + 百分比（帧就绪后切换播放）
+                                        // zip 下载中：ImageScrim + 转圈 + 百分比（帧就绪后切换播放）
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.35f)),
+                                                .background(ImageScrim),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Column(
@@ -544,19 +549,18 @@ fun IllustPagePager(
                         LoadingIndicator(color = Color.White)
                     }
                 }
-                // 页码 + 全屏入口（统一 32dp 高胶囊，视觉一致）
+                // 页码 + 全屏入口（视觉保持 32dp，全屏钮外层 48dp 热区满足 M3 最小触控目标）
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(Spacing.smPlus),
+                        .padding(start = Spacing.sm, end = 0.dp, bottom = 0.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
                     Box(
                         modifier = Modifier
-                            .height(32.dp)
+                            .height(Sizes.s32)
                             .clip(AppShapes.card)
-                            .background(Color.Black.copy(alpha = 0.5f))
+                            .background(ImageScrim)
                             .padding(horizontal = Spacing.md),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -566,20 +570,32 @@ fun IllustPagePager(
                             color = Color.White,
                         )
                     }
+                    val fullscreenInteraction = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
-                            .size(Sizes.s32)
-                            .clip(AppShapes.card)
-                            .background(Color.Black.copy(alpha = 0.5f))
-                            .clickable { onOpenViewer(pagerState.currentPage) },
+                            .size(Sizes.s48)
+                            .clickable(
+                                role = Role.Button,
+                                interactionSource = fullscreenInteraction,
+                                indication = null,
+                            ) { onOpenViewer(pagerState.currentPage) },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Fullscreen,
-                            contentDescription = strings.fullscreen,
-                            tint = Color.White,
-                            modifier = Modifier.size(Sizes.s18),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(Sizes.s32)
+                                .clip(AppShapes.card)
+                                .background(ImageScrim)
+                                .indication(fullscreenInteraction, ripple(bounded = true, color = Color.White)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Fullscreen,
+                                contentDescription = strings.fullscreen,
+                                tint = Color.White,
+                                modifier = Modifier.size(Sizes.s18),
+                            )
+                        }
                     }
                 }
             }
@@ -811,9 +827,9 @@ private fun ActionButtonsRow(
             enabled = !isBookmarking,
             onClick = onToggleBookmark,
             modifier = Modifier.weight(1f),
-            // 收藏激活用红心（保留 App 收藏色习惯）；未激活态也用红色点缀保持语义一致
-            activeIconTint = FavoriteRed,
-            accent = FavoriteRed,
+            // 收藏激活用扩展语义红（浅/深双档合规）；未激活态同步使用扩展收藏色点缀
+            activeIconTint = MaterialTheme.extendedColors.favorite,
+            accent = MaterialTheme.extendedColors.favorite,
             // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
             iconModifier = Modifier.graphicsLayer {
                 scaleX = favoriteBounce.value

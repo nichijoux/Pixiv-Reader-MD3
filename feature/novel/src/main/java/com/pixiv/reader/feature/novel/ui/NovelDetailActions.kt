@@ -41,9 +41,9 @@ import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.input.VerticalActionButton
-import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.extendedColors
 import com.pixiv.reader.feature.novel.R
 
 /** 操作区（内容区）：阅读主按钮（AutoStories 图标）+ 下载进度；四个竖排按钮固定在底部见 [NovelActionBar]。 */
@@ -185,8 +185,8 @@ internal fun NovelActionBar(
                 // 长按打开收藏设置（公开/私密 + 标签）
                 onLongClick = onBookmarkLongClick,
                 modifier = Modifier.weight(1f),
-                // 收藏激活用红心（与插画详情页一致）
-                activeIconTint = FavoriteRed,
+                // 收藏激活用扩展语义红（浅/深双档合规）
+                activeIconTint = MaterialTheme.extendedColors.favorite,
                 // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
                 iconModifier = Modifier.graphicsLayer {
                     scaleX = favoriteBounce.value

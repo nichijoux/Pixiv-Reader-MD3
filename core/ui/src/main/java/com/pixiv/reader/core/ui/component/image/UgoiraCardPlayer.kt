@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -69,9 +70,9 @@ fun UgoiraCardPlayer(
     } else {
         val p = progressValue
         if (p != null) {
-            // zip 下载中：半透明黑底 + 转圈 + 百分比（帧就绪后由播放器替换）
+            // zip 下载中：ImageScrim + 转圈 + 百分比（帧就绪后由播放器替换）
             Box(
-                modifier = modifier.background(Color.Black.copy(alpha = 0.35f)),
+                modifier = modifier.background(ImageScrim),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(

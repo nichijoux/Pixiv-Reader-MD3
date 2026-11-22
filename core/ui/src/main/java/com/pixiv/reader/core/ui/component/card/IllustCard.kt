@@ -8,7 +8,10 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,6 +33,7 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,10 +71,10 @@ import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
 import com.pixiv.reader.core.ui.component.detail.illustCoverKey
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
-import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.extendedColors
 import kotlin.math.roundToInt
 
 /**
@@ -293,17 +297,20 @@ fun IllustCard(
                     BlockedRevealBadge()
                 }
             }
-            // 收藏切换按钮：右上角自绘浮层（28dp 圆，避免 IconButton 强制 40dp 溢出边界）
+            // 收藏切换按钮：外层 48dp 隐形热区满足 M3 最小触控目标 + Role.Checkbox 语义，
+            // 内层 32dp 视觉圆底使用 ImageScrim（70% 黑），距顶/右边保持 8dp 网格
             if (onToggleFavorite != null) {
+                val favoriteInteraction = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(Spacing.sm)
-                        .size(Sizes.s28)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .clickable {
-                            val next = !favorite
+                        .size(Sizes.s48)
+                        .toggleable(
+                            value = favorite,
+                            role = Role.Checkbox,
+                            interactionSource = favoriteInteraction,
+                            indication = null,
+                        ) { next ->
                             if (favoriteActions == null) {
                                 localFavorite = next
                             }
@@ -311,12 +318,21 @@ fun IllustCard(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
-                        tint = if (favorite) FavoriteRed else Color.White,
-                        modifier = Modifier.size(Sizes.s18),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(Sizes.s32)
+                            .clip(CircleShape)
+                            .background(ImageScrim)
+                            .indication(favoriteInteraction, ripple(bounded = true, color = Color.White)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
+                            tint = if (favorite) MaterialTheme.extendedColors.favoriteOnScrim else Color.White,
+                            modifier = Modifier.size(Sizes.s18),
+                        )
+                    }
                 }
             }
             // 收藏数角标：右下角

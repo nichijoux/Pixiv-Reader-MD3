@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.dp
  *
  * 容器底与边框始终保持 M3 主题色（不随 [accent] 变化），避免文字/容器对比度风险。
  *
- * @param activeIconTint 激活态图标色（如收藏按钮传 FavoriteRed 红心）；null 用 primary（或 [accent] 解析色）
+ * @param activeIconTint 激活态图标色（如收藏按钮传 `MaterialTheme.extendedColors.favorite` 红心）；null 用 primary（或 [accent] 解析色）
  * @param accent 未激活态图标点缀色；[Color.Unspecified] 回退 primary；关闭彩色风格时统一回 primary
  * @param onLongClick 长按回调（如小说收藏按钮长按打开收藏设置）；null 不挂长按手势
  * @param iconModifier 追加在图标上的 Modifier（调用方用于挂收藏弹跳等图标级动效；默认无）

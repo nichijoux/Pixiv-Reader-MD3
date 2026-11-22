@@ -18,8 +18,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -70,6 +71,7 @@ import com.pixiv.reader.core.common.ui.classifyWindowWidth
 import com.pixiv.reader.core.common.ui.useRail
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
+import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.ui.theme.resolveAccent
 import kotlinx.coroutines.launch
 
@@ -177,39 +179,56 @@ fun AdaptiveNavScaffold(
                     },
                 ) {
                     val railExpanded = railState.targetValue == WideNavigationRailValue.Expanded
+                    val colorStyle = LocalColorStyleEnabled.current
+                    val scheme = MaterialTheme.colorScheme
                     items.forEach { item ->
-                        // 选中态点缀色：未指定时回退 primary，彩色风格关闭时 resolveAccent 统一回 primary
-                        val railAccent = resolveAccent(
-                            if (item.accent == Color.Unspecified) MaterialTheme.colorScheme.primary else item.accent,
-                        )
+                        val selected = selectedRoute == item.route
+                        val navColors = if (colorStyle) {
+                            // 彩色风格开启：选中态取各 Tab 点缀色（经 resolveAccent 转浅/深合规色）
+                            val railAccent = resolveAccent(
+                                if (item.accent == Color.Unspecified) scheme.primary else item.accent,
+                            )
+                            NavigationItemColors(
+                                selectedIconColor = railAccent,
+                                selectedTextColorTopIconPosition = railAccent,
+                                selectedTextColorStartIconPosition = railAccent,
+                                selectedIndicatorColor = railAccent.copy(alpha = 0.16f),
+                                unselectedIconColor = scheme.onSurfaceVariant,
+                                unselectedTextColor = scheme.onSurfaceVariant,
+                                disabledIconColor = scheme.onSurfaceVariant.copy(alpha = 0.38f),
+                                disabledTextColor = scheme.onSurfaceVariant.copy(alpha = 0.38f),
+                            )
+                        } else {
+                            // 纯 M3 单色：遵循 MD3 导航角色（secondaryContainer 指示器 + onSecondaryContainer 图标 + onSurface 标签）
+                            NavigationItemColors(
+                                selectedIconColor = scheme.onSecondaryContainer,
+                                selectedTextColorTopIconPosition = scheme.onSurface,
+                                selectedTextColorStartIconPosition = scheme.onSurface,
+                                selectedIndicatorColor = scheme.secondaryContainer,
+                                unselectedIconColor = scheme.onSurfaceVariant,
+                                unselectedTextColor = scheme.onSurfaceVariant,
+                                disabledIconColor = scheme.onSurfaceVariant.copy(alpha = 0.38f),
+                                disabledTextColor = scheme.onSurfaceVariant.copy(alpha = 0.38f),
+                            )
+                        }
                         WideNavigationRailItem(
-                            selected = selectedRoute == item.route,
+                            selected = selected,
                             onClick = {
                                 // 仅切换页签时响 SELECT（与底栏同语义）
-                                if (selectedRoute != item.route) {
+                                if (!selected) {
                                     haptic(PixivHaptics.HapticCue.SELECT)
                                 }
                                 onSelect(item.route)
                             },
                             icon = {
                                 Icon(
-                                    imageVector = if (selectedRoute == item.route) item.selectedIcon else item.icon,
+                                    imageVector = if (selected) item.selectedIcon else item.icon,
                                     contentDescription = item.label,
                                 )
                             },
                             label = { Text(item.label) },
                             railExpanded = railExpanded,
-                            // 选中态同样取该 Tab 的点缀色（彩色风格关闭时回退 primary）
-                            colors = NavigationItemColors(
-                                selectedIconColor = railAccent,
-                                selectedTextColorTopIconPosition = railAccent,
-                                selectedTextColorStartIconPosition = railAccent,
-                                selectedIndicatorColor = railAccent.copy(alpha = 0.16f),
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                disabledIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-                                disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-                            ),
+                            colors = navColors,
                         )
                     }
                 }
@@ -309,6 +328,7 @@ private fun SlidingIndicatorNavigationBar(
 ) {
     if (items.isEmpty()) return
     val colorScheme = MaterialTheme.colorScheme
+    val colorStyle = LocalColorStyleEnabled.current
     // 选中索引：用于指示器位移目标；无选中时 -1（不渲染指示器）
     val selectedIndex = items.indexOfFirst { it.route == selectedRoute }
     val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
@@ -335,15 +355,17 @@ private fun SlidingIndicatorNavigationBar(
             animationSpec = spatialSpec,
             label = "navIndicatorOffset",
         )
-        // 指示器颜色跟随选中项 accent；切换时颜色也做淡变，避免瞬间跳色
+        // 指示器颜色：彩色风格开启时跟随选中项 accent；关闭时遵循 MD3 secondaryContainer
         val indicatorColor by animateColorAsState(
-            targetValue = if (selectedIndex >= 0) {
-                val selectedItem = items[selectedIndex]
-                resolveAccent(
-                    if (selectedItem.accent == Color.Unspecified) colorScheme.primary else selectedItem.accent,
-                ).copy(alpha = 0.16f)
-            } else {
-                Color.Transparent
+            targetValue = when {
+                selectedIndex < 0 -> Color.Transparent
+                colorStyle -> {
+                    val selectedItem = items[selectedIndex]
+                    resolveAccent(
+                        if (selectedItem.accent == Color.Unspecified) colorScheme.primary else selectedItem.accent,
+                    ).copy(alpha = 0.16f)
+                }
+                else -> colorScheme.secondaryContainer
             },
             animationSpec = colorsSpec,
             label = "navIndicatorColor",
@@ -366,16 +388,27 @@ private fun SlidingIndicatorNavigationBar(
         Row(modifier = Modifier.fillMaxWidth()) {
             items.forEach { item ->
                 val selected = item.route == selectedRoute
-                val accent = resolveAccent(
-                    if (item.accent == Color.Unspecified) colorScheme.primary else item.accent,
-                )
+                val selectedIconTint: Color
+                val selectedLabelTint: Color
+                if (colorStyle) {
+                    val accent = resolveAccent(
+                        if (item.accent == Color.Unspecified) colorScheme.primary else item.accent,
+                    )
+                    selectedIconTint = accent
+                    selectedLabelTint = accent
+                } else {
+                    selectedIconTint = colorScheme.onSecondaryContainer
+                    selectedLabelTint = colorScheme.onSurface
+                }
                 // 无涟漪：由指示器滑块与图标缩放表达选中态，涟漪会盖住滑块层次
                 val interactionSource = remember { MutableInteractionSource() }
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .height(NavBarHeight)
-                        .clickable(
+                        .selectable(
+                            selected = selected,
+                            role = Role.Tab,
                             interactionSource = interactionSource,
                             indication = null,
                         ) {
@@ -398,13 +431,13 @@ private fun SlidingIndicatorNavigationBar(
                             icon = item.icon,
                             selectedIcon = item.selectedIcon,
                             label = item.label,
-                            tint = if (selected) accent else colorScheme.onSurfaceVariant,
+                            tint = if (selected) selectedIconTint else colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(
                         text = item.label,
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) accent else colorScheme.onSurfaceVariant,
+                        color = if (selected) selectedLabelTint else colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = Spacing.xxs),
                     )
                 }

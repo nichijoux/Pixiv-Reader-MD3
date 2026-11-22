@@ -29,7 +29,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,9 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -68,10 +67,10 @@ import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
 import com.pixiv.reader.core.ui.component.detail.novelCoverKey
 import com.pixiv.reader.core.ui.component.input.pressScale
 import com.pixiv.reader.core.ui.theme.AppShapes
-import com.pixiv.reader.core.ui.theme.FavoriteRed
 import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.extendedColors
 
 /**
  * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
@@ -161,15 +160,10 @@ fun NovelCard(
     var localFavorite by remember(novel.id, novel.isFavorite) { mutableStateOf(novel.isFavorite) }
     val favorite = favoriteOverride ?: localFavorite
 
-    // 封面角标文字样式：白色加粗 + 轻文字阴影（无背景，保证浅色封面上可读）
+    // 封面角标文字样式：配合底部渐变遮罩确保纯白封面上 ≥4.5:1 对比度
     val badgeStyle = MaterialTheme.typography.labelMedium.copy(
         fontWeight = FontWeight.SemiBold,
         color = Color.White,
-        shadow = Shadow(
-            color = Color.Black.copy(alpha = 0.45f),
-            offset = Offset(0f, 1f),
-            blurRadius = 2f,
-        ),
     )
 
     // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
@@ -280,12 +274,19 @@ fun NovelCard(
                             coverBadge()
                         }
                     }
-                    // 底部居中角标：红心 + 收藏数 / 字数（无背景，字体加粗）
+                    // 底部居中角标：底端渐变遮罩 + 高对比收藏红心/收藏数/字数
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(vertical = Spacing.sm),
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to Color.Transparent,
+                                    0.35f to Color.Black.copy(alpha = 0.55f),
+                                    1f to ImageScrim,
+                                ),
+                            )
+                            .padding(top = Spacing.md, bottom = Spacing.sm, start = Spacing.xs, end = Spacing.xs),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         if (showFavoriteCount) {
@@ -293,8 +294,7 @@ fun NovelCard(
                                 Icon(
                                     imageVector = Icons.Filled.Favorite,
                                     contentDescription = null,
-                                    // 收藏角标统一走 App 收藏红（与详情页/操作栏一致）
-                                    tint = FavoriteRed,
+                                    tint = MaterialTheme.extendedColors.favoriteOnScrim,
                                     modifier = Modifier.size(14.dp),
                                 )
                                 Text(
@@ -318,7 +318,7 @@ fun NovelCard(
                         .weight(1f)
                         .fillMaxHeight(),
                 ) {
-                    // 标题 + 收藏按钮
+                    // 标题 + 收藏按钮（IconToggleButton 保证 48dp M3 最小触控与 Role.Checkbox 选中态语义）
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = novel.title,
@@ -329,21 +329,19 @@ fun NovelCard(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        IconButton(
-                            onClick = {
-                                val next = !favorite
+                        IconToggleButton(
+                            checked = favorite,
+                            onCheckedChange = { next ->
                                 if (favoriteActions == null) {
                                     localFavorite = next
                                 }
                                 onToggleFavorite(next)
                             },
-                            modifier = Modifier.size(Sizes.s40),
                         ) {
                             Icon(
                                 imageVector = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                                 contentDescription = if (favorite) stringResource(R.string.unfavorite) else stringResource(R.string.favorite),
-                                // 选中态统一收藏红，与详情页操作栏/卡片角标一致
-                                tint = if (favorite) FavoriteRed else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = if (favorite) MaterialTheme.extendedColors.favorite else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(Sizes.s24),
                             )
                         }

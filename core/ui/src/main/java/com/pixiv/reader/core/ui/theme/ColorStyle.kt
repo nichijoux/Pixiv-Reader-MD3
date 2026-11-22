@@ -13,13 +13,26 @@ import androidx.compose.ui.graphics.Color
 val LocalColorStyleEnabled = staticCompositionLocalOf { false }
 
 /**
- * 按全局彩色风格开关解析点缀色。
- * 开关开启返回原 accent；关闭统一回退 colorScheme.primary（纯 M3 单色）。
- * 所有彩色组件必须经此函数取色，调用方无需读开关。
+ * 按全局彩色风格开关与当前明暗主题解析点缀色。
+ * - 开关关闭：统一回退 `colorScheme.primary`（纯 M3 单色）。
+ * - 开关开启：将七个 [SettingAccent*] 静态 token 映射到当前主题下的 [LocalExtendedColors]
+ *   浅色（tone-40）/ 深色（tone-80）双档色值，保证 12%/18% 淡底上的对比度；其余色值原样返回。
  *
- * @param accent 调用方期望的点缀色（SettingAccent* 或语义色）
+ * @param accent 调用方期望的点缀色（`SettingAccent*` 或语义色）
  * @return 实际生效的颜色
  */
 @Composable
-fun resolveAccent(accent: Color): Color =
-    if (LocalColorStyleEnabled.current) accent else MaterialTheme.colorScheme.primary
+fun resolveAccent(accent: Color): Color {
+    if (!LocalColorStyleEnabled.current) return MaterialTheme.colorScheme.primary
+    val ext = LocalExtendedColors.current
+    return when (accent) {
+        SettingAccentViolet -> ext.accentViolet
+        SettingAccentBlue -> ext.accentBlue
+        SettingAccentTeal -> ext.accentTeal
+        SettingAccentGreen -> ext.accentGreen
+        SettingAccentAmber -> ext.accentAmber
+        SettingAccentOrange -> ext.accentOrange
+        SettingAccentPink -> ext.accentPink
+        else -> accent
+    }
+}
