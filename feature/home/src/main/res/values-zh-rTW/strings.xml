@@ -21,4 +21,5 @@
     <string name="home_illust_download">下載</string>
     <string name="home_illust_comments">評論</string>
     <string name="home_cd_notifications">通知</string>
+    <string name="home_empty">暫無推薦作品</string>
 </resources>

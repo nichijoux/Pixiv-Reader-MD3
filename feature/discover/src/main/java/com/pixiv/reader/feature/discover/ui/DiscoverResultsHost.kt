@@ -128,6 +128,11 @@ private fun HotIllustGrid(
         onLoadMore = {},
         hasMore = false,
         isLoadingMore = false,
+        onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+        onTagClick = { tag ->
+            viewModel.onQueryChange(tag)
+            viewModel.search()
+        },
         onOpenUser = onOpenUser,
     )
 }

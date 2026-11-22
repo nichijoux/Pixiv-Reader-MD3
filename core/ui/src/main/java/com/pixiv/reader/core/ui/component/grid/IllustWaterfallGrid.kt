@@ -1,7 +1,7 @@
 package com.pixiv.reader.core.ui.component.grid
 
 import com.pixiv.reader.core.ui.component.card.IllustCard
-import com.pixiv.reader.core.ui.component.list.LoadMoreItem
+import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,6 +63,7 @@ fun IllustWaterfallGrid(
     hasMore: Boolean,
     isLoadingMore: Boolean,
     modifier: Modifier = Modifier,
+    error: String? = null,
     contentPadding: PaddingValues = PaddingValues(
         start = Spacing.md,
         end = Spacing.md,
@@ -106,7 +107,8 @@ fun IllustWaterfallGrid(
             items = illusts,
             key = { it.id },
         ) { illust ->
-            val coverHeight: Dp = CoverHeights[(illust.id % CoverHeights.size).toInt()]
+            // 避免负 ID 取模产生负数索引导致越界崩溃。
+            val coverHeight: Dp = CoverHeights[illust.id.mod(CoverHeights.size)]
             IllustCard(
                 illust = illust,
                 onClick = { onItemClick(illust.id) },
@@ -126,10 +128,13 @@ fun IllustWaterfallGrid(
                     ),
             )
         }
-        if (hasMore) {
-            item(key = "load_more") {
-                LoadMoreItem(isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
-            }
-        }
+        // 分页尾部横向占满全列并透传错误状态，便于失败时手动重试。
+        loadMoreFooter(
+            hasMore = hasMore,
+            isLoadingMore = isLoadingMore,
+            onLoadMore = onLoadMore,
+            span = StaggeredGridItemSpan.FullLine,
+            error = error,
+        )
     }
 }

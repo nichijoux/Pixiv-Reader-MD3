@@ -24,7 +24,11 @@ class NotificationGroupViewModel @Inject constructor(
     /** 路由参数：组名（顶栏标题，可空）。 */
     val groupTitle: String? = savedStateHandle["title"]
 
-    val paged = PagedState<NotificationItem>()
+    val paged = PagedState<NotificationItem>(keySelector = { it.id })
+
+    init {
+        load()
+    }
 
     /** 首次加载 / 错误重试。 */
     fun load() {

@@ -22,8 +22,10 @@ import kotlinx.coroutines.flow.asStateFlow
  *     fun loadMore() = viewModelScope.launch { paged.loadMore() }
  * }
  * ```
+ *
+ * @param keySelector 可选去重键。相同的非空键保留首次出现项，空键项全部保留。
  */
-class PagedState<T> {
+class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
 
     private val _items = MutableStateFlow<List<T>>(emptyList())
     private val _isLoading = MutableStateFlow(false)
@@ -73,7 +75,8 @@ class PagedState<T> {
         try {
             val page = fetch()
             if (gen != generation) return
-            _items.value = page.items
+            // 首页始终替换快照或旧分页，去重仅针对本次返回的数据。
+            _items.value = mergePage(emptyList(), page.items)
             next = page.nextPageUrl
             _hasMore.value = page.nextPageUrl != null
             // 首页加载成功 = 快照内容已被服务端数据替换
@@ -101,11 +104,13 @@ class PagedState<T> {
         val gen = generation
         val fetcher = nextFetch ?: return
         _isLoadingMore.value = true
+        // 启动续页前清除旧分页错误，避免失败状态残留阻塞按钮交互或触发异常状态。
+        _error.value = null
         try {
             val page = fetcher(url)
             // reset 后（新搜索）旧代次结果必须丢弃：否则旧查询第 2 页会混入新结果
             if (gen != generation) return
-            _items.value += page.items
+            _items.value = mergePage(_items.value, page.items)
             next = page.nextPageUrl
             _hasMore.value = page.nextPageUrl != null
         } catch (e: Exception) {
@@ -115,6 +120,22 @@ class PagedState<T> {
         } finally {
             // 过期代次不复位 isLoadingMore（新代次的标志由 reset 清空/自身管理）
             if (gen == generation) _isLoadingMore.value = false
+        }
+    }
+
+    /**
+     * 合并本页条目并保留已有列表和页内首次出现顺序。
+     *
+     * @param existing 当前已展示的条目
+     * @param incoming 本页待合并的条目
+     * @return 合并后的条目列表
+     */
+    private fun mergePage(existing: List<T>, incoming: List<T>): List<T> {
+        val selectKey = keySelector ?: return if (existing.isEmpty()) incoming else existing + incoming
+        // 先登记已有非空键，避免续页覆盖或重排已展示条目。
+        val seen = existing.mapNotNullTo(HashSet<Any>(), selectKey)
+        return existing + incoming.filter { item ->
+            selectKey(item)?.let(seen::add) ?: true
         }
     }
 
@@ -146,7 +167,8 @@ class PagedState<T> {
      */
     fun restoreSnapshot(items: List<T>, nextUrl: String?) {
         if (_items.value.isNotEmpty()) return
-        _items.value = items
+        // 老快照可能保存了重复键，首次展示前沿用首页去重规则。
+        _items.value = mergePage(emptyList(), items)
         next = nextUrl
         _hasMore.value = nextUrl != null
         _isStale.value = items.isNotEmpty()

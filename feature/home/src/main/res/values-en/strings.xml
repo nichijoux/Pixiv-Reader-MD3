@@ -21,4 +21,5 @@
     <string name="home_illust_download">Download</string>
     <string name="home_illust_comments">Comments</string>
     <string name="home_cd_notifications">Notifications</string>
+    <string name="home_empty">No recommendations available</string>
 </resources>

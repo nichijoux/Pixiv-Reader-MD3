@@ -49,6 +49,7 @@ import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.detail.IllustDetailPane
 import com.pixiv.reader.core.ui.component.detail.IllustDetailStrings
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
@@ -282,6 +283,11 @@ private fun HomeFeedContent(
                 onRetry = viewModel::retry,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
+            // 首载或刷新完成但列表为空时展示空态占位并保持可下拉刷新。
+            items.isEmpty() -> EmptyBox(
+                text = stringResource(R.string.home_empty),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            )
 
             else -> IllustWaterfallGrid(
                 illusts = items,
@@ -290,6 +296,7 @@ private fun HomeFeedContent(
                 onLoadMore = viewModel::loadMore,
                 hasMore = hasMore,
                 isLoadingMore = isLoadingMore,
+                error = error,
                 onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
                 onOpenUser = onOpenUser,
                 onTagClick = onSearchTag,

@@ -75,7 +75,8 @@ class WatchlistViewModel @Inject constructor(
      * @param type 类型常量（[TYPE_NOVEL] / [TYPE_MANGA]）
      * @return 该类型的独立分页状态
      */
-    fun stateFor(type: String): PagedState<WatchlistSeries> = pages.getOrPut(type) { PagedState() }
+    fun stateFor(type: String): PagedState<WatchlistSeries> =
+        pages.getOrPut(type) { PagedState(keySelector = { it.id }) }
 
     /**
      * 切换类型分段（首次选中触发首载，已加载类型直接复用缓存）。

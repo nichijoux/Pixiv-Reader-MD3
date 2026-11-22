@@ -22,7 +22,7 @@ abstract class IllustRankingViewModelBase(
     private val pixivRepository: PixivRepository,
     private val favoriteActions: FavoriteActions,
     modes: List<RankingModeInfo>,
-) : RankingPagedViewModel<Illust>(modes) {
+) : RankingPagedViewModel<Illust>(modes, keySelector = { it.id }) {
 
     /** 段数据首载：拉取指定 mode（可选历史日期）的榜单第一页，翻页走 next_url。 */
     override suspend fun loadInitialFor(paged: PagedState<Illust>, mode: String, date: String?) {

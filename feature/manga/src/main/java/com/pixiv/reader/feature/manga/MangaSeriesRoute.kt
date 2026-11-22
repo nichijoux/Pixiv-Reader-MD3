@@ -100,6 +100,7 @@ fun MangaSeriesRoute(
                 onLoadMore = viewModel::loadMore,
                 hasMore = hasMore,
                 isLoadingMore = isLoadingMore,
+                error = error,
                 modifier = Modifier.padding(padding),
                 onOpenUser = onOpenUser,
                 // 系列头部：封面 + 标题/作者/话数/追更 + 简介（随网格滚动）

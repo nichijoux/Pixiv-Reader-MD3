@@ -147,6 +147,7 @@ fun WatchlistRoute(
                         covers = mangaCovers,
                         hasMore = hasMore,
                         isLoadingMore = isLoadingMore,
+                        error = error,
                         onLoadMore = { viewModel.loadMore(type) },
                         onOpenIllust = onOpenIllust,
                         onRemove = viewModel::removeWatchlist,
@@ -156,6 +157,7 @@ fun WatchlistRoute(
                         infos = novelInfos,
                         hasMore = hasMore,
                         isLoadingMore = isLoadingMore,
+                        error = error,
                         onLoadMore = { viewModel.loadMore(type) },
                         onOpenSeries = onOpenSeries,
                     )
@@ -183,6 +185,7 @@ private fun NovelWatchlistList(
     infos: Map<Long, SeriesDetailInfo>,
     hasMore: Boolean,
     isLoadingMore: Boolean,
+    error: String?,
     onLoadMore: () -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
@@ -227,7 +230,12 @@ private fun NovelWatchlistList(
                 ),
             )
         }
-        loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+        loadMoreFooter(
+            hasMore = hasMore,
+            isLoadingMore = isLoadingMore,
+            onLoadMore = onLoadMore,
+            error = error,
+        )
     }
 }
 
@@ -241,6 +249,7 @@ private fun MangaWatchlistGrid(
     covers: Map<Long, String>,
     hasMore: Boolean,
     isLoadingMore: Boolean,
+    error: String?,
     onLoadMore: () -> Unit,
     onOpenIllust: (Long) -> Unit,
     onRemove: (WatchlistSeries) -> Unit,
@@ -267,7 +276,13 @@ private fun MangaWatchlistGrid(
                 ),
             )
         }
-        loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore, span = StaggeredGridItemSpan.FullLine)
+        loadMoreFooter(
+            hasMore = hasMore,
+            isLoadingMore = isLoadingMore,
+            onLoadMore = onLoadMore,
+            span = StaggeredGridItemSpan.FullLine,
+            error = error,
+        )
     }
 }
 

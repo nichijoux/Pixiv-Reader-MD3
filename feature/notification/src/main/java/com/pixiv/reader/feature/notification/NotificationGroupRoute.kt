@@ -16,8 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -87,11 +85,14 @@ fun NotificationGroupRoute(
                             )
                         }
                     }
-                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
+                    loadMoreFooter(
+                        hasMore = state.hasMore,
+                        isLoadingMore = state.isLoadingMore,
+                        onLoadMore = viewModel::loadMore,
+                        error = state.error,
+                    )
                 }
             }
         }
     }
-
-    LaunchedEffect(Unit) { viewModel.load() }
 }

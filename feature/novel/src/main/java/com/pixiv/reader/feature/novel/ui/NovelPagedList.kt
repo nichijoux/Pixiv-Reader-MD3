@@ -120,7 +120,12 @@ internal fun NovelPagedList(
                             ),
                     )
                 }
-                loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+                loadMoreFooter(
+                    hasMore = hasMore,
+                    isLoadingMore = isLoadingMore,
+                    onLoadMore = onLoadMore,
+                    error = error,
+                )
             }
         }
     }

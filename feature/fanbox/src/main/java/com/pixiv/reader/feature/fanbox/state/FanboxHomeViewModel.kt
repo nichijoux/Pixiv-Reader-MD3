@@ -38,7 +38,7 @@ class FanboxHomeViewModel @Inject constructor(
 ) : MessageViewModel() {
 
     /** 投稿流（首页 + nextUrl 触底翻页）。 */
-    val postsPaged = PagedState<FanboxPost>()
+    val postsPaged = PagedState<FanboxPost>(keySelector = { it.id })
 
     private val _creators = MutableStateFlow(FanboxCreatorsState())
     val creators: StateFlow<FanboxCreatorsState> = _creators.asStateFlow()

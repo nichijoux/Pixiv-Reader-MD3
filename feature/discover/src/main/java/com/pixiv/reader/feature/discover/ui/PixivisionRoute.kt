@@ -139,7 +139,12 @@ fun PixivisionRoute(
                             },
                         )
                     }
-                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
+                    loadMoreFooter(
+                        hasMore = state.hasMore,
+                        isLoadingMore = state.isLoadingMore,
+                        onLoadMore = viewModel::loadMore,
+                        error = state.error,
+                    )
                 }
             }
         }

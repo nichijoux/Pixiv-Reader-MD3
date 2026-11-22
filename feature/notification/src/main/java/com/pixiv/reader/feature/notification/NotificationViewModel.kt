@@ -16,7 +16,11 @@ class NotificationViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
 ) : ViewModel() {
 
-    val paged = PagedState<NotificationItem>()
+    val paged = PagedState<NotificationItem>(keySelector = { it.id })
+
+    init {
+        load()
+    }
 
     /** 首次加载 / 错误重试。 */
     fun load() {

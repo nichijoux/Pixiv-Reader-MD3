@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,14 +20,24 @@ import com.pixiv.reader.core.ui.component.card.CreatorProfileCard
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.component.card.toCreatorProfile
+import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
+import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
+import com.pixiv.reader.feature.discover.state.SearchType
 
-/** 插画搜索结果（普通模式，分页瀑布流）。 */
+/**
+ * 显示普通模式的插画搜索结果与分页瀑布流。
+ *
+ * @param viewModel 搜索状态与分页操作
+ * @param onOpenIllust 打开插画详情的回调
+ * @param onOpenUser 打开作者主页的回调
+ * @return 无返回值
+ */
 @Composable
 internal fun IllustSearchResults(
     viewModel: DiscoverViewModel,
@@ -37,6 +49,8 @@ internal fun IllustSearchResults(
     val isLoadingMore by viewModel.illustPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.illustPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.illustPaged.error.collectAsStateWithLifecycle()
+    // 瀑布流按插画 ID 建键，跨页重复作品只展示一次。
+    val uniqueItems = remember(items) { items.distinctBy { it.id } }
 
     when {
         isLoading && items.isEmpty() -> IllustWaterfallSkeleton()
@@ -44,20 +58,29 @@ internal fun IllustSearchResults(
             message = error.orEmpty(),
             onRetry = viewModel::retry
         )
-
+        uniqueItems.isEmpty() -> EmptyBox(stringResource(R.string.search_empty_result))
         else -> IllustWaterfallGrid(
-            illusts = items,
+            illusts = uniqueItems,
             onItemClick = onOpenIllust,
-            onLoadMore = viewModel::loadMore,
+            onLoadMore = { viewModel.loadMore(SearchType.ILLUST) },
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,
+            error = error,
             onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
             onOpenUser = onOpenUser,
         )
     }
 }
 
-/** 小说搜索结果（普通模式，分页列表）。 */
+/**
+ * 显示普通模式的小说搜索结果与分页列表。
+ *
+ * @param viewModel 搜索状态与分页操作
+ * @param onOpenNovel 打开小说详情的回调
+ * @param onOpenUser 打开作者主页的回调
+ * @param onOpenSeries 打开小说系列的回调
+ * @return 无返回值
+ */
 @Composable
 internal fun NovelSearchResults(
     viewModel: DiscoverViewModel,
@@ -79,13 +102,14 @@ internal fun NovelSearchResults(
             message = error.orEmpty(),
             onRetry = viewModel::retry
         )
-
+        items.isEmpty() -> EmptyBox(stringResource(R.string.search_empty_result))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            items(items, key = { it.id }) { novel ->
+            // 相邻响应可能返回同一小说，索引区分重复条目且在追加时保持稳定。
+            itemsIndexed(items, key = { index, novel -> "novel_${novel.id}_$index" }) { _, novel ->
                 NovelRow(
                     novel = novel,
                     onClick = { onOpenNovel(novel.id) },
@@ -108,7 +132,12 @@ internal fun NovelSearchResults(
                     ),
                 )
             }
-            loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
+            loadMoreFooter(
+                hasMore = hasMore,
+                isLoadingMore = isLoadingMore,
+                onLoadMore = { viewModel.loadMore(SearchType.NOVEL) },
+                error = error,
+            )
         }
     }
 }
@@ -146,7 +175,13 @@ private fun NovelRow(
     )
 }
 
-/** 用户搜索结果（普通模式）。 */
+/**
+ * 显示用户搜索结果，并在触底时加载下一页。
+ *
+ * @param viewModel 搜索状态与分页操作
+ * @param onOpenUser 打开用户主页的回调
+ * @return 无返回值
+ */
 @Composable
 internal fun UserSearchResults(
     viewModel: DiscoverViewModel,
@@ -154,6 +189,8 @@ internal fun UserSearchResults(
 ) {
     val items by viewModel.userPaged.items.collectAsStateWithLifecycle()
     val isLoading by viewModel.userPaged.isLoading.collectAsStateWithLifecycle()
+    val isLoadingMore by viewModel.userPaged.isLoadingMore.collectAsStateWithLifecycle()
+    val hasMore by viewModel.userPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.userPaged.error.collectAsStateWithLifecycle()
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
@@ -164,13 +201,14 @@ internal fun UserSearchResults(
             message = error.orEmpty(),
             onRetry = viewModel::retry
         )
-
+        items.isEmpty() -> EmptyBox(stringResource(R.string.search_empty_result))
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            items(items, key = { it.user?.id ?: 0L }) { preview ->
+            // 重复用户和缺少用户对象的条目都需要独立键。
+            itemsIndexed(items, key = { index, preview -> "user_${preview.user?.id}_$index" }) { _, preview ->
                 UserRow(
                     preview = preview,
                     onClick = { preview.user?.id?.let(onOpenUser) },
@@ -184,6 +222,12 @@ internal fun UserSearchResults(
                     ),
                 )
             }
+            loadMoreFooter(
+                hasMore = hasMore,
+                isLoadingMore = isLoadingMore,
+                onLoadMore = { viewModel.loadMore(SearchType.USER) },
+                error = error,
+            )
         }
     }
 }

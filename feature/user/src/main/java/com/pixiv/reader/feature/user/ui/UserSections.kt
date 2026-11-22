@@ -60,6 +60,7 @@ internal fun SectionIllust(
             onLoadMore = onLoadMore,
             hasMore = state.hasMore,
             isLoadingMore = state.isLoadingMore,
+            error = state.error,
             // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
             contentPadding = PaddingValues(
                 start = Spacing.md,
@@ -118,7 +119,12 @@ internal fun SectionNovel(
                     ),
                 )
             }
-            loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
+            loadMoreFooter(
+                hasMore = state.hasMore,
+                isLoadingMore = state.isLoadingMore,
+                onLoadMore = onLoadMore,
+                error = state.error,
+            )
         }
     }
 }
@@ -224,7 +230,12 @@ private fun NovelSeriesList(
                     ),
                 )
             }
-            loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
+            loadMoreFooter(
+                hasMore = state.hasMore,
+                isLoadingMore = state.isLoadingMore,
+                onLoadMore = onLoadMore,
+                error = state.error,
+            )
         }
     }
 }
@@ -276,7 +287,11 @@ private fun MangaSeriesList(
             // 保留独立 key「load_more_manga」（与同文件小说系列列表 footer 区分，历史行为不变）
             if (state.hasMore) {
                 item(key = "load_more_manga") {
-                    LoadMoreItem(isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
+                    LoadMoreItem(
+                        isLoadingMore = state.isLoadingMore,
+                        onLoadMore = onLoadMore,
+                        error = state.error,
+                    )
                 }
             }
         }

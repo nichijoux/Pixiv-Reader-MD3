@@ -298,7 +298,12 @@ private fun PostsPage(
                         ),
                     )
                 }
-                loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = onLoadMore)
+                loadMoreFooter(
+                    hasMore = hasMore,
+                    isLoadingMore = isLoadingMore,
+                    onLoadMore = onLoadMore,
+                    error = error,
+                )
             }
         }
     }

@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -67,7 +68,7 @@ private const val CENTERED_TAB_MAX = 4
  * PagedState——已加载过的段滑动即时显示自己的榜单，未加载段显示加载占位，滑到位加载完成后
  * 以 [AnimatedContent] 淡入，避免"邻页复用当前内容造成滑动闪换"。
  *
- * [AnimatedContent] 的 targetState 使用**该页自身的内容状态**（加载/错误/内容）：首次数据到位
+ * [AnimatedContent] 的 targetState 使用**该页自身的内容状态**（加载/错误/空/内容）：首次数据到位
  * （加载→内容）**纯淡入**（骨架占位淡出 + 内容淡入，无位移跳动）；之后滑动离开再切回
  * **已就绪页状态不变 → 不重播过渡**（直接静态显示该页数据），避免"每次切回已有列整页
  * 从下方上滑跳一下"。
@@ -83,6 +84,7 @@ private const val CENTERED_TAB_MAX = 4
  * @param stateFor 按 mode 值返回该段独立的 [PagedState]（每次需返回同一实例，如 `pages.getOrPut`）
  * @param onRetry 某段加载失败重试（参数为该段 mode 值）
  * @param onLoadMore 某段触底加载下一页（参数为该段 mode 值）
+ * @param modifier 排行容器的布局修饰器
  * @param emptyText 空态文案（调用方传入本地化文案）
  * @param filter 条目过滤谓词（null = 不过滤）。命中项保留其在原始榜单中的**真实名次**（过滤只隐藏
  *               不匹配项，不重排）；过滤后本页无匹配但榜单还有下一页时自动续载，直到出现匹配或耗尽
@@ -102,6 +104,7 @@ private const val CENTERED_TAB_MAX = 4
  * @param listHeader 列表头（渲染在 TabRow 上方、限宽内容块内，如日期筛选 chip 行）；null = 无。
  *                   平板 pane 让位时随列表整体移动，与 TabRow/列表左缘对齐
  * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `IllustCard(rank = …)`
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,22 +131,13 @@ fun <T> RankingList(
         pageCount = { modes.size.coerceAtLeast(1) },
     )
 
-    // 滑动切页 → 同步模式（切换后由调用方按需加载该段榜单）
-    LaunchedEffect(pagerState.currentPage) {
-        val page = pagerState.currentPage
-        if (page in modes.indices) {
-            onModeSelect(modes[page].value)
-        }
-    }
-
-    // stateKey 变更（如切换日期）→ 当前段换用新的 PagedState，需重新触发当前 mode 加载
-    // （pagerState.currentPage 未变，上面的 LaunchedEffect 不会重跑；首次组合时会与上面
-    // 重复回调一次 onPageSelected，由 ViewModel 侧 initialized 集合保证幂等）
-    LaunchedEffect(stateKey) {
-        val page = pagerState.currentPage
-        if (page in modes.indices) {
-            onModeSelect(modes[page].value)
-        }
+    val activatedModes = remember(stateKey) { mutableStateMapOf<String, Boolean>() }
+    val activeMode = modes.getOrNull(pagerState.currentPage)?.value
+    LaunchedEffect(activeMode, stateKey) {
+        val mode = activeMode ?: return@LaunchedEffect
+        // 尚未访问的空邻页保持骨架，已请求的空页可继续分页或进入空态。
+        onModeSelect(mode)
+        activatedModes[mode] = true
     }
 
     // 平板限宽居中：段选择行 + 列表整体经 AdaptiveContentBox 不超过 MAX_CONTENT_WIDTH_DP（手机自然占满）
@@ -198,12 +192,14 @@ fun <T> RankingList(
                     val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
                     val hasMore by paged.hasMore.collectAsStateWithLifecycle()
                     val error by paged.error.collectAsStateWithLifecycle()
-                    val contentState = when {
-                        error != null && items.isEmpty() -> RankContentState.Error
-                        items.isNotEmpty() -> RankContentState.Content
-                        else -> RankContentState.Loading
-                    }
-                    // 三态切换淡入淡出：Expressive effects 弹簧（transitionSpec 非组合上下文，
+                    val isActivated = activatedModes[mode.value] == true
+                    val canContinue = hasMore && !isLoading && isActivated
+                    val contentState = feedPhase(
+                        loading = isLoading || (hasMore && !isActivated),
+                        hasItems = items.isNotEmpty() || canContinue,
+                        hasError = error != null,
+                    )
+                    // 状态切换淡入淡出：Expressive effects 弹簧（transitionSpec 非组合上下文，
                     // 规格在组合期先取好再闭包捕获）
                     val rankFade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
                     AnimatedContent(
@@ -220,10 +216,10 @@ fun <T> RankingList(
                         // "Uninitialized LayoutCoordinates"（首次运行正常、二次打开必现）
                     ) { state ->
                         when (state) {
-                            RankContentState.Content -> RankingPage(
+                            FeedPhase.CONTENT -> RankingPage(
                                 modeValue = mode.value,
                                 items = items,
-                                isLoading = isLoading,
+                                isLoading = isLoading || (hasMore && !isActivated && items.isEmpty()),
                                 isLoadingMore = isLoadingMore,
                                 hasMore = hasMore,
                                 error = error,
@@ -237,12 +233,13 @@ fun <T> RankingList(
                                 itemContent = itemContent,
                                 modifier = Modifier.fillMaxSize(),
                             )
-                            RankContentState.Error -> ErrorBox(
+                            FeedPhase.ERROR -> ErrorBox(
                                 message = error,
                                 onRetry = { onRetry(mode.value) },
                                 modifier = Modifier.fillMaxSize(),
                             )
-                            RankContentState.Loading -> Box(Modifier.fillMaxSize()) { skeleton() }
+                            FeedPhase.EMPTY -> EmptyBox(emptyText, Modifier.fillMaxSize())
+                            FeedPhase.LOADING -> Box(Modifier.fillMaxSize()) { skeleton() }
                         }
                     }
                 }
@@ -250,9 +247,6 @@ fun <T> RankingList(
         }
     }
 }
-
-/** 排行榜页内容三态：加载占位 / 错误 / 有数据。作为 [AnimatedContent] 的 targetState。 */
-private enum class RankContentState { Loading, Error, Content }
 
 /**
  * 排行榜单页内容：按 [feedPhase] 渲染加载骨架 / 错误 / 空态 / 榜单本身。
@@ -264,7 +258,7 @@ private enum class RankContentState { Loading, Error, Content }
  * @param isLoading 首屏加载中
  * @param isLoadingMore 触底加载更多中
  * @param hasMore 是否还有下一页（true 时尾部渲染加载项）
- * @param error 首屏错误信息（null=无错误）
+ * @param error 首屏或翻页错误信息（null=无错误）
  * @param onRetry 失败重试回调（参数为段标识）
  * @param onLoadMore 触底加载更多回调（参数为段标识）
  * @param emptyText 榜单为空时的文案
@@ -296,7 +290,8 @@ private fun <T> RankingPage(
 ) {
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
-    when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty(), hasError = error != null)) {
+    val canContinue = hasMore && !isLoading
+    when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty() || canContinue, hasError = error != null)) {
         FeedPhase.LOADING -> LoadingBox(modifier)
         FeedPhase.ERROR -> ErrorBox(
             message = error,
@@ -338,12 +333,14 @@ private fun <T> RankingPage(
                                 itemContent(item, index + 1)
                             }
                         }
-                        if (hasMore) {
+                        if (canContinue) {
                             // 尾部加载项横跨整行（不占用条目列）
                             item(key = "load_more", span = StaggeredGridItemSpan.FullLine) {
                                 LoadMoreItem(
                                     isLoadingMore = isLoadingMore,
                                     onLoadMore = { onLoadMore(modeValue) },
+                                    hasMore = hasMore,
+                                    error = error,
                                 )
                             }
                         }
@@ -367,20 +364,20 @@ private fun <T> RankingPage(
                                 itemContent(item, index + 1)
                             }
                         }
-                        if (hasMore) {
+                        if (canContinue) {
                             item(key = "load_more") {
                                 LoadMoreItem(
                                     isLoadingMore = isLoadingMore,
                                     onLoadMore = { onLoadMore(modeValue) },
+                                    hasMore = hasMore,
+                                    error = error,
                                 )
                             }
                         }
                     }
                 }
-            } else if (hasMore) {
-                // 「保证展示全部」：过滤后本页无匹配但还有下一页 → 渲染 LoadMoreItem，
-                // 其 LaunchedEffect(Unit) 可见即自动续载下一页，直到出现匹配项或榜单耗尽
-                // （hasMore=false）。耗尽后仍有匹配则展示匹配全集，皆空才落空态。
+            } else if (canContinue) {
+                // 没有可见项时启用受上限保护的自动续页入口，跳过连续被过滤的空页。
                 LazyColumn(
                     modifier = modifier.fillMaxSize(),
                 ) {
@@ -388,6 +385,10 @@ private fun <T> RankingPage(
                         LoadMoreItem(
                             isLoadingMore = isLoadingMore,
                             onLoadMore = { onLoadMore(modeValue) },
+                            hasMore = hasMore,
+                            error = error,
+                            itemCount = items.size,
+                            autoContinueWhenEmpty = true,
                         )
                     }
                 }

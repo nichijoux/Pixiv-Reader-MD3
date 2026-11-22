@@ -494,7 +494,12 @@ private fun NovelWatchlistTab(
                         onOpenAuthor = { series.user?.id?.let(onOpenUser) },
                     )
                 }
-                loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMoreWatchlist)
+                loadMoreFooter(
+                    hasMore = hasMore,
+                    isLoadingMore = isLoadingMore,
+                    onLoadMore = viewModel::loadMoreWatchlist,
+                    error = error,
+                )
             }
         }
     }

@@ -32,8 +32,8 @@ class HomeViewModel @Inject constructor(
     private val snapshotStore: FeedSnapshotStore,
 ) : ViewModel() {
 
-    val recommendPaged = PagedState<Illust>()
-    val followingPaged = PagedState<Illust>()
+    val recommendPaged = PagedState<Illust>(keySelector = { it.id })
+    val followingPaged = PagedState<Illust>(keySelector = { it.id })
 
     private val _trendingTags = MutableStateFlow<List<TrendingTag>>(emptyList())
     val trendingTags: StateFlow<List<TrendingTag>> = _trendingTags.asStateFlow()
@@ -49,22 +49,26 @@ class HomeViewModel @Inject constructor(
     private val illustListType = object : TypeToken<List<Illust>>() {}.type
     private val tagListType = object : TypeToken<List<TrendingTag>>() {}.type
 
+    /** 冷启动快照预填任务：网络首载前等待其完成，避免旧快照晚到与真实首页竞态。 */
+    private val snapshotRestoreJob: Job
+
     init {
-        restoreSnapshots()
+        snapshotRestoreJob = restoreSnapshots()
         loadTrendingTags()
-        loadRecommend()
+        viewModelScope.launch {
+            snapshotRestoreJob.join()
+            loadRecommend().join()
+        }
     }
 
     /** 快照预填：推荐 / 关注 / 热门标签（秒开内容；后台刷新成功后自动替换）。 */
-    private fun restoreSnapshots() {
-        viewModelScope.launch {
-            snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_RECOMMEND, illustListType)
-                ?.let { (items, nextUrl) -> recommendPaged.restoreSnapshot(items, nextUrl) }
-            snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_FOLLOW, illustListType)
-                ?.let { (items, nextUrl) -> followingPaged.restoreSnapshot(items, nextUrl) }
-            snapshotStore.restore<TrendingTag>(FeedSnapshotStore.KEY_HOME_TAGS, tagListType)
-                ?.let { (tags, _) -> _trendingTags.value = tags }
-        }
+    private fun restoreSnapshots(): Job = viewModelScope.launch {
+        snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_RECOMMEND, illustListType)
+            ?.let { (items, nextUrl) -> recommendPaged.restoreSnapshot(items, nextUrl) }
+        snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_FOLLOW, illustListType)
+            ?.let { (items, nextUrl) -> followingPaged.restoreSnapshot(items, nextUrl) }
+        snapshotStore.restore<TrendingTag>(FeedSnapshotStore.KEY_HOME_TAGS, tagListType)
+            ?.let { (tags, _) -> _trendingTags.value = tags }
     }
 
     /** 切换 Tab：对应列表为空时懒加载；快照预填（stale）时静默后台刷新（内容先展示、成功后替换）。 */
@@ -128,6 +132,7 @@ class HomeViewModel @Inject constructor(
      */
     private fun loadFollowing(): Job {
         return viewModelScope.launch {
+            snapshotRestoreJob.join()
             followingPaged.loadInitial(
                 fetch = {
                     pixivRepository.api.getFollowingIllusts("all").also { page ->

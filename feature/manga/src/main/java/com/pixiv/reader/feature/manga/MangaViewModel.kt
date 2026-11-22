@@ -34,9 +34,9 @@ class MangaViewModel @Inject constructor(
     private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
-    val recommendPaged = PagedState<Illust>()
-    val illustPaged = PagedState<Illust>()
-    val ugoiraPaged = PagedState<Illust>()
+    val recommendPaged = PagedState<Illust>(keySelector = { it.id })
+    val illustPaged = PagedState<Illust>(keySelector = { it.id })
+    val ugoiraPaged = PagedState<Illust>(keySelector = { it.id })
 
     // 默认选中插画（菜单展示顺序由 MangaRoute 的 MENU_ORDER 决定，与枚举声明顺序解耦）
     private val _tab = MutableStateFlow(MangaContentType.ILLUST)

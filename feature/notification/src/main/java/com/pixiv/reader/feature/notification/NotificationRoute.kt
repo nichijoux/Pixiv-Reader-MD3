@@ -31,7 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -128,13 +127,16 @@ fun NotificationRoute(
                             )
                         }
                     }
-                    loadMoreFooter(hasMore = state.hasMore, isLoadingMore = state.isLoadingMore, onLoadMore = viewModel::loadMore)
+                    loadMoreFooter(
+                        hasMore = state.hasMore,
+                        isLoadingMore = state.isLoadingMore,
+                        onLoadMore = viewModel::loadMore,
+                        error = state.error,
+                    )
                 }
             }
         }
     }
-
-    LaunchedEffect(Unit) { viewModel.load() }
 }
 
 internal fun openNotificationTarget(

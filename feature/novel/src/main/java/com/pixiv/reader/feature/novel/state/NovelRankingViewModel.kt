@@ -33,6 +33,7 @@ class NovelRankingViewModel @Inject constructor(
         RankingModeInfo(R.string.novel_ranking_rookie, "week_rookie"),
         RankingModeInfo(R.string.novel_ranking_r18, "day_r18"),
     ),
+    keySelector = { it.id },
 ) {
 
 

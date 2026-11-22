@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
  */
 abstract class RankingPagedViewModel<T>(
     val modes: List<RankingModeInfo>,
+    private val keySelector: ((T) -> Any?)? = null,
 ) : MessageViewModel() {
 
     /** 各段独立分页状态：mode（或 `mode|date` 复合键）→ PagedState，首次访问时创建并驻留。 */
@@ -45,7 +46,7 @@ abstract class RankingPagedViewModel<T>(
 
     /** 返回某段的分页状态（惰性创建，同 mode 同日期返回同一实例）。 */
     fun stateFor(value: String): PagedState<T> =
-        pages.getOrPut(cacheKey(value, _selectedDate.value)) { PagedState() }
+        pages.getOrPut(cacheKey(value, _selectedDate.value)) { PagedState(keySelector) }
 
     /** 滑动/点 Tab 切到某段：仅首次进入才加载（数据已驻留则不重复请求）。 */
     fun onPageSelected(value: String) = ensureLoaded(value)

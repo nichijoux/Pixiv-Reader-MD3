@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.WatchlistSeries
 import com.pixiv.reader.core.common.config.NovelDefaultTab
+import com.pixiv.reader.core.common.MessageType
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
 import com.pixiv.reader.core.datastore.UserPreferences
@@ -18,6 +19,8 @@ import com.pixiv.reader.core.network.session.SeriesDetailInfo
 import com.pixiv.reader.core.network.session.SeriesDetailLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,16 +52,19 @@ class NovelFeedViewModel @Inject constructor(
     private val novelListType = object : TypeToken<List<Novel>>() {}.type
 
     /** 推荐 Tab：v1/novel/recommended 游标分页。 */
-    val feed = PagedState<Novel>()
+    val feed = PagedState<Novel>(keySelector = { it.id })
 
     /** 关注 Tab：v1/novel/follow?restrict=public 游标分页（数据驻留 VM，切回不重复请求）。 */
-    val follow = PagedState<Novel>()
+    val follow = PagedState<Novel>(keySelector = { it.id })
 
     /** 关注流是否已触发首次加载（防切回重复请求）。 */
     private var followInitialized = false
 
     /** 追更 Tab：v1/watchlist/novel 已追更小说系列游标分页（数据驻留 VM，切回不重复请求）。 */
-    val watchlist = PagedState<WatchlistSeries>()
+    val watchlist = PagedState<WatchlistSeries>(keySelector = { it.id })
+
+    /** 进行中的小说收藏请求 ID 集合，防止同卡片快速连点并发竞态。 */
+    private val pendingFavorites = mutableSetOf<Long>()
 
     /** 追更流是否已触发首次加载（防切回重复请求）。 */
     private var watchlistInitialized = false
@@ -84,30 +90,37 @@ class NovelFeedViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, NovelDefaultTab.RECOMMEND)
 
     init {
-        restoreFeedSnapshot()
-        refresh()
-    }
-
-    /** 快照预填：推荐流第一页（秒开内容；init 后续 refresh() 联网替换，失败时快照内容保留）。 */
-    private fun restoreFeedSnapshot() {
         viewModelScope.launch {
-            snapshotStore.restore<Novel>(FeedSnapshotStore.KEY_NOVEL_FEED, novelListType)
-                ?.let { (items, nextUrl) -> feed.restoreSnapshot(items, nextUrl) }
+            restoreFeedSnapshot().join()
+            // 冷启动后台静默更新时不先 reset，确保弱网或离线时保留已恢复的快照内容。
+            loadFeedInitial()
         }
     }
 
+    /** 快照预填：推荐流第一页（秒开内容；init 后续联网替换，失败时快照内容保留）。 */
+    private fun restoreFeedSnapshot(): Job = viewModelScope.launch {
+        snapshotStore.restore<Novel>(FeedSnapshotStore.KEY_NOVEL_FEED, novelListType)
+            ?.let { (items, nextUrl) -> feed.restoreSnapshot(items, nextUrl) }
+    }
+
+    /** 推荐流错误重试或主动刷新第一页（清空旧游标并重拉）。 */
     fun refresh() {
         viewModelScope.launch {
             feed.reset()
-            feed.loadInitial(
-                fetch = {
-                    pixivRepository.api.getRecommendedNovels().also { page ->
-                        snapshotStore.save(FeedSnapshotStore.KEY_NOVEL_FEED, page.items, novelListType, page.nextPageUrl)
-                    }
-                },
-                fetchNext = { pixivRepository.api.getNextNovels(it) },
-            )
+            loadFeedInitial()
         }
+    }
+
+    /** 执行推荐流首页网络请求并在成功后写回快照。 */
+    private suspend fun loadFeedInitial() {
+        feed.loadInitial(
+            fetch = {
+                pixivRepository.api.getRecommendedNovels().also { page ->
+                    snapshotStore.save(FeedSnapshotStore.KEY_NOVEL_FEED, page.items, novelListType, page.nextPageUrl)
+                }
+            },
+            fetchNext = { pixivRepository.api.getNextNovels(it) },
+        )
     }
 
     fun loadMore() {
@@ -296,6 +309,8 @@ class NovelFeedViewModel @Inject constructor(
                 totalChars = resp.novel_series_detail?.total_character_count ?: 0,
                 updatedAt = resp.novel_series_latest_novel?.create_date,
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "getNovelSeries($seriesId) 请求异常: ${e.message}", e)
             null
@@ -305,18 +320,32 @@ class NovelFeedViewModel @Inject constructor(
     /** 读取小说 Tab 默认页（首帧定位用，取真实落盘值而非 stateIn 占位）。 */
     suspend fun loadDefaultTab(): NovelDefaultTab = userPreferences.novelDefaultTab.first()
 
-    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调），成功/失败发通知。 */
+    /**
+     * 收藏 / 取消收藏小说（nowFavorite 为目标状态），同一 ID 进行中时防连点；失败发错误提示。
+     *
+     * @param novelId 小说 ID
+     * @param nowFavorite 目标收藏状态
+     * @return 无返回值
+     */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
+        if (!pendingFavorites.add(novelId)) return
         viewModelScope.launch {
-            favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
-                .onSuccess {
-                    sendMessage(UiMessage(if (nowFavorite) CoreR.string.core_msg_bookmarked else CoreR.string.core_msg_unbookmarked))
-                }.onFailure {
-                    sendMessage(UiMessage(
-                        CoreR.string.core_msg_action_failed,
-                        listOf(it.message ?: "")
-                    ))
-                }
+            try {
+                favoriteActions.toggleNovelFavorite(novelId, nowFavorite)
+                    .onSuccess {
+                        sendMessage(UiMessage(if (nowFavorite) CoreR.string.core_msg_bookmarked else CoreR.string.core_msg_unbookmarked))
+                    }.onFailure {
+                        sendMessage(
+                            UiMessage(
+                                CoreR.string.core_msg_action_failed,
+                                listOf(it.message ?: ""),
+                                MessageType.ERROR,
+                            ),
+                        )
+                    }
+            } finally {
+                pendingFavorites.remove(novelId)
+            }
         }
     }
 }

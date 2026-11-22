@@ -75,6 +75,7 @@ fun UserBookmarksRoute(
                     onLoadMore = viewModel::loadMore,
                     hasMore = state.hasMore,
                     isLoadingMore = state.isLoadingMore,
+                    error = state.error,
                     contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.xl),
                     onOpenUser = onOpenUser,
                 )

@@ -21,7 +21,7 @@ class UserBookmarksViewModel @Inject constructor(
 
     private val userId: Long = savedStateHandle.get<Long>("userId") ?: 0L
 
-    val paged = PagedState<Illust>()
+    val paged = PagedState<Illust>(keySelector = { it.id })
 
     init {
         load()

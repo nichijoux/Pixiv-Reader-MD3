@@ -18,7 +18,7 @@ class PixivisionViewModel @Inject constructor(
 ) : androidx.lifecycle.ViewModel() {
 
     /** 特辑文章分页（游标 next_url）。 */
-    val paged = PagedState<Article>()
+    val paged = PagedState<Article>(keySelector = { it.id })
 
     init {
         load()

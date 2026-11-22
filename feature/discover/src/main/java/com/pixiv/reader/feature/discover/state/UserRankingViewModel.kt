@@ -20,7 +20,7 @@ class UserRankingViewModel @Inject constructor(
 ) : androidx.lifecycle.ViewModel() {
 
     /** 推荐创作者分页。 */
-    val paged = PagedState<UserPreview>()
+    val paged = PagedState<UserPreview>(keySelector = { it.user?.id })
 
     init {
         load()
