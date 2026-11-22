@@ -18,6 +18,7 @@
     <string name="viewer_msg_wallpaper_setting">Setting wallpaper…</string>
     <string name="viewer_msg_wallpaper_set">Wallpaper set</string>
     <string name="viewer_msg_wallpaper_failed">Failed to set wallpaper: %1$s</string>
+    <string name="viewer_msg_wallpaper_failed_generic">Failed to set wallpaper</string>
     <string name="viewer_msg_download_started">Downloading…</string>
     <string name="viewer_msg_switched_preview">Switched to preview</string>
     <string name="viewer_msg_loaded_original">Loaded original</string>

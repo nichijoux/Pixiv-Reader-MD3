@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -137,11 +138,23 @@ fun SimulationPageContent(
     onToggleBars: () -> Unit = {},
     onPrevChapterRequest: () -> Unit = {},
     onNextChapterRequest: () -> Unit = {},
+    onJumpHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     var restored by remember { mutableStateOf(false) }
     val currentIndex = remember { mutableIntStateOf(0) }
+    var anchorChar by remember { mutableIntStateOf(restoreCharOffset) }
+    // pointerInput 内部读取最新列表、工具栏可见性与回调，防止目录异步加载或重排后捕获陈旧闭包。
+    val currentSpreads by rememberUpdatedState(spreads)
+    val currentBarsVisible by rememberUpdatedState(barsVisible)
+    val currentOnCloseBars by rememberUpdatedState(onCloseBars)
+    val currentOnToggleBars by rememberUpdatedState(onToggleBars)
+    val currentOnPrevChapter by rememberUpdatedState(onPrevChapterRequest)
+    val currentOnNextChapter by rememberUpdatedState(onNextChapterRequest)
+    val currentOnPageChange by rememberUpdatedState(onPageChange)
+    val currentOnPageInfo by rememberUpdatedState(onPageInfo)
+    val currentOnJumpHandled by rememberUpdatedState(onJumpHandled)
     // 翻页阶段与正在翻转的纸张（规则十五：唯一 TurningSheet；完成时才改 currentIndex）
     var phase by remember { mutableStateOf(Phase.IDLE) }
     var turn by remember { mutableStateOf<TurnState?>(null) }
@@ -154,28 +167,48 @@ fun SimulationPageContent(
     // 首次定位到上次阅读位置
     LaunchedEffect(spreads, restoreCharOffset) {
         if (restored || spreads.isEmpty()) return@LaunchedEffect
-        val index = spreads.spreadIndexForChar(restoreCharOffset)
+        val index = spreads.spreadIndexForChar(restoreCharOffset).coerceIn(0, spreads.lastIndex)
         currentIndex.intValue = index
+        anchorChar = restoreCharOffset
         restored = true
-        onPageInfo(index, spreads.size)
-        onPageChange(index)
+        currentOnPageInfo(index, spreads.size)
+        currentOnPageChange(index)
+    }
+
+    // 排版重排（字号/行距/双页/简繁切换）后按当前字符锚点重新定位，避免页码越界或错位。
+    LaunchedEffect(spreads) {
+        if (!restored || spreads.isEmpty()) return@LaunchedEffect
+        val target = spreads.spreadIndexForChar(anchorChar).coerceIn(0, spreads.lastIndex)
+        turn = null
+        phase = Phase.IDLE
+        if (currentIndex.intValue != target) {
+            currentIndex.intValue = target
+        } else {
+            currentOnPageInfo(target, spreads.size)
+            currentOnPageChange(target)
+        }
     }
 
     // 翻页完成后上报当前页
     LaunchedEffect(currentIndex.intValue) {
-        if (restored) {
-            onPageInfo(currentIndex.intValue, spreads.size)
-            onPageChange(currentIndex.intValue)
+        if (restored && currentSpreads.isNotEmpty()) {
+            val idx = currentIndex.intValue.coerceIn(0, currentSpreads.lastIndex)
+            anchorChar = currentSpreads[idx].startChar
+            currentOnPageInfo(idx, currentSpreads.size)
+            currentOnPageChange(idx)
         }
     }
 
-    // 目录/搜索跳转：随时可打断翻页动画
-    LaunchedEffect(jumpToChar) {
+    // 目录/搜索跳转：随时可打断翻页动画，就绪后通知外层清空锚点。
+    LaunchedEffect(jumpToChar, spreads.isNotEmpty()) {
         val j = jumpToChar ?: return@LaunchedEffect
         if (spreads.isEmpty()) return@LaunchedEffect
-        currentIndex.intValue = spreads.spreadIndexForChar(j)
+        val idx = spreads.spreadIndexForChar(j).coerceIn(0, spreads.lastIndex)
+        currentIndex.intValue = idx
+        anchorChar = j
         turn = null
         phase = Phase.IDLE
+        currentOnJumpHandled()
     }
 
     if (spreads.isEmpty()) {
@@ -183,8 +216,11 @@ fun SimulationPageContent(
         return
     }
 
-    fun canTurnForward(): Boolean = currentIndex.intValue < spreads.size - 1
-    fun canTurnBackward(): Boolean = currentIndex.intValue > 0
+    fun canTurnForward(): Boolean =
+        currentSpreads.isNotEmpty() && currentIndex.intValue < currentSpreads.size - 1
+
+    fun canTurnBackward(): Boolean =
+        currentSpreads.isNotEmpty() && currentIndex.intValue > 0
 
     /** 书页几何快照（页宽 = 双页半屏 / 单页整屏，页高 = 排版页高）。 */
     fun currentGeom(): BookGeometry = BookGeometry(
@@ -272,9 +308,10 @@ fun SimulationPageContent(
             }
         }
         if (phase != Phase.SETTLING) return
-        if (complete) {
-            // 仅此刻修改正式跨页（规则十五）
-            currentIndex.intValue += if (t.direction == TurnDirection.FORWARD) 1 else -1
+        if (complete && currentSpreads.isNotEmpty()) {
+            // 仅此刻修改正式跨页（规则十五），并限制在合法页范围内。
+            val delta = if (t.direction == TurnDirection.FORWARD) 1 else -1
+            currentIndex.intValue = (currentIndex.intValue + delta).coerceIn(0, currentSpreads.lastIndex)
         }
         turn = null
         phase = Phase.IDLE
@@ -282,6 +319,7 @@ fun SimulationPageContent(
 
     /** 点击翻页（九宫格左右区）：从静止位起手直接播完整翻过动画。 */
     fun startTapTurn(direction: TurnDirection, tapPoint: Offset, w: Float, h: Float) {
+        if (currentSpreads.isEmpty()) return
         val geom = BookGeometry(if (columns >= 2) w / 2f else w, h)
         val topCorner = tapPoint.y < h / 2f
         val t = TurnState(direction, topCorner, touch = Offset.Zero, press = Offset.Zero)
@@ -292,45 +330,46 @@ fun SimulationPageContent(
 
     BoxWithConstraints(
         modifier = modifier
-            .pointerInput(spreads.size, columns, barsVisible) {
+            .pointerInput(columns) {
                 detectTapGestures(onTap = { offset ->
+                    if (currentSpreads.isEmpty()) return@detectTapGestures
                     val w = size.width.toFloat()
                     val h = size.height.toFloat()
                     // 井字九宫格（与翻页模式共用 readerTapZone 判定）：中间格切换工具栏；
                     // 左右半区翻页（工具栏显示时仅关闭，防误翻）
                     when (readerTapZone(offset.x, offset.y, w, h)) {
-                        ReaderTapZone.CENTER -> onToggleBars()
+                        ReaderTapZone.CENTER -> currentOnToggleBars()
                         ReaderTapZone.LEFT -> {
-                            if (barsVisible) {
-                                onCloseBars()
+                            if (currentBarsVisible) {
+                                currentOnCloseBars()
                             } else if (phase == Phase.IDLE) {
                                 // 首跨页向前区：转交章节切换（系列上一章尾页）
                                 if (canTurnBackward()) {
                                     startTapTurn(TurnDirection.BACKWARD, offset, w, h)
                                 } else {
-                                    onPrevChapterRequest()
+                                    currentOnPrevChapter()
                                 }
                             }
                         }
                         ReaderTapZone.RIGHT -> {
-                            if (barsVisible) {
-                                onCloseBars()
+                            if (currentBarsVisible) {
+                                currentOnCloseBars()
                             } else if (phase == Phase.IDLE) {
                                 // 末跨页向后区：转交章节切换（系列下一章开头）
                                 if (canTurnForward()) {
                                     startTapTurn(TurnDirection.FORWARD, offset, w, h)
                                 } else {
-                                    onNextChapterRequest()
+                                    currentOnNextChapter()
                                 }
                             }
                         }
                     }
                 })
             }
-            .pointerInput(spreads.size, columns) {
+            .pointerInput(columns) {
                 detectDragGestures(
                     onDragStart = { pos ->
-                        if (phase != Phase.IDLE) return@detectDragGestures
+                        if (phase != Phase.IDLE || currentSpreads.isEmpty()) return@detectDragGestures
                         val w = size.width.toFloat()
                         val h = size.height.toFloat()
                         // 方向：双页按落点半屏；单页左 1/3 为向后（上一张纸自屏外翻入），其余向前
@@ -344,12 +383,12 @@ fun SimulationPageContent(
                         when (direction) {
                             TurnDirection.FORWARD ->
                                 if (!canTurnForward()) {
-                                    onNextChapterRequest()
+                                    currentOnNextChapter()
                                     return@detectDragGestures
                                 }
                             TurnDirection.BACKWARD ->
                                 if (!canTurnBackward()) {
-                                    onPrevChapterRequest()
+                                    currentOnPrevChapter()
                                     return@detectDragGestures
                                 }
                         }

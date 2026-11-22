@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,6 +83,7 @@ import com.pixiv.reader.feature.reader.state.rememberReaderPages
 import com.pixiv.reader.feature.reader.state.rememberReaderTextStyle
 import com.pixiv.reader.feature.reader.state.readerImageHeight
 import com.pixiv.reader.feature.reader.state.readerTapZone
+import com.pixiv.reader.feature.reader.state.spreadIndexForChar
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -163,6 +165,17 @@ private fun Modifier.tapZones(
  * - 字符级进度落库 + 官方 marker 同步
  * - 阅读书签 / 收藏 / 追更
  * - 目录（[ReaderTocSheet]）/ 全文搜索（[ReaderSearchSheet]）/ 设置（[ReaderSettingsSheet]）
+ *
+ * @param novelId 小说或本地文档对应的进度 ID
+ * @param onBack 返回上一级
+ * @param onOpenNovel 打开其他章节
+ * @param onOpenImage 放大正文插图
+ * @param localDocument 下载管理已解析的本地文档
+ * @param localTitle 本地文档标题
+ * @param toEnd 是否从上一章末尾开始阅读
+ * @param onOpenNovelToEnd 打开其他章节并定位到末尾
+ * @param viewModel 阅读器状态与操作入口
+ * @return 无返回值
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,10 +207,13 @@ fun ReaderRoute(
         else -> systemLanguage.startsWith("zh")
     }
 
-    // 本地文件阅读（TXT/EPUB 解析后直接渲染，跳过网络）
-    LaunchedEffect(localDocument) {
+    // 先确定阅读入口与末页定位，再启动加载，避免本地文档触发在线请求。
+    LaunchedEffect(viewModel, localDocument, localTitle, toEnd) {
+        if (toEnd) viewModel.seekToEnd()
         if (localDocument != null) {
             viewModel.useLocalDocument(localDocument, localTitle.orEmpty())
+        } else {
+            viewModel.load()
         }
     }
 
@@ -213,7 +229,6 @@ fun ReaderRoute(
     val dualPageMode by viewModel.dualPageMode.collectAsStateWithLifecycle()
     val brightness by viewModel.brightness.collectAsStateWithLifecycle()
 
-    val charOffset by viewModel.charOffset.collectAsStateWithLifecycle()
     val progressRestored by viewModel.progressRestored.collectAsStateWithLifecycle()
     val percentage by viewModel.percentage.collectAsStateWithLifecycle()
     // 开关状态机：单流收集，派生展示态供下游（ReaderBars 菜单）使用
@@ -270,17 +285,6 @@ fun ReaderRoute(
 
     // 底栏进度条跳转所需的跨页列表（readerSurface 内经 SideEffect 回写，仅排版变化时更新）
     var chapterSpreads by remember { mutableStateOf<List<ReaderSpread>>(emptyList()) }
-    // 系列上一章「尾页」进入（reader/{id}?toEnd=true）：正文就绪后定位到文档末尾。
-    // 走 jumpToChar 通道（无 restored 门闩）：避免 progressRestored 未就绪时先定位到开头，
-    // 之后尾页偏移就绪却因门闩被拦截（表现为"跳到上一章是开头"）。
-    LaunchedEffect(toEnd, document?.textLength) {
-        val doc = document
-        if (toEnd && doc != null) {
-            viewModel.seekToEnd()
-            jumpToChar = doc.textLength
-        }
-    }
-
     // 自定义字体：从文件路径加载 FontFamily（损坏时回退 null）
     val customFont = remember(customFontPath) {
         if (customFontPath.isNotBlank()) {
@@ -303,7 +307,7 @@ fun ReaderRoute(
             )
         }
     }
-    DisposableEffect(Unit) {
+    DisposableEffect(viewModel) {
         onDispose { viewModel.flushProgress() }
     }
 
@@ -400,8 +404,8 @@ fun ReaderRoute(
             // 渲染用 displayDocument（按简繁转换设置转换文本块）；进度/搜索锚点仍在原始 document 上。
             Crossfade(targetState = displayDocument, animationSpec = tween(200)) { doc ->
                 when {
-                    doc == null && isLoading -> LoadingBox()
-                    doc == null && error != null ->
+                    !progressRestored && isLoading -> LoadingBox()
+                    !progressRestored && error != null ->
                         ErrorBox(message = error?.let {
                             stringResource(
                                 it.res,
@@ -409,7 +413,10 @@ fun ReaderRoute(
                             )
                         }.orEmpty(), onRetry = viewModel::load)
 
+                    doc == null && document != null -> LoadingBox()
                     doc == null -> EmptyBox(stringResource(R.string.reader_empty_content))
+                    // 子组件只定位一次，进度未就绪时避免以 0 初始化。
+                    !progressRestored -> LoadingBox()
                     else -> {
                         // 双页判定：按应用配置（横屏 = 宽 > 高；平板 = smallestScreenWidthDp ≥ 600）；
                         // 滑动模式恒为单列（legado 同语义，翻页/仿真模式才生效）
@@ -436,8 +443,8 @@ fun ReaderRoute(
                                 val navBarBottom = WindowInsets.navigationBars
                                     .asPaddingValues()
                                     .calculateBottomPadding()
-                                val pageHeight = maxHeight - PAGE_V_PADDING * 2 - statusBarTop -
-                                    navBarBottom - READER_STATUS_BAR_HEIGHT
+                                val pageHeight = (maxHeight - PAGE_V_PADDING * 2 - statusBarTop -
+                                    navBarBottom - READER_STATUS_BAR_HEIGHT).coerceAtLeast(1.dp)
                                 val fontFamilyInstance =
                                     rememberReaderFontFamily(fontFamily, customFont)
                                 val baseStyle = rememberReaderTextStyle(
@@ -450,7 +457,7 @@ fun ReaderRoute(
                                     // 阅读器主题文字色（NIGHT/DEEP_BLACK 下正文可读）
                                     textColor = themeColors.text,
                                 )
-                                val restoreOffset = if (progressRestored) charOffset else 0
+                                val restoreOffset = viewModel.charOffset.value
 
                                 if (pageMode == ReaderPageMode.SCROLL) {
                                     // 行元素流：与分页模式共用同一排版引擎（行是元素，段落只是排版输入）
@@ -468,6 +475,7 @@ fun ReaderRoute(
                                         onScrollOffset = viewModel::reportScrollOffset,
                                         onPageInfo = { c, t -> pageInfo = c to t },
                                         onOpenImage = onOpenImage,
+                                        onJumpHandled = { jumpToChar = null },
                                         modifier = Modifier
                                             // 滚动模式非纸面页：内容整体避让状态栏（翻页/仿真才沉浸覆盖）
                                             .statusBarsPadding()
@@ -515,10 +523,13 @@ fun ReaderRoute(
                                             onToggleBars = { barsVisible = !barsVisible },
                                             onPrevChapterRequest = onPrevChapterRequest,
                                             onNextChapterRequest = onNextChapterRequest,
+                                            onJumpHandled = { jumpToChar = null },
                                         )
                                     } else {
-                                        val pagerState =
-                                            rememberPagerState(pageCount = { spreads.size })
+                                        val pagerState = rememberPagerState(
+                                            initialPage = spreads.spreadIndexForChar(restoreOffset),
+                                            pageCount = { spreads.size },
+                                        )
                                         LaunchedEffect(pagerState) {
                                             pagerStateRef.value = pagerState
                                         }
@@ -538,6 +549,7 @@ fun ReaderRoute(
                                             },
                                             onPageInfo = { c, t -> pageInfo = c to t },
                                             onOpenImage = onOpenImage,
+                                            onJumpHandled = { jumpToChar = null },
                                         )
                                     }
                                 }
@@ -591,7 +603,8 @@ fun ReaderRoute(
                 Text(
                     text = novel?.title.orEmpty(),
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // 随当前阅读器主题文字色自适应，防止系统浅色时夜间/黑底阅读模式下文字隐形。
+                    color = themeColors.text.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -600,7 +613,7 @@ fun ReaderRoute(
                     Text(
                         text = "${pageInfo.first + 1} / ${pageInfo.second}",
                         style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = themeColors.text.copy(alpha = 0.6f),
                         modifier = Modifier.padding(start = Spacing.md),
                     )
                 }

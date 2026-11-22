@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -287,27 +288,30 @@ private fun ReaderDotSlider(
     modifier: Modifier = Modifier,
 ) {
     var dragValue by remember { mutableStateOf<Float?>(null) }
+    val currentOnSeekFinished by rememberUpdatedState(onSeekFinished)
     val value = (dragValue ?: fraction).coerceIn(0f, 1f)
     Box(
         modifier = modifier
             .height(CAPSULE_HEIGHT)
             .background(capsuleColor, AppShapes.pill)
             .pointerInput(Unit) {
-                // 点击直接定位并回调
+                // 点击直接定位并回调，经 rememberUpdatedState 读取最新跨页回调避免陈旧捕获。
                 detectTapGestures { offset ->
-                    onSeekFinished((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
+                    if (size.width <= 0) return@detectTapGestures
+                    currentOnSeekFinished((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
                 }
             }
             .pointerInput(Unit) {
-                // 横向拖拽跟手，松手回调
+                // 横向拖拽跟手，松手回调，尺寸未就绪（width<=0）时跳过避免 NaN。
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { change, _ ->
                         change.consume()
+                        if (size.width <= 0) return@detectHorizontalDragGestures
                         dragValue =
                             (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                     },
                     onDragEnd = {
-                        dragValue?.let(onSeekFinished)
+                        dragValue?.let(currentOnSeekFinished)
                         dragValue = null
                     },
                     onDragCancel = { dragValue = null },

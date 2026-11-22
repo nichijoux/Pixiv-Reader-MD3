@@ -26,12 +26,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkManager
+import androidx.work.await
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.detail.HeroSeed
@@ -97,17 +100,18 @@ fun NovelDetailRoute(
     val isAuthorFollowing = authorFollowState.inFlight
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
-    // 收藏编辑器状态（公开/私密 + 标签弹层）
+    // 收藏编辑器状态（公开/私密 + 标签弹层）；按钮隐私图标仅反映已提交生效值。
     val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
     val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
+    val committedRestrict by viewModel.bookmarkEditor.committedRestrict.collectAsStateWithLifecycle()
     val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
     val editorSaving by viewModel.isEditorSaving.collectAsStateWithLifecycle()
-    // 收藏三态（已收藏且为私密 → PRIVATE；底部收藏按钮图标与文案随之切换）
+    // 收藏三态（已收藏且已提交私密 → PRIVATE；底部收藏按钮图标与文案随之切换）
     val bookmarkPrivacy = when {
         !isBookmarked -> BookmarkPrivacy.NONE
-        editorRestrict == PixivConstants.RESTRICT_PRIVATE -> BookmarkPrivacy.PRIVATE
+        committedRestrict == PixivConstants.RESTRICT_PRIVATE -> BookmarkPrivacy.PRIVATE
         else -> BookmarkPrivacy.PUBLIC
     }
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
@@ -128,9 +132,7 @@ fun NovelDetailRoute(
             val format = runCatching {
                 NovelExportFormat.valueOf(formatName)
             }.getOrDefault(NovelExportFormat.TXT)
-            // 入队即建「待同步」索引条目：断网停留待同步（Worker 网络约束），联网自动开始
-            val novel = viewModel.novel.value
-            viewModel.markDownloadPending(
+            val entry = viewModel.novel.value.let { novel ->
                 NovelExportQueue.pendingEntry(
                     novelId = novelId,
                     seriesId = seriesId,
@@ -146,16 +148,23 @@ fun NovelDetailRoute(
                     wordCount = novel?.text_length ?: 0,
                     favoriteCount = novel?.total_bookmarks ?: 0,
                     publishDate = novel?.create_date,
-                ),
-            )
-            WorkManager.getInstance(context).enqueue(
-                NovelExportQueue.buildRequest(
-                    novelId = novelId,
-                    seriesId = seriesId,
-                    chapterIds = emptyList(),
-                    format = format,
                 )
-            )
+            }
+            // 先挂起等待 pending 索引落库，再按复合主键唯一入队，防止重复导出任务。
+            viewModel.markDownloadPending(entry)
+            val workTag = DownloadQueue.workTag("novel", entry.targetId, entry.format, entry.scopeKey)
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(
+                    workTag,
+                    ExistingWorkPolicy.KEEP,
+                    NovelExportQueue.buildRequest(
+                        novelId = novelId,
+                        seriesId = seriesId,
+                        chapterIds = emptyList(),
+                        format = format,
+                    ),
+                )
+                .await()
         }
     }
 

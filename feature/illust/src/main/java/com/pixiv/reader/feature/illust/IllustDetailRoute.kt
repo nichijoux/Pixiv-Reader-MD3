@@ -95,15 +95,16 @@ fun IllustDetailRoute(
     val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
     val isAuthorFollowed = authorFollowState.isOn
     val isAuthorFollowing = authorFollowState.inFlight
-    // 收藏编辑器状态（公开/私密 + 标签弹层）
+    // 收藏编辑器状态（公开/私密 + 标签弹层）；按钮微标只读取已提交生效的 committedRestrict。
     val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
     val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
+    val committedRestrict by viewModel.bookmarkEditor.committedRestrict.collectAsStateWithLifecycle()
     val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
     val editorSaving by viewModel.isEditorSaving.collectAsStateWithLifecycle()
     // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
-    val isPrivateBookmark = isBookmarked && editorRestrict == PixivConstants.RESTRICT_PRIVATE
+    val isPrivateBookmark = isBookmarked && committedRestrict == PixivConstants.RESTRICT_PRIVATE
     // 所属漫画系列追更态（illust.series 非空才显示追更按钮）
     val seriesId = illust?.series?.id?.takeIf { it > 0L }
     val seriesWatchlistState by viewModel.seriesWatchlistState.collectAsStateWithLifecycle()

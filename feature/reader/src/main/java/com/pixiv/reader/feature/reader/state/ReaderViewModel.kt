@@ -33,22 +33,34 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -94,18 +106,24 @@ class ReaderViewModel @Inject constructor(
     /** 是否本地文件阅读模式（TXT/EPUB 解析后直接渲染，跳过网络/离线加载）。 */
     private val _isLocalMode = MutableStateFlow(false)
 
-    /** 直接注入本地解析文档（下载管理点 txt/epub 进入）。 */
+    /**
+     * 直接使用下载管理已解析的本地文档，并恢复本地阅读进度。
+     *
+     * @param document 已解析的 TXT、EPUB 或 Markdown 文档
+     * @param title 本地文档标题
+     * @return 无返回值
+     */
     fun useLocalDocument(document: NovelDocument, title: String) {
+        if (_isLocalMode.value && _document.value === document) return
+        // 先切换加载分支，避免旧在线任务回写本地文档。
+        loadJob?.cancel()
+        loadJob = null
         _isLocalMode.value = true
-        _isLoading.value = false
-        _error.value = null
+        _progressRestored.value = false
         _novel.value = Novel(id = novelId, title = title)
         _document.value = document
         _isOffline.value = true
-        viewModelScope.launch {
-            runCatching { restoreProgress() }
-                .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
-        }
+        load()
     }
 
     // ── 阅读偏好（DataStore 镜像到内存 StateFlow） ──
@@ -228,16 +246,29 @@ class ReaderViewModel @Inject constructor(
     val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
 
+    private var loadJob: Job? = null
     private var saveJob: Job? = null
     private var markerJob: Job? = null
 
     init {
         collectPreferences()
-        load()
+        // 同步会话级小说收藏覆盖态，确保详情页或列表卡修改收藏后阅读器顶部菜单实时更新。
+        viewModelScope.launch {
+            favoriteActions.novelBookmarks
+                .map { it[novelId] }
+                .distinctUntilChanged()
+                .collect { bookmarked ->
+                    if (!_isLocalMode.value && bookmarked != null &&
+                        !_bookmarkState.value.inFlight && _bookmarkState.value.isOn != bookmarked
+                    ) {
+                        _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                    }
+                }
+        }
     }
 
     /**
-     * 收集阅读偏好。每个收集器在 [bindPref] 内独立包裹 runCatching，
+     * 收集阅读偏好。每个收集器在 [bindPref] 内独立处理读取异常，
      * 避免 DataStore 读取异常在 viewModelScope 里变成未捕获异常导致闪退。
      */
     private fun collectPreferences() {
@@ -260,14 +291,14 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * 订阅偏好流 → 内存态（DataStore 变更驱动 UI）。
-     * 收集器独立包裹 runCatching：DataStore 读取异常不冒泡为未捕获异常。
+     * 收集器独立处理 DataStore 读取异常，并保留协程取消语义。
      *
      * @param flow DataStore 偏好流
      * @return 无返回值（收集协程挂在 viewModelScope，随 ViewModel 销毁结束）
      */
     private fun <T> MutableStateFlow<T>.bindPref(flow: Flow<T>) {
         viewModelScope.launch {
-            runCatching { flow.collect { value = it } }
+            readerResult { flow.collect { value = it } }
         }
     }
 
@@ -280,16 +311,27 @@ class ReaderViewModel @Inject constructor(
      */
     private fun <T> MutableStateFlow<T>.persist(value: T, setter: suspend (T) -> Unit) {
         this.value = value
-        viewModelScope.launch { runCatching { setter(value) } }
+        // 落盘失败保留当前会话偏好，页面销毁时允许取消写入。
+        viewModelScope.launch { readerResult { setter(value) } }
     }
 
+    /**
+     * 按当前阅读方式加载正文或重试进度恢复。
+     *
+     * @return 无返回值
+     */
     fun load() {
-        viewModelScope.launch {
-            if (_isLocalMode.value) return@launch
+        if (loadJob?.isActive == true || _progressRestored.value) return
+        loadJob = viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _error.value = null
-                _isOffline.value = false
+                // 本地文档及进度恢复重试均复用已有正文，无需获取在线章节。
+                if (_document.value != null) {
+                    restoreProgress()
+                    return@launch
+                }
+                if (_isLocalMode.value) return@launch
                 // 缓存命中（阅读时预加载过 / 此前刚读过）：跳过网络与重新解析，跳章秒开
                 val cached = readerChapterCache.getChapter(novelId)
                 Log.i(
@@ -299,84 +341,90 @@ class ReaderViewModel @Inject constructor(
                 if (cached != null) {
                     applyLoaded(cached.novel, cached.document)
                 } else {
-                    contentLoader.load(novelId).onSuccess { (detail, document) ->
-                        if (_isLocalMode.value) return@onSuccess
-                        if (detail == null) return@onSuccess
-                        readerChapterCache.putChapter(
-                            novelId,
-                            ReaderChapterCache.Entry(detail, document)
-                        )
-                        applyLoaded(detail, document)
-                    }.onFailure {
-                        Log.w(TAG, "load novel failed", it)
-                        _error.value = loadFailureMessage(
-                            it,
-                            R.string.reader_error_load_failed_reason,
-                            R.string.reader_error_load_failed,
-                        )
-                    }
+                    val (detail, document) = contentLoader.load(novelId).getOrThrow()
+                    currentCoroutineContext().ensureActive()
+                    if (detail == null) return@launch
+                    readerChapterCache.putChapter(novelId, ReaderChapterCache.Entry(detail, document))
+                    applyLoaded(detail, document)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.w(TAG, "load unexpected", e)
-                _error.value =
-                    UiMessage(R.string.reader_error_load_failed_reason, listOf(e.message ?: ""))
+                Log.w(TAG, "load reader failed", e)
+                _error.value = loadFailureMessage(
+                    e,
+                    R.string.reader_error_load_failed_reason,
+                    R.string.reader_error_load_failed,
+                )
             } finally {
-                _isLoading.value = false
+                // 已切换分支时，加载标志由新任务负责。
+                if (isActive) _isLoading.value = false
             }
         }
     }
 
-    /** 正文就绪后的公共状态流转（缓存命中与网络加载共用）。 */
+    /**
+     * 发布在线正文，初始化目录和服务端状态，并恢复阅读进度。
+     *
+     * @param detail 在线作品详情
+     * @param document 在线正文
+     * @return 无返回值
+     * @throws CancellationException 所属加载任务被取消
+     */
     private suspend fun applyLoaded(detail: Novel, document: NovelDocument) {
         _novel.value = detail
         _document.value = document
         // 目录构建含系列小说列表的网络请求，放到 IO 之外异步执行
         viewModelScope.launch { buildToc() }
-        // 进度恢复异常不应当影响正文展示
-        runCatching { restoreProgress() }
-            .onFailure { e -> Log.w(TAG, "restoreProgress failed", e) }
         loadServerState()
+        restoreProgress()
     }
 
-    /** 恢复进度：优先本地 Room，其次官方 marker，最后回到开头。 */
+    /**
+     * 查询 Room 并确定首次定位。在线章节缺少本地记录时可回退官方书签。
+     *
+     * @return 无返回值
+     * @throws CancellationException 所属加载任务被取消
+     */
     private suspend fun restoreProgress() {
         val document = _document.value ?: return
-        val local = readingProgressDao.getByNovel(novelId)
+        // 快速离开再进入时，等待上一阅读器正在提交的进度。
+        val local = progressWriteMutex.withLock { readingProgressDao.getByNovel(novelId) }
         val offset = when {
-            local != null && local.charOffset > 0 ->
-                local.charOffset.coerceIn(0, document.textLength)
-
+            seekToEndRequested -> document.textLength
+            local != null -> local.charOffset.coerceIn(0, document.textLength)
+            _isLocalMode.value -> 0
             else -> estimateOffsetFromServerMarker()
         }
+        currentCoroutineContext().ensureActive()
+        // 先发布偏移和百分比，随后放行首次定位。
         _charOffset.value = offset
         _percentage.value = document.percentageAt(offset)
         _progressRestored.value = true
-        // 若本次进入请求了「定位到尾页」（系列上一章首页向前翻），恢复完成后覆盖为文档末尾
-        applySeekToEnd()
     }
 
     /** 是否请求了定位到文档末尾（reader/{id}?toEnd=true，系列上一章「尾页」进入）。 */
     private var seekToEndRequested = false
 
-    /** 请求定位到文档末尾（系列首页向前翻 → 上一章尾页）。 */
+    /**
+     * 在首次进度恢复时定位到上一章的末尾。
+     *
+     * @return 无返回值
+     */
     fun seekToEnd() {
-        seekToEndRequested = true
-        applySeekToEnd()
+        if (!_progressRestored.value) seekToEndRequested = true
     }
 
-    private fun applySeekToEnd() {
-        if (!seekToEndRequested) return
-        val document = _document.value ?: return
-        seekToEndRequested = false
-        val end = document.textLength
-        _charOffset.value = end
-        _percentage.value = document.percentageAt(end)
-        _progressRestored.value = true
-    }
-
+    /**
+     * 从官方书签估算在线章节的阅读位置。
+     *
+     * @return 字符偏移，书签缺失或读取失败时为 0
+     * @throws CancellationException 官方书签查询被取消
+     */
     private suspend fun estimateOffsetFromServerMarker(): Int {
         val document = _document.value ?: return 0
-        return runCatching {
+        return readerResult {
+            // 官方页码只用于在线章节没有本地记录时的兜底定位。
             val marker = pixivRepository.api.getNovelMarkers().marked_novels
                 .firstOrNull { it.novel?.id == novelId }?.novel_marker ?: return 0
             _markState.value = ToggleUiState.ON
@@ -388,16 +436,26 @@ class ReaderViewModel @Inject constructor(
         }.getOrDefault(0)
     }
 
+    /**
+     * 初始化在线章节的收藏与系列追更状态。
+     *
+     * @return 无返回值
+     */
     private fun loadServerState() {
         viewModelScope.launch {
             try {
-                _bookmarkState.value =
-                    if (_novel.value?.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
+                // 优先保留当前会话中的操作结果，其次回退接口详情自带的收藏状态并写入覆盖流。
+                val initialBookmarked = favoriteActions.novelBookmarks.value[novelId]
+                    ?: (_novel.value?.is_bookmarked == true)
+                _bookmarkState.value = if (initialBookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                favoriteActions.setNovelBookmarkState(novelId, initialBookmarked)
                 val seriesId = _novel.value?.series?.id ?: return@launch
                 val resp = pixivRepository.api.getNovelSeries(seriesId)
                 _watchlistState.value =
                     if (resp.novel_series_detail?.watchlist_added == true) ToggleUiState.ON
                     else ToggleUiState.OFF
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "loadServerState failed", e)
             }
@@ -428,42 +486,79 @@ class ReaderViewModel @Inject constructor(
         scheduleProgressSave()
     }
 
+    /**
+     * 合并短时间内的进度变动，在停止翻页或滚动后保存。
+     *
+     * @return 无返回值
+     */
     private fun scheduleProgressSave() {
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
             delay(800.milliseconds)
-            saveProgress()
+            progressSnapshot()?.let { saveProgress(it) }
         }
     }
 
-    private suspend fun saveProgress() {
-        runCatching {
-            val document = _document.value ?: return@runCatching
-            val offset = _charOffset.value
-            readingProgressDao.upsert(
-                ReadingProgressEntity(
-                    novelId = novelId,
-                    seriesId = _novel.value?.series?.id ?: 0L,
-                    title = _novel.value?.title,
-                    coverUrl = _novel.value?.image_urls?.medium
-                        ?: _novel.value?.image_urls?.square_medium,
-                    chapterOrder = 0,
-                    charOffset = offset,
-                    percentage = document.percentageAt(offset),
-                    updatedAt = System.currentTimeMillis(),
-                ),
-            )
+    /**
+     * 同步取得已恢复的阅读进度快照，供后台保存。
+     *
+     * @return 当前进度快照，尚未恢复时返回 null
+     */
+    private fun progressSnapshot(): ReadingProgressEntity? {
+        // 退出或销毁时可能仍在读 Room，此时不得用默认偏移覆盖旧记录。
+        if (!_progressRestored.value) return null
+        val detail = _novel.value
+        return ReadingProgressEntity(
+            novelId = novelId,
+            seriesId = detail?.series?.id ?: 0L,
+            title = detail?.title,
+            coverUrl = detail?.image_urls?.medium ?: detail?.image_urls?.square_medium,
+            chapterOrder = 0,
+            charOffset = _charOffset.value,
+            percentage = _percentage.value,
+            updatedAt = System.currentTimeMillis(),
+        )
+    }
+
+    /**
+     * 按登记顺序将快照写入 Room。
+     *
+     * @param snapshot 待保存的进度快照
+     * @return 无返回值
+     * @throws CancellationException 防抖写入被取消
+     */
+    private suspend fun saveProgress(snapshot: ReadingProgressEntity) {
+        readerResult {
+            progressWriteMutex.withLock {
+                // 防抖任务和离场任务均从主线程登记，避免旧快照在离场写入之后提交。
+                readingProgressDao.upsert(snapshot)
+            }
         }.onFailure { Log.w(TAG, "saveProgress failed", it) }
     }
 
-    /** 离开阅读器前立即落库（由 UI onDispose 调用）。 */
+    /**
+     * 离场时捕获末次进度，交给进程级协程写入 Room。
+     *
+     * @return 无返回值
+     */
     fun flushProgress() {
         saveJob?.cancel()
-        viewModelScope.launch { saveProgress() }
+        // 在主线程截取快照并立即登记到锁，Room 挂起写入不随 ViewModel 销毁而取消。
+        val snapshot = progressSnapshot() ?: return
+        progressWriteScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            saveProgress(snapshot)
+        }
+        saveJob = null
     }
 
-    /** 官方 marker 同步：按字符比例换算官方页码，低频上报。 */
+    /**
+     * 按字符比例低频同步在线章节的官方书签。
+     *
+     * @param offset 当前阅读字符偏移
+     * @return 无返回值
+     */
     private fun scheduleMarkerSync(offset: Int) {
+        if (_isLocalMode.value) return
         val pageCount = _novel.value?.page_count ?: 0
         if (pageCount <= 0) return
         markerJob?.cancel()
@@ -476,7 +571,7 @@ class ReaderViewModel @Inject constructor(
                 textLength = document.textLength,
                 officialPageCount = pageCount,
             )
-            runCatching { pixivRepository.api.addNovelMarker(novelId, page) }
+            readerResult { pixivRepository.api.addNovelMarker(novelId, page) }
         }
     }
 
@@ -579,6 +674,9 @@ class ReaderViewModel @Inject constructor(
      * 构建目录：系列小说展示**系列内各本小说**；非系列小说只显示本小说一条。
      * 系列列表优先走缓存（跳章后新阅读器立即显示目录并高亮新位置）；
      * 目录就绪后预加载下一章（阅读时缓存，跳下一章秒开）。
+     *
+     * @return 无返回值
+     * @throws CancellationException 目录请求被取消
      */
     private suspend fun buildToc() {
         val detail = _novel.value
@@ -618,6 +716,8 @@ class ReaderViewModel @Inject constructor(
                 )
             }
             preloadNeighborChapters()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "buildToc series failed", e)
             _toc.value = emptyList()
@@ -626,7 +726,11 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    /** 阅读时预加载系列上一章与下一章（已缓存则跳过）：上下章跳转秒开。 */
+    /**
+     * 预加载尚未缓存的相邻章节，减少翻到上一章或下一章时的等待。
+     *
+     * @return 无返回值
+     */
     private fun preloadNeighborChapters() {
         val current = _novel.value ?: return
         val tocIndex = _toc.value.indexOfFirst { it.novelId == current.id }
@@ -641,6 +745,7 @@ class ReaderViewModel @Inject constructor(
                 viewModelScope.launch {
                     contentLoader.load(id)
                         .onSuccess { (detail, document) ->
+                            currentCoroutineContext().ensureActive()
                             if (detail != null) {
                                 readerChapterCache.putChapter(
                                     id,
@@ -649,7 +754,10 @@ class ReaderViewModel @Inject constructor(
                                 Log.d(TAG, "preload neighbor chapter $id cached")
                             }
                         }
-                        .onFailure { e -> Log.w(TAG, "preload neighbor chapter $id failed", e) }
+                        .onFailure { e ->
+                            if (e is CancellationException) throw e
+                            Log.w(TAG, "preload neighbor chapter $id failed", e)
+                        }
                 }
             }
     }
@@ -678,21 +786,44 @@ class ReaderViewModel @Inject constructor(
 
     // ── 自定义字体 / 跟随系统 ──
 
-    /** 从系统文件选择器导入字体文件到私有目录，并设为自定义阅读字体。 */
+    /**
+     * 在 IO 调度器上先写入临时文件再原子替换目标字体文件，并设为自定义阅读字体。
+     *
+     * @param uri 文件选择器返回的字体地址
+     * @return 无返回值
+     */
     fun importCustomFont(uri: Uri) {
         viewModelScope.launch {
-            val path = runCatching {
-                val dir = File(context.filesDir, "fonts").apply { mkdirs() }
-                val dest = File(dir, "custom_font.ttf")
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    dest.outputStream().use { input.copyTo(it) }
+            val path = withContext(Dispatchers.IO) {
+                readerResult {
+                    val dir = File(context.filesDir, "fonts").apply { mkdirs() }
+                    val temp = File(dir, "custom_font.tmp")
+                    val dest = File(dir, "custom_font.ttf")
+                    try {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            temp.outputStream().use { input.copyTo(it) }
+                        } ?: throw IllegalStateException(
+                            context.getString(R.string.reader_error_font_read_failed),
+                        )
+                        // 先写入临时文件并校验替换，避免复制中断留下损坏字体文件。
+                        if (!temp.renameTo(dest)) {
+                            temp.copyTo(dest, overwrite = true)
+                            temp.delete()
+                        }
+                        dest.absolutePath
+                    } catch (e: CancellationException) {
+                        temp.delete()
+                        throw e
+                    } catch (e: Exception) {
+                        temp.delete()
+                        throw e
+                    }
                 }
-                    ?: throw IllegalStateException(context.getString(R.string.reader_error_font_read_failed))
-                dest.absolutePath
             }
             path.onSuccess { p ->
+                // 字体文件复制完成后再应用并保存路径。
                 _customFontPath.value = p
-                runCatching { userPreferences.setReaderCustomFontPath(p) }
+                readerResult { userPreferences.setReaderCustomFontPath(p) }
                 sendMessage(UiMessage(R.string.reader_msg_font_set))
             }.onFailure {
                 Log.w(TAG, "importCustomFont failed", it)
@@ -722,12 +853,14 @@ class ReaderViewModel @Inject constructor(
      * @return 无返回值（操作完成后结束的协程）
      */
     fun toggleMark() {
+        if (_isLocalMode.value) return
         runToggle(
             _markState,
             R.string.reader_msg_mark_added,
             R.string.reader_msg_mark_removed,
         ) { target ->
-            runCatching {
+            readerResult {
+                // 添加书签需要将当前字符位置换算成官方页码。
                 if (target) {
                     val offset = _charOffset.value
                     val pageCount = (_novel.value?.page_count ?: 1).coerceAtLeast(1)
@@ -751,6 +884,7 @@ class ReaderViewModel @Inject constructor(
      * @return 无返回值（操作完成后结束的协程）
      */
     fun toggleBookmark() {
+        if (_isLocalMode.value || novelId <= 0L) return
         runToggle(
             _bookmarkState,
             CoreR.string.core_msg_bookmarked,
@@ -760,11 +894,12 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * 追更 / 取消追更（[ToggleUiState] 状态机：进行中防连点，失败回滚；
-     * 经 FavoriteActions 统一收口，断网自动入队）。不在系列内时提示并忽略。
+     * 经 FavoriteActions 统一收口，断网自动入队）。不在系列内或本地模式时忽略。
      *
      * @return 无返回值（操作完成后结束的协程）
      */
     fun toggleWatchlist() {
+        if (_isLocalMode.value) return
         val seriesId = _novel.value?.series?.id ?: run {
             trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
             return
@@ -778,5 +913,22 @@ class ReaderViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "ReaderViewModel"
+        val progressWriteScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val progressWriteMutex = Mutex()
     }
+}
+
+/**
+ * 将常规异常转换为失败结果，并继续传播协程取消。
+ *
+ * @param action 待执行的读取、写入或网络操作
+ * @return 操作结果
+ * @throws CancellationException 操作被取消
+ */
+private inline fun <T> readerResult(action: () -> T): Result<T> = try {
+    Result.success(action())
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    Result.failure(e)
 }

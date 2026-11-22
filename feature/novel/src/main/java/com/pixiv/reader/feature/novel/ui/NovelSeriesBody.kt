@@ -206,7 +206,12 @@ internal fun NovelSeriesList(
                         ),
                 )
             }
-            loadMoreFooter(hasMore = hasMore, isLoadingMore = isLoadingMore, onLoadMore = viewModel::loadMore)
+            loadMoreFooter(
+                hasMore = hasMore,
+                isLoadingMore = isLoadingMore,
+                onLoadMore = viewModel::loadMore,
+                error = error,
+            )
             // 底部沉浸式收尾：导航栏区域 padding（背景已延伸，内容避让手势条）
             item(key = "bottom_space") {
                 Spacer(

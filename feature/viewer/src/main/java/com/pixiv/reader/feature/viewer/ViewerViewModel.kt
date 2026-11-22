@@ -3,9 +3,11 @@ package com.pixiv.reader.feature.viewer
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.Illust
+import com.pixiv.api.model.WebIllustPage
 import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
@@ -27,18 +29,28 @@ import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
 import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.await
 import androidx.work.workDataOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -105,56 +117,114 @@ class ViewerViewModel @Inject constructor(
         uid = { pixivRepository.pixivApi.session.loggedInUid },
     )
 
+    private var loadJob: Job? = null
+
     init {
+        // 同步跨页收藏覆写流，防止从详情或列表变更后查看器心形图标过时。
+        viewModelScope.launch {
+            favoriteActions.illustBookmarks
+                .map { it[illustId] }
+                .distinctUntilChanged()
+                .collect { bookmarked ->
+                    if (illustId <= 0L || bookmarked == null || _illust.value?.id != illustId) return@collect
+                    if (!_bookmarkState.value.inFlight && _bookmarkState.value.isOn != bookmarked) {
+                        _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+                        bookmarkEditor.onTargetLoaded(bookmarked)
+                    }
+                }
+        }
         load()
     }
 
+    /**
+     * 加载作品、页面和动图数据，并将网页尺寸合并到同一次加载的页面列表。
+     *
+     * @return 无返回值
+     */
     fun load() {
-        viewModelScope.launch {
-            runCatching { pixivRepository.api.getIllust(illustId) }
-                .onSuccess { resp ->
-                    val ill = resp.illust ?: return@onSuccess
-                    _illust.value = ill
-                    _pages.value = ill.toPages()
-                    _bookmarkState.value = if (ill.is_bookmarked == true) ToggleUiState.ON else ToggleUiState.OFF
-                    bookmarkEditor.onTargetLoaded(ill.is_bookmarked == true)
-                    if (ill.isGif()) {
-                        _isGif.value = true
-                        loadUgoira()
-                    }
-                }
-                .onFailure { sendMessage(UiMessage(R.string.viewer_msg_load_failed_reason, listOf(it.message ?: ""))) }
-        }
-        loadRealSizes()
-    }
-
-    /** 网页接口补齐每 P 真实宽高（无缝竖向模式按自然宽高比堆叠用；app-api 不提供） */
-    private fun loadRealSizes() {
-        viewModelScope.launch {
-            runCatching { pixivRepository.webApi.getIllustPages(illustId) }
-                .onSuccess { resp ->
-                    val sizes = resp.body.orEmpty()
-                    if (sizes.isNotEmpty()) {
-                        val updated = _pages.value.mapIndexed { index, page ->
-                            val size = sizes.getOrNull(index)
-                            if (size != null && size.width > 0 && size.height > 0) {
-                                page.copy(width = size.width, height = size.height)
-                            } else {
-                                page
-                            }
-                        }
-                        _pages.value = updated
-                    }
-                }
-        }
-    }
-
-    private fun loadUgoira() {
-        viewModelScope.launch {
-            _ugoiraFrames.value = ugoiraLoader.prepare(illustId).orEmpty()
-            if (_ugoiraFrames.value.isEmpty()) {
-                sendMessage(UiMessage(R.string.viewer_msg_ugoira_load_failed))
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            // 尺寸可并发获取，详情成功发布页面后再取结果进行合并。
+            val sizes = async { loadRealSizes() }
+            val ill = try {
+                pixivRepository.api.getIllust(illustId).illust
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                sendMessage(UiMessage(R.string.viewer_msg_load_failed_reason, listOf(e.message.orEmpty())))
+                null
             }
+            if (ill == null) {
+                sizes.cancel()
+                return@launch
+            }
+            currentCoroutineContext().ensureActive()
+            val previousPages = _pages.value
+            val pages = ill.toPages().mapIndexed { index, page ->
+                val previous = previousPages.getOrNull(index)
+                previous?.takeIf { it.hasSameImageAs(page) } ?: page
+            }
+            _illust.value = ill
+            _pages.value = pages.ifEmpty { _pages.value }
+            val bookmarked = ill.is_bookmarked == true
+            _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
+            favoriteActions.setIllustBookmarkState(ill.id, bookmarked)
+            bookmarkEditor.onTargetLoaded(bookmarked)
+            _isGif.value = ill.isGif()
+            if (_isGif.value) launch { loadUgoira() }
+
+            val realSizes = sizes.await()
+            currentCoroutineContext().ensureActive()
+            // 网页尺寸模型无 URL；只有同作品页数一致时，才按接口页序匹配。
+            if (pages.isNotEmpty() && pages.size == realSizes.size) {
+                _pages.value = pages.mapIndexed { index, page ->
+                    val size = realSizes[index]
+                    if (size.width > 0 && size.height > 0) {
+                        page.copy(width = size.width, height = size.height)
+                    } else {
+                        page
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 获取网页提供的逐页原图尺寸，供无缝竖向模式排版。
+     *
+     * @return 按页序排列的真实尺寸，失败时为空列表
+     * @throws CancellationException 尺寸请求被取消
+     */
+    private suspend fun loadRealSizes(): List<WebIllustPage> = try {
+        pixivRepository.webApi.getIllustPages(illustId).body.orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // 尺寸补充失败时保留 app-api 已给出的页面。
+        Log.w(TAG, "获取页面尺寸失败", e)
+        emptyList()
+    }
+
+    /**
+     * 读取当前作品的动图帧，仅在所属加载任务仍有效时发布。
+     *
+     * @return 无返回值
+     * @throws CancellationException 动图加载被取消
+     */
+    private suspend fun loadUgoira() {
+        val frames = try {
+            ugoiraLoader.prepare(illustId).orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "读取动图失败", e)
+            emptyList()
+        }
+        // 刷新或退出后，旧任务不得发布帧或发送失败通知。
+        currentCoroutineContext().ensureActive()
+        _ugoiraFrames.value = frames
+        if (frames.isEmpty()) {
+            sendMessage(UiMessage(R.string.viewer_msg_ugoira_load_failed))
         }
     }
 
@@ -186,6 +256,7 @@ class ViewerViewModel @Inject constructor(
             CoreR.string.core_msg_bookmark_updated,
             {
                 _bookmarkState.value = ToggleUiState.ON
+                favoriteActions.setIllustBookmarkState(illustId, true)
                 bookmarkEditor.close()
             },
         ) { bookmarkEditor.save() }
@@ -199,27 +270,88 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** 把当前页设为手机壁纸（下载原图 → WallpaperManager）。 */
+    /**
+     * 下载并采样当前页图片，交给系统设置壁纸。
+     *
+     * @param page 当前页的原图及预览地址
+     * @return 无返回值
+     */
     fun wallpaper(page: IllustPageInfo) {
-        val url = page.originalUrl ?: page.displayUrl ?: return
+        val url = page.originalUrl ?: page.displayUrl
+        if (url.isNullOrBlank()) {
+            trySendMessage(UiMessage(R.string.viewer_msg_wallpaper_failed_generic))
+            return
+        }
         viewModelScope.launch {
             sendMessage(UiMessage(R.string.viewer_msg_wallpaper_setting))
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val bytes = pixivRepository.imageClient.newCall(Request.Builder().url(url).build())
-                        .execute()
-                        .use { resp ->
-                            if (!resp.isSuccessful) error("HTTP ${resp.code}")
-                            resp.body?.bytes() ?: error("Empty response")
+            try {
+                withContext(Dispatchers.IO) {
+                    // 原始响应写到临时文件，避免压缩数据和解码位图同时占用堆内存。
+                    val file = File.createTempFile("wallpaper_", ".img", context.cacheDir)
+                    try {
+                        pixivRepository.imageClient.newCall(Request.Builder().url(url).build())
+                            .execute()
+                            .use { response ->
+                                check(response.isSuccessful)
+                                val body = checkNotNull(response.body)
+                                file.outputStream().use { output ->
+                                    body.byteStream().use { input -> input.copyTo(output) }
+                                }
+                            }
+                        currentCoroutineContext().ensureActive()
+                        val manager = WallpaperManager.getInstance(context)
+                        val options = wallpaperDecodeOptions(file, manager)
+                        val bitmap = checkNotNull(BitmapFactory.decodeFile(file.path, options))
+                        try {
+                            currentCoroutineContext().ensureActive()
+                            manager.setBitmap(bitmap)
+                        } finally {
+                            // 系统完成读取或设置失败后都释放位图。
+                            bitmap.recycle()
                         }
-                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: error("Image decode failed")
-                    WallpaperManager.getInstance(context).setBitmap(bitmap)
+                    } finally {
+                        file.delete()
+                    }
                 }
+                sendMessage(UiMessage(R.string.viewer_msg_wallpaper_set))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "设置壁纸失败", e)
+                sendMessage(UiMessage(R.string.viewer_msg_wallpaper_failed_generic))
+            } catch (e: OutOfMemoryError) {
+                Log.w(TAG, "壁纸解码内存不足", e)
+                sendMessage(UiMessage(R.string.viewer_msg_wallpaper_failed_generic))
             }
-            result
-                .onSuccess { sendMessage(UiMessage(R.string.viewer_msg_wallpaper_set)) }
-                .onFailure { sendMessage(UiMessage(R.string.viewer_msg_wallpaper_failed, listOf(it.message ?: ""))) }
         }
+    }
+
+    /**
+     * 只读图像头，按屏幕和系统建议的壁纸尺寸计算二次幂采样率。
+     *
+     * @param file 已下载的图片
+     * @param manager 提供系统壁纸建议尺寸的管理器
+     * @return 正式解码使用的采样选项
+     * @throws IllegalStateException 图片头未提供有效宽高
+     */
+    private fun wallpaperDecodeOptions(file: File, manager: WallpaperManager): BitmapFactory.Options {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        check(bounds.outWidth > 0 && bounds.outHeight > 0)
+        val metrics = context.resources.displayMetrics
+        val width = maxOf(metrics.widthPixels, manager.desiredMinimumWidth, 1)
+        val height = maxOf(metrics.heightPixels, manager.desiredMinimumHeight, 1)
+        // 常规图片尽量保持目标尺寸，极端长宽比以像素预算限制分配。
+        val maxPixels = maxOf(12_000_000L, width.toLong() * height)
+        var sample = 1
+        while (sample <= minOf(bounds.outWidth, bounds.outHeight) / 2) {
+            val next = sample * 2
+            val coversTarget = bounds.outWidth / next >= width && bounds.outHeight / next >= height
+            val exceedsBudget = (bounds.outWidth / sample).toLong() * (bounds.outHeight / sample) > maxPixels
+            if (!coversTarget && !exceedsBudget) break
+            sample = next
+        }
+        return BitmapFactory.Options().apply { inSampleSize = sample }
     }
 
     /**
@@ -230,7 +362,8 @@ class ViewerViewModel @Inject constructor(
      * @return 无返回值
      */
     fun download(page: IllustPageInfo) {
-        val index = _pages.value.indexOf(page).takeIf { it >= 0 } ?: 0
+        // 宽高可能刚被网页结果补齐，按地址定位同一张图。
+        val index = _pages.value.indexOfFirst { it.hasSameImageAs(page) }.coerceAtLeast(0)
         val illust = _illust.value
         trySendMessage(UiMessage(R.string.viewer_msg_download_started))
         enqueueDownload(
@@ -300,10 +433,24 @@ class ViewerViewModel @Inject constructor(
      * @return 无返回值
      */
     private fun enqueueDownload(entry: DownloadEntryEntity, request: OneTimeWorkRequest) {
+        val workTag = DownloadQueue.workTag(entry.targetType, entry.targetId, entry.format, entry.scopeKey)
         viewModelScope.launch {
-            runCatching { DownloadQueue.markPending(downloadEntryDao, entry) }
-            // 待同步条目落库后再入队，保证 Worker 起跑时条目必已存在
-            WorkManager.getInstance(context).enqueue(request)
+            try {
+                val previous = downloadEntryDao.get(entry.targetType, entry.targetId, entry.format, entry.scopeKey)
+                val alreadyActive = previous?.status == DownloadEntryEntity.STATUS_PENDING ||
+                    previous?.status == DownloadEntryEntity.STATUS_DOWNLOADING
+                if (!alreadyActive) {
+                    // 待同步条目落库后再以唯一队列入队，避免重复并发或覆盖活跃任务进度。
+                    DownloadQueue.markPending(downloadEntryDao, entry)
+                }
+                WorkManager.getInstance(context)
+                    .enqueueUniqueWork(workTag, ExistingWorkPolicy.KEEP, request)
+                    .await()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                sendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(e.message.orEmpty())))
+            }
         }
     }
 
@@ -311,4 +458,17 @@ class ViewerViewModel @Inject constructor(
     fun report() {
         viewModelScope.launch { sendMessage(UiMessage(R.string.viewer_msg_report_wip)) }
     }
+
+    private companion object {
+        const val TAG = "ViewerViewModel"
+    }
 }
+
+/**
+ * 判断两份单页信息是否引用相同的图片地址，忽略网页补齐的尺寸。
+ *
+ * @param other 待比较的单页信息
+ * @return 两个图片地址均一致时为 true
+ */
+private fun IllustPageInfo.hasSameImageAs(other: IllustPageInfo): Boolean =
+    originalUrl == other.originalUrl && displayUrl == other.displayUrl
