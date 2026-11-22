@@ -68,7 +68,13 @@ class DownloadCompletionNotifier @Inject constructor(
         }
         .map { }
 
-    private data class Key(val targetType: String, val targetId: Long, val format: String) {
-        constructor(e: DownloadStatusRow) : this(e.targetType, e.targetId, e.format)
+    /** 去重键必须包含主键列 scopeKey：同作品单本与整系列是两条不同的下载任务。 */
+    private data class Key(
+        val targetType: String,
+        val targetId: Long,
+        val format: String,
+        val scopeKey: String,
+    ) {
+        constructor(e: DownloadStatusRow) : this(e.targetType, e.targetId, e.format, e.scopeKey)
     }
 }

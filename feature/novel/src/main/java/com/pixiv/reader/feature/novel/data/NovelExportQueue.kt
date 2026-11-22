@@ -5,6 +5,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.workDataOf
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import com.pixiv.reader.core.network.download.DownloadQueue
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * 小说导出统一入队：装配「待同步」下载索引条目 + 组装 WorkManager 导出请求。
@@ -59,6 +61,9 @@ internal object NovelExportQueue {
         wordCount = wordCount,
         favoriteCount = favoriteCount,
         publishDate = publishDate,
+        // 部分分册：分册清单必须随快照落库——失败重试时只能从这里还原导出范围，
+        // 否则 DownloadRetry 拿不到 chapterIds，会把部分导出退化成整系列
+        payloadJson = chapterIds.takeIf { it.isNotEmpty() }?.let(::partialChaptersPayload),
     )
 
     /**
@@ -91,4 +96,17 @@ internal object NovelExportQueue {
             .addTag(DownloadQueue.workTag("novel", novelId, format.name, scopeKey))
             .build()
     }
+
+    /**
+     * 部分分册导出的待同步快照：只写入分册清单。
+     *
+     * 下载管理页用实体字段（`title` / `coverUrl` / `authorName` 等）兼底渲染卡片，
+     * 快照本身缺键不会影响展示；失败重试（app 层）就从这里读回 `chapterIds`。
+     *
+     * @param chapterIds 选中的分册 id（非空）
+     * @return 内含 `chapterIds` 数组的 JSON 字符串
+     */
+    private fun partialChaptersPayload(chapterIds: List<Long>): String = JSONObject()
+        .put(NovelExportWorker.KEY_CHAPTER_IDS, JSONArray(chapterIds))
+        .toString()
 }

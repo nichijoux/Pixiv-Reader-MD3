@@ -287,161 +287,179 @@ internal object PdfRenderer {
         var page = PDPage(PDRectangle.A4)
         doc.addPage(page)
         val usableWidth = page.mediaBox.width - margin * 2
+        val usableHeight = page.mediaBox.height - margin * 2
         var y = page.mediaBox.height - margin
         var content = PDPageContentStream(doc, page)
-        content.beginText()
-        // 无可用字体时退化为 Helvetica；必须 setFont 否则 showText 抛异常
-        val primary = fonts.firstOrNull() ?: PDType1Font.HELVETICA
-        content.setFont(primary, fontSize)
-        content.newLineAtOffset(margin, y)
-
-        var newPageCount = 0
-        var showTextFailCount = 0
-        var noGlyphCharCount = 0
-        var pictureCount = 0
-        var pictureSkipCount = 0
-        // 跨行跟踪 content 的当前字体（PDPageContentStream 无 getter，须与每次
-        // setFont/newPage/图片恢复同步；否则下一行首段误判「已设置」而不切换，
-        // 用上一行末尾的符号字体绘制中文 → No glyph）
-        var activeFont: PDFont = primary
-
-        fun newPage() {
-            content.endText()
-            content.close()
-            page = PDPage(PDRectangle.A4)
-            doc.addPage(page)
-            content = PDPageContentStream(doc, page)
-            y = page.mediaBox.height - margin
+        var inTextBlock = false
+        try {
             content.beginText()
+            inTextBlock = true
+            // 无可用字体时退化为 Helvetica；必须 setFont 否则 showText 抛异常
+            val primary = fonts.firstOrNull() ?: PDType1Font.HELVETICA
             content.setFont(primary, fontSize)
             content.newLineAtOffset(margin, y)
-            activeFont = primary // 新页字体重置为 primary，同步跟踪变量
-            newPageCount++
-        }
 
-        var lineCount = 0
-        var isFirstContentLine = true // 全文首行（主标题）不缩进
-        for (item in contents) {
-            when (item) {
-                is PdfContent.Picture -> {
-                    // 插图：jpg/png 内嵌（webp 等 pdfbox 不支持 → 跳过）
-                    val img = runCatching {
-                        PDImageXObject.createFromByteArray(doc, item.bytes, item.mime)
-                    }.getOrNull()
-                    if (img == null) {
-                        pictureSkipCount++
-                        Log.w(TAG, "图片内嵌失败（格式不支持或损坏）mime=${item.mime}")
-                        continue
-                    }
-                    val w = img.width.toFloat()
-                    val h = img.height.toFloat()
-                    if (w <= 0f || h <= 0f) continue
-                    // 可用宽度内等比缩放；图片块视为段落边界（前后留段距）
-                    val scale = minOf(1f, usableWidth / w)
-                    val drawW = w * scale
-                    val drawH = h * scale
-                    if (paragraphGap > 0f) y -= paragraphGap
-                    if (y - drawH < margin) newPage()
-                    // drawImage 不能在文本块（BT...ET）内执行：先结束文本块，绘制后恢复
+            var newPageCount = 0
+            var showTextFailCount = 0
+            var noGlyphCharCount = 0
+            var pictureCount = 0
+            var pictureSkipCount = 0
+            // 跨行跟踪 content 的当前字体（PDPageContentStream 无 getter，须与每次
+            // setFont/newPage/图片恢复同步；否则下一行首段误判「已设置」而不切换，
+            // 用上一行末尾的符号字体绘制中文 → No glyph）
+            var activeFont: PDFont = primary
+
+            fun newPage() {
+                if (inTextBlock) {
                     content.endText()
-                    // 图片 y 为 PDF 底部坐标：顶边对齐当前文本游标
-                    content.drawImage(img, margin, y - drawH, drawW, drawH)
-                    y -= drawH
-                    content.beginText()
-                    content.setFont(primary, fontSize)
-                    content.newLineAtOffset(margin, y)
-                    activeFont = primary // 图片恢复后字体重置为 primary
-                    pictureCount++
+                    inTextBlock = false
                 }
+                content.close()
+                page = PDPage(PDRectangle.A4)
+                doc.addPage(page)
+                content = PDPageContentStream(doc, page)
+                y = page.mediaBox.height - margin
+                content.beginText()
+                inTextBlock = true
+                content.setFont(primary, fontSize)
+                content.newLineAtOffset(margin, y)
+                activeFont = primary // 新页字体重置为 primary，同步跟踪变量
+                newPageCount++
+            }
 
-                is PdfContent.Text -> {
-                    var atParagraphStart = true // 块首行视为段首（缩进由 indent 与首行标记控制）
-                    for (line in item.text.lines()) {
-                        if (line.isBlank()) {
-                            // 空行 = 段落/块边界：渲染段距空隙（阅读器段距语义，非整行行距）
-                            if (paragraphGap > 0f) {
-                                if (y < margin + paragraphGap) newPage()
-                                content.newLineAtOffset(0f, -paragraphGap)
-                                y -= paragraphGap
-                            }
-                            atParagraphStart = true
+            var lineCount = 0
+            var isFirstContentLine = true // 全文首行（主标题）不缩进
+            for (item in contents) {
+                when (item) {
+                    is PdfContent.Picture -> {
+                        // 插图：jpg/png 内嵌（webp 等 pdfbox 不支持 → 跳过）
+                        val img = runCatching {
+                            PDImageXObject.createFromByteArray(doc, item.bytes, item.mime)
+                        }.getOrNull()
+                        if (img == null) {
+                            pictureSkipCount++
+                            Log.w(TAG, "图片内嵌失败（格式不支持或损坏）mime=${item.mime}")
                             continue
                         }
-                        // 逐字符绑定字体：null = 无任何字体能编码（跳过不画，宽 0）
-                        val glyphs = line.map { ch ->
-                            fonts.firstOrNull { runCatching { it.encode(ch.toString()) }.isSuccess }
-                                ?.let { ch to it }
+                        val w = img.width.toFloat()
+                        val h = img.height.toFloat()
+                        if (w <= 0f || h <= 0f) continue
+                        // 同时受可用宽、高限制等比缩放，防止竖长图跨页溢出裁切。
+                        val scale = minOf(1f, usableWidth / w, usableHeight / h)
+                        val drawW = w * scale
+                        val drawH = h * scale
+                        if (paragraphGap > 0f) y -= paragraphGap
+                        if (y - drawH < margin) newPage()
+                        // drawImage 不能在文本块（BT...ET）内执行：先结束文本块，绘制后恢复
+                        if (inTextBlock) {
+                            content.endText()
+                            inTextBlock = false
                         }
-                        noGlyphCharCount += glyphs.count { it == null }
-                        // 按显示宽度断行（无字形字符宽 0；单字超宽也强制断，避免死循环）
-                        val rows = mutableListOf<List<Pair<Char, PDFont>>>()
-                        var start = 0
-                        var lastGood = 0
-                        var width = 0f
-                        for (i in glyphs.indices) {
-                            val g = glyphs[i]
-                            width += g?.let { (c, f) -> f.getStringWidth(c.toString()) * fontSize / 1000f }
-                                ?: 0f
-                            if (width > usableWidth) {
-                                if (lastGood == start) lastGood = i + 1
-                                rows += glyphs.subList(start, lastGood).filterNotNull()
-                                start = lastGood
-                                lastGood = start
-                                width = 0f
-                            } else {
-                                lastGood = i + 1
+                        // 图片 y 为 PDF 底部坐标：顶边对齐当前文本游标
+                        content.drawImage(img, margin, y - drawH, drawW, drawH)
+                        y -= drawH
+                        content.beginText()
+                        inTextBlock = true
+                        content.setFont(primary, fontSize)
+                        content.newLineAtOffset(margin, y)
+                        activeFont = primary // 图片恢复后字体重置为 primary
+                        pictureCount++
+                    }
+
+                    is PdfContent.Text -> {
+                        var atParagraphStart = true // 块首行视为段首（缩进由 indent 与首行标记控制）
+                        for (line in item.text.lines()) {
+                            if (line.isBlank()) {
+                                // 空行 = 段落/块边界：渲染段距空隙（阅读器段距语义，非整行行距）
+                                if (paragraphGap > 0f) {
+                                    if (y < margin + paragraphGap) newPage()
+                                    content.newLineAtOffset(0f, -paragraphGap)
+                                    y -= paragraphGap
+                                }
+                                atParagraphStart = true
+                                continue
                             }
-                        }
-                        if (start < glyphs.size) rows += glyphs.subList(start, glyphs.size)
-                            .filterNotNull()
-                        for (row in rows) {
-                            if (y < margin + leading) newPage()
-                            // 段落首行缩进（标题/元数据块与全文首行不缩进）
-                            val indent =
+                            // 逐字符绑定字体：null = 无任何字体能编码（跳过不画，宽 0）
+                            val glyphs = line.map { ch ->
+                                fonts.firstOrNull { runCatching { it.encode(ch.toString()) }.isSuccess }
+                                    ?.let { ch to it }
+                            }
+                            noGlyphCharCount += glyphs.count { it == null }
+                            val firstRowIndent =
                                 if (atParagraphStart && !isFirstContentLine && item.indent) {
                                     indentWidth
                                 } else {
                                     0f
                                 }
-                            if (indent > 0f) content.newLineAtOffset(indent, 0f)
-                            // 行内按连续同字体分段绘制（setFont 切换不改变文本位置）；
-                            // activeFont 为跨行跟踪变量（见上），勿在此重复声明
-                            var i = 0
-                            while (i < row.size) {
-                                val (_, f) = row[i]
-                                if (f !== activeFont) {
-                                    content.setFont(f, fontSize)
-                                    activeFont = f
+                            // 按首行扣减缩进后的实际行宽断行，并在换行后以当前触发字形宽度作为新行起始宽度。
+                            val rows = mutableListOf<List<Pair<Char, PDFont>>>()
+                            var start = 0
+                            var rowLimit = (usableWidth - firstRowIndent).coerceAtLeast(fontSize)
+                            var width = 0f
+                            for (i in glyphs.indices) {
+                                val g = glyphs[i]
+                                val charWidth =
+                                    g?.let { (c, f) -> f.getStringWidth(c.toString()) * fontSize / 1000f }
+                                        ?: 0f
+                                if (width + charWidth > rowLimit && i > start) {
+                                    rows += glyphs.subList(start, i).filterNotNull()
+                                    start = i
+                                    rowLimit = usableWidth
+                                    width = charWidth
+                                } else {
+                                    width += charWidth
                                 }
-                                var j = i + 1
-                                while (j < row.size && row[j].second === f) j++
-                                val seg = row.subList(i, j).joinToString("") { it.first.toString() }
-                                // showText 内部处理 () \ 转义，勿再手动转义；异常时跳过该段保证导出不中断
-                                try {
-                                    content.showText(seg)
-                                } catch (e: Exception) {
-                                    showTextFailCount++
-                                    Log.w(TAG, "showText 失败，跳过该段 长度=${seg.length}", e)
-                                }
-                                i = j
                             }
-                            // 换行：退回缩进 + 下移一行
-                            content.newLineAtOffset(-indent, -leading)
-                            y -= leading
-                            atParagraphStart = false
-                            isFirstContentLine = false
-                            lineCount++
+                            if (start < glyphs.size) {
+                                rows += glyphs.subList(start, glyphs.size).filterNotNull()
+                            }
+                            rows.forEachIndexed { rowIndex, row ->
+                                if (y < margin + leading) newPage()
+                                val indent = if (rowIndex == 0) firstRowIndent else 0f
+                                if (indent > 0f) content.newLineAtOffset(indent, 0f)
+                                // 行内按连续同字体分段绘制（setFont 切换不改变文本位置）；
+                                // activeFont 为跨行跟踪变量（见上），勿在此重复声明
+                                var i = 0
+                                while (i < row.size) {
+                                    val (_, f) = row[i]
+                                    if (f !== activeFont) {
+                                        content.setFont(f, fontSize)
+                                        activeFont = f
+                                    }
+                                    var j = i + 1
+                                    while (j < row.size && row[j].second === f) j++
+                                    val seg = row.subList(i, j).joinToString("") { it.first.toString() }
+                                    // showText 内部处理 () \ 转义，勿再手动转义；异常时跳过该段保证导出不中断
+                                    try {
+                                        content.showText(seg)
+                                    } catch (e: Exception) {
+                                        showTextFailCount++
+                                        Log.w(TAG, "showText 失败，跳过该段 长度=${seg.length}", e)
+                                    }
+                                    i = j
+                                }
+                                // 换行：退回缩进 + 下移一行
+                                content.newLineAtOffset(-indent, -leading)
+                                y -= leading
+                                atParagraphStart = false
+                                isFirstContentLine = false
+                                lineCount++
+                            }
                         }
                     }
                 }
             }
+            if (inTextBlock) {
+                content.endText()
+                inTextBlock = false
+            }
+            Log.d(
+                TAG,
+                "renderPdf 完成 总行数=$lineCount 新增页=$newPageCount 总页数=${doc.numberOfPages} " +
+                    "showText失败段=$showTextFailCount 无字形字符=$noGlyphCharCount 图片=$pictureCount 图片跳过=$pictureSkipCount",
+            )
+        } finally {
+            runCatching { content.close() }
         }
-        content.endText()
-        content.close()
-        Log.d(
-            TAG,
-            "renderPdf 完成 总行数=$lineCount 新增页=$newPageCount 总页数=${doc.numberOfPages} " +
-                    "showText失败段=$showTextFailCount 无字形字符=$noGlyphCharCount 图片=$pictureCount 图片跳过=$pictureSkipCount"
-        )
     }
 }

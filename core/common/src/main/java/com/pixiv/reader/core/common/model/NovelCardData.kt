@@ -20,6 +20,7 @@ data class NovelCardData(
     val wordCount: Int,
     val tags: List<String> = emptyList(),
     val isFavorite: Boolean = false,
+    val serverMuted: Boolean = false,
 )
 
 /**
@@ -45,4 +46,5 @@ fun Novel.toCardData(): NovelCardData = NovelCardData(
         .map { it.translated_name ?: it.name ?: "" }
         .filter { it.isNotBlank() },
     isFavorite = is_bookmarked == true,
+    serverMuted = is_muted == true,
 )

@@ -19,7 +19,7 @@ import com.pixiv.reader.feature.novel.ui.NovelSeriesPane
 /**
  * 小说详情 pane 槽位：组装 [NovelDetailPane]（小说卡点击 → 右栏小说详情）。
  * 详情/评论 ViewModel 由宿主 pane 管线传入；占位文案统一为本文件内的
- * 小说排行右栏占位资源（两处调用点原本即同款）。
+ * 小说排行右栏占位资源。导出事件由共享 pane 接线，所有宿主复用同一入队逻辑。
  *
  * @param selectedId 当前选中小说 id（null = 未选中，显示占位）
  * @param novelVm 小说详情 ViewModel（宿主传入）

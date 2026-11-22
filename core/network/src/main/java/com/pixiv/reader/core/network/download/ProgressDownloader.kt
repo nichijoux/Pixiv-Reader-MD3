@@ -4,6 +4,7 @@ import android.content.Context
 import com.pixiv.reader.core.network.R
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -44,7 +45,7 @@ class ProgressDownloader @Inject constructor(
         name: String,
         onProgress: suspend (done: Long, total: Long) -> Unit = { _, _ -> },
     ): Result<File> = withContext(Dispatchers.IO) {
-        runCatching {
+        try {
             val file = File(context.filesDir, "Downloads/$name").apply { parentFile?.mkdirs() }
             // 已有部分文件 → 从断点续传
             val existing = if (file.exists()) file.length() else 0L
@@ -96,7 +97,13 @@ class ProgressDownloader @Inject constructor(
                         else -> throw IllegalStateException("HTTP ${resp.code}")
                     }
                 }
-            file
+            Result.success(file)
+        } catch (e: CancellationException) {
+            // 协程取消（用户删除任务 / Worker 停止）必须透传：吞成 Result.failure 会让
+            // 调用方落 failed 状态并重试，等于「复活」已删除的下载条目
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

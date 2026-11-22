@@ -5,10 +5,16 @@ import android.util.Log
 import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 
@@ -54,6 +60,14 @@ class UgoiraLoader @Inject constructor(
         return result
     }
 
+    /**
+     * 获取动图元数据，按需下载完整 zip，再解压帧文件。
+     *
+     * @param illustId 插画 ID
+     * @param onProgress 下载进度回调，磁盘命中时不调用
+     * @return 解压后的帧列表，普通加载失败时返回 null
+     * @throws CancellationException 调用协程取消时向上传播
+     */
     private suspend fun load(
         illustId: Long,
         onProgress: ((Float) -> Unit)? = null,
@@ -69,50 +83,104 @@ class UgoiraLoader @Inject constructor(
             val frames = metadata.frames.orEmpty()
             if (frames.isEmpty()) return@runCatching null
             frames to zipUrl
-        }.getOrNull() ?: return@withContext null
+        }.getOrElse { error ->
+            // 元数据请求允许取消，取消时交由调用方协程结束。
+            if (error is CancellationException) throw error
+            null
+        } ?: return@withContext null
 
         if (!zipFile.exists() || zipFile.length() == 0L) {
-            pixivRepository.imageClient.newCall(Request.Builder().url(zipUrl).build())
-                .execute()
-                .use { resp ->
-                    if (!resp.isSuccessful) return@use
-                    val body = resp.body ?: return@use
-                    val total = body.contentLength()
-                    var read = 0L
-                    var lastPercent = -1
-                    body.byteStream().use { input ->
-                        zipFile.outputStream().use { out ->
-                            val buf = ByteArray(DEFAULT_BUFFER_SIZE)
-                            while (true) {
-                                val n = input.read(buf)
-                                if (n < 0) break
-                                out.write(buf, 0, n)
-                                read += n
-                                // 进度按整百分比降频（避免每 8KB 一次回调刷屏重组）
-                                if (total > 0) {
-                                    val percent = (read * 100 / total).toInt()
-                                    if (percent != lastPercent) {
-                                        lastPercent = percent
-                                        onProgress?.invoke(read.toFloat() / total)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            try {
+                downloadZip(zipUrl, zipFile, onProgress)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                // 直接调用 prepare 的界面依赖 null 表示失败，且取消优先于 I/O 错误。
+                currentCoroutineContext().ensureActive()
+                Log.w(TAG, "ugoira 下载失败，illustId=$illustId", error)
+                return@withContext null
+            }
         }
-        if (!zipFile.exists()) return@withContext null
 
-        // 解压阶段独立 try：zip 损坏（下载中断残留半截文件 / 磁盘异常）/ 缺 entry 时删除该 zip，
+        // 解压阶段独立 try：zip 损坏（包括旧版下载残留的半截文件）或缺 entry 时删除该 zip，
         // 下次 prepare 重新下载——避免损坏 zip 被"exists && length>0"判定永久缓存，
         // 否则该动图每次进入都加载失败（直到用户手动清缓存）。
         // 已解压出的帧文件保留（zip 重下后跳过已存在帧），天然断点续解压。
         try {
             UgoiraFrameExtractor.unzip(zipFile, dir, frames)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.w(TAG, "ugoira 解压失败，删除损坏 zip（下次重新下载）illustId=$illustId", e)
             runCatching { zipFile.delete() }
             null
+        }
+    }
+
+    /**
+     * 下载 zip 到同目录的独立临时文件，完整接收后原子发布。
+     *
+     * @param zipUrl 动图帧包下载地址
+     * @param zipFile 正式缓存文件
+     * @param onProgress 下载进度回调
+     * @return 下载完成后无返回值
+     * @throws IOException 请求、读取、写入或原子发布失败
+     * @throws IllegalArgumentException 下载地址无效
+     * @throws CancellationException 调用协程取消
+     */
+    private suspend fun downloadZip(zipUrl: String, zipFile: File, onProgress: ((Float) -> Unit)?) {
+        val coroutineContext = currentCoroutineContext()
+        // 并发下载使用各自的临时文件，避免互相覆盖或清理对方的写入。
+        val temporary = File.createTempFile("data-", ".part", zipFile.parentFile)
+        try {
+            val request = Request.Builder().url(zipUrl).build()
+            pixivRepository.imageClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("ugoira zip HTTP ${response.code}")
+                val body = response.body ?: throw IOException("ugoira zip empty body")
+                val total = body.contentLength()
+                var read = 0L
+                var lastPercent = -1
+                body.byteStream().use { input ->
+                    temporary.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            read += count
+                            // 按整百分比回调，避免每次读取都触发界面刷新。
+                            if (total > 0) {
+                                val percent = (read * 100 / total).toInt()
+                                if (percent != lastPercent) {
+                                    lastPercent = percent
+                                    onProgress?.invoke(read.toFloat() / total)
+                                }
+                            }
+                        }
+                    }
+                }
+                if (read == 0L || (total >= 0 && read != total)) {
+                    throw IOException("ugoira zip incomplete body")
+                }
+            }
+            // 优先使用原子覆盖移动；若文件系统不支持 ATOMIC_MOVE 则降级为普通覆盖移动。
+            coroutineContext.ensureActive()
+            try {
+                Files.move(
+                    temporary.toPath(),
+                    zipFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporary.toPath(),
+                    zipFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
+        } finally {
+            // 失败或取消仅清理本次下载，保留并发调用已发布的缓存。
+            temporary.delete()
         }
     }
 

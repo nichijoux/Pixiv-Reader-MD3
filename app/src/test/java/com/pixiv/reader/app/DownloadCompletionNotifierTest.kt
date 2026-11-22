@@ -24,6 +24,12 @@ class DownloadCompletionNotifierTest {
         override fun observeAllStatuses(): Flow<List<DownloadStatusRow>> = flowOf(*snapshots.toTypedArray())
         override fun observeStatuses(targetType: String, targetId: Long): Flow<List<String>> =
             throw UnsupportedOperationException()
+        override fun observeStatus(
+            targetType: String,
+            targetId: Long,
+            format: String,
+            scopeKey: String,
+        ): Flow<String?> = throw UnsupportedOperationException()
         override suspend fun getDone(): List<DownloadEntryEntity> = throw UnsupportedOperationException()
         override suspend fun get(type: String, targetId: Long, format: String, scopeKey: String): DownloadEntryEntity? =
             throw UnsupportedOperationException()

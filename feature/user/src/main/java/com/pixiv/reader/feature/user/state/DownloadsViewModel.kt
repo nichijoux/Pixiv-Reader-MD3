@@ -16,6 +16,7 @@ import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.feature.user.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,6 +59,9 @@ class DownloadsViewModel @Inject constructor(
     /**
      * 删除索引，并清理对应本地文件（私有文件路径 / SAF / MediaStore content uri）。
      * 未完成条目同时取消后台任务（防删除后联网 Worker 复活重建条目）。
+     *
+     * @param entry 待删除的下载索引条目
+     * @return 无返回值
      */
     fun delete(entry: DownloadEntryEntity) {
         viewModelScope.launch {
@@ -69,16 +73,19 @@ class DownloadsViewModel @Inject constructor(
                     )
                 }
             }
-            entry.localPath?.let { path ->
-                runCatching {
-                    if (path.startsWith("content://")) {
-                        // SAF 与 MediaStore uri 统一经 ContentResolver 删除
-                        context.contentResolver.delete(path.toUri(), null, null)
-                    } else {
-                        val file = File(path)
-                        if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
-                            // 多页插画下载存目录（Downloads/pixiv_{id}/），递归删除
-                            if (file.isDirectory) file.deleteRecursively() else file.delete()
+            // 文件与 ContentResolver 删除放到 IO 线程，避免阻塞主线程。
+            withContext(Dispatchers.IO) {
+                entry.localPath?.let { path ->
+                    runCatching {
+                        if (path.startsWith("content://")) {
+                            // SAF 与 MediaStore uri 统一经 ContentResolver 删除
+                            context.contentResolver.delete(path.toUri(), null, null)
+                        } else {
+                            val file = File(path)
+                            if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
+                                // 多页插画下载存目录（Downloads/pixiv_{id}/），递归删除
+                                if (file.isDirectory) file.deleteRecursively() else file.delete()
+                            }
                         }
                     }
                 }
@@ -87,8 +94,20 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    /** 解析 txt/epub/md 本地文件 → LocalReaderStore，成功后回调 onReady。支持私有路径与 content uri（SAF/MediaStore）。 */
-    fun openLocal(entry: DownloadEntryEntity, onReady: () -> Unit) {
+    /**
+     * 解析 txt/epub/md 本地文件并写入 [LocalReaderStore]，成功后回调 [onReady]，失败回调 [onFailed]。
+     * 支持应用私有路径与 content uri（SAF/MediaStore）。
+     *
+     * @param entry 下载索引条目
+     * @param onReady 解析成功准备就绪后的回调
+     * @param onFailed 文件缺失、权限失效或解析失败时的回调
+     * @return 无返回值
+     */
+    fun openLocal(
+        entry: DownloadEntryEntity,
+        onReady: () -> Unit,
+        onFailed: () -> Unit = {},
+    ) {
         viewModelScope.launch {
             val doc = withContext(Dispatchers.IO) {
                 val path = entry.localPath ?: return@withContext null
@@ -98,33 +117,40 @@ class DownloadsViewModel @Inject constructor(
                     DownloadEntryEntity.FORMAT_EPUB -> "epub"
                     else -> entry.format.lowercase() // TXT → txt
                 }
-                if (path.startsWith("content://")) {
-                    // SAF/MediaStore 目录导出：经 ContentResolver 读取
-                    val bytes = runCatching {
-                        context.contentResolver.openInputStream(path.toUri())
-                            ?.use { it.readBytes() }
-                    }.getOrNull() ?: return@withContext null
-                    when (ext) {
-                        "txt" -> TxtNovelParser.parse(bytes.toString(Charsets.UTF_8))
-                        "md" -> MarkdownNovelParser.parse(bytes.toString(Charsets.UTF_8))
-                        "epub" -> {
-                            // epub 解析需要 File：复制到私有缓存临时文件
-                            val tmp = File(context.cacheDir, "open_local_${entry.targetId}.epub")
-                            runCatching { tmp.writeBytes(bytes) }
-                            EpubNovelParser.parse(tmp)
+                try {
+                    if (path.startsWith("content://")) {
+                        // SAF/MediaStore 目录导出：经 ContentResolver 读取
+                        val bytes = context.contentResolver.openInputStream(path.toUri())
+                            ?.use { it.readBytes() } ?: return@withContext null
+                        when (ext) {
+                            "txt" -> TxtNovelParser.parse(bytes.toString(Charsets.UTF_8))
+                            "md" -> MarkdownNovelParser.parse(bytes.toString(Charsets.UTF_8))
+                            "epub" -> {
+                                // epub 解析需要 File：写入私有缓存临时文件，解析结束后立即清理。
+                                val tmp = File(context.cacheDir, "open_local_${entry.targetId}.epub")
+                                try {
+                                    tmp.writeBytes(bytes)
+                                    EpubNovelParser.parse(tmp)
+                                } finally {
+                                    tmp.delete()
+                                }
+                            }
+                            else -> null
                         }
-
-                        else -> null
+                    } else {
+                        val file = File(path)
+                        if (!file.exists()) return@withContext null
+                        when (ext) {
+                            "txt" -> TxtNovelParser.parse(file.readText(Charsets.UTF_8))
+                            "md" -> MarkdownNovelParser.parse(file.readText(Charsets.UTF_8))
+                            "epub" -> EpubNovelParser.parse(file)
+                            else -> null
+                        }
                     }
-                } else {
-                    val file = File(path)
-                    if (!file.exists()) return@withContext null
-                    when (ext) {
-                        "txt" -> TxtNovelParser.parse(file.readText(Charsets.UTF_8))
-                        "md" -> MarkdownNovelParser.parse(file.readText(Charsets.UTF_8))
-                        "epub" -> EpubNovelParser.parse(file)
-                        else -> null
-                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
                 }
             }
             if (doc != null) {
@@ -133,6 +159,8 @@ class DownloadsViewModel @Inject constructor(
                     entry.title ?: context.getString(R.string.downloads_local_novel)
                 )
                 onReady()
+            } else {
+                onFailed()
             }
         }
     }

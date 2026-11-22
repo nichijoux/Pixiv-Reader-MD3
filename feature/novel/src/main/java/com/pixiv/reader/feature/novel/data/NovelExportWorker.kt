@@ -10,6 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 import com.pixiv.reader.core.database.entity.DownloadEntryEntity
+import kotlinx.coroutines.CancellationException
 /**
  * 小说导出 worker 的依赖入口（普通 Worker + Hilt EntryPoint 手动取依赖）。
  */
@@ -47,6 +48,9 @@ class NovelExportWorker(
             // 失败状态由 exportResumable 内部写入（markFailed），这里只决定是否重试
             novelExporter.exportResumable(novelId, format, seriesId, chapterIds).getOrThrow()
             Result.success()
+        } catch (e: CancellationException) {
+            // 协程取消（用户删除任务 / Worker 被系统停止）：不能当失败重试，否则会「复活」已删除的导出条目
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "小说导出失败 novelId=$novelId seriesId=$seriesId chapterIds=$chapterIds format=$format", e)
             // 有限重试：临时网络失败自动重跑（章节缓存断点续传，只补缺失章），

@@ -3,8 +3,12 @@ package com.pixiv.reader.core.novel.parser
 import com.pixiv.reader.core.novel.model.NovelBlock
 import com.pixiv.reader.core.novel.model.blockContaining
 import com.pixiv.reader.core.novel.model.percentageAt
+import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -226,5 +230,48 @@ class NovelParserTest {
         // 进度全文按顺序拼接且不含标记
         assertTrue(doc.fullText.contains("前半部分文字"))
         assertTrue(doc.fullText.contains("后半部分文字"))
+    }
+
+    /**
+     * 验证 EpubNovelParser 能规范化相对 ../ 路径且不把 blockquote 内嵌套 p 重复拆段。
+     *
+     * @return 无返回值
+     */
+    @Test
+    fun `EpubNovelParser 解析相对路径且 blockquote 内嵌套 p 不重复成段`() {
+        val tmp = File.createTempFile("epub_parser_test_", ".epub")
+        try {
+            ZipOutputStream(tmp.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("META-INF/container.xml"))
+                zip.write(
+                    """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="EPUB/opf/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>"""
+                        .toByteArray(),
+                )
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("EPUB/opf/content.opf"))
+                zip.write(
+                    """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><manifest><item id="ch1" href="../text/chap1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="ch1"/></spine></package>"""
+                        .toByteArray(),
+                )
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("EPUB/text/chap1.xhtml"))
+                zip.write(
+                    """<html><body><blockquote><p>引用段落</p></blockquote><p>普通正文</p></body></html>"""
+                        .toByteArray(),
+                )
+                zip.closeEntry()
+            }
+
+            val doc = EpubNovelParser.parse(tmp)
+            assertNotNull(doc)
+            val blocks = doc!!.blocks
+            assertEquals(2, blocks.size)
+            assertEquals(NovelBlock.Quote("引用段落", 0, 4), blocks[0])
+            assertEquals(NovelBlock.Paragraph("普通正文", 5, 9), blocks[1])
+        } finally {
+            tmp.delete()
+        }
     }
 }

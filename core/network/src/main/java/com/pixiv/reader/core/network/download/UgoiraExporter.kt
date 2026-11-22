@@ -74,9 +74,18 @@ class UgoiraExporter @Inject constructor(
 
             // 下载阶段进度权重：ZIP 导出即最终产物（100%）；MP4 下载只占前半（50%）
             val downloadWeight = if (format == UgoiraExportFormat.ZIP) 100 else 50
-            val zipFile = progressDownloader.download(zipUrl, "ugoira_$illustId/$ZIP_NAME") { done, total ->
+            // MP4 的中间帧包必须用独立文件名：与 ZIP 交付物同名会互相覆盖，
+            // 且 MP4 完成后的清理会把用户已导出的 ZIP 一并删掉
+            val zipName = if (format == UgoiraExportFormat.ZIP) ZIP_NAME else MP4_SOURCE_ZIP_NAME
+            var lastWrittenPct = -1
+            val zipFile = progressDownloader.download(zipUrl, "ugoira_$illustId/$zipName") { done, total ->
                 val pct = if (total > 0) (done * 100 / total).toInt() else 0
-                updateProgress(illustId, format, (pct * downloadWeight / 100).coerceIn(0, downloadWeight))
+                // 节流：ProgressDownloader 每 8KB 回调一次，仅百分比变化才落库
+                // （10MB 动图原来约 1280 次 UPDATE，现在最多 100 次）
+                if (pct != lastWrittenPct) {
+                    lastWrittenPct = pct
+                    updateProgress(illustId, format, (pct * downloadWeight / 100).coerceIn(0, downloadWeight))
+                }
             }.getOrThrow()
 
             // 解压帧（已解压文件跳过，天然断点续解压；缺 entry / 损坏 zip 删除待重下）
@@ -209,7 +218,12 @@ class UgoiraExporter @Inject constructor(
 
     private companion object {
         const val TAG = "UgoiraExporter"
+
+        /** ZIP 交付物文件名（同时作为 ZIP 导出的最终产物）。 */
         const val ZIP_NAME = "ugoira.zip"
+
+        /** MP4 导出的中间帧包文件名（与 [ZIP_NAME] 分开，避免互相覆盖/误删）。 */
+        const val MP4_SOURCE_ZIP_NAME = "ugoira_mp4_source.zip"
         const val FRAMES_DIR = "frames"
         const val DELAYS_FILE = "frame_delays.json"
     }

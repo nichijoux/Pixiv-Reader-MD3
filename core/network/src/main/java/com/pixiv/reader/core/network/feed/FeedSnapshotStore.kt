@@ -6,6 +6,7 @@ import com.pixiv.reader.core.database.entity.FeedSnapshotEntity
 import java.lang.reflect.Type
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -59,11 +60,14 @@ class FeedSnapshotStore @Inject constructor(
     suspend fun <T> restore(feedKey: String, elementType: Type): Pair<List<T>, String?>? {
         val entity = feedSnapshotDao.get(feedKey) ?: return null
         return withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val items: List<T> = gson.fromJson(entity.payloadJson, elementType)
                 if (items.isNullOrEmpty()) error("empty snapshot")
                 items to entity.nextUrl
-            }.getOrElse {
+            } catch (e: CancellationException) {
+                // 协程取消不是数据损坏：绝不能借此删掉合法快照，原样透传给调用方
+                throw e
+            } catch (e: Exception) {
                 // 模型变更 / 数据损坏：删行自愈，下次刷新后重新保存
                 runCatching { feedSnapshotDao.delete(feedKey) }
                 null

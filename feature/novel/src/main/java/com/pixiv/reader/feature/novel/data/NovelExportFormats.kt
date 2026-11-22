@@ -57,8 +57,11 @@ private const val DOCX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalo
 </w:styles>"""
 
 /**
- * 从图片字节解析原始宽高（PNG/JPEG 文件头，纯 JVM 可测）；无法解析返回 null。
+ * 从图片字节解析原始宽高（PNG/JPEG/WebP 文件头，纯 JVM 可测）；无法解析返回 null。
  * 供 PDF/DOCX 内嵌图片按比例缩放用（避免依赖 Android BitmapFactory）。
+ *
+ * @param bytes 图片原始字节
+ * @return 宽高像素对（width to height），无法识别或头损坏返回 null
  */
 internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
     val isPng = bytes.size >= 24 &&
@@ -72,8 +75,65 @@ internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
     }
     val isJpeg = bytes.size >= 4 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()
     if (isJpeg) return jpegDimensions(bytes)
-    return null
+    return webpDimensions(bytes)
 }
+
+/**
+ * 解析 WebP（RIFF....WEBP）容器中的图像宽高，兼容 VP8（有损）、VP8L（无损）和 VP8X（扩展）。
+ *
+ * @param bytes 图片原始字节
+ * @return 宽高像素对（width to height），非合法 WebP 返回 null
+ */
+private fun webpDimensions(bytes: ByteArray): Pair<Int, Int>? {
+    if (bytes.size < 30) return null
+    val isRiff = bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
+        bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte()
+    val isWebp = bytes[8] == 'W'.code.toByte() && bytes[9] == 'E'.code.toByte() &&
+        bytes[10] == 'B'.code.toByte() && bytes[11] == 'P'.code.toByte()
+    if (!isRiff || !isWebp) return null
+    val chunk = String(bytes, 12, 4, Charsets.US_ASCII)
+    val dims = when (chunk) {
+        // 有损 VP8 关键帧：chunk body 偏移 20 起为 3 字节帧标签，随后 3 字节起始码 9D 01 2A，后接小端 14 位宽高。
+        "VP8 " -> {
+            if (bytes[23] != 0x9D.toByte() || bytes[24] != 0x01.toByte() || bytes[25] != 0x2A.toByte()) {
+                return null
+            }
+            val w = littleEndian2(bytes, 26) and 0x3FFF
+            val h = littleEndian2(bytes, 28) and 0x3FFF
+            w to h
+        }
+        // 无损 VP8L：偏移 20 固定标志 0x2F，偏移 21..24 小端 32 位内依次打包 14 位 (width-1) 与 (height-1)。
+        "VP8L" -> {
+            if (bytes[20] != 0x2F.toByte()) return null
+            val bits = littleEndian4(bytes, 21)
+            val w = (bits and 0x3FFF) + 1
+            val h = ((bits ushr 14) and 0x3FFF) + 1
+            w to h
+        }
+        // 扩展 VP8X：偏移 24..26 为 24 位小端 (width-1)，偏移 27..29 为 24 位小端 (height-1)。
+        "VP8X" -> {
+            val w = littleEndian3(bytes, 24) + 1
+            val h = littleEndian3(bytes, 27) + 1
+            w to h
+        }
+        else -> return null
+    }
+    return if (dims.first > 0 && dims.second > 0) dims else null
+}
+
+private fun littleEndian2(bytes: ByteArray, offset: Int): Int =
+    (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
+
+private fun littleEndian3(bytes: ByteArray, offset: Int): Int =
+    (bytes[offset].toInt() and 0xFF) or
+        ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+        ((bytes[offset + 2].toInt() and 0xFF) shl 16)
+
+private fun littleEndian4(bytes: ByteArray, offset: Int): Int =
+    (bytes[offset].toInt() and 0xFF) or
+        ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+        ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+        ((bytes[offset + 3].toInt() and 0xFF) shl 24)
 
 private fun bigEndian4(bytes: ByteArray, offset: Int): Int =
     ((bytes[offset].toInt() and 0xFF) shl 24) or
@@ -165,13 +225,13 @@ internal fun buildTxt(
 /**
  * 生成 Markdown 全文（纯函数，可测）。
  * 标题保留 `#` 层级、引用保留 `>`、分隔线用 `---`；
- * 插图以 data URI（base64）内嵌（[images] 顺序与块序一致，缺失跳过），
+ * 插图以 data URI（base64）内嵌（[images] 与全局块序一一对齐，无法下载的图用 null 占位），
  * 任何 Markdown 阅读器（Typora/Obsidian/手机 App）无需目录结构即可显示。
  */
 internal fun buildMarkdown(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
-    images: List<ExportImage> = emptyList(),
+    images: List<ExportImage?> = emptyList(),
 ): String {
     return buildString {
         val first = chapters.first().first
@@ -228,15 +288,20 @@ internal fun buildMarkdown(
  * 生成 .docx 字节（纯函数，可测）。
  * 书名用 Title 样式；系列按卷/章层级：卷 Heading1、卷下章节 Heading2、无卷归属章节 Heading1，
  * Word 导航窗格呈现 卷 ▸ 章 层级；正文内部标题保持加粗+字号（不进目录）；
- * 插图按块顺序内嵌（[images]，ref 与块顺序一一对应；缺失即跳过该图）。
+ * 插图按块顺序内嵌（[images] 与全局块序一一对齐；下载失败/无法解析的图用 null 占位，
+ * 避免后续插图错位）。
  */
 internal fun buildDocx(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
-    images: List<ExportImage> = emptyList(),
+    images: List<ExportImage?> = emptyList(),
 ): ByteArray {
-    // 图片 relId：rId2 起（文档级 rId1=styles）
-    val imageRels = images.mapIndexed { i, img -> img to "rId${2 + i}" }
+    // 图片 relId：rId2 起（文档级 rId1=styles）；null 占位不分配 relId，
+    // 保证「某张图下载失败」不会让后续插图的 relId / 位置整体错位
+    var nextRelId = 2
+    val imageRels: List<Pair<ExportImage, String>?> = images.map { img ->
+        if (img == null) null else img to "rId${nextRelId++}"
+    }
     // 块 → OOXML（插图按全局块序取 [imageRels]，文本块走 docxBlock）
     var imgIdx = 0
     fun docxBlocks(blocks: List<NovelBlock>): String = buildString {
@@ -285,14 +350,19 @@ internal fun buildDocx(
  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>$body</w:body></w:document>"""
     // 动态 content-types（图片扩展名 Default）与 rels（image relationships）
+    // 实际内嵌的图片（剔除下载失败/无法解析的 null 占位）
+    val validImages = imageRels.filterNotNull()
     val imageExtTypes =
-        images.map { it.ref.substringAfterLast('.', "") to it.mime }.distinctBy { it.first }
+        validImages.map { (img, _) -> img.ref.substringAfterLast('.', "") to img.mime }
+            .distinctBy { it.first }
             .joinToString("") { (ext, mime) -> """<Default Extension="$ext" ContentType="$mime"/>""" }
+    // 图片扩展名 Default 必须紧随其它 Default、插在 Override 之前：
+    // OOXML 要求 [Content_Types].xml 中 Default 元素集中在 Override 之前，顺序违规会导致 Word 拒开
     val contentTypes = DOCX_CONTENT_TYPES.replace(
-        "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>",
-        "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>$imageExtTypes"
+        """<Default Extension="xml" ContentType="application/xml"/>""",
+        """<Default Extension="xml" ContentType="application/xml"/>$imageExtTypes"""
     )
-    val imageRelsXml = imageRels.joinToString("") { (img, relId) ->
+    val imageRelsXml = validImages.joinToString("") { (img, relId) ->
         """<Relationship Id="$relId" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${img.ref}"/>"""
     }
     // 文档级 relationships（word/_rels/document.xml.rels）：styles + 图片
@@ -308,7 +378,7 @@ $imageRelsXml</Relationships>"""
         zip.writeEntry("word/document.xml", docXml)
         zip.writeEntry("word/_rels/document.xml.rels", docRels)
         zip.writeEntry("word/styles.xml", DOCX_STYLES)
-        images.forEach { img -> zip.writeEntry("word/media/${img.ref}", img.bytes) }
+        validImages.forEach { (img, _) -> zip.writeEntry("word/media/${img.ref}", img.bytes) }
     }
     return bytes.toByteArray()
 }
@@ -446,7 +516,7 @@ internal fun buildOpf(
             append("""<item id="Section${index + 1}.xhtml" href="Text/Section${index + 1}.xhtml" media-type="application/xhtml+xml"/>""")
         }
         images.forEach { img ->
-            val props = if (img.ref == "cover.jpg") " properties=\"cover-image\"" else ""
+            val props = if (img.ref.startsWith("cover.")) " properties=\"cover-image\"" else ""
             append("""<item id="${img.ref}" href="Images/${img.ref}" media-type="${img.mime}"$props/>""")
         }
     }
@@ -672,11 +742,12 @@ internal fun buildChapterXhtml(
                 // 样书场景分隔 = 一段破折号 <p>（非 <hr/>）
                 is NovelBlock.Separator -> append("<p>${escapeXml(block.symbol)}</p>\n")
                 is NovelBlock.Image -> {
-                    val ref = "img_${chapterIndex}_${imgIndex}.jpg"
+                    val prefix = "img_${chapterIndex}_${imgIndex}."
                     imgIndex++
-                    if (images.any { it.ref == ref }) {
+                    val matched = images.firstOrNull { it.ref.startsWith(prefix) }
+                    if (matched != null) {
                         append(
-                            """<div class="Header-image-dk"><img class="width100" src="../Images/$ref" alt="插图"/></div>"""
+                            """<div class="Header-image-dk"><img class="width100" src="../Images/${matched.ref}" alt="插图"/></div>"""
                         ).append('\n')
                         block.caption?.takeIf { it.isNotBlank() }?.let {
                             append("<p>${escapeXml(it)}</p>\n")

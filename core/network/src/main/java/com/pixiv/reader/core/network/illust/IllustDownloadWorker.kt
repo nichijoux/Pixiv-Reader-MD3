@@ -15,6 +15,7 @@ import com.pixiv.reader.core.network.model.snapshotPayload
 import com.pixiv.reader.core.network.model.toPages
 import dagger.hilt.android.EntryPointAccessors
 import java.io.File
+import kotlinx.coroutines.CancellationException
 
 /**
  * 插画下载后台任务（WorkManager）：下载整个作品（全部页）或指定单页到 `filesDir/Downloads/pixiv_{id}/`。
@@ -46,9 +47,12 @@ class IllustDownloadWorker(
             val pages = illust.toPages()
             if (pages.isEmpty()) return Result.failure()
             if (pageIndex >= 0) {
+                val targetIndex = pageIndex.toInt()
+                // 校验单页下标范围，防止入参越界导致任务直接崩溃重试。
+                if (targetIndex !in pages.indices) return Result.failure()
                 downloadPage(
-                    downloadEntryDao, pageDownloader, illust, pages[pageIndex.toInt()],
-                    pageIndex.toInt(), pages.size, single = true,
+                    downloadEntryDao, pageDownloader, illust, pages[targetIndex],
+                    targetIndex, pages.size, single = true,
                 )
             } else {
                 pages.forEachIndexed { index, page ->
@@ -64,16 +68,30 @@ class IllustDownloadWorker(
                 }
             }
             Result.success()
+        } catch (e: CancellationException) {
+            // 协程取消（用户删除任务 / Worker 被系统停止）：必须透传，不能写 failed——
+            // 否则已删除的下载条目会被复活成失败卡，WorkManager 也会把取消当失败重试
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "插画下载失败 illustId=$illustId", e)
+            // 失败态只改 status/progress，其余字段沿用现有行快照：
+            // 用空字段 REPLACE 会抹掉标题/封面/宽高/payloadJson，管理页卡片变空白且信息丢失
+            val existing = runCatching {
+                downloadEntryDao.get(TARGET_TYPE, illustId)
+            }.getOrNull()
             runCatching {
                 upsert(
                     downloadEntryDao,
                     illustId,
                     status = DownloadEntryEntity.STATUS_FAILED,
-                    progress = 0,
-                    localPath = null,
-                    pageCount = 0
+                    progress = existing?.progress ?: 0,
+                    localPath = existing?.localPath,
+                    pageCount = existing?.pageCount ?: 0,
+                    width = existing?.width ?: 0,
+                    height = existing?.height ?: 0,
+                    title = existing?.title.orEmpty(),
+                    coverUrl = existing?.coverUrl,
+                    payloadJson = existing?.payloadJson,
                 )
             }
             // 有限重试：临时网络失败自动重跑（断点续传补缺失页，成本低），
@@ -99,9 +117,10 @@ class IllustDownloadWorker(
         // 子路径下载到 Downloads/pixiv_{id}/p_{n}.jpg（共享下载器自动建目录）
         val dir =
             File(applicationContext.filesDir, "Downloads/pixiv_${illust.id}").apply { mkdirs() }
-        // 页加权进度：基值 = 已完页占比，跨度 = 当前页占比
+        // 使用累积边界差值计算单页进度跨度，避免整数整除累加在末页卡在 99%。
         val base = if (single) 0 else (index * 100) / total
-        val span = if (single) 100 else 100 / total
+        val nextBase = if (single) 100 else ((index + 1) * 100) / total
+        val span = nextBase - base
 
         upsert(
             dao,
@@ -125,7 +144,7 @@ class IllustDownloadWorker(
             val overall = (base + pagePct * span / 100).coerceIn(0, 100)
             if (overall - lastWritten >= 1) {
                 lastWritten = overall
-                dao.updateProgress("illust", illust.id, "", overall)
+                dao.updateProgress(TARGET_TYPE, illust.id, "", overall)
             }
         }).getOrThrow()
         // 解析下载文件的真实宽高（toPages() 不含宽高，避免下载管理页固定高度裁剪）
@@ -142,7 +161,7 @@ class IllustDownloadWorker(
         upsert(
             dao, illust.id,
             status = if (isLast) DownloadEntryEntity.STATUS_DONE else DownloadEntryEntity.STATUS_DOWNLOADING,
-            progress = (base + span).coerceIn(0, 100),
+            progress = if (isLast) 100 else nextBase.coerceIn(0, 100),
             localPath = dir.path,
             pageCount = total,
             width = if (page.width > 0) page.width else fileWidth,
@@ -170,7 +189,7 @@ class IllustDownloadWorker(
             dao.upsert(
                 DownloadEntryEntity(
                     targetId = id,
-                    targetType = "illust",
+                    targetType = TARGET_TYPE,
                     title = title,
                     coverUrl = coverUrl,
                     localPath = localPath,
@@ -187,6 +206,9 @@ class IllustDownloadWorker(
 
     companion object {
         private const val TAG = "IllustDownloadWorker"
+
+        /** 下载索引目标类型（与下载管理页/完成通知器的插画枚举值一致）。 */
+        const val TARGET_TYPE = "illust"
         const val KEY_ILLUST_ID = "illustId"
         const val KEY_PAGE_INDEX = "pageIndex"
 

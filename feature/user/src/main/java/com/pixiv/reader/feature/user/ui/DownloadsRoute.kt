@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Alignment
@@ -75,6 +76,9 @@ import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
 import com.pixiv.reader.core.ui.component.layout.SegmentedPager
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
+import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.NotificationType
+import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.card.IllustCard
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.google.gson.Gson
@@ -82,6 +86,7 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import java.io.File
+import kotlinx.coroutines.launch
 
 /** 下载快照反序列化共享实例（Gson 线程安全；避免每个列表项组合各建一个实例）。 */
 private val PAYLOAD_GSON = Gson()
@@ -108,10 +113,17 @@ fun DownloadsRoute(
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val notificationHostState = rememberNotificationHostState()
+    val openFailedMessage = stringResource(R.string.downloads_open_failed)
+    val showOpenFailed: () -> Unit = {
+        scope.launch { notificationHostState.show(openFailedMessage, NotificationType.Error) }
+    }
     // 待删除确认的下载条目（非 null 时弹出确认框）
     var pendingDelete by remember { mutableStateOf<DownloadEntryEntity?>(null) }
 
     Scaffold(
+        snackbarHost = { NotificationHost(notificationHostState) },
         topBar = {
             BackTopAppBar(title = stringResource(R.string.downloads_title), onBack = onBack)
         },
@@ -131,7 +143,9 @@ fun DownloadsRoute(
                                 // 插画 + 动图（ugoira MP4/ZIP 导出）共用瀑布流卡片
                                 entries = entries.filter { it.targetType == "illust" || it.targetType == "ugoira" },
                                 onOpenIllust = onOpenIllust,
-                                onOpenFile = { entry -> openWithSystemApp(context, entry) },
+                                onOpenFile = { entry ->
+                                    if (!openWithSystemApp(context, entry)) showOpenFailed()
+                                },
                                 onRetry = onRetry,
                                 onDelete = { pendingDelete = it },
                             )
@@ -142,8 +156,13 @@ fun DownloadsRoute(
                                     // 打开方式由导出格式内聚（IN_APP=App 内解析阅读，SYSTEM=系统应用）
                                     when (ExportFormat.from(entry.format)?.openMethod) {
                                         ExportOpenMethod.IN_APP ->
-                                            viewModel.openLocal(entry) { onOpenLocalReader(entry.targetId) }
-                                        ExportOpenMethod.SYSTEM -> openWithSystemApp(context, entry)
+                                            viewModel.openLocal(
+                                                entry = entry,
+                                                onReady = { onOpenLocalReader(entry.targetId) },
+                                                onFailed = showOpenFailed,
+                                            )
+                                        ExportOpenMethod.SYSTEM ->
+                                            if (!openWithSystemApp(context, entry)) showOpenFailed()
                                         else -> onOpenNovel(entry.targetId)
                                     }
                                 },
@@ -486,9 +505,15 @@ private fun formatInfo(format: String): FormatInfo? = when (ExportFormat.from(fo
     null -> null
 }
 
-/** 通过 ACTION_VIEW 交给系统应用打开 pdf/docx/MP4/ZIP（SAF/MediaStore content uri 直传 / 私有路径走 FileProvider；找不到应用时静默失败）。 */
-private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity) {
-    val path = entry.localPath ?: return
+/**
+ * 通过 ACTION_VIEW 交给系统应用打开导出文件（SAF/MediaStore content uri 直传，私有路径走 FileProvider）。
+ *
+ * @param context Android 上下文
+ * @param entry 下载索引条目
+ * @return 成功发起系统应用打开返回 true；文件缺失或无可用应用时返回 false
+ */
+private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity): Boolean {
+    val path = entry.localPath ?: return false
     // MediaStore uri（content://media/...）不含文件名，mime 用索引 format 字段推断
     val mime = ExportFormat.from(entry.format)?.mime
         ?: MimeTypeMap.getSingleton()
@@ -498,10 +523,9 @@ private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity) {
         intent.setDataAndType(Uri.parse(path), mime)
     } else {
         val file = File(path)
-        if (!file.exists()) return
+        if (!file.exists()) return false
         intent.setDataAndType(FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file), mime)
     }
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    runCatching { context.startActivity(intent) }
-        .onFailure { /* 无可用应用：静默忽略 */ }
+    return runCatching { context.startActivity(intent) }.isSuccess
 }

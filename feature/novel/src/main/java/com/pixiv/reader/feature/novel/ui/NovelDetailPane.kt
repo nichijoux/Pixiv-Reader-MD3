@@ -15,11 +15,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkManager
+import androidx.work.await
 import com.pixiv.reader.core.comment.state.CommentListViewModel
 import com.pixiv.reader.core.comment.state.CommentTarget
+import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.novel.NovelViewModel
 import com.pixiv.reader.core.comment.ui.CommentPane
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
@@ -29,6 +34,8 @@ import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
+import com.pixiv.reader.feature.novel.data.NovelExportFormat
+import com.pixiv.reader.feature.novel.data.NovelExportQueue
 
 /**
  * 小说详情 pane（Master-Detail 右栏，小说 Tab / 小说排行页共用；关注页经 app 组合根注入槽位复用）。
@@ -37,7 +44,7 @@ import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
  * 系列目录内分册点击原地替换。详情内容复用 [NovelDetailContent]
  * （`forceSingleColumn=true` 单栏，避免 pane 宽度下双栏挤压；`showBackButton=false`
  * 不显示悬浮返回按钮，关闭由返回手势 / 外层入口承担）+ [NovelActionBar] 操作行
- * + 下载格式弹窗（复用详情页 [DownloadSheet]）。
+ * + 下载格式弹窗（复用详情页 [NovelDetailDownloadSheet]），单本及整系列均交给 [NovelExportQueue]。
  *
  * pane 无外层消息收集链路，故自持消息通知宿主（[NotificationHost] + [UiMessageEffect]）：
  * 导出 / 收藏 / 追更等 VM toast 以底部居中叠层展示，详情与评论两态均可见。
@@ -108,6 +115,50 @@ fun NovelDetailPane(
     // 消息通知宿主：pane 无外层收集链路，自持宿主展示 VM 消息（导出/收藏/追更 toast）
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
+
+    // 每个 pane 自行消费格式选择产生的导出请求，复用手机详情的索引快照与 Worker 装配。
+    val context = LocalContext.current.applicationContext
+    DisposableEffect(viewModel, context) {
+        val request: suspend (Long, Long?, String) -> Unit = { novelId, seriesId, formatName ->
+            val format = runCatching { NovelExportFormat.valueOf(formatName) }
+                .getOrDefault(NovelExportFormat.TXT)
+            val detail = viewModel.novel.value
+            val entry = NovelExportQueue.pendingEntry(
+                novelId = novelId,
+                seriesId = seriesId,
+                chapterIds = emptyList(),
+                format = format,
+                title = if ((seriesId ?: 0L) > 0L) detail?.series?.title ?: detail?.title else detail?.title,
+                coverUrl = detail?.image_urls?.medium,
+                seriesTitle = detail?.series?.title,
+                authorName = detail?.user?.name,
+                authorAvatarUrl = detail?.user?.profile_image_urls?.best(),
+                wordCount = detail?.text_length ?: 0,
+                favoriteCount = detail?.total_bookmarks ?: 0,
+                publishDate = detail?.create_date,
+            )
+            // 先挂起写好 pending 索引再以唯一队列入队，确保 Worker 与状态观察时序一致。
+            viewModel.markDownloadPending(entry)
+            val workTag = DownloadQueue.workTag("novel", entry.targetId, entry.format, entry.scopeKey)
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(
+                    workTag,
+                    ExistingWorkPolicy.KEEP,
+                    NovelExportQueue.buildRequest(
+                        novelId = novelId,
+                        seriesId = seriesId,
+                        chapterIds = emptyList(),
+                        format = format,
+                    ),
+                )
+                .await()
+        }
+        viewModel.exportRequest = request
+        onDispose {
+            // 释放本 pane 的导出回调；若过渡中的新 pane 已接管，保留新回调。
+            if (viewModel.exportRequest === request) viewModel.exportRequest = null
+        }
+    }
 
     Box(
         modifier = Modifier

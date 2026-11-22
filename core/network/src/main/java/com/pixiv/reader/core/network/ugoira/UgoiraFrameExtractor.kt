@@ -33,7 +33,10 @@ internal object UgoiraFrameExtractor {
                     // 缺 entry 与损坏 zip 同等对待（抛错 → 调用方删 zip），避免静默跳过导致后续缺帧
                     val entry = zf.getEntry(entryName)
                         ?: throw IllegalStateException("missing zip entry: $entryName")
-                    zf.getInputStream(entry).use { it.copyTo(out.outputStream()) }
+                    // 每帧写完即关闭输出流，避免长动图累积文件描述符。
+                    zf.getInputStream(entry).use { input ->
+                        out.outputStream().use { output -> input.copyTo(output) }
+                    }
                 }
                 UgoiraFrame(file = out, delayMs = (frame.delay ?: 80).coerceAtLeast(10))
             }

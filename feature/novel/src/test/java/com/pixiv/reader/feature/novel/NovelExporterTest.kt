@@ -548,6 +548,77 @@ p { text-indent: 2em; }"""
     }
 
     @Test
+    fun `imageDimensions 解析 WebP VP8 VP8L VP8X 宽高`() {
+        val vp8 = ByteArray(30).apply {
+            "RIFF".toByteArray().copyInto(this, 0)
+            "WEBP".toByteArray().copyInto(this, 8)
+            "VP8 ".toByteArray().copyInto(this, 12)
+            this[23] = 0x9D.toByte(); this[24] = 0x01; this[25] = 0x2A
+            this[26] = (320 and 0xFF).toByte(); this[27] = ((320 ushr 8) and 0x3F).toByte()
+            this[28] = (240 and 0xFF).toByte(); this[29] = ((240 ushr 8) and 0x3F).toByte()
+        }
+        assertEquals(320 to 240, imageDimensions(vp8))
+
+        val bits = (640 - 1) or ((480 - 1) shl 14)
+        val vp8l = ByteArray(30).apply {
+            "RIFF".toByteArray().copyInto(this, 0)
+            "WEBP".toByteArray().copyInto(this, 8)
+            "VP8L".toByteArray().copyInto(this, 12)
+            this[20] = 0x2F
+            this[21] = (bits and 0xFF).toByte()
+            this[22] = ((bits ushr 8) and 0xFF).toByte()
+            this[23] = ((bits ushr 16) and 0xFF).toByte()
+            this[24] = ((bits ushr 24) and 0xFF).toByte()
+        }
+        assertEquals(640 to 480, imageDimensions(vp8l))
+
+        val vp8x = ByteArray(30).apply {
+            "RIFF".toByteArray().copyInto(this, 0)
+            "WEBP".toByteArray().copyInto(this, 8)
+            "VP8X".toByteArray().copyInto(this, 12)
+            val wm1 = 1024 - 1
+            val hm1 = 768 - 1
+            this[24] = (wm1 and 0xFF).toByte()
+            this[25] = ((wm1 ushr 8) and 0xFF).toByte()
+            this[26] = ((wm1 ushr 16) and 0xFF).toByte()
+            this[27] = (hm1 and 0xFF).toByte()
+            this[28] = ((hm1 ushr 8) and 0xFF).toByte()
+            this[29] = ((hm1 ushr 16) and 0xFF).toByte()
+        }
+        assertEquals(1024 to 768, imageDimensions(vp8x))
+    }
+
+    @Test
+    fun `buildEpub 支持非 JPG 封面与章节 WebP 插图匹配`() {
+        val chapters = listOf(
+            sampleNovel(1L, "第一章") to document(
+                NovelBlock.Paragraph("正文"),
+                NovelBlock.Image("https://example.com/1.webp"),
+            ),
+        )
+        val bytes = buildEpub(
+            chapters = chapters,
+            seriesTitle = null,
+            images = listOf(
+                ExportImage("cover.png", byteArrayOf(1), "image/png"),
+                ExportImage("img_0_0.webp", byteArrayOf(2), "image/webp"),
+            ),
+            css = sampleCss,
+        )
+        var opf = ""
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                val content = zip.readBytes().toString(Charsets.UTF_8)
+                if (entry.name == "OEBPS/content.opf") opf = content
+            }
+        }
+        val xhtml = readChapter(bytes, 1)
+        assertTrue(opf.contains("""href="Images/cover.png" media-type="image/png" properties="cover-image""""))
+        assertTrue(xhtml.contains("""src="../Images/img_0_0.webp""""))
+    }
+
+    @Test
     fun `imageDimensions 解析 JPEG SOF 宽高`() {
         // SOI + SOF0（length=17：高 60 宽 120，3 分量）
         val jpeg = byteArrayOf(

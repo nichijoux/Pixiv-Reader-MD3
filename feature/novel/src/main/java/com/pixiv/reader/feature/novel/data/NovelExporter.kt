@@ -37,6 +37,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -80,12 +81,21 @@ class NovelExporter @Inject constructor(
     private val exportDir: File
         get() = File(context.filesDir, "Downloads/novels").apply { mkdirs() }
 
-    /** 导出目录缓存子目录（断点重下：章节文档临时缓存，导出成功后清理）。 */
-    private fun cacheDir(novelId: Long, format: NovelExportFormat): File =
-        File(
+    /**
+     * 返回章节断点缓存子目录（按小说 ID、格式及导出作用域隔离，避免单本与系列导出互相污染）。
+     *
+     * @param novelId 起始小说 ID
+     * @param format 导出格式
+     * @param scopeKey 导出作用域（""=单本 / "series"=整系列 / "partial"=部分分册）
+     * @return 对应的临时缓存目录
+     */
+    private fun cacheDir(novelId: Long, format: NovelExportFormat, scopeKey: String): File {
+        val scopePart = scopeKey.ifEmpty { "single" }
+        return File(
             context.filesDir,
-            "Downloads/novels/.export_${novelId}_${format.name}"
+            "Downloads/novels/.export_${novelId}_${format.name}_$scopePart"
         ).apply { mkdirs() }
+    }
 
     /**
      * 断点续传导出：单本或整个系列导出为指定格式文件。
@@ -175,8 +185,11 @@ class NovelExporter @Inject constructor(
                 scopeKey,
             )
             // 导出成功清理临时缓存
-            cacheDir(novelId, format).deleteRecursively()
+            cacheDir(novelId, format, scopeKey).deleteRecursively()
         }.onFailure {
+            // 协程取消（用户删除任务 / Worker 停止）不落 failed：保留已缓存章节供下次续传，
+            // 也避免已删除的下载条目被「复活」成失败卡并触发重试
+            if (it is CancellationException) throw it
             Log.e(
                 TAG,
                 "导出失败 novelId=$novelId format=$format seriesId=$seriesId chapterIds=$chapterIds",
@@ -195,7 +208,7 @@ class NovelExporter @Inject constructor(
         chapterIds: List<Long>? = null,
         scopeKey: String = "",
     ): Pair<List<Pair<Novel, NovelDocument>>, Novel> {
-        val cache = cacheDir(novelId, format)
+        val cache = cacheDir(novelId, format, scopeKey)
         val chapters = if ((seriesId != null) && (seriesId > 0L)) {
             val novels = fetchAllSeriesChapters(pixivRepository, seriesId)
             Log.d(TAG, "系列分册获取完成 seriesId=$seriesId 总数=${novels.size}")
@@ -246,37 +259,67 @@ class NovelExporter @Inject constructor(
         return detail to loaded.second
     }
 
-    /** 章节缓存编码：Novel 元数据 + NovelDocument（org.json）。 */
+    /**
+     * 将章节元数据与正文文档编码为断点缓存 JSON。
+     *
+     * @param novel 小说详情元数据
+     * @param document 解析后的小说正文文档
+     * @return 缓存 JSON 字符串
+     */
     private fun encodeChapterCache(novel: Novel, document: NovelDocument): String {
         val obj = JSONObject()
         obj.put("id", novel.id)
         obj.put("title", novel.title.orEmpty())
         obj.put("caption", novel.caption.orEmpty())
+        novel.create_date?.let { obj.put("createDate", it) }
+        novel.text_length?.let { obj.put("textLength", it) }
+        novel.total_bookmarks?.let { obj.put("totalBookmarks", it) }
         novel.series?.let {
             obj.put("seriesId", it.id)
             obj.put("seriesTitle", it.title.orEmpty())
         }
-        novel.user?.let { obj.put("userName", it.name.orEmpty()) }
+        novel.user?.let {
+            obj.put("userName", it.name.orEmpty())
+            // 作者 ID 与头像一并缓存，断点续传后文件名模板与下载索引快照仍可取回完整作者信息。
+            obj.put("userId", it.id)
+            it.profile_image_urls?.best()?.let { avatar -> obj.put("userAvatar", avatar) }
+        }
         novel.image_urls?.medium?.let { obj.put("cover", it) }
         obj.put("document", NovelDocumentCodec.encode(document))
         return obj.toString()
     }
 
-    /** 章节缓存解码（损坏/缺失返回 null）。 */
+    /**
+     * 从断点缓存 JSON 还原章节元数据与正文文档（损坏或缺失正文返回 null）。
+     *
+     * @param json 缓存文件 JSON 文本
+     * @return 还原后的小说元数据与文档对，解析失败返回 null
+     */
     private fun decodeChapterCache(json: String): Pair<Novel, NovelDocument>? = runCatching {
         val obj = JSONObject(json)
         val id = obj.optLong("id")
         val doc = NovelDocumentCodec.decode(obj.optString("document")) ?: return@runCatching null
+        val userAvatar = obj.optString("userAvatar").ifEmpty { null }
         val novel = Novel(
             id = id,
             title = obj.optString("title"),
             caption = obj.optString("caption").ifEmpty { null },
             image_urls = ImageUrls(medium = obj.optString("cover").ifEmpty { null }),
+            create_date = obj.optString("createDate").ifEmpty { null },
+            text_length = if (obj.has("textLength")) obj.optInt("textLength") else null,
+            total_bookmarks = if (obj.has("totalBookmarks")) obj.optInt("totalBookmarks") else null,
             series = if (obj.has("seriesId")) Series(
                 obj.optLong("seriesId"),
                 obj.optString("seriesTitle")
             ) else null,
-            user = if (obj.has("userName")) User(id, obj.optString("userName")) else null,
+            user = obj.optString("userName").takeIf { it.isNotEmpty() }
+                ?.let {
+                    User(
+                        id = obj.optLong("userId", 0L),
+                        name = it,
+                        profile_image_urls = userAvatar?.let { url -> ImageUrls(medium = url) },
+                    )
+                },
         )
         novel to doc
     }.getOrNull()
@@ -457,16 +500,20 @@ class NovelExporter @Inject constructor(
         val first = chapters.first().first
         val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.epub"
         val images = mutableListOf<ExportImage>()
-        // 封面
+        // 封面：保留真实格式扩展名与 MIME，避免非 JPG 资源与容器元数据不一致。
         val coverUrl = coverNovel.image_urls?.medium ?: coverNovel.image_urls?.square_medium
         if (!coverUrl.isNullOrBlank()) {
-            downloadImage(coverUrl)?.let { images += ExportImage("cover.jpg", it) }
+            val coverMime = mimeFromUrl(coverUrl)
+            val coverExt = extForMime(coverMime)
+            downloadImage(coverUrl)?.let { images += ExportImage("cover.$coverExt", it, mime = coverMime) }
         }
-        // 正文内嵌图片（按章节/序号命名；未解析的 pixivimage 标记或失败图片直接跳过）
+        // 正文内嵌图片（按章节/序号与真实扩展名命名；未解析标记或失败图片跳过）
         chapters.forEachIndexed { ci, (_, document) ->
             document.blocks.filterIsInstance<NovelBlock.Image>().forEachIndexed { ii, img ->
                 if (img.url.startsWith("pixivimage:") || img.url.startsWith("uploadedimage:")) return@forEachIndexed
-                downloadImage(img.url)?.let { images += ExportImage("img_${ci}_${ii}.jpg", it) }
+                val imgMime = mimeFromUrl(img.url)
+                val imgExt = extForMime(imgMime)
+                downloadImage(img.url)?.let { images += ExportImage("img_${ci}_${ii}.$imgExt", it, mime = imgMime) }
             }
         }
         // 合并样式表（assets/epub/Main.css，样书 Main.css 全文；读取失败则导出无样式文件）
@@ -489,7 +536,7 @@ class NovelExporter @Inject constructor(
         val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.md"
         // 插图以 data URI 内嵌（下载失败跳过）
         val images = downloadImages(chapters)
-        Log.d(TAG, "buildMarkdownFile 开始 fileName=$fileName 内嵌图片=${images.size}")
+        Log.d(TAG, "buildMarkdownFile 开始 fileName=$fileName 内嵌图片=${images.count { it != null }}")
         return writeExportFile(
             fileName,
             mimeFor(NovelExportFormat.MARKDOWN),
@@ -508,7 +555,7 @@ class NovelExporter @Inject constructor(
         val images = downloadImages(chapters)
         Log.d(
             TAG,
-            "buildDocxFile 开始 fileName=$fileName 章节数=${chapters.size} 内嵌图片=${images.size}"
+            "buildDocxFile 开始 fileName=$fileName 章节数=${chapters.size} 内嵌图片=${images.count { it != null }}"
         )
         return writeExportFile(
             fileName,
@@ -565,18 +612,43 @@ class NovelExporter @Inject constructor(
         }
     }.getOrNull()
 
-    /** 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与失败跳过）。 */
+    /**
+     * 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与下载失败跳过）。
+     *
+     * 返回列表与「全局插图块序」严格一一对应：无法下载/无法解析的位置以 null 占位，
+     * 保证下游按块序取图时不会因某张图缺失而整体错位。
+     *
+     * @param chapters 待导出章节（元数据 + 文档模型）
+     * @return 与全局插图块序等长的图片列表（缺失位置为 null）
+     */
+    /**
+     * 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与下载失败跳过）。
+     *
+     * 返回列表与「全局插图块序」严格一一对应：无法下载/无法解析的位置以 null 占位，
+     * 保证下游按块序取图时不会因某张图缺失而整体错位。
+     *
+     * @param chapters 待导出章节（元数据 + 文档模型）
+     * @return 与全局插图块序等长的图片列表（缺失位置为 null）
+     */
     private fun downloadImages(
         chapters: List<Pair<Novel, NovelDocument>>,
-    ): List<ExportImage> {
-        val images = mutableListOf<ExportImage>()
+    ): List<ExportImage?> {
+        val images = mutableListOf<ExportImage?>()
+        // 单调递增全局序号，避免单章超过 100 张图时文件名与 docPr id 冲突。
+        var imageSeq = 0
         chapters.forEachIndexed { ci, (_, document) ->
             document.blocks.filterIsInstance<NovelBlock.Image>()
                 .forEachIndexed { ii, img ->
                     if (img.url.startsWith("pixivimage:") || img.url.startsWith("uploadedimage:")) {
+                        // 未解析标记：占位跳过，保持后续图与块序对齐
+                        images += null
                         return@forEachIndexed
                     }
-                    val bytes = downloadImage(img.url) ?: return@forEachIndexed
+                    val bytes = downloadImage(img.url)
+                    if (bytes == null) {
+                        images += null
+                        return@forEachIndexed
+                    }
                     val dims = imageDimensions(bytes)
                     val mime = mimeFromUrl(img.url)
                     if (dims == null) {
@@ -584,15 +656,12 @@ class NovelExporter @Inject constructor(
                             TAG,
                             "插图尺寸解析失败，跳过 chapter=$ci index=$ii url=${img.url.take(80)}"
                         )
+                        images += null
                         return@forEachIndexed
                     }
-                    val ext = when (mime) {
-                        "image/png" -> "png"
-                        "image/webp" -> "webp"
-                        else -> "jpg"
-                    }
+                    val ext = extForMime(mime)
                     images += ExportImage(
-                        ref = "image${ci * 100 + ii + 1}.$ext",
+                        ref = "image${++imageSeq}.$ext",
                         bytes = bytes,
                         mime = mime,
                         width = dims.first,
@@ -601,6 +670,19 @@ class NovelExporter @Inject constructor(
                 }
         }
         return images
+    }
+
+    /**
+     * 将图片 MIME 类型映射为容器内文件扩展名。
+     *
+     * @param mime 图片 MIME 类型
+     * @return 对应的小写文件扩展名（不含点号）
+     */
+    private fun extForMime(mime: String): String = when (mime) {
+        "image/png" -> "png"
+        "image/webp" -> "webp"
+        "image/gif" -> "gif"
+        else -> "jpg"
     }
 
     // ── 导出目标（默认系统 Download / 用户指定 SAF 目录） ─────────────────────

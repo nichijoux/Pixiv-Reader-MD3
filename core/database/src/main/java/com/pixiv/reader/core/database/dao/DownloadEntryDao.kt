@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 下载状态轻量投影（供只关心状态/标题的订阅方使用，避开 `payloadJson` 等大列）。
  *
- * 字段取舍：`format` 参与完成通知的去重键（同一作品多格式各算一条任务）；
+ * 字段取舍：`format`+`scopeKey` 参与完成通知的去重键（同一作品多格式 / 同作品单本与整系列各算一条任务）；
  * `title` 供完成/失败通知文案使用，避免再查一次完整实体。
  *
  * @property targetType 目标类型（illust / ugoira / novel）
@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.Flow
  * @property format 导出格式（小说为 TXT/EPUB/…，插画等为空串）
  * @property status 状态列原始值（pending / downloading / done / failed）
  * @property title 标题（通知文案；可为 null，调用方以空串兜底）
+ * @property scopeKey 下载作用域（小说 ""=单本 / "series"=整系列 / 其余=部分分册）；
+ *   属于主键列，通知去重必须包含，否则同作品单本与系列会撞键漏通知
  */
 data class DownloadStatusRow(
     val targetType: String,
@@ -26,6 +28,7 @@ data class DownloadStatusRow(
     val format: String,
     val status: String,
     val title: String?,
+    val scopeKey: String = "",
 )
 
 @Dao
@@ -36,7 +39,7 @@ interface DownloadEntryDao {
     fun observeAll(): Flow<List<DownloadEntryEntity>>
 
     /** 观察全表状态投影（无大列；全局完成通知器做状态迁移快照对比用）。 */
-    @Query("SELECT targetType, targetId, format, status, title FROM download_entry")
+    @Query("SELECT targetType, targetId, format, status, title, scopeKey FROM download_entry")
     fun observeAllStatuses(): Flow<List<DownloadStatusRow>>
 
     /**
@@ -48,6 +51,26 @@ interface DownloadEntryDao {
      */
     @Query("SELECT status FROM download_entry WHERE targetType = :targetType AND targetId = :targetId")
     fun observeStatuses(targetType: String, targetId: Long): Flow<List<String>>
+
+    /**
+     * 按完整复合主键精确观察单条下载条目的状态流，避免同目标不同格式/作用域之间互相干扰。
+     *
+     * @param targetType 目标类型（illust / ugoira / novel）
+     * @param targetId 目标 ID
+     * @param format 导出格式（小说为 TXT/EPUB/…，插画等为空串）
+     * @param scopeKey 下载作用域（""=单本 / "series"=整系列 / 其余=部分分册）
+     * @return 该条目的当前状态原始值流；记录不存在时发射 null
+     */
+    @Query(
+        "SELECT status FROM download_entry WHERE targetType = :targetType AND targetId = :targetId " +
+            "AND format = :format AND scopeKey = :scopeKey LIMIT 1",
+    )
+    fun observeStatus(
+        targetType: String,
+        targetId: Long,
+        format: String = "",
+        scopeKey: String = "",
+    ): Flow<String?>
 
     /** 查询所有已完成的下载（status='done'；主代码未用，仅测试 fake 覆写保持接口一致）。 */
     @Query("SELECT * FROM download_entry WHERE status = 'done'")
