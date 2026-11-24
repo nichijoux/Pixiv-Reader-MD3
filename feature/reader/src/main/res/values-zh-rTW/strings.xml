@@ -65,6 +65,7 @@
     <string name="reader_cd_toc">目錄</string>
     <string name="reader_cd_search">搜尋</string>
     <string name="reader_cd_settings">閱讀設定</string>
+    <string name="reader_bar_settings">設定</string>
     <string name="reader_cd_prev_chapter">上一章</string>
     <string name="reader_cd_next_chapter">下一章</string>
     <string name="reader_panel_toc">目錄</string>

@@ -10,11 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Comment
 import com.pixiv.reader.core.comment.R
 import com.pixiv.reader.core.comment.state.CommentSortOrder
+import com.pixiv.reader.core.common.config.BottomNavBarStyle
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
 import com.pixiv.reader.core.ui.R as UiR
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -111,6 +114,8 @@ fun CommentListContent(
     }
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
+    val navBarStyle = LocalBottomNavBarStyle.current
+    val inputBarPadding = if (navBarStyle == BottomNavBarStyle.FLOATING_CAPSULE) 84.dp else 76.dp
 
     Box(modifier = modifier.fillMaxSize()) {
         when (feedPhase(loading = isLoading, hasItems = comments.isNotEmpty(), hasError = error != null)) {
@@ -129,8 +134,10 @@ fun CommentListContent(
             FeedPhase.CONTENT -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                // 底部留出输入条高度（约 72dp），最后一条评论可滚到输入条上方不被遮挡
-                contentPadding = PaddingValues(bottom = 72.dp),
+                // 底部留出输入条与系统导航栏高度，最后一条评论可滚到输入条上方不被遮挡
+                contentPadding = PaddingValues(
+                    bottom = inputBarPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                ),
             ) {
                 items(comments, key = { it.id }) { comment ->
                     Box(
@@ -173,29 +180,17 @@ fun CommentListContent(
                 item { Spacer(Modifier.height(12.dp)) }
             }
         }
-        // 底部 overlay：输入条浮在列表上
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                // 键盘弹出时随 ime insets 抬起（edge-to-edge 下 adjustResize 不再压缩窗口）；
-                // 顺序：先导航栏后键盘，IME 打开时导航栏 inset 被消费，不会双重垫高
-                .navigationBarsPadding()
-                .imePadding(),
-        ) {
-            CommentInput(
-                draft = draft,
-                onDraftChange = onDraftChange,
-                onPost = onPost,
-                stamps = stamps,
-                onStampPick = { stamp -> onStampPick(stamp.stamp_id) },
-                mentionName = replyTarget?.user?.name,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.lg, vertical = Spacing.smPlus),
-            )
-        }
+        // 底部 overlay：按 LocalBottomNavBarStyle 切换贴边停靠或悬浮胶囊
+        CommentInput(
+            draft = draft,
+            onDraftChange = onDraftChange,
+            onPost = onPost,
+            stamps = stamps,
+            onStampPick = { stamp -> onStampPick(stamp.stamp_id) },
+            mentionName = replyTarget?.user?.name,
+            style = navBarStyle,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 

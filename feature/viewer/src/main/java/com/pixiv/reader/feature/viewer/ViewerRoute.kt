@@ -2,11 +2,15 @@ package com.pixiv.reader.feature.viewer
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -73,6 +78,8 @@ import com.pixiv.reader.core.network.model.IllustPageInfo
 import com.pixiv.reader.core.network.ugoira.UgoiraState
 import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.image.UgoiraPlayer
 import com.pixiv.reader.core.ui.component.image.ZoomableImage
@@ -343,6 +350,7 @@ fun ViewerRoute(
         ) {
             ViewerActionBar(
                 modifier = Modifier,
+                illustId = illust?.id ?: 0L,
                 isBookmarked = isBookmarked,
                 isGif = isGif,
                 isOriginal = isOriginal,
@@ -498,6 +506,7 @@ private fun SeamlessViewer(
 @Composable
 private fun ViewerActionBar(
     modifier: Modifier = Modifier,
+    illustId: Long,
     isBookmarked: Boolean,
     isGif: Boolean,
     isOriginal: Boolean,
@@ -506,12 +515,30 @@ private fun ViewerActionBar(
     onWallpaper: () -> Unit,
     onOriginal: () -> Unit,
 ) {
+    val favoriteBounce = remember { Animatable(1f) }
+    var wasBookmarked by remember(illustId) { mutableStateOf(isBookmarked) }
+    val haptic = rememberHapticCue()
+    LaunchedEffect(isBookmarked) {
+        val becameBookmarked = isBookmarked && !wasBookmarked
+        wasBookmarked = isBookmarked
+        if (becameBookmarked) {
+            haptic(PixivHaptics.HapticCue.SUCCESS)
+            favoriteBounce.snapTo(0.6f)
+            favoriteBounce.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            )
+        }
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)),
                 ),
             )
             .navigationBarsPadding()
@@ -520,6 +547,8 @@ private fun ViewerActionBar(
     ) {
         HorizontalFloatingToolbar(
             expanded = true,
+            // 纯黑背景图上给悬浮胶囊补极淡白描边，避免边界融进背景
+            modifier = Modifier.border(0.5.dp, Color.White.copy(alpha = 0.14f), AppShapes.pill),
             colors = FloatingToolbarDefaults.standardFloatingToolbarColors().copy(
                 // 黑底浏览场景：统一 ImageScrim（70% 黑）+ 白色/遮罩红内容
                 toolbarContainerColor = ImageScrim,
@@ -531,6 +560,10 @@ private fun ViewerActionBar(
                     imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     contentDescription = stringResource(if (isBookmarked) R.string.viewer_cd_unbookmark else R.string.viewer_cd_bookmark),
                     tint = if (isBookmarked) MaterialTheme.extendedColors.favoriteOnScrim else Color.White,
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = favoriteBounce.value
+                        scaleY = favoriteBounce.value
+                    },
                 )
             }
             IconButton(onClick = onDownload) {

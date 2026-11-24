@@ -1,20 +1,30 @@
 package com.pixiv.reader.feature.reader.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,12 +60,19 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.common.config.BottomNavBarStyle
+import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -200,12 +218,23 @@ internal fun ReaderBottomToolBar(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    val navBarStyle = LocalBottomNavBarStyle.current
+    val floating = navBarStyle == BottomNavBarStyle.FLOATING_CAPSULE
+    val hairlineColor = themeColors.text.copy(alpha = 0.12f)
+    val progressShape = if (floating) AppShapes.pill else MaterialTheme.shapes.large
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = Spacing.md)
+                .padding(horizontal = Spacing.lg)
+                .widthIn(max = if (floating) 420.dp else MAX_CONTENT_WIDTH_DP.dp)
                 .fillMaxWidth()
-                .background(themeColors.topBar, MaterialTheme.shapes.large)
+                .clip(progressShape)
+                .background(themeColors.topBar)
+                .border(0.5.dp, hairlineColor, progressShape)
                 .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -231,19 +260,70 @@ internal fun ReaderBottomToolBar(
                 onClick = onNextChapter,
             )
         }
-        Spacer(Modifier.height(Spacing.xs))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(themeColors.topBar),
-        ) {
-            Column(modifier = Modifier.navigationBarsPadding()) {
-                ReaderToolBar(
-                    themeColors = themeColors,
-                    onToc = onToc,
-                    onSearch = onSearch,
-                    onSettings = onSettings,
-                )
+        Spacer(Modifier.height(Spacing.sm))
+        if (floating) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = Spacing.lg)
+                    .padding(bottom = Spacing.md),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .widthIn(max = 420.dp)
+                        .fillMaxWidth()
+                        .height(READER_BAR_HEIGHT),
+                    shape = AppShapes.pill,
+                    color = themeColors.topBar,
+                    shadowElevation = 6.dp,
+                    border = BorderStroke(0.5.dp, hairlineColor),
+                ) {
+                    ReaderToolBar(
+                        themeColors = themeColors,
+                        onToc = onToc,
+                        onSearch = onSearch,
+                        onSettings = onSettings,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = Spacing.xs),
+                    )
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = themeColors.topBar,
+                shadowElevation = 3.dp,
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(hairlineColor)
+                            .align(Alignment.TopCenter),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ReaderToolBar(
+                            themeColors = themeColors,
+                            onToc = onToc,
+                            onSearch = onSearch,
+                            onSettings = onSettings,
+                            modifier = Modifier
+                                .widthIn(max = MAX_CONTENT_WIDTH_DP.dp)
+                                .fillMaxWidth()
+                                .height(READER_BAR_HEIGHT)
+                                .padding(horizontal = Spacing.sm),
+                        )
+                    }
+                }
             }
         }
     }
@@ -355,35 +435,83 @@ private fun ReaderToolBar(
     onToc: () -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(themeColors.topBar)
-            .padding(horizontal = Spacing.sm, vertical = 2.dp),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        IconButton(onClick = onToc, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.AutoMirrored.Filled.List,
-                contentDescription = stringResource(R.string.reader_cd_toc),
-                tint = themeColors.text
-            )
-        }
-        IconButton(onClick = onSearch, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.Filled.Search,
-                contentDescription = stringResource(R.string.reader_cd_search),
-                tint = themeColors.text
-            )
-        }
-        IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.Filled.Settings,
-                contentDescription = stringResource(R.string.reader_cd_settings),
-                tint = themeColors.text
-            )
-        }
+        ReaderToolBarAction(
+            icon = Icons.AutoMirrored.Filled.List,
+            label = stringResource(R.string.reader_cd_toc),
+            contentColor = themeColors.text,
+            onClick = onToc,
+            modifier = Modifier.weight(1f),
+        )
+        ReaderToolBarAction(
+            icon = Icons.Filled.Search,
+            label = stringResource(R.string.reader_cd_search),
+            contentColor = themeColors.text,
+            onClick = onSearch,
+            modifier = Modifier.weight(1f),
+        )
+        ReaderToolBarAction(
+            icon = Icons.Filled.Settings,
+            label = stringResource(R.string.reader_bar_settings),
+            contentColor = themeColors.text,
+            onClick = onSettings,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
+
+@Composable
+private fun ReaderToolBarAction(
+    icon: ImageVector,
+    label: String,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.93f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "readerToolActionScale",
+    )
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(AppShapes.pill)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(21.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+            color = contentColor.copy(alpha = 0.85f),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = Spacing.xxs),
+        )
+    }
+}
+
+private val READER_BAR_HEIGHT = 60.dp

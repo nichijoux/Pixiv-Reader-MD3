@@ -7,6 +7,7 @@
     <string name="comment_placeholder">Say something…</string>
     <string name="comment_send">Send</string>
     <string name="comment_emoji_panel">Emoji</string>
+    <string name="comment_keyboard">Keyboard</string>
     <string name="comment_emoji_title">Text emoji</string>
     <string name="comment_stamp_title">Stamps</string>
     <string name="comment_stamp_cd">Stamp</string>
