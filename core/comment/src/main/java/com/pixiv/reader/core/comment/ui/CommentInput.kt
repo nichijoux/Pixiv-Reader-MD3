@@ -138,10 +138,11 @@ fun CommentInput(
     BackHandler(enabled = panelExpanded) { closePanel(showKeyboard = false) }
 
     // 悬浮胶囊模式在表情面板展开时平滑过渡为贴边停靠承载面板，同一组合树不重建输入框。
+    // 圆角与边距目标含 0.dp，必须用无过冲的 effects 规格并下限钳制，否则弹簧回弹到负值会触发 RoundedCornerShape/padding 崩溃。
     val isFloatingPill = style == BottomNavBarStyle.FLOATING_CAPSULE && !panelExpanded
     val outerHorizontalPadding by animateDpAsState(
         targetValue = if (isFloatingPill) Spacing.lg else 0.dp,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
         label = "commentBarHPadding",
     )
     val outerBottomPadding by animateDpAsState(
@@ -150,12 +151,12 @@ fun CommentInput(
         } else {
             0.dp
         },
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
         label = "commentBarBPadding",
     )
     val cornerRadius by animateDpAsState(
         targetValue = if (isFloatingPill) 28.dp else 0.dp,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
         label = "commentBarCorner",
     )
     val containerColor by animateColorAsState(
@@ -167,7 +168,7 @@ fun CommentInput(
         animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
         label = "commentBarColor",
     )
-    val surfaceShape = RoundedCornerShape(cornerRadius)
+    val surfaceShape = RoundedCornerShape(cornerRadius.coerceAtLeast(0.dp))
 
     Box(
         modifier = modifier
@@ -178,12 +179,12 @@ fun CommentInput(
                     Modifier
                         .navigationBarsPadding()
                         .imePadding()
-                        .padding(horizontal = outerHorizontalPadding)
-                        .padding(bottom = outerBottomPadding)
                 } else {
                     Modifier
                 },
-            ),
+            )
+            .padding(horizontal = outerHorizontalPadding.coerceAtLeast(0.dp))
+            .padding(bottom = outerBottomPadding.coerceAtLeast(0.dp)),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
