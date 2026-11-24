@@ -17,6 +17,7 @@ android {
 dependencies {
     api(project(":core:common"))
     api(libs.androidx.datastore.preferences)
+    implementation(libs.mmkv)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)

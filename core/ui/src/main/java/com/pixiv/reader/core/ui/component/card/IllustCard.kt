@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,10 +62,8 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
 import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteState
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
@@ -97,16 +96,11 @@ fun IllustCard(
     ugoiraLoader: UgoiraLoader? = null,
     download: DownloadBadge = DownloadBadge.None,
 ) {
-    // 按 ID 去重订阅全局收藏覆盖态，避免其他作品变动引发全页重组并同步失败回滚
+    // 基于根宿主单次采集快照按 ID 精准派生，零协程订阅且仅命中卡片重组
+    val favoriteState = LocalFavoriteState.current
     val favoriteActions = LocalFavoriteActions.current
-    val favoriteOverride by if (favoriteActions != null) {
-        remember(favoriteActions, illust.id) {
-            favoriteActions.illustBookmarks
-                .map { it[illust.id] }
-                .distinctUntilChanged()
-        }.collectAsStateWithLifecycle(initialValue = favoriteActions.illustBookmarks.value[illust.id])
-    } else {
-        remember { mutableStateOf<Boolean?>(null) }
+    val favoriteOverride by remember(favoriteState, illust.id) {
+        derivedStateOf { favoriteState?.illustBookmarks?.value?.get(illust.id) }
     }
     var localFavorite by remember(illust.id, illust.is_bookmarked) {
         mutableStateOf(illust.is_bookmarked == true)
@@ -158,16 +152,14 @@ fun IllustCard(
         Column(
             modifier = Modifier.then(if (block.state.isMasked) Modifier.blur(16.dp) else Modifier),
         ) {
-        // 共享边界挂在封面容器且须显式补顶部圆角：sharedBounds 在 overlay 中渲染会绕过父级裁剪
-        BoxWithConstraints(
+        // 共享边界挂在封面容器且须显式补顶部圆角：sharedBounds 在 overlay 中渲染会绕过父级裁剪。
+        // 静态插画直接用普通 Box 避开 BoxWithConstraints（SubcomposeLayout）开销，仅动图才按需测量解码上限。
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .heroBoundsModifier(illustCoverKey(illust.id))
                 .clip(AppShapes.cardLargeTop),
         ) {
-            // 以封面实宽作动图解码上限，避免按 zip 原图尺寸解码浪费内存
-            val coverWidth = maxWidth
-            val coverMaxSize = with(LocalDensity.current) { coverWidth.roundToPx() }
             val ratio = if (illust.width > 0 && illust.height > 0) {
                 illust.width.toFloat() / illust.height.toFloat()
             } else {
@@ -185,12 +177,16 @@ fun IllustCard(
                 contentScale = ContentScale.Crop,
             )
             if (ugoiraLoader != null && illust.isGif()) {
-                UgoiraCardPlayer(
-                    loader = ugoiraLoader,
-                    illustId = illust.id,
-                    maxDecodeSize = coverMaxSize,
-                    modifier = Modifier.matchParentSize(),
-                )
+                BoxWithConstraints(modifier = Modifier.matchParentSize()) {
+                    // 以封面实宽作动图解码上限，避免按 zip 原图尺寸解码浪费内存
+                    val coverMaxSize = with(LocalDensity.current) { maxWidth.roundToPx() }
+                    UgoiraCardPlayer(
+                        loader = ugoiraLoader,
+                        illustId = illust.id,
+                        maxDecodeSize = coverMaxSize,
+                        modifier = Modifier.matchParentSize(),
+                    )
+                }
             }
             Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
@@ -255,7 +251,7 @@ fun IllustCard(
                             interactionSource = favoriteInteraction,
                             indication = null,
                         ) { next ->
-                            if (favoriteActions == null) {
+                            if (favoriteState == null && favoriteActions == null) {
                                 localFavorite = next
                             }
                             onToggleFavorite(next)

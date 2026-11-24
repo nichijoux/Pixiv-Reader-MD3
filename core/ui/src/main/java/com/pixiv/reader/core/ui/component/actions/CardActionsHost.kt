@@ -20,6 +20,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +42,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /** payloadJson 是完整卡片快照，加入稍后再看时落库，用于离线还原卡片。 */
 data class CardActionTarget(
@@ -65,8 +69,11 @@ interface CardActions {
 }
 
 /** [CardActionsHost] 经 CompositionLocal 下发，卡片侧唯一入口；showNotice 默认空操作，预览/测试环境安全。 */
+@Stable
 class CardActionsController internal constructor(
     private val impl: CardActions,
+    internal val blockedIdsState: State<Set<String>>,
+    internal val mutedTagsState: State<Set<String>>,
     private val openMenu: (CardActionTarget) -> Unit,
     private val showNotice: (String) -> Unit = {},
 ) {
@@ -87,11 +94,25 @@ class CardActionsController internal constructor(
     fun keyOf(type: String, id: Long): String = "$type:$id"
 }
 
+/**
+ * 根宿主单次采集后的收藏/关注快照容器；卡片通过 `derivedStateOf` 按 ID 精准读取，
+ * 避免每张卡片独立创建协程流收集器与 Lifecycle 观察者。
+ */
+@Stable
+class FavoriteStateHolder internal constructor(
+    val illustBookmarks: State<Map<Long, Boolean>>,
+    val novelBookmarks: State<Map<Long, Boolean>>,
+    val followedUsers: State<Map<Long, Boolean>>,
+)
+
 /** app 根 [CardActionsHost] 提供；无宿主环境为 null，卡片长按静默。 */
 val LocalCardActionsHost = staticCompositionLocalOf<CardActionsController?> { null }
 
 /** 供卡片按 ID 实时订阅最新收藏与关注覆盖状态。 */
 val LocalFavoriteActions = staticCompositionLocalOf<FavoriteActions?> { null }
+
+/** 根宿主单次采集后的收藏/关注快照，供列表卡片零协程按 ID 读取。 */
+val LocalFavoriteState = staticCompositionLocalOf<FavoriteStateHolder?> { null }
 
 /**
  * app 根部包一层（`CardActionsHost(actions) { NavHost() }`），所有列表卡片自动获得长按能力，无需逐页透传回调。
@@ -102,16 +123,45 @@ val LocalFavoriteActions = staticCompositionLocalOf<FavoriteActions?> { null }
 fun CardActionsHost(
     actions: CardActions?,
     modifier: Modifier = Modifier,
+    favoriteActions: FavoriteActions? = null,
     content: @Composable () -> Unit,
 ) {
     // 全局唯一：长按另一卡片时顶替前序菜单
     var menuTarget by remember { mutableStateOf<CardActionTarget?>(null) }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
+
+    // 根部单次采集到 MutableState 且不在本组合体读 .value，状态变动零触发宿主重组，仅精准唤醒命中卡片
+    val blockedIdsState = remember(actions) { mutableStateOf(actions?.blockedIds?.value.orEmpty()) }
+    val mutedTagsState = remember(actions) { mutableStateOf(actions?.mutedTags?.value.orEmpty()) }
+    LaunchedEffect(actions) {
+        if (actions == null) return@LaunchedEffect
+        launch { actions.blockedIds.collect { blockedIdsState.value = it } }
+        launch { actions.mutedTags.collect { mutedTagsState.value = it } }
+    }
+
+    val illustBookmarksState = remember(favoriteActions) {
+        mutableStateOf(favoriteActions?.illustBookmarks?.value.orEmpty())
+    }
+    val novelBookmarksState = remember(favoriteActions) {
+        mutableStateOf(favoriteActions?.novelBookmarks?.value.orEmpty())
+    }
+    val followedUsersState = remember(favoriteActions) {
+        mutableStateOf(favoriteActions?.followedUsers?.value.orEmpty())
+    }
+    LaunchedEffect(favoriteActions) {
+        if (favoriteActions == null) return@LaunchedEffect
+        launch { favoriteActions.illustBookmarks.collect { illustBookmarksState.value = it } }
+        launch { favoriteActions.novelBookmarks.collect { novelBookmarksState.value = it } }
+        launch { favoriteActions.followedUsers.collect { followedUsersState.value = it } }
+    }
+
     val controller = remember(actions) {
         actions?.let {
             CardActionsController(
                 impl = it,
+                blockedIdsState = blockedIdsState,
+                mutedTagsState = mutedTagsState,
                 openMenu = { menuTarget = it },
                 showNotice = { text ->
                     notificationHostState.show(text, type = NotificationType.Info)
@@ -119,8 +169,20 @@ fun CardActionsHost(
             )
         }
     }
+    val favoriteStateHolder = remember(favoriteActions) {
+        favoriteActions?.let {
+            FavoriteStateHolder(
+                illustBookmarks = illustBookmarksState,
+                novelBookmarks = novelBookmarksState,
+                followedUsers = followedUsersState,
+            )
+        }
+    }
 
-    CompositionLocalProvider(LocalCardActionsHost provides controller) {
+    CompositionLocalProvider(
+        LocalCardActionsHost provides controller,
+        LocalFavoriteState provides favoriteStateHolder,
+    ) {
         Box(modifier = modifier) {
             content()
             val target = menuTarget

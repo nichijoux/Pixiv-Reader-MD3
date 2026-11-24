@@ -23,17 +23,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import coil.imageLoader
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.theme.Spacing
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** 仅在作品缺少宽高数据时作为瀑布流封面回退高度。 */
 private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
+
+private const val PREFETCH_AHEAD_COUNT = 8
 
 /**
  * 自适应列数插画瀑布流（[illusts] 需含 width/height 否则封面按回退高度裁切）；
@@ -63,6 +71,7 @@ fun IllustWaterfallGrid(
     scrollToTopKey: Int = 0,
 ) {
     val gridState: LazyStaggeredGridState = rememberLazyStaggeredGridState()
+    val context = LocalContext.current
     // 组合期捕获动效方案：items lambda 非组合上下文
     val motionScheme = MaterialTheme.motionScheme
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
@@ -71,6 +80,35 @@ fun IllustWaterfallGrid(
             lastScrollKey = scrollToTopKey
             gridState.animateScrollToItem(0)
         }
+    }
+    // 仅预热磁盘缓存（关闭内存缓存避免按错误尺寸重复解码占 RAM），消除滑入视口时的网络等待
+    val prefetchedUrls = remember(illusts.firstOrNull()?.id) { HashSet<String>() }
+    val hasHeader = header != null
+    LaunchedEffect(gridState, illusts, hasHeader) {
+        if (illusts.isEmpty()) return@LaunchedEffect
+        val imageLoader = context.imageLoader
+        val headerOffset = if (hasHeader) 1 else 0
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged()
+            .collect { lastVisible ->
+                if (lastVisible < 0) return@collect
+                val startIndex = (lastVisible - headerOffset + 1).coerceAtLeast(0)
+                val endExclusive = (startIndex + PREFETCH_AHEAD_COUNT).coerceAtMost(illusts.size)
+                for (i in startIndex until endExclusive) {
+                    val url = illusts[i].image_urls?.medium
+                        ?: illusts[i].image_urls?.square_medium
+                        ?: continue
+                    if (prefetchedUrls.add(url)) {
+                        imageLoader.enqueue(
+                            ImageRequest.Builder(context)
+                                .data(url)
+                                .memoryCachePolicy(CachePolicy.DISABLED)
+                                .diskCachePolicy(CachePolicy.ENABLED)
+                                .build(),
+                        )
+                    }
+                }
+            }
     }
     LazyVerticalStaggeredGrid(
         state = gridState,
@@ -81,13 +119,14 @@ fun IllustWaterfallGrid(
         verticalItemSpacing = Spacing.sm,
     ) {
         if (header != null) {
-            item(span = StaggeredGridItemSpan.FullLine, key = "grid_header") {
+            item(span = StaggeredGridItemSpan.FullLine, key = "grid_header", contentType = "header") {
                 header()
             }
         }
         items(
             items = illusts,
             key = { it.id },
+            contentType = { if (it.isGif()) "ugoira" else "illust" },
         ) { illust ->
             // 用 mod 避免负 ID 取余产生负数索引越界
             val coverHeight: Dp = CoverHeights[illust.id.mod(CoverHeights.size)]

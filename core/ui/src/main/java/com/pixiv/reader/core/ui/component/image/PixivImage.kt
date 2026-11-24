@@ -14,6 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,11 +46,14 @@ fun PixivImage(
         Box(modifier = modifier.background(placeholder))
         return
     }
+    val context = LocalContext.current
     // INEXACT 允许用内存缓存中更大的位图满足较小目标尺寸，避免容器宽度动画时逐帧重启解码导致闪烁
-    val model = ImageRequest.Builder(LocalContext.current)
-        .data(url)
-        .precision(Precision.INEXACT)
-        .build()
+    val model = remember(context, url) {
+        ImageRequest.Builder(context)
+            .data(url)
+            .precision(Precision.INEXACT)
+            .build()
+    }
     if (showProgress) {
         SubcomposeAsyncImage(
             model = model,
@@ -69,13 +73,14 @@ fun PixivImage(
             }
         }
     } else {
+        val placeholderPainter = remember(placeholder) { ColorPainter(placeholder) }
         AsyncImage(
             model = model,
             contentDescription = contentDescription,
             modifier = modifier,
             contentScale = contentScale,
-            placeholder = ColorPainter(placeholder),
-            error = ColorPainter(placeholder),
+            placeholder = placeholderPainter,
+            error = placeholderPainter,
             onError = { state ->
                 Log.w(LOG_TAG, "error: ${url.take(150)} — ${state.result.throwable}")
             },

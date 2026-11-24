@@ -14,7 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,9 +30,6 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 
 /**
  * 屏蔽遮罩三态，互斥（勿拆成双 Boolean）；MASKED = 模糊 + 全遮罩，REVEALED = 内容可见 + 已屏蔽角标。
@@ -68,37 +65,28 @@ internal fun rememberCardBlockGesture(
 ): CardBlockGesture {
     val controller = LocalCardActionsHost.current
     val context = LocalContext.current
-    // 仅订阅本卡片键的命中结果，避免任意卡片屏蔽变动引发全页重组（标签同）。
-    val isBlockedTarget by if (controller != null) {
-        val targetKey = controller.keyOf(targetType, targetId)
-        remember(controller, targetKey) {
-            controller.blockedIds
-                .map { targetKey in it }
-                .distinctUntilChanged()
-        }.collectAsStateWithLifecycle(initialValue = targetKey in controller.blockedIds.value)
-    } else {
-        remember { mutableStateOf(false) }
+    val targetKey = remember(controller, targetType, targetId) {
+        controller?.keyOf(targetType, targetId)
     }
-    // 若存在本地屏蔽标签，仅订阅本卡片标签命中结果（忽略大小写与首尾空白）。
-    val hasMutedTag by if (controller != null && tags.isNotEmpty()) {
-        remember(controller, tags) {
-            controller.mutedTags
-                .map { muted -> tags.any { it.trim().lowercase() in muted } }
-                .distinctUntilChanged()
-        }.collectAsStateWithLifecycle(
-            initialValue = controller.mutedTags.value.let { muted ->
-                tags.any { it.trim().lowercase() in muted }
-            },
-        )
-    } else {
-        remember { mutableStateOf(false) }
+    // 基于根宿主单次采集的 Snapshot State 做 O(1) derivedStateOf，零协程且仅命中卡片重组
+    val isBlockedTarget by remember(controller, targetKey) {
+        derivedStateOf {
+            controller != null && targetKey != null && targetKey in controller.blockedIdsState.value
+        }
     }
-    var revealed by remember(targetType, targetId) { mutableStateOf(false) }
+    val hasMutedTag by remember(controller, tags) {
+        derivedStateOf {
+            if (controller == null || tags.isEmpty()) {
+                false
+            } else {
+                val muted = controller.mutedTagsState.value
+                muted.isNotEmpty() && tags.any { it.trim().lowercase() in muted }
+            }
+        }
+    }
     val rawBlocked = serverMuted || isBlockedTarget || hasMutedTag
-    // 重新屏蔽必须重置临时显示标记，否则上一次点开留下的 revealed=true 会让遮罩永不恢复（史 bug）。
-    LaunchedEffect(rawBlocked) {
-        if (rawBlocked) revealed = false
-    }
+    // 屏蔽态变化时自然重置临时显示标记，避免重新屏蔽后沿用上次 revealed=true（且无需起协程）
+    var revealed by remember(targetType, targetId, rawBlocked) { mutableStateOf(false) }
     val state = when {
         !rawBlocked -> CardMaskState.NONE
         revealed -> CardMaskState.REVEALED

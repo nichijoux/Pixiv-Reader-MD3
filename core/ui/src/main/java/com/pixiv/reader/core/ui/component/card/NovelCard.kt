@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +31,7 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,10 +56,8 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.BlockedOverlay
 import com.pixiv.reader.core.ui.component.actions.BlockedRevealBadge
 import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteState
 import com.pixiv.reader.core.ui.component.actions.rememberCardBlockGesture
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
 import com.pixiv.reader.core.ui.component.detail.heroBoundsModifier
@@ -90,16 +87,11 @@ fun NovelCard(
     coverWidth: Dp = 104.dp,
     modifier: Modifier = Modifier,
 ) {
-    // 按 ID 去重订阅全局收藏覆盖态，避免其他作品变动引发全页重组并同步失败回滚
+    // 基于根宿主单次采集快照按 ID 精准派生，零协程订阅且仅命中卡片重组
+    val favoriteState = LocalFavoriteState.current
     val favoriteActions = LocalFavoriteActions.current
-    val favoriteOverride by if (favoriteActions != null) {
-        remember(favoriteActions, novel.id) {
-            favoriteActions.novelBookmarks
-                .map { it[novel.id] }
-                .distinctUntilChanged()
-        }.collectAsStateWithLifecycle(initialValue = favoriteActions.novelBookmarks.value[novel.id])
-    } else {
-        remember { mutableStateOf<Boolean?>(null) }
+    val favoriteOverride by remember(favoriteState, novel.id) {
+        derivedStateOf { favoriteState?.novelBookmarks?.value?.get(novel.id) }
     }
     var localFavorite by remember(novel.id, novel.isFavorite) { mutableStateOf(novel.isFavorite) }
     val favorite = favoriteOverride ?: localFavorite
@@ -150,12 +142,13 @@ fun NovelCard(
                     .padding(Spacing.mdPlus)
                     .then(if (block.state.isMasked) Modifier.blur(12.dp) else Modifier),
             ) {
-            // IntrinsicSize.Min 让 Row 取封面固有高度，右侧 fillMaxHeight 才有确定高度使作者行抵底
-            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // 封面宽固定且比例恒为 3:4，直接给确定行高替代 IntrinsicSize.Min 避免双遍固有测量
+            val coverHeight = coverWidth * 4f / 3f
+            Row(modifier = Modifier.fillMaxWidth().height(coverHeight)) {
                 Box(
                     modifier = Modifier
                         .width(coverWidth)
-                        .aspectRatio(3f / 4f)
+                        .fillMaxHeight()
                         .heroBoundsModifier(novelCoverKey(novel.id))
                         .clip(AppShapes.card)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -259,7 +252,7 @@ fun NovelCard(
                         IconToggleButton(
                             checked = favorite,
                             onCheckedChange = { next ->
-                                if (favoriteActions == null) {
+                                if (favoriteState == null && favoriteActions == null) {
                                     localFavorite = next
                                 }
                                 onToggleFavorite(next)

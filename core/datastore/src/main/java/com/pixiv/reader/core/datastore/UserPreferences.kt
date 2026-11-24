@@ -23,6 +23,7 @@ import com.pixiv.reader.core.common.config.ReaderThemeMode
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
 import com.pixiv.reader.core.common.config.ViewerOrientation
+import com.tencent.mmkv.MMKV
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -39,14 +40,101 @@ internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
 
 internal val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
 internal val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
+private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+private val KEY_COLOR_STYLE = booleanPreferencesKey("color_style_enabled")
+private val KEY_BOTTOM_NAV_BAR_STYLE = intPreferencesKey("bottom_nav_bar_style")
+private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
+private val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")
 
-/** 供 MainActivity.attachBaseContext 在 Hilt 装配前调用；偏好文件极小，冷启动仅同步读一次。 */
-fun readAppLanguageSync(context: Context): String =
-    runBlocking { context.dataStore.data.first()[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
+/** 冷启动首帧同步偏好快照：避免首帧先渲染默认主题/底栏再异步闪切。 */
+data class StartupPrefs(
+    val appLanguage: String = AppLanguage.SYSTEM,
+    val onboardingComplete: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
+    val dynamicColor: Boolean = true,
+    val colorStyleEnabled: Boolean = false,
+    val bottomNavBarStyle: BottomNavBarStyle = BottomNavBarStyle.DOCKED,
+    val appFontScale: Float = 1f,
+)
 
-/** 供 MainActivity 冷启动决定导航起点，同 [readAppLanguageSync] 一次性同步读。 */
+private const val STARTUP_MMKV_ID = "pixiv_startup_prefs"
+private const val MK_MIGRATED = "startup_migrated_v1"
+private const val MK_APP_LANGUAGE = "app_language"
+private const val MK_ONBOARDING_COMPLETE = "onboarding_complete"
+private const val MK_THEME_MODE = "theme_mode"
+private const val MK_DYNAMIC_COLOR = "dynamic_color"
+private const val MK_COLOR_STYLE = "color_style_enabled"
+private const val MK_BOTTOM_NAV_BAR_STYLE = "bottom_nav_bar_style"
+private const val MK_APP_FONT_SCALE = "app_font_scale"
+
+/**
+ * 冷启动镜像缓存（MMKV mmap 微秒级同步读）：仅在未迁移时回退一次 DataStore 同步读并落盘镜像，
+ * 后续冷启动主线程零 runBlocking 阻塞；无原生库环境（JVM 单测）自动安全降级。
+ */
+private fun openStartupMmkv(context: Context): MMKV? = runCatching {
+    if (MMKV.getRootDir().isNullOrEmpty()) {
+        MMKV.initialize(context.applicationContext ?: context)
+    }
+    MMKV.mmkvWithID(STARTUP_MMKV_ID)
+}.getOrNull()
+
+private fun writeStartupSnapshotToMmkv(kv: MMKV, snapshot: StartupPrefs) {
+    kv.encode(MK_APP_LANGUAGE, snapshot.appLanguage)
+    kv.encode(MK_ONBOARDING_COMPLETE, snapshot.onboardingComplete)
+    kv.encode(MK_THEME_MODE, snapshot.themeMode.value)
+    kv.encode(MK_DYNAMIC_COLOR, snapshot.dynamicColor)
+    kv.encode(MK_COLOR_STYLE, snapshot.colorStyleEnabled)
+    kv.encode(MK_BOTTOM_NAV_BAR_STYLE, snapshot.bottomNavBarStyle.value)
+    kv.encode(MK_APP_FONT_SCALE, snapshot.appFontScale)
+    kv.encode(MK_MIGRATED, true)
+}
+
+/** 供 MainActivity 首帧一次性同步读取启动偏好（命中 MMKV 时零阻塞）。 */
+fun readStartupPrefsSync(context: Context): StartupPrefs {
+    val kv = openStartupMmkv(context)
+    if (kv != null && kv.decodeBool(MK_MIGRATED, false)) {
+        return StartupPrefs(
+            appLanguage = kv.decodeString(MK_APP_LANGUAGE, AppLanguage.SYSTEM) ?: AppLanguage.SYSTEM,
+            onboardingComplete = kv.decodeBool(MK_ONBOARDING_COMPLETE, false),
+            themeMode = ThemeMode.from(kv.decodeInt(MK_THEME_MODE, ThemeMode.FOLLOW_SYSTEM.value)),
+            dynamicColor = kv.decodeBool(MK_DYNAMIC_COLOR, true),
+            colorStyleEnabled = kv.decodeBool(MK_COLOR_STYLE, false),
+            bottomNavBarStyle = BottomNavBarStyle.from(
+                kv.decodeInt(MK_BOTTOM_NAV_BAR_STYLE, BottomNavBarStyle.DOCKED.value),
+            ),
+            appFontScale = kv.decodeFloat(MK_APP_FONT_SCALE, 1f),
+        )
+    }
+    val prefs = runBlocking { context.dataStore.data.first() }
+    val snapshot = StartupPrefs(
+        appLanguage = prefs[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM,
+        onboardingComplete = prefs[KEY_ONBOARDING_COMPLETE] ?: false,
+        themeMode = ThemeMode.from(prefs[KEY_THEME_MODE] ?: ThemeMode.FOLLOW_SYSTEM.value),
+        dynamicColor = prefs[KEY_DYNAMIC_COLOR] ?: true,
+        colorStyleEnabled = prefs[KEY_COLOR_STYLE] ?: false,
+        bottomNavBarStyle = BottomNavBarStyle.from(
+            prefs[KEY_BOTTOM_NAV_BAR_STYLE] ?: BottomNavBarStyle.DOCKED.value,
+        ),
+        appFontScale = prefs[KEY_APP_FONT_SCALE] ?: 1f,
+    )
+    if (kv != null) {
+        writeStartupSnapshotToMmkv(kv, snapshot)
+    }
+    return snapshot
+}
+
+/** 供 MainActivity.attachBaseContext 在 Hilt 装配前调用；优先命中 MMKV 镜像，零磁盘阻塞。 */
+fun readAppLanguageSync(context: Context): String {
+    val kv = openStartupMmkv(context)
+    if (kv != null && kv.decodeBool(MK_MIGRATED, false)) {
+        return kv.decodeString(MK_APP_LANGUAGE, AppLanguage.SYSTEM) ?: AppLanguage.SYSTEM
+    }
+    return readStartupPrefsSync(context).appLanguage
+}
+
+/** 供 MainActivity 冷启动决定导航起点，同 [readStartupPrefsSync] 走 MMKV 镜像。 */
 fun readOnboardingCompleteSync(context: Context): Boolean =
-    runBlocking { context.dataStore.data.first()[KEY_ONBOARDING_COMPLETE] ?: false }
+    readStartupPrefsSync(context).onboardingComplete
 
 @Singleton
 class UserPreferences @Inject constructor(
@@ -152,20 +240,38 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderParagraphIndent(value: Int) = context.dataStore.edit { it[KEY_PARAGRAPH_INDENT] = value }
     suspend fun setReaderParagraphSpacing(value: Float) = context.dataStore.edit { it[KEY_PARAGRAPH_SPACING] = value }
     suspend fun setReaderLetterSpacing(value: Float) = context.dataStore.edit { it[KEY_LETTER_SPACING] = value }
-    suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
-    suspend fun setColorStyleEnabled(value: Boolean) =
+    suspend fun setDynamicColor(value: Boolean) {
+        context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
+        openStartupMmkv(context)?.encode(MK_DYNAMIC_COLOR, value)
+    }
+    suspend fun setColorStyleEnabled(value: Boolean) {
         context.dataStore.edit { it[KEY_COLOR_STYLE] = value }
-    suspend fun setBottomNavBarStyle(value: BottomNavBarStyle) =
+        openStartupMmkv(context)?.encode(MK_COLOR_STYLE, value)
+    }
+    suspend fun setBottomNavBarStyle(value: BottomNavBarStyle) {
         context.dataStore.edit { it[KEY_BOTTOM_NAV_BAR_STYLE] = value.value }
-    suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
-    suspend fun setAppFontScale(value: Float) = context.dataStore.edit { it[KEY_APP_FONT_SCALE] = value }
+        openStartupMmkv(context)?.encode(MK_BOTTOM_NAV_BAR_STYLE, value.value)
+    }
+    suspend fun setThemeMode(value: ThemeMode) {
+        context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
+        openStartupMmkv(context)?.encode(MK_THEME_MODE, value.value)
+    }
+    suspend fun setAppFontScale(value: Float) {
+        context.dataStore.edit { it[KEY_APP_FONT_SCALE] = value }
+        openStartupMmkv(context)?.encode(MK_APP_FONT_SCALE, value)
+    }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
     suspend fun setNovelDefaultTab(value: NovelDefaultTab) = context.dataStore.edit { it[KEY_NOVEL_DEFAULT_TAB] = value.value }
     suspend fun setViewerOrientation(value: ViewerOrientation) = context.dataStore.edit { it[KEY_VIEWER_ORIENTATION] = value.value }
     suspend fun setFollowSortMode(value: FollowSortMode) = context.dataStore.edit { it[KEY_FOLLOW_SORT_MODE] = value.value }
-    suspend fun setAppLanguage(value: String) = context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
-    suspend fun setOnboardingComplete(value: Boolean) =
+    suspend fun setAppLanguage(value: String) {
+        context.dataStore.edit { it[KEY_APP_LANGUAGE] = value }
+        openStartupMmkv(context)?.encode(MK_APP_LANGUAGE, value)
+    }
+    suspend fun setOnboardingComplete(value: Boolean) {
         context.dataStore.edit { it[KEY_ONBOARDING_COMPLETE] = value }
+        openStartupMmkv(context)?.encode(MK_ONBOARDING_COMPLETE, value)
+    }
     suspend fun setClipboardLinkPrompt(value: Boolean) =
         context.dataStore.edit { it[KEY_CLIPBOARD_LINK_PROMPT] = value }
     suspend fun setHotTags(value: List<String>) =
@@ -247,11 +353,6 @@ class UserPreferences @Inject constructor(
         val KEY_PARAGRAPH_INDENT = intPreferencesKey("reader_paragraph_indent")
         val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
         val KEY_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")
-        val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
-        val KEY_COLOR_STYLE = booleanPreferencesKey("color_style_enabled")
-        val KEY_BOTTOM_NAV_BAR_STYLE = intPreferencesKey("bottom_nav_bar_style")
-        val KEY_THEME_MODE = intPreferencesKey("theme_mode")
-        val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
         val KEY_NOVEL_DEFAULT_TAB = intPreferencesKey("novel_default_tab")
         val KEY_VIEWER_ORIENTATION = intPreferencesKey("viewer_orientation")

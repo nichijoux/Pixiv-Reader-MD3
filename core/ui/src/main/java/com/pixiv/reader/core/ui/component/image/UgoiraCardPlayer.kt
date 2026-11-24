@@ -24,6 +24,7 @@ import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** 卡片内动图加载与播放；[maxDecodeSize] 应传封面宽（px）避免按原图解码浪费内存，离开视口自动取消下载。 */
@@ -41,6 +42,8 @@ fun UgoiraCardPlayer(
     var frames by remember(illustId) { mutableStateOf<List<UgoiraFrame>?>(null) }
 
     LaunchedEffect(illustId) {
+        // 快速滑过瀑布流时不立即拉取与解压 zip，停留超过 250ms 再开始准备帧
+        delay(UGOIRA_CARD_LOAD_DEBOUNCE_MS)
         progress.value = 0f
         try {
             frames = loader.prepare(illustId) { p -> progress.value = p }
@@ -80,3 +83,5 @@ fun UgoiraCardPlayer(
         }
     }
 }
+
+private const val UGOIRA_CARD_LOAD_DEBOUNCE_MS = 250L

@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,9 +36,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.component.actions.LocalFavoriteActions
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import com.pixiv.reader.core.ui.component.actions.LocalFavoriteState
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
@@ -59,16 +58,11 @@ fun CreatorProfileCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 按用户 ID 去重订阅全局关注覆盖态，避免其他画师变动触发整列重组并同步失败回滚
+    // 基于根宿主单次采集快照按用户 ID 精准派生，零协程订阅且仅命中卡片重组
+    val favoriteState = LocalFavoriteState.current
     val favoriteActions = LocalFavoriteActions.current
-    val followedOverride by if (favoriteActions != null) {
-        remember(favoriteActions, profile.id) {
-            favoriteActions.followedUsers
-                .map { it[profile.id] }
-                .distinctUntilChanged()
-        }.collectAsStateWithLifecycle(initialValue = favoriteActions.followedUsers.value[profile.id])
-    } else {
-        remember { mutableStateOf<Boolean?>(null) }
+    val followedOverride by remember(favoriteState, profile.id) {
+        derivedStateOf { favoriteState?.followedUsers?.value?.get(profile.id) }
     }
     var localFollowed by remember(profile.id, profile.isFollowed) { mutableStateOf(profile.isFollowed) }
     val followed = followedOverride ?: localFollowed
@@ -134,7 +128,7 @@ fun CreatorProfileCard(
             OutlinedButton(
                 onClick = {
                     val next = !followed
-                    if (favoriteActions == null) {
+                    if (favoriteState == null && favoriteActions == null) {
                         localFollowed = next
                     }
                     onToggleFollow(next)

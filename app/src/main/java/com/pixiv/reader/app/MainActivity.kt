@@ -63,7 +63,7 @@ import com.pixiv.reader.core.common.config.localeFor
 import com.pixiv.reader.core.common.config.pixivLanguageCode
 import com.pixiv.reader.core.datastore.UserPreferences
 import com.pixiv.reader.core.datastore.readAppLanguageSync
-import com.pixiv.reader.core.datastore.readOnboardingCompleteSync
+import com.pixiv.reader.core.datastore.readStartupPrefsSync
 import com.pixiv.reader.core.network.monitor.NetworkMonitor
 import com.pixiv.reader.core.network.session.SessionRepository
 import com.pixiv.reader.core.network.favorite.FavoriteActions
@@ -166,20 +166,25 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
+            val startupPrefs = remember { readStartupPrefsSync(this@MainActivity) }
             var onboardingComplete by rememberSaveable {
-                mutableStateOf(readOnboardingCompleteSync(this@MainActivity))
+                mutableStateOf(startupPrefs.onboardingComplete)
             }
             val isLoggedIn by sessionRepository.isLoggedIn.collectAsStateWithLifecycle()
-            val fontScale by userPreferences.appFontScale.collectAsStateWithLifecycle(initialValue = 1f)
-            val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.FOLLOW_SYSTEM)
+            val fontScale by userPreferences.appFontScale.collectAsStateWithLifecycle(
+                initialValue = startupPrefs.appFontScale,
+            )
+            val themeMode by userPreferences.themeMode.collectAsStateWithLifecycle(
+                initialValue = startupPrefs.themeMode,
+            )
             val dynamicColor by userPreferences.dynamicColor.collectAsStateWithLifecycle(
-                initialValue = true
+                initialValue = startupPrefs.dynamicColor,
             )
             val colorStyleEnabled by userPreferences.colorStyleEnabled.collectAsStateWithLifecycle(
-                initialValue = false
+                initialValue = startupPrefs.colorStyleEnabled,
             )
             val bottomNavBarStyle by userPreferences.bottomNavBarStyle.collectAsStateWithLifecycle(
-                initialValue = BottomNavBarStyle.DOCKED
+                initialValue = startupPrefs.bottomNavBarStyle,
             )
             val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
             val isSystemDark = isSystemInDarkTheme()
@@ -318,7 +323,10 @@ class MainActivity : ComponentActivity() {
                                     LocalFavoriteActions provides favoriteActions,
                                     LocalNotificationHostState provides notificationHostState,
                                 ) {
-                                    CardActionsHost(actions = appCardActions) {
+                                    CardActionsHost(
+                                        actions = appCardActions,
+                                        favoriteActions = favoriteActions,
+                                    ) {
                                         PixivNavGraph(
                                             isLoggedIn = isLoggedIn,
                                             onboardingComplete = onboardingComplete,
