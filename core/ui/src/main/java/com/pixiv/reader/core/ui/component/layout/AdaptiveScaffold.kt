@@ -127,7 +127,7 @@ internal fun computeNavBarBottomPadding(
  * 隐藏态在顶部继续下拉（`consumed.y == 0f && available.y > 0f`）时用 `available.y` 呼出。
  */
 @Stable
-internal class BottomBarAutoHideController(
+class BottomBarAutoHideController(
     private val hideThresholdPx: Float,
     private val showThresholdPx: Float,
 ) {
@@ -175,6 +175,20 @@ internal class BottomBarAutoHideController(
     }
 }
 
+@Composable
+fun rememberBottomBarAutoHideController(
+    hideThreshold: Dp = 40.dp,
+    showThreshold: Dp = 24.dp,
+): BottomBarAutoHideController {
+    val density = LocalDensity.current
+    return remember(density, hideThreshold, showThreshold) {
+        BottomBarAutoHideController(
+            hideThresholdPx = with(density) { hideThreshold.toPx() },
+            showThresholdPx = with(density) { showThreshold.toPx() },
+        )
+    }
+}
+
 /**
  * 主壳自适应导航：Compact 走覆盖式底栏（滚动自动显隐，通过 [LocalNavBarBottomPadding] 预留恒定净空），
  * Medium+ 走左侧 [WideNavigationRail]；[content] 固定接收 `PaddingValues(0.dp)`。
@@ -191,13 +205,7 @@ fun AdaptiveNavScaffold(
     val size = currentWindowSizeClass()
     val useRail = size.useRail()
     val haptic = rememberHapticCue()
-    val density = LocalDensity.current
-    val autoHideController = remember(density) {
-        BottomBarAutoHideController(
-            hideThresholdPx = with(density) { 40.dp.toPx() },
-            showThresholdPx = with(density) { 24.dp.toPx() },
-        )
-    }
+    val autoHideController = rememberBottomBarAutoHideController()
 
     LaunchedEffect(selectedRoute, showBottomBar, navBarStyle) {
         autoHideController.show()
@@ -547,7 +555,7 @@ private fun SlidingIndicatorNavigationBar(
     }
 }
 
-private val NavBarHeight = 64.dp
+internal val NavBarHeight = 64.dp
 private val NavIndicatorWidth = 56.dp
 private val NavIndicatorHeight = 32.dp
 private val NavIndicatorTopPadding = 6.dp
@@ -666,11 +674,11 @@ private fun FloatingCapsuleNavigationBar(
     }
 }
 
-private val FloatingNavBarHeight = 64.dp
-private val FloatingNavHorizontalMargin = 16.dp
-private val FloatingNavBottomMargin = 12.dp
-private val FloatingNavMaxWidth = 420.dp
-private val FloatingNavInnerPadding = 4.dp
+internal val FloatingNavBarHeight = 64.dp
+internal val FloatingNavHorizontalMargin = 16.dp
+internal val FloatingNavBottomMargin = 12.dp
+internal val FloatingNavMaxWidth = 420.dp
+internal val FloatingNavInnerPadding = 4.dp
 
 @Composable
 fun AdaptiveContentBox(

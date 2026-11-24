@@ -156,6 +156,7 @@ fun IllustDetailContent(
     onOpenNovel: (Long) -> Unit = {},
     seed: HeroSeed? = null,
     heroIllustId: Long? = null,
+    bottomContentPadding: Dp = 0.dp,
 ) {
     Column(
         modifier = modifier
@@ -207,7 +208,10 @@ fun IllustDetailContent(
             strings = strings,
             onOpenIllust = onOpenIllust,
         )
-        // 兼容直通导航栏的平板 pane；上层已消费 inset 时（手机）高度为 0
+        // 兼容覆盖式底栏与直通导航栏的平板 pane；上层已消费 inset 时（手机）导航栏高度为 0
+        if (bottomContentPadding > 0.dp) {
+            Spacer(Modifier.height(bottomContentPadding))
+        }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }

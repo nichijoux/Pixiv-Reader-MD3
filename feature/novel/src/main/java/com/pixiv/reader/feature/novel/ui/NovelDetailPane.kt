@@ -2,8 +2,10 @@ package com.pixiv.reader.feature.novel.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -15,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
@@ -33,7 +36,11 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
 import com.pixiv.reader.core.ui.component.layout.PanePlaceholder
+import com.pixiv.reader.core.ui.component.layout.computeDetailActionBarBottomPadding
+import com.pixiv.reader.core.ui.component.layout.rememberBottomBarAutoHideController
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
 import com.pixiv.reader.feature.novel.data.NovelExportQueue
 
@@ -162,7 +169,18 @@ fun NovelDetailPane(
                         onBackToDetail = { showComments = false },
                     )
                 } else {
-                    Column(Modifier.fillMaxSize()) {
+                    val navBarStyle = LocalBottomNavBarStyle.current
+                    val bottomBarPadding = computeDetailActionBarBottomPadding(navBarStyle)
+                    val autoHideController = rememberBottomBarAutoHideController()
+                    LaunchedEffect(currentId, navBarStyle) {
+                        autoHideController.show()
+                    }
+                    val navBarInsetBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(autoHideController.connection),
+                    ) {
                         NovelDetailContent(
                             detail = novel,
                             seed = heroSeed,
@@ -180,9 +198,10 @@ fun NovelDetailPane(
                             onOpenSeries = onOpenSeries,
                             onToggleFollowAuthor = viewModel::toggleFollowAuthor,
                             onSearchTag = onSearchTag,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             forceSingleColumn = true,
                             showBackButton = false,
+                            bottomContentPadding = Spacing.lg + bottomBarPadding + navBarInsetBottom,
                         )
                         // 依赖非空详情（系列 id / 评论目标），数据未到达时不渲染
                         val detail = novel
@@ -202,9 +221,12 @@ fun NovelDetailPane(
                                     showComments = true
                                     commentVm.switchTo(CommentTarget.NOVEL, currentId)
                                 },
+                                visible = autoHideController.isVisible,
+                                style = navBarStyle,
                                 // pane 操作条不自行避让导航栏：底边需与左栏列表底边一致直通屏幕底，
                                 // 导航栏避让由沉浸式页面整体方案处理
                                 navigationBarInset = false,
+                                modifier = Modifier.align(Alignment.BottomCenter),
                             )
                         }
                         NovelDetailDownloadSheet(

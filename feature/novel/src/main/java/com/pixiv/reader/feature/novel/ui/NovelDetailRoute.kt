@@ -2,11 +2,14 @@ package com.pixiv.reader.feature.novel.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,8 +25,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.work.ExistingWorkPolicy
@@ -46,6 +51,9 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
+import com.pixiv.reader.core.ui.component.layout.computeDetailActionBarBottomPadding
+import com.pixiv.reader.core.ui.component.layout.rememberBottomBarAutoHideController
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.data.NovelExportFormat
@@ -98,6 +106,12 @@ fun NovelDetailRoute(
         else -> BookmarkPrivacy.PUBLIC
     }
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
+    val navBarStyle = LocalBottomNavBarStyle.current
+    val bottomBarPadding = computeDetailActionBarBottomPadding(navBarStyle)
+    val autoHideController = rememberBottomBarAutoHideController()
+    LaunchedEffect(novelId, navBarStyle) {
+        autoHideController.show()
+    }
     // hero 种子在 Route 层消费一次，经参数下发：上下游各自 consume 会互相抢（取出即删）
     val heroKey = novelCoverKey(novelId)
     val heroSeed = remember(heroKey) { HeroSeedStore.consume(heroKey) }
@@ -152,10 +166,55 @@ fun NovelDetailRoute(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
-        // 顶部 inset 置 0 保住 banner 贴顶（FloatingBackButton 自带 statusBarsPadding）；
-        // 底部由 bottomBar 自带 navigationBarsPadding 承担，innerPadding 不重复计
+        // 沉浸式：顶部保住 banner 贴顶，底部直通系统导航栏，由覆盖底栏与列表净空各自处理 inset
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
+        snackbarHost = { NotificationHost(notificationHostState) },
+        modifier = Modifier.fillMaxSize(),
+    ) { padding ->
+        val navBarInsetBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val detailBottomPadding = Spacing.lg + bottomBarPadding + navBarInsetBottom
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .nestedScroll(autoHideController.connection),
+        ) {
+            when {
+                error != null && novel == null -> ErrorBox(
+                    message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
+                    onRetry = viewModel::load,
+                )
+
+                novel == null && !isLoading -> EmptyBox(
+                    stringResource(R.string.novel_not_found),
+                )
+
+                // 深链进入无 seed 且详情未到：banner 无法占位，用整页骨架兜底
+                novel == null && heroSeed == null -> NovelDetailSkeleton()
+
+                // hero 元素全程唯一：banner 常驻组合（数据未到时以 seed 封面占位），数据到达后同一容器
+                // 原地转真图；用 loading/content 互斥子树分别挂同 key 会让 SharedTransition 重播进入动画
+                else -> NovelDetailContent(
+                    detail = novel,
+                    seed = heroSeed,
+                    novelIdForHero = novelId.takeIf { it > 0L },
+                    seriesNovels = seriesNovels,
+                    progress = progress,
+                    isAuthorFollowed = isAuthorFollowed,
+                    isAuthorFollowing = isAuthorFollowing,
+                    exportState = exportState,
+                    onBack = onBack,
+                    onOpenNovel = onOpenNovel,
+                    onOpenReader = onOpenReader,
+                    onOpenUser = onOpenUser,
+                    onOpenSeries = onOpenSeries,
+                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                    onSearchTag = onSearchTag,
+                    bottomContentPadding = detailBottomPadding,
+                )
+            }
+
             val actionNovel = novel
             if (actionNovel != null) {
                 NovelActionBar(
@@ -171,50 +230,11 @@ fun NovelDetailRoute(
                     onWatchlist = viewModel::toggleWatchlist,
                     onDownload = { showDownloadDialog = true },
                     onComments = { onOpenComments(actionNovel.id) },
+                    visible = autoHideController.isVisible,
+                    style = navBarStyle,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-        },
-        snackbarHost = { NotificationHost(notificationHostState) },
-        modifier = Modifier.fillMaxSize(),
-    ) { padding ->
-        // innerPadding 已排除 bottomBar 高度：内容滚不到操作条下方
-        when {
-            error != null && novel == null -> ErrorBox(
-                message = error?.let { stringResource(it.res, *it.args.toTypedArray()) }.orEmpty(),
-                onRetry = viewModel::load,
-                modifier = Modifier.padding(padding),
-            )
-
-            novel == null && !isLoading -> EmptyBox(
-                stringResource(R.string.novel_not_found),
-                modifier = Modifier.padding(padding),
-            )
-
-            // 深链进入无 seed 且详情未到：banner 无法占位，用整页骨架兜底
-            novel == null && heroSeed == null -> Box(modifier = Modifier.padding(padding)) {
-                NovelDetailSkeleton()
-            }
-
-            // hero 元素全程唯一：banner 常驻组合（数据未到时以 seed 封面占位），数据到达后同一容器
-            // 原地转真图；用 loading/content 互斥子树分别挂同 key 会让 SharedTransition 重播进入动画
-            else -> NovelDetailContent(
-                detail = novel,
-                seed = heroSeed,
-                novelIdForHero = novelId.takeIf { it > 0L },
-                seriesNovels = seriesNovels,
-                progress = progress,
-                isAuthorFollowed = isAuthorFollowed,
-                isAuthorFollowing = isAuthorFollowing,
-                exportState = exportState,
-                onBack = onBack,
-                onOpenNovel = onOpenNovel,
-                onOpenReader = onOpenReader,
-                onOpenUser = onOpenUser,
-                onOpenSeries = onOpenSeries,
-                onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                onSearchTag = onSearchTag,
-                modifier = Modifier.padding(padding),
-            )
         }
         val dialogNovel = novel
         NovelDetailDownloadSheet(
@@ -269,13 +289,17 @@ internal fun NovelDetailContent(
     modifier: Modifier = Modifier,
     forceSingleColumn: Boolean = false,
     showBackButton: Boolean = true,
+    bottomContentPadding: Dp = 0.dp,
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= TABLET_WIDTH_DP
     val seriesId = detail?.series?.id
     if (isTablet && seriesNovels.isNotEmpty() && !forceSingleColumn) {
         // banner 随正文滚动，左目录浮层固定（sticky 等效）
         Box(modifier.fillMaxSize()) {
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = bottomContentPadding),
+            ) {
                 item(key = "banner") {
                     NovelBanner(
                         detail = detail,
@@ -357,6 +381,7 @@ internal fun NovelDetailContent(
             onToggleFollowAuthor = onToggleFollowAuthor,
             onSearchTag = onSearchTag,
             showBackButton = showBackButton,
+            bottomContentPadding = bottomContentPadding,
             modifier = modifier,
         )
     }
@@ -382,6 +407,7 @@ private fun PhoneNovelDetail(
     onSearchTag: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true,
+    bottomContentPadding: Dp = 0.dp,
 ) {
     val tocMaxHeight = (LocalConfiguration.current.screenHeightDp * NOVEL_TOC_MAX_HEIGHT_FRACTION).dp
     val seriesId = detail?.series?.id
@@ -389,7 +415,10 @@ private fun PhoneNovelDetail(
     val currentNovelId = detail?.id ?: novelIdForHero ?: 0L
 
     Box(modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = bottomContentPadding),
+        ) {
             item(key = "banner") {
                 NovelBanner(
                     detail = detail,

@@ -150,4 +150,24 @@ class BottomBarAutoHideControllerTest {
         assertEquals(BottomNavBarStyle.DOCKED, BottomNavBarStyle.from(-1))
         assertEquals(BottomNavBarStyle.DOCKED, BottomNavBarStyle.from(99))
     }
+
+    @Test
+    fun `computeDetailActionBarBottomPadding 与主壳底栏净空几何一致`() {
+        assertEquals(
+            computeNavBarBottomPadding(
+                useRail = false,
+                showBottomBar = true,
+                style = BottomNavBarStyle.DOCKED,
+            ),
+            computeDetailActionBarBottomPadding(BottomNavBarStyle.DOCKED),
+        )
+        assertEquals(
+            computeNavBarBottomPadding(
+                useRail = false,
+                showBottomBar = true,
+                style = BottomNavBarStyle.FLOATING_CAPSULE,
+            ),
+            computeDetailActionBarBottomPadding(BottomNavBarStyle.FLOATING_CAPSULE),
+        )
+    }
 }

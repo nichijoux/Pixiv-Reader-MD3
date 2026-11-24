@@ -1,15 +1,17 @@
 package com.pixiv.reader.feature.illust
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
@@ -33,13 +35,19 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.Illust
@@ -51,7 +59,9 @@ import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
+import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.UiMessageEffect
+import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.detail.HeroSeed
 import com.pixiv.reader.core.ui.component.detail.HeroSeedStore
@@ -63,10 +73,18 @@ import com.pixiv.reader.core.ui.component.detail.IllustInfoSkeleton
 import com.pixiv.reader.core.ui.component.detail.IllustPagePager
 import com.pixiv.reader.core.ui.component.detail.IllustRelatedSection
 import com.pixiv.reader.core.ui.component.detail.illustCoverKey
-import com.pixiv.reader.core.ui.component.input.VerticalActionButton
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.DetailActionBottomBar
+import com.pixiv.reader.core.ui.component.layout.DetailBottomAction
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
+import com.pixiv.reader.core.ui.component.layout.computeDetailActionBarBottomPadding
 import com.pixiv.reader.core.ui.component.layout.currentWindowSizeClass
+import com.pixiv.reader.core.ui.component.layout.rememberBottomBarAutoHideController
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
+import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.extendedColors
 
@@ -110,6 +128,30 @@ fun IllustDetailRoute(
 
     var currentPage by remember { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
+    val navBarStyle = LocalBottomNavBarStyle.current
+    val bottomBarPadding = computeDetailActionBarBottomPadding(navBarStyle)
+    val autoHideController = rememberBottomBarAutoHideController()
+    LaunchedEffect(routeIllustId, navBarStyle) {
+        autoHideController.show()
+    }
+    val favoriteBounce = remember { Animatable(1f) }
+    var wasBookmarked by remember(routeIllustId) { mutableStateOf(isBookmarked) }
+    val haptic = rememberHapticCue()
+    LaunchedEffect(isBookmarked) {
+        val becameBookmarked = isBookmarked && !wasBookmarked
+        wasBookmarked = isBookmarked
+        if (becameBookmarked) {
+            haptic(PixivHaptics.HapticCue.SUCCESS)
+            favoriteBounce.snapTo(0.6f)
+            favoriteBounce.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            )
+        }
+    }
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
     // 兜底清理：详情命中缓存或占位分支未组合时种子未消费，防过期封面被后续无关打开复用
@@ -201,185 +243,206 @@ fun IllustDetailRoute(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
-        bottomBar = {
-            val pageToOpen = if (illust?.isGif() == true) 0 else currentPage
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
-            ) {
-                VerticalActionButton(
-                    icon = Icons.Filled.Fullscreen,
-                    label = stringResource(R.string.illust_action_fullscreen),
-                    active = false,
-                    enabled = true,
-                    onClick = { onOpenViewer(illust?.id ?: 0L, pageToOpen) },
-                    modifier = Modifier.weight(1f),
-                )
-                VerticalActionButton(
-                    icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    label = stringResource(
-                        when {
-                            isBookmarked && isPrivateBookmark -> CoreUiR.string.bookmark_private_cd
-                            isBookmarked -> R.string.illust_bookmarked
-                            else -> R.string.illust_menu_bookmark
-                        }
-                    ),
-                    active = isBookmarked,
-                    enabled = !isBookmarking,
-                    onClick = viewModel::toggleBookmark,
-                    modifier = Modifier.weight(1f),
-                    // 收藏激活用扩展语义红（浅/深双档合规）
-                    activeIconTint = MaterialTheme.extendedColors.favorite,
-                )
-                // 漫画系列追更（与小说详情页追更同语义）
-                if (seriesId != null) {
-                    VerticalActionButton(
-                        icon = if (isSeriesWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
-                        label = stringResource(
-                            if (isSeriesWatchlisted) R.string.illust_watchlisted else R.string.illust_watchlist
-                        ),
-                        active = isSeriesWatchlisted,
-                        enabled = !isSeriesWatchlisting,
-                        onClick = viewModel::toggleSeriesWatchlist,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                VerticalActionButton(
-                    icon = Icons.Filled.Download,
-                    label = stringResource(R.string.illust_cd_download),
-                    active = false,
-                    enabled = true,
-                    onClick = viewModel::download,
-                    modifier = Modifier.weight(1f),
-                )
-                VerticalActionButton(
-                    icon = Icons.Filled.ModeComment,
-                    label = stringResource(R.string.illust_cd_comments),
-                    active = false,
-                    enabled = true,
-                    onClick = { onOpenComments(illust?.id ?: 0L) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        },
         snackbarHost = { NotificationHost(notificationHostState) },
+        contentWindowInsets = WindowInsets.statusBars,
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         val size = currentWindowSizeClass()
         val twoPane = size != WindowSizeClass.Compact
+        val navBarInsetBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val detailBottomPadding = Spacing.lg + bottomBarPadding
 
-        if (twoPane) {
-            // 平板双栏：加载中/失败也要有明确状态，避免显示空骨架
-            val hasPagerContent = pages.isNotEmpty() || heroSeed != null
-            when {
-                error != null && illust == null -> ErrorBox(
-                    message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
-                    onRetry = viewModel::load,
-                    modifier = Modifier.padding(padding),
-                )
-                // 深链进入（无种子且数据未到）：完整骨架兜底
-                !hasPagerContent -> Box(modifier = Modifier.padding(padding)) {
-                    IllustDetailSkeleton()
-                }
-
-                else -> TwoPaneContent(
-                    modifier = Modifier.padding(padding),
-                    illust = illust,
-                    pages = pages,
-                    heroSeed = heroSeed,
-                    heroIllustId = routeIllustId.takeIf { it > 0L },
-                    onPageChange = { currentPage = it },
-                    onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
-                    onOpenUser = onOpenUser,
-                    onOpenIllust = onOpenIllust,
-                    onSearchTag = onSearchTag,
-                    isAuthorFollowed = isAuthorFollowed,
-                    isAuthorFollowing = isAuthorFollowing,
-                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                    isBookmarked = isBookmarked,
-                    isBookmarking = isBookmarking,
-                    onOpenComments = onOpenComments,
-                    strings = illustDetailStrings,
-                    viewModel = viewModel,
-                )
-            }
-        } else {
-            // 手机单列
-            AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-                // hero 元素必须恒组合且唯一：有种子时 pager 直接以占位封面承载 hero，
-                // 数据到达后同一容器原地转真图；skeleton 与 pager 互斥挂同 key 会重播进入动画
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .nestedScroll(autoHideController.connection),
+        ) {
+            if (twoPane) {
+                // 平板双栏：加载中/失败也要有明确状态，避免显示空骨架
                 val hasPagerContent = pages.isNotEmpty() || heroSeed != null
                 when {
-                    error != null && illust == null -> ErrorBox(message = error?.let {
-                        stringResource(
-                            it.res,
-                            *it.args.toTypedArray()
-                        )
-                    }, onRetry = viewModel::load)
-
+                    error != null && illust == null -> ErrorBox(
+                        message = error?.let { stringResource(it.res, *it.args.toTypedArray()) },
+                        onRetry = viewModel::load,
+                    )
                     // 深链进入（无种子且数据未到）：完整骨架兜底
                     !hasPagerContent -> IllustDetailSkeleton()
 
-                    else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        item(key = "pager") {
-                            IllustPagePager(
-                                pages = pages,
-                                ugoiraState = ugoiraState,
-                                onPageChange = { currentPage = it },
-                                onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
-                                strings = illustDetailStrings,
-                                // 大图容器与列表卡片封面同 key
-                                illustId = illust?.id ?: routeIllustId.takeIf { it > 0L },
-                                // 垫底 medium：与卡片封面 / hero 占位同源
-                                placeholderUrl = illust?.image_urls?.medium,
-                                // 兜底比例取 illust 宽高：pages 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
-                                fallbackRatio = illust
-                                    ?.takeIf { it.width > 0 && it.height > 0 }
-                                    ?.let { it.width.toFloat() / it.height.toFloat() },
-                                // 数据到达前以种子封面占位（hero 元素不重建）
-                                seed = heroSeed,
+                    else -> TwoPaneContent(
+                        modifier = Modifier.fillMaxSize(),
+                        illust = illust,
+                        pages = pages,
+                        heroSeed = heroSeed,
+                        heroIllustId = routeIllustId.takeIf { it > 0L },
+                        bottomContentPadding = detailBottomPadding,
+                        onPageChange = { currentPage = it },
+                        onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
+                        onOpenUser = onOpenUser,
+                        onOpenIllust = onOpenIllust,
+                        onSearchTag = onSearchTag,
+                        isAuthorFollowed = isAuthorFollowed,
+                        isAuthorFollowing = isAuthorFollowing,
+                        onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                        isBookmarked = isBookmarked,
+                        isBookmarking = isBookmarking,
+                        onOpenComments = onOpenComments,
+                        strings = illustDetailStrings,
+                        viewModel = viewModel,
+                    )
+                }
+            } else {
+                // 手机单列
+                AdaptiveContentBox {
+                    // hero 元素必须恒组合且唯一：有种子时 pager 直接以占位封面承载 hero，
+                    // 数据到达后同一容器原地转真图；skeleton 与 pager 互斥挂同 key 会重播进入动画
+                    val hasPagerContent = pages.isNotEmpty() || heroSeed != null
+                    when {
+                        error != null && illust == null -> ErrorBox(message = error?.let {
+                            stringResource(
+                                it.res,
+                                *it.args.toTypedArray()
                             )
-                        }
-                        item(key = "info") {
-                            if (illust == null) {
-                                IllustInfoSkeleton()
-                            } else {
-                                IllustInfoSection(
-                                    illust = illust,
-                                    strings = illustDetailStrings,
-                                    onOpenUser = onOpenUser,
-                                    onSearchTag = onSearchTag,
+                        }, onRetry = viewModel::load)
+
+                        // 深链进入（无种子且数据未到）：完整骨架兜底
+                        !hasPagerContent -> IllustDetailSkeleton()
+
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = detailBottomPadding + navBarInsetBottom),
+                        ) {
+                            item(key = "pager") {
+                                IllustPagePager(
+                                    pages = pages,
+                                    ugoiraState = ugoiraState,
+                                    onPageChange = { currentPage = it },
                                     onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
-                                    isAuthorFollowed = isAuthorFollowed,
-                                    isAuthorFollowing = isAuthorFollowing,
-                                    onToggleFollowAuthor = viewModel::toggleFollowAuthor,
-                                    isBookmarked = isBookmarked,
-                                    isBookmarking = isBookmarking,
-                                    onToggleBookmark = viewModel::toggleBookmark,
-                                    onDownload = viewModel::download,
-                                    onOpenComments = { onOpenComments(illust?.id ?: 0L) },
-                                    expandableIntro = true,
-                                    // 手机详情页操作走底部固定栏，标签下不再重复
-                                    showActionRow = false,
+                                    strings = illustDetailStrings,
+                                    // 大图容器与列表卡片封面同 key
+                                    illustId = illust?.id ?: routeIllustId.takeIf { it > 0L },
+                                    // 垫底 medium：与卡片封面 / hero 占位同源
+                                    placeholderUrl = illust?.image_urls?.medium,
+                                    // 兜底比例取 illust 宽高：pages 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
+                                    fallbackRatio = illust
+                                        ?.takeIf { it.width > 0 && it.height > 0 }
+                                        ?.let { it.width.toFloat() / it.height.toFloat() },
+                                    // 数据到达前以种子封面占位（hero 元素不重建）
+                                    seed = heroSeed,
                                 )
                             }
-                        }
-                        item(key = "related") {
-                            val relatedItems by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
-                            // 数据未到达前不渲染相关作品区（避免占位阶段空标题露出）
-                            if (illust != null || relatedItems.isNotEmpty()) {
-                                IllustRelatedSection(
-                                    items = relatedItems,
-                                    strings = illustDetailStrings,
-                                    onOpenIllust = onOpenIllust,
-                                )
+                            item(key = "info") {
+                                if (illust == null) {
+                                    IllustInfoSkeleton()
+                                } else {
+                                    IllustInfoSection(
+                                        illust = illust,
+                                        strings = illustDetailStrings,
+                                        onOpenUser = onOpenUser,
+                                        onSearchTag = onSearchTag,
+                                        onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
+                                        isAuthorFollowed = isAuthorFollowed,
+                                        isAuthorFollowing = isAuthorFollowing,
+                                        onToggleFollowAuthor = viewModel::toggleFollowAuthor,
+                                        isBookmarked = isBookmarked,
+                                        isBookmarking = isBookmarking,
+                                        onToggleBookmark = viewModel::toggleBookmark,
+                                        onDownload = viewModel::download,
+                                        onOpenComments = { onOpenComments(illust?.id ?: 0L) },
+                                        expandableIntro = true,
+                                        // 详情页操作走底部覆盖栏，标签下不再重复
+                                        showActionRow = false,
+                                    )
+                                }
+                            }
+                            item(key = "related") {
+                                val relatedItems by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
+                                // 数据未到达前不渲染相关作品区（避免占位阶段空标题露出）
+                                if (illust != null || relatedItems.isNotEmpty()) {
+                                    IllustRelatedSection(
+                                        items = relatedItems,
+                                        strings = illustDetailStrings,
+                                        onOpenIllust = onOpenIllust,
+                                    )
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            val actionIllust = illust
+            if (actionIllust != null) {
+                val pageToOpen = if (actionIllust.isGif()) 0 else currentPage
+                val favoriteTint = MaterialTheme.extendedColors.favorite
+                val actions = buildList {
+                    add(
+                        DetailBottomAction(
+                            icon = Icons.Filled.Fullscreen,
+                            label = stringResource(R.string.illust_action_fullscreen),
+                            accent = SettingAccentViolet,
+                            onClick = { onOpenViewer(actionIllust.id, pageToOpen) },
+                        ),
+                    )
+                    add(
+                        DetailBottomAction(
+                            icon = if (isBookmarked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            label = stringResource(
+                                when {
+                                    isBookmarked && isPrivateBookmark -> CoreUiR.string.bookmark_private_cd
+                                    isBookmarked -> R.string.illust_bookmarked
+                                    else -> R.string.illust_menu_bookmark
+                                },
+                            ),
+                            active = isBookmarked,
+                            enabled = !isBookmarking,
+                            accent = favoriteTint,
+                            activeIconTint = favoriteTint,
+                            iconModifier = Modifier.graphicsLayer {
+                                scaleX = favoriteBounce.value
+                                scaleY = favoriteBounce.value
+                            },
+                            onLongClick = viewModel.bookmarkEditor::open,
+                            onClick = viewModel::toggleBookmark,
+                        ),
+                    )
+                    if (seriesId != null) {
+                        add(
+                            DetailBottomAction(
+                                icon = if (isSeriesWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
+                                label = stringResource(
+                                    if (isSeriesWatchlisted) R.string.illust_watchlisted else R.string.illust_watchlist,
+                                ),
+                                active = isSeriesWatchlisted,
+                                enabled = !isSeriesWatchlisting,
+                                accent = SettingAccentAmber,
+                                onClick = viewModel::toggleSeriesWatchlist,
+                            ),
+                        )
+                    }
+                    add(
+                        DetailBottomAction(
+                            icon = Icons.Filled.Download,
+                            label = stringResource(R.string.illust_cd_download),
+                            accent = SettingAccentBlue,
+                            onClick = viewModel::download,
+                        ),
+                    )
+                    add(
+                        DetailBottomAction(
+                            icon = Icons.Filled.ModeComment,
+                            label = stringResource(R.string.illust_cd_comments),
+                            accent = SettingAccentTeal,
+                            onClick = { onOpenComments(actionIllust.id) },
+                        ),
+                    )
+                }
+                DetailActionBottomBar(
+                    actions = actions,
+                    visible = autoHideController.isVisible,
+                    style = navBarStyle,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
     }
@@ -409,6 +472,7 @@ private fun TwoPaneContent(
     pages: List<IllustPageInfo>,
     heroSeed: HeroSeed?,
     heroIllustId: Long?,
+    bottomContentPadding: Dp,
     onPageChange: (Int) -> Unit,
     onOpenViewer: (Int) -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -449,6 +513,7 @@ private fun TwoPaneContent(
         modifier = modifier,
         seed = heroSeed,
         heroIllustId = heroIllustId,
+        bottomContentPadding = bottomContentPadding,
     )
 }
 

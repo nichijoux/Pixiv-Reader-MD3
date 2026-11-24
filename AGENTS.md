@@ -82,4 +82,5 @@ app → feature/* → core/ui → core/network → core/database · core/datasto
 ## Git
 
 - 提交前自查：`:app:compileDebugKotlin` + 相关单测。
-- **`git add` 与 `git commit` 必须分开执行**（同一命令链会争 `index.lock`）；提交信息用 `feat:` 中文，覆盖本轮改动。
+- **`git add` 与 `git commit` 必须分开执行**（同一命令链会争 `index.lock`）。
+- **提交信息须分成多行**（避免单行过长导致 GitHub 显示异常）：首行 `feat:`/`fix:`/`docs:` 等简短中文标题（≤50 字），空一行后分点列出本轮改动摘要与验证结果（可用多段 `-m` 传入）。

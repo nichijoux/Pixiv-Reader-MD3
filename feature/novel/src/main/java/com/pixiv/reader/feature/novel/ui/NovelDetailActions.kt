@@ -3,17 +3,11 @@ package com.pixiv.reader.feature.novel.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Download
@@ -37,11 +31,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.common.ExportState
-import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
+import com.pixiv.reader.core.common.config.BottomNavBarStyle
 import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
-import com.pixiv.reader.core.ui.component.input.VerticalActionButton
+import com.pixiv.reader.core.ui.component.layout.DetailActionBottomBar
+import com.pixiv.reader.core.ui.component.layout.DetailBottomAction
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
+import com.pixiv.reader.core.ui.theme.SettingAccentAmber
+import com.pixiv.reader.core.ui.theme.SettingAccentBlue
+import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.extendedColors
@@ -102,6 +101,8 @@ internal fun NovelActionBar(
     onWatchlist: () -> Unit,
     onDownload: () -> Unit,
     onComments: () -> Unit,
+    visible: Boolean = true,
+    style: BottomNavBarStyle = LocalBottomNavBarStyle.current,
     navigationBarInset: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
@@ -126,66 +127,56 @@ internal fun NovelActionBar(
             )
         }
     }
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            // 导航栏避让按场景开关：bottomBar 场景自带，pane 内嵌场景由外层统一处理，否则会多出一圈导航栏高度
-            .then(if (navigationBarInset) Modifier.navigationBarsPadding() else Modifier),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = MAX_CONTENT_WIDTH_DP.dp)
-                .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus),
-        ) {
-            VerticalActionButton(
+    val favoriteTint = MaterialTheme.extendedColors.favorite
+    DetailActionBottomBar(
+        actions = listOf(
+            DetailBottomAction(
                 icon = if (privacy != BookmarkPrivacy.NONE) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 label = when (privacy) {
-                    // 私密收藏文案在 core:ui
                     BookmarkPrivacy.PRIVATE -> stringResource(CoreUiR.string.bookmark_private_cd)
                     BookmarkPrivacy.PUBLIC -> stringResource(R.string.novel_bookmarked)
                     BookmarkPrivacy.NONE -> stringResource(R.string.novel_bookmark)
                 },
                 active = privacy != BookmarkPrivacy.NONE,
                 enabled = !isBookmarking,
-                onClick = onBookmark,
-                onLongClick = onBookmarkLongClick,
-                modifier = Modifier.weight(1f),
-                activeIconTint = MaterialTheme.extendedColors.favorite,
-                // 只缩放图标，避免与按钮自身按压缩放叠加
+                accent = favoriteTint,
+                activeIconTint = favoriteTint,
                 iconModifier = Modifier.graphicsLayer {
                     scaleX = favoriteBounce.value
                     scaleY = favoriteBounce.value
                 },
-            )
-            VerticalActionButton(
+                onLongClick = onBookmarkLongClick,
+                onClick = onBookmark,
+            ),
+            DetailBottomAction(
                 icon = if (isWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
-                label = if (isWatchlisted) stringResource(R.string.novel_watchlisted) else stringResource(
-                    R.string.novel_watch
-                ),
+                label = if (isWatchlisted) {
+                    stringResource(R.string.novel_watchlisted)
+                } else {
+                    stringResource(R.string.novel_watch)
+                },
                 active = isWatchlisted,
                 enabled = !isWatchlisting && seriesId != null && seriesId > 0L,
+                accent = SettingAccentAmber,
                 onClick = onWatchlist,
-                modifier = Modifier.weight(1f),
-            )
-            VerticalActionButton(
+            ),
+            DetailBottomAction(
                 icon = Icons.Filled.Download,
                 label = stringResource(R.string.novel_download),
-                active = false,
                 enabled = !downloading,
+                accent = SettingAccentBlue,
                 onClick = onDownload,
-                modifier = Modifier.weight(1f),
-            )
-            VerticalActionButton(
+            ),
+            DetailBottomAction(
                 icon = Icons.Filled.ModeComment,
                 label = stringResource(R.string.novel_comment_button),
-                active = false,
-                enabled = true,
+                accent = SettingAccentTeal,
                 onClick = onComments,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
+            ),
+        ),
+        visible = visible,
+        style = style,
+        navigationBarInset = navigationBarInset,
+        modifier = modifier,
+    )
 }
