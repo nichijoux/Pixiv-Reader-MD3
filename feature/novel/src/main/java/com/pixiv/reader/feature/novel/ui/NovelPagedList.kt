@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,7 +21,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.IntOffset
 import com.pixiv.api.model.Novel
 import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.component.card.toCardData
@@ -31,6 +29,7 @@ import com.pixiv.reader.core.ui.component.feedback.FeedPhase
 import com.pixiv.reader.core.ui.component.feedback.feedPhase
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
+import com.pixiv.reader.core.ui.component.list.LazyListPrefetchEffect
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 
@@ -58,8 +57,6 @@ internal fun NovelPagedList(
     header: (@Composable () -> Unit)? = null,
     scrollToTopKey: Int = 0,
 ) {
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
-    val motionScheme = MaterialTheme.motionScheme
     val listState = rememberLazyListState()
     // 回顶信号：首组合只记录 key 不触发，key 变化（当前 tab 被再次点击）才滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
@@ -69,6 +66,15 @@ internal fun NovelPagedList(
             listState.animateScrollToItem(0)
         }
     }
+    LazyListPrefetchEffect(
+        state = listState,
+        itemCount = items.size,
+        hasMore = hasMore,
+        isLoadingMore = isLoadingMore,
+        error = error,
+        onLoadMore = onLoadMore,
+        headerCount = if (header != null) 1 else 0,
+    )
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -111,13 +117,7 @@ internal fun NovelPagedList(
                         onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                         onTagClick = onSearchTag,
                         onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                        // 进场淡入 + 刷新重排平滑过渡
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateItem(
-                                fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                                placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                            ),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 loadMoreFooter(

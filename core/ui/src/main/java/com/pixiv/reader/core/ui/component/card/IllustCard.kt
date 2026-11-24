@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -157,7 +156,7 @@ fun IllustCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heroBoundsModifier(illustCoverKey(illust.id))
+                .heroBoundsModifier(illustCoverKey(illust.id), onlyWhenActive = true)
                 .clip(AppShapes.cardLargeTop),
         ) {
             val ratio = if (illust.width > 0 && illust.height > 0) {
@@ -194,13 +193,14 @@ fun IllustCard(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 if (rank != null) {
-                    Surface(
-                        color = ImageScrim,
-                        shape = rankBadgeShape(rank),
+                    Box(
+                        modifier = Modifier
+                            .clip(rankBadgeShape(rank))
+                            .background(ImageScrim)
+                            .padding(horizontal = Spacing.sm, vertical = 3.dp),
                     ) {
                         Text(
                             text = "$rank",
-                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             fontStyle = FontStyle.Italic,
@@ -209,26 +209,28 @@ fun IllustCard(
                     }
                 }
                 if (illust.isAi()) {
-                    Surface(
-                        color = ImageScrim,
-                        shape = AppShapes.small,
+                    Box(
+                        modifier = Modifier
+                            .clip(AppShapes.small)
+                            .background(ImageScrim)
+                            .padding(horizontal = Spacing.sm, vertical = 3.dp),
                     ) {
                         Text(
                             text = "AI",
-                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
                     }
                 }
                 if (illust.page_count > 1) {
-                    Surface(
-                        color = ImageScrim,
-                        shape = AppShapes.small,
+                    Box(
+                        modifier = Modifier
+                            .clip(AppShapes.small)
+                            .background(ImageScrim)
+                            .padding(horizontal = Spacing.sm, vertical = 3.dp),
                     ) {
                         Text(
                             text = "${illust.page_count}P",
-                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
@@ -277,28 +279,27 @@ fun IllustCard(
             }
             val bookmarkCount = (illust.total_bookmarks ?: 0).toLong()
             if (bookmarkCount > 0) {
-                Surface(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.xsPlus),
-                    color = ImageScrim,
-                    shape = AppShapes.small,
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(Spacing.xsPlus)
+                        .clip(AppShapes.small)
+                        .background(ImageScrim)
+                        .padding(horizontal = Spacing.sm, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Favorite,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp),
-                        )
-                        Text(
-                            text = formatCount(bookmarkCount),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Favorite,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = formatCount(bookmarkCount),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                    )
                 }
             }
         }

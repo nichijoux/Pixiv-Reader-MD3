@@ -149,7 +149,7 @@ fun NovelCard(
                     modifier = Modifier
                         .width(coverWidth)
                         .fillMaxHeight()
-                        .heroBoundsModifier(novelCoverKey(novel.id))
+                        .heroBoundsModifier(novelCoverKey(novel.id), onlyWhenActive = true)
                         .clip(AppShapes.card)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 ) {

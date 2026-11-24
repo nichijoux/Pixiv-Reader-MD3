@@ -55,11 +55,11 @@ object PixivClient {
             .apply { if (debug) addLogging() }
             .build()
 
-        // Dispatcher 默认单主机 5 并发：详情页主图与相关作品缩略图同队排队，弱网下队首停滞
-        // 会阻塞后续请求（转圈），放宽到 8 并配齐 10 连接复用池避免多出的 TLS 连接用完即关。
+        // Dispatcher 默认单主机 5 并发：瀑布流每卡含封面+头像且详情页主图与相关图同主机并发，
+        // 放宽到 12 并发并配齐 16 连接复用池，避免封面与小头像互相排队或频繁重做 TLS 握手。
         val imageClient = OkHttpClient.Builder()
-            .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8 })
-            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
+            .dispatcher(Dispatcher().apply { maxRequestsPerHost = 12 })
+            .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
             .connectTimeout(PixivConstants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(30L, TimeUnit.SECONDS)
             .writeTimeout(30L, TimeUnit.SECONDS)

@@ -48,6 +48,8 @@ import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
 import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
+import com.pixiv.reader.core.ui.component.list.LazyListPrefetchEffect
+import com.pixiv.reader.core.ui.component.list.LazyStaggeredGridPrefetchEffect
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -148,8 +150,6 @@ private fun FollowFeedList(
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
-    val motionScheme = MaterialTheme.motionScheme
     val listState = rememberLazyListState()
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
@@ -159,6 +159,14 @@ private fun FollowFeedList(
             listState.animateScrollToItem(0)
         }
     }
+    LazyListPrefetchEffect(
+        state = listState,
+        itemCount = items.size,
+        hasMore = hasMore,
+        isLoadingMore = isLoadingMore,
+        error = loadMoreError,
+        onLoadMore = onLoadMore,
+    )
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
@@ -174,12 +182,7 @@ private fun FollowFeedList(
         lazyItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 onSearchTag = onSearchTag,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,
@@ -217,8 +220,6 @@ private fun FollowFeedGrid(
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
     val gridState = rememberLazyStaggeredGridState()
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
-    val motionScheme = MaterialTheme.motionScheme
     // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {
@@ -227,6 +228,14 @@ private fun FollowFeedGrid(
             gridState.animateScrollToItem(0)
         }
     }
+    LazyStaggeredGridPrefetchEffect(
+        state = gridState,
+        itemCount = items.size,
+        hasMore = hasMore,
+        isLoadingMore = isLoadingMore,
+        error = loadMoreError,
+        onLoadMore = onLoadMore,
+    )
     LazyVerticalStaggeredGrid(
         state = gridState,
         columns = StaggeredGridCells.Adaptive(240.dp),
@@ -243,12 +252,7 @@ private fun FollowFeedGrid(
         gridItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 onSearchTag = onSearchTag,
                 onOpenIllust = onOpenIllust,
                 onOpenNovel = onOpenNovel,

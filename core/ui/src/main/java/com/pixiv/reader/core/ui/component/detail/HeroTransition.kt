@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
@@ -38,8 +42,13 @@ object HeroSeedStore {
 
     private val seeds = mutableMapOf<String, HeroSeed>()
 
+    /** 最近一次点击卡片的 hero key；列表卡片仅在命中时挂载 sharedBounds，避免滚动期全屏批量注册与双遍测量。 */
+    var activeKey by mutableStateOf<String?>(null)
+        private set
+
     fun seed(key: String, value: HeroSeed) {
         seeds[key] = value
+        activeKey = key
     }
 
     fun consume(key: String): HeroSeed? = seeds.remove(key)
@@ -59,20 +68,31 @@ fun illustCoverKey(id: Long): String = "illust_cover_$id"
 
 fun novelCoverKey(id: Long): String = "novel_cover_$id"
 
-/** 双 CompositionLocal 均可用时挂 `sharedBounds`，否则原样返回；Tab 内等非详情路由须显式传入 [animatedVisibilityScope]。 */
+/**
+ * 双 CompositionLocal 均可用时挂 `sharedBounds`，否则原样返回；Tab 内等非详情路由须显式传入 [animatedVisibilityScope]。
+ * [onlyWhenActive] 设为 true（供瀑布流/列表卡片使用）时仅在 [HeroSeedStore.activeKey] 命中本卡片键才挂 `sharedBounds`，
+ * 消除高速滚动期全屏卡片反复向根部 SharedTransitionLayout 注册/注销共享节点的开销。
+ */
 @Composable
 fun Modifier.heroBoundsModifier(
     key: String,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    onlyWhenActive: Boolean = false,
 ): Modifier {
     val sharedScope = LocalSharedTransitionScope.current ?: return this
     val visibilityScope = animatedVisibilityScope ?: LocalNavAnimatedVisibilityScope.current
         ?: return this
+    if (onlyWhenActive) {
+        val isActive by remember(key) { derivedStateOf { HeroSeedStore.activeKey == key } }
+        if (!isActive) return this
+    }
     // boundsTransform 非组合上下文，须在组合期提前构造 spec
-    val boundsSpec: FiniteAnimationSpec<Rect> = tween(
-        durationMillis = HERO_BOUNDS_MOTION_MS,
-        easing = FastOutSlowInEasing,
-    )
+    val boundsSpec: FiniteAnimationSpec<Rect> = remember {
+        tween(
+            durationMillis = HERO_BOUNDS_MOTION_MS,
+            easing = FastOutSlowInEasing,
+        )
+    }
     return with(sharedScope) {
         this@heroBoundsModifier.sharedBounds(
             sharedContentState = rememberSharedContentState(key = key),

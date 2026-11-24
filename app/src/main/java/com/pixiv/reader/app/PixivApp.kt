@@ -64,14 +64,14 @@ class PixivApp : Application(), Configuration.Provider, ImageLoaderFactory {
                     .maxSizeBytes(IMAGE_DISK_CACHE_BYTES)
                     .build()
             }
-            // 无透明通道缩略图优先 RGB_565 解码（内存占用减半）；pximg.net 静态资源 URL 不可变，忽略缓存头提高磁盘复用率
+            // 无透明通道缩略图优先 RGB_565 解码（内存占用减半）；pximg.net 静态资源 URL 不可变，忽略缓存头提高磁盘复用率；
+            // 关闭全局 crossfade 避免瀑布流高速滑动时全屏多图同时 alpha 混合加重 GPU 负担。
             .allowRgb565(true)
             .respectCacheHeaders(false)
-            .crossfade(IMAGE_CROSSFADE_MS)
+            .crossfade(false)
             .build()
 
     private companion object {
         const val IMAGE_DISK_CACHE_BYTES = 256L * 1024L * 1024L
-        const val IMAGE_CROSSFADE_MS = 150
     }
 }

@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
@@ -13,7 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -125,6 +129,86 @@ fun LazyStaggeredGridScope.loadMoreFooter(
                 onLoadMore = onLoadMore,
                 error = error,
             )
+        }
+    }
+}
+
+private const val DEFAULT_LIST_PREFETCH_DISTANCE = 5
+private const val DEFAULT_GRID_PREFETCH_DISTANCE = 8
+
+/**
+ * 纯判定函数：当前末尾可见索引距列表尾部不足 [prefetchDistance] 项时返回 true，
+ * 用于在用户滑到最底撞墙前提前静默拉取下一页数据。
+ */
+internal fun shouldPrefetchNextPage(
+    lastVisibleIndex: Int,
+    itemCount: Int,
+    prefetchDistance: Int,
+    headerCount: Int = 0,
+): Boolean {
+    if (itemCount <= 0 || lastVisibleIndex < 0) return false
+    val lastContentIndex = headerCount + itemCount - 1
+    val threshold = (lastContentIndex - prefetchDistance.coerceAtLeast(0)).coerceAtLeast(headerCount)
+    return lastVisibleIndex >= threshold
+}
+
+/**
+ * [LazyColumn] 提前分页触发器：与尾部 [loadMoreFooter] 配合使用，提前 [prefetchDistance] 项静默续页；
+ * 按 [itemCount] 单调去重防空页死循环，下拉刷新（条目数回落）时自动复位。
+ */
+@Composable
+fun LazyListPrefetchEffect(
+    state: LazyListState,
+    itemCount: Int,
+    hasMore: Boolean,
+    isLoadingMore: Boolean,
+    error: String?,
+    onLoadMore: () -> Unit,
+    headerCount: Int = 0,
+    prefetchDistance: Int = DEFAULT_LIST_PREFETCH_DISTANCE,
+) {
+    val latestOnLoadMore by rememberUpdatedState(onLoadMore)
+    val shouldLoadMore by remember(state, itemCount, headerCount, prefetchDistance) {
+        derivedStateOf {
+            val lastVisible = state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            shouldPrefetchNextPage(lastVisible, itemCount, prefetchDistance, headerCount)
+        }
+    }
+    var lastTriggeredCount by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(shouldLoadMore, hasMore, isLoadingMore, error, itemCount) {
+        if (itemCount < lastTriggeredCount) lastTriggeredCount = -1
+        if (shouldLoadMore && hasMore && !isLoadingMore && error == null && itemCount > lastTriggeredCount) {
+            lastTriggeredCount = itemCount
+            latestOnLoadMore()
+        }
+    }
+}
+
+/** [LazyVerticalStaggeredGrid] 提前分页触发器（双列/多列瀑布流默认提前 8 项续页）。 */
+@Composable
+fun LazyStaggeredGridPrefetchEffect(
+    state: LazyStaggeredGridState,
+    itemCount: Int,
+    hasMore: Boolean,
+    isLoadingMore: Boolean,
+    error: String?,
+    onLoadMore: () -> Unit,
+    headerCount: Int = 0,
+    prefetchDistance: Int = DEFAULT_GRID_PREFETCH_DISTANCE,
+) {
+    val latestOnLoadMore by rememberUpdatedState(onLoadMore)
+    val shouldLoadMore by remember(state, itemCount, headerCount, prefetchDistance) {
+        derivedStateOf {
+            val lastVisible = state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            shouldPrefetchNextPage(lastVisible, itemCount, prefetchDistance, headerCount)
+        }
+    }
+    var lastTriggeredCount by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(shouldLoadMore, hasMore, isLoadingMore, error, itemCount) {
+        if (itemCount < lastTriggeredCount) lastTriggeredCount = -1
+        if (shouldLoadMore && hasMore && !isLoadingMore && error == null && itemCount > lastTriggeredCount) {
+            lastTriggeredCount = itemCount
+            latestOnLoadMore()
         }
     }
 }

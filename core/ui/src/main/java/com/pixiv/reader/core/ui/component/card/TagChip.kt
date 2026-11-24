@@ -25,9 +25,12 @@ fun TagChip(
     accent: Color = Color.Unspecified,
 ) {
     val accentColor = if (accent == Color.Unspecified) null else resolveAccent(accent)
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val containerColor = accentColor?.copy(alpha = if (dark) 0.18f else 0.12f)
-        ?: MaterialTheme.colorScheme.secondaryContainer
+    val containerColor = if (accentColor != null) {
+        val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        accentColor.copy(alpha = if (dark) 0.18f else 0.12f)
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
     val contentColor = accentColor ?: MaterialTheme.colorScheme.onSecondaryContainer
     Text(
         text = text,

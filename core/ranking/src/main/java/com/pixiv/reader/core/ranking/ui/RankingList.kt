@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ranking.state.RankingModeInfo
+import com.pixiv.reader.core.ui.component.list.LazyListPrefetchEffect
+import com.pixiv.reader.core.ui.component.list.LazyStaggeredGridPrefetchEffect
 import com.pixiv.reader.core.ui.component.list.LoadMoreItem
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
@@ -214,8 +216,6 @@ private fun <T> RankingPage(
     itemContent: @Composable (T, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
-    val motionScheme = MaterialTheme.motionScheme
     val canContinue = hasMore && !isLoading
     when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty() || canContinue, hasError = error != null)) {
         FeedPhase.LOADING -> LoadingBox(modifier)
@@ -235,7 +235,17 @@ private fun <T> RankingPage(
             }
             if (visibleIndexed.isNotEmpty()) {
                 if (gridMinColumnWidth != null) {
+                    val gridState = androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState()
+                    LazyStaggeredGridPrefetchEffect(
+                        state = gridState,
+                        itemCount = visibleIndexed.size,
+                        hasMore = canContinue,
+                        isLoadingMore = isLoadingMore,
+                        error = error,
+                        onLoadMore = { onLoadMore(modeValue) },
+                    )
                     LazyVerticalStaggeredGrid(
+                        state = gridState,
                         columns = StaggeredGridCells.Adaptive(gridMinColumnWidth),
                         modifier = modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
@@ -244,15 +254,7 @@ private fun <T> RankingPage(
                     ) {
                         // key 用原始榜单索引：过滤只隐藏不改序、分页只追加，列表内稳定唯一
                         itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
-                            // 进场淡入 + 重排位移：包在 slot 外层，调用方 itemContent 零改动
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateItem(
-                                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                                    ),
-                            ) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
                                 itemContent(item, index + 1)
                             }
                         }
@@ -268,19 +270,22 @@ private fun <T> RankingPage(
                         }
                     }
                 } else {
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    LazyListPrefetchEffect(
+                        state = listState,
+                        itemCount = visibleIndexed.size,
+                        hasMore = canContinue,
+                        isLoadingMore = isLoadingMore,
+                        error = error,
+                        onLoadMore = { onLoadMore(modeValue) },
+                    )
                     LazyColumn(
+                        state = listState,
                         modifier = modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
                     ) {
                         itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateItem(
-                                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                                    ),
-                            ) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
                                 itemContent(item, index + 1)
                             }
                         }

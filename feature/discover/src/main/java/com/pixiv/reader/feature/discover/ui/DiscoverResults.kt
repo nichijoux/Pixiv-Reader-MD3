@@ -24,6 +24,7 @@ import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.list.LazyListPrefetchEffect
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
@@ -75,8 +76,6 @@ internal fun NovelSearchResults(
     val isLoadingMore by viewModel.novelPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.novelPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.novelPaged.error.collectAsStateWithLifecycle()
-    // item lambda 非组合上下文，需在外部提前读取 motionScheme
-    val motionScheme = MaterialTheme.motionScheme
 
     when {
         isLoading && items.isEmpty() -> NovelSearchSkeleton()
@@ -85,40 +84,48 @@ internal fun NovelSearchResults(
             onRetry = viewModel::retry
         )
         items.isEmpty() -> EmptyBox(stringResource(R.string.search_empty_result))
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
-        ) {
-            // 相邻分页可能返回同一小说，附带索引避免 key 冲突
-            itemsIndexed(items, key = { index, novel -> "novel_${novel.id}_$index" }) { _, novel ->
-                NovelRow(
-                    novel = novel,
-                    onClick = { onOpenNovel(novel.id) },
-                    onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
-                    onToggleFavorite = { nowFavorite ->
-                        viewModel.toggleNovelFavorite(
-                            novel.id,
-                            nowFavorite
-                        )
-                    },
-                    onTagClick = { tag ->
-                        viewModel.onQueryChange(tag)
-                        viewModel.search()
-                    },
-                    onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
-                )
-            }
-            loadMoreFooter(
+        else -> {
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            LazyListPrefetchEffect(
+                state = listState,
+                itemCount = items.size,
                 hasMore = hasMore,
                 isLoadingMore = isLoadingMore,
-                onLoadMore = { viewModel.loadMore(SearchType.NOVEL) },
                 error = error,
+                onLoadMore = { viewModel.loadMore(SearchType.NOVEL) },
             )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
+            ) {
+                // 相邻分页可能返回同一小说，附带索引避免 key 冲突
+                itemsIndexed(items, key = { index, novel -> "novel_${novel.id}_$index" }) { _, novel ->
+                    NovelRow(
+                        novel = novel,
+                        onClick = { onOpenNovel(novel.id) },
+                        onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
+                        onToggleFavorite = { nowFavorite ->
+                            viewModel.toggleNovelFavorite(
+                                novel.id,
+                                nowFavorite
+                            )
+                        },
+                        onTagClick = { tag ->
+                            viewModel.onQueryChange(tag)
+                            viewModel.search()
+                        },
+                        onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
+                    )
+                }
+                loadMoreFooter(
+                    hasMore = hasMore,
+                    isLoadingMore = isLoadingMore,
+                    onLoadMore = { viewModel.loadMore(SearchType.NOVEL) },
+                    error = error,
+                )
+            }
         }
     }
 }
@@ -154,8 +161,6 @@ internal fun UserSearchResults(
     val isLoadingMore by viewModel.userPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.userPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.userPaged.error.collectAsStateWithLifecycle()
-    // item lambda 非组合上下文，需在外部提前读取 motionScheme
-    val motionScheme = MaterialTheme.motionScheme
 
     when {
         isLoading && items.isEmpty() -> UserSearchSkeleton()
@@ -164,31 +169,39 @@ internal fun UserSearchResults(
             onRetry = viewModel::retry
         )
         items.isEmpty() -> EmptyBox(stringResource(R.string.search_empty_result))
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
-        ) {
-            // 重复用户及缺失 user 字段的条目需要按索引生成唯一键
-            itemsIndexed(items, key = { index, preview -> "user_${preview.user?.id}_$index" }) { _, preview ->
-                UserRow(
-                    preview = preview,
-                    onClick = { preview.user?.id?.let(onOpenUser) },
-                    onToggleFollow = { followed ->
-                        preview.user?.id?.let { viewModel.toggleFollowUser(it, followed) }
-                    },
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
-                )
-            }
-            loadMoreFooter(
+        else -> {
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            LazyListPrefetchEffect(
+                state = listState,
+                itemCount = items.size,
                 hasMore = hasMore,
                 isLoadingMore = isLoadingMore,
-                onLoadMore = { viewModel.loadMore(SearchType.USER) },
                 error = error,
+                onLoadMore = { viewModel.loadMore(SearchType.USER) },
             )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
+            ) {
+                // 重复用户及缺失 user 字段的条目需要按索引生成唯一键
+                itemsIndexed(items, key = { index, preview -> "user_${preview.user?.id}_$index" }) { _, preview ->
+                    UserRow(
+                        preview = preview,
+                        onClick = { preview.user?.id?.let(onOpenUser) },
+                        onToggleFollow = { followed ->
+                            preview.user?.id?.let { viewModel.toggleFollowUser(it, followed) }
+                        },
+                    )
+                }
+                loadMoreFooter(
+                    hasMore = hasMore,
+                    isLoadingMore = isLoadingMore,
+                    onLoadMore = { viewModel.loadMore(SearchType.USER) },
+                    error = error,
+                )
+            }
         }
     }
 }

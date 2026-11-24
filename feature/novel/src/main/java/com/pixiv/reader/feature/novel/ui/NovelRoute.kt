@@ -52,6 +52,7 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
+import com.pixiv.reader.core.ui.component.list.LazyListPrefetchEffect
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ranking.ui.RankingBanner
 import com.pixiv.reader.core.ui.component.card.SeriesCard
@@ -408,6 +409,14 @@ private fun NovelWatchlistTab(
             listState.animateScrollToItem(0)
         }
     }
+    LazyListPrefetchEffect(
+        state = listState,
+        itemCount = items.size,
+        hasMore = hasMore,
+        isLoadingMore = isLoadingMore,
+        error = error,
+        onLoadMore = viewModel::loadMoreWatchlist,
+    )
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
