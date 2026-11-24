@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.ExportState
 import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.loadFailureMessage
@@ -78,11 +79,8 @@ class NovelViewModel @Inject constructor(
     private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
     val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
-    private val _downloading = MutableStateFlow(false)
-    val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
-
-    private val _downloadProgress = MutableStateFlow<String?>(null)
-    val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
+    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
 
     /** feature 层接线（先落库 pending 再以唯一任务入队）；core 只转发触发参数并管理导出态。 */
     var exportRequest: (suspend (novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
@@ -145,8 +143,7 @@ class NovelViewModel @Inject constructor(
         bookmarkEditor.onTargetLoaded(false)
         _watchlistState.value = ToggleUiState.OFF
         _authorFollowState.value = ToggleUiState.OFF
-        _downloading.value = false
-        _downloadProgress.value = null
+        _exportState.value = ExportState.Idle
         load(id)
     }
 
@@ -298,13 +295,12 @@ class NovelViewModel @Inject constructor(
      */
     fun export(formatName: String, series: Boolean = false) {
         val detail = _novel.value ?: return
-        if (_downloading.value) return
+        if (_exportState.value.isRunning) return
         val seriesId = if (series) detail.series?.id else null
         if (series && seriesId == null) return
         val requestHandler = exportRequest ?: return
         val scopeKey = if ((seriesId ?: 0L) > 0L) "series" else ""
-        _downloading.value = true
-        _downloadProgress.value = context.getString(CoreR.string.core_msg_export_queued)
+        _exportState.value = ExportState.Running(context.getString(CoreR.string.core_msg_export_queued))
         exportObserverJob?.cancel()
         exportObserverJob = viewModelScope.launch {
             try {
@@ -314,8 +310,7 @@ class NovelViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _downloading.value = false
-                _downloadProgress.value = null
+                _exportState.value = ExportState.Idle
                 trySendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(e.message.orEmpty())))
             }
         }
@@ -329,8 +324,7 @@ class NovelViewModel @Inject constructor(
                     status == DownloadEntryEntity.STATUS_FAILED
             }
         } finally {
-            _downloading.value = false
-            _downloadProgress.value = null
+            _exportState.value = ExportState.Idle
         }
     }
 }

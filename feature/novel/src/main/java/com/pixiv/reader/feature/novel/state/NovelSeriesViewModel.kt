@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.await
 import com.pixiv.api.model.Novel
 import com.pixiv.api.model.NovelSeriesDetail
+import com.pixiv.reader.core.common.ExportState
 import com.pixiv.reader.core.common.ToggleUiState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.common.R as CoreR
@@ -74,11 +75,8 @@ class NovelSeriesViewModel @Inject constructor(
 
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
-    private val _downloading = MutableStateFlow(false)
-    val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
-
-    private val _downloadProgress = MutableStateFlow<String?>(null)
-    val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
+    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
 
     /** 非分页：首次按需全量拉取并缓存，供「选取部分」下载。 */
     private val _allChapters = MutableStateFlow<List<Novel>>(emptyList())
@@ -113,8 +111,7 @@ class NovelSeriesViewModel @Inject constructor(
         _authorFollowState.value = ToggleUiState.OFF
         _watchlistState.value = ToggleUiState.OFF
         _allChapters.value = emptyList()
-        _downloading.value = false
-        _downloadProgress.value = null
+        _exportState.value = ExportState.Idle
         paged.reset()
         load()
     }
@@ -216,7 +213,7 @@ class NovelSeriesViewModel @Inject constructor(
 
     /** 先写好待同步索引并唯一入队 WorkManager，再按精确复合主键等待终态。 */
     fun export(format: NovelExportFormat, chapterIds: List<Long>) {
-        if (_downloading.value) return
+        if (_exportState.value.isRunning) return
         // targetId 用系列首册（全量未加载时用分页已加载的第一本兜底）
         val firstNovel = _allChapters.value.firstOrNull() ?: paged.items.value.firstOrNull()
         val novelId = firstNovel?.id ?: return
@@ -242,8 +239,7 @@ class NovelSeriesViewModel @Inject constructor(
             chapterIds = chapterIds,
             format = format,
         )
-        _downloading.value = true
-        _downloadProgress.value = context.getString(R.string.novel_msg_export_queued)
+        _exportState.value = ExportState.Running(context.getString(R.string.novel_msg_export_queued))
         exportObserverJob?.cancel()
         exportObserverJob = viewModelScope.launch {
             try {
@@ -263,8 +259,7 @@ class NovelSeriesViewModel @Inject constructor(
             } catch (e: Exception) {
                 trySendMessage(UiMessage(CoreR.string.core_msg_action_failed, listOf(e.message.orEmpty())))
             } finally {
-                _downloading.value = false
-                _downloadProgress.value = null
+                _exportState.value = ExportState.Idle
             }
         }
     }

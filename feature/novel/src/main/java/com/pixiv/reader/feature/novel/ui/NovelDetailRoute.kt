@@ -33,6 +33,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.PixivConstants
 import com.pixiv.api.model.Novel
+import com.pixiv.reader.core.common.ExportState
 import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.network.download.DownloadQueue
 import com.pixiv.reader.core.network.novel.NovelViewModel
@@ -81,8 +82,7 @@ fun NovelDetailRoute(
     val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
     val isAuthorFollowed = authorFollowState.isOn
     val isAuthorFollowing = authorFollowState.inFlight
-    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
-    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     // 按钮隐私图标只反映已提交生效值，编辑器草稿不参与
     val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
     val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
@@ -165,7 +165,7 @@ fun NovelDetailRoute(
                     isBookmarking = isBookmarking,
                     isWatchlisted = isWatchlisted,
                     isWatchlisting = isWatchlisting,
-                    downloading = downloading,
+                    downloading = exportState.isRunning,
                     onBookmark = viewModel::toggleBookmark,
                     onBookmarkLongClick = viewModel.bookmarkEditor::open,
                     onWatchlist = viewModel::toggleWatchlist,
@@ -205,8 +205,7 @@ fun NovelDetailRoute(
                 progress = progress,
                 isAuthorFollowed = isAuthorFollowed,
                 isAuthorFollowing = isAuthorFollowing,
-                downloading = downloading,
-                downloadProgress = downloadProgress,
+                exportState = exportState,
                 onBack = onBack,
                 onOpenNovel = onOpenNovel,
                 onOpenReader = onOpenReader,
@@ -259,8 +258,7 @@ internal fun NovelDetailContent(
     progress: ReadingProgressEntity?,
     isAuthorFollowed: Boolean,
     isAuthorFollowing: Boolean,
-    downloading: Boolean,
-    downloadProgress: String?,
+    exportState: ExportState,
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
@@ -309,8 +307,7 @@ internal fun NovelDetailContent(
                                     onSearchTag = onSearchTag,
                                 )
                                 NovelActions(
-                                    downloading = downloading,
-                                    downloadProgress = downloadProgress,
+                                    exportState = exportState,
                                     onRead = { onOpenReader(detail.id) },
                                 )
                             }
@@ -351,8 +348,7 @@ internal fun NovelDetailContent(
             progress = progress,
             isAuthorFollowed = isAuthorFollowed,
             isAuthorFollowing = isAuthorFollowing,
-            downloading = downloading,
-            downloadProgress = downloadProgress,
+            exportState = exportState,
             onBack = onBack,
             onOpenNovel = onOpenNovel,
             onOpenReader = onOpenReader,
@@ -376,8 +372,7 @@ private fun PhoneNovelDetail(
     progress: ReadingProgressEntity?,
     isAuthorFollowed: Boolean,
     isAuthorFollowing: Boolean,
-    downloading: Boolean,
-    downloadProgress: String?,
+    exportState: ExportState,
     onBack: () -> Unit,
     onOpenNovel: (Long) -> Unit,
     onOpenReader: (Long) -> Unit,
@@ -421,8 +416,7 @@ private fun PhoneNovelDetail(
                                 onSearchTag = onSearchTag,
                             )
                             NovelActions(
-                                downloading = downloading,
-                                downloadProgress = downloadProgress,
+                                exportState = exportState,
                                 onRead = { onOpenReader(detail.id) },
                             )
                         }

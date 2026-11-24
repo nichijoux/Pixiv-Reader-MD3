@@ -27,8 +27,8 @@ import com.pixiv.reader.core.network.favorite.BookmarkEditor
 import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.message.MessageViewModel
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import com.pixiv.reader.core.network.ugoira.UgoiraState
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
@@ -80,11 +80,8 @@ class ViewerViewModel @Inject constructor(
     private val _pages = MutableStateFlow<List<IllustPageInfo>>(emptyList())
     val pages: StateFlow<List<IllustPageInfo>> = _pages.asStateFlow()
 
-    private val _isGif = MutableStateFlow(false)
-    val isGif: StateFlow<Boolean> = _isGif.asStateFlow()
-
-    private val _ugoiraFrames = MutableStateFlow<List<UgoiraFrame>>(emptyList())
-    val ugoiraFrames: StateFlow<List<UgoiraFrame>> = _ugoiraFrames.asStateFlow()
+    private val _ugoiraState = MutableStateFlow<UgoiraState>(UgoiraState.Idle)
+    val ugoiraState: StateFlow<UgoiraState> = _ugoiraState.asStateFlow()
 
     /** 由详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移。 */
     private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
@@ -164,8 +161,12 @@ class ViewerViewModel @Inject constructor(
             _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
             favoriteActions.setIllustBookmarkState(ill.id, bookmarked)
             bookmarkEditor.onTargetLoaded(bookmarked)
-            _isGif.value = ill.isGif()
-            if (_isGif.value) launch { loadUgoira() }
+            if (ill.isGif()) {
+                _ugoiraState.value = UgoiraState.Loading()
+                launch { loadUgoira() }
+            } else {
+                _ugoiraState.value = UgoiraState.Idle
+            }
 
             val realSizes = sizes.await()
             currentCoroutineContext().ensureActive()
@@ -207,9 +208,11 @@ class ViewerViewModel @Inject constructor(
         }
         // 刷新或退出后，旧任务不得发布帧或发送失败通知。
         currentCoroutineContext().ensureActive()
-        _ugoiraFrames.value = frames
         if (frames.isEmpty()) {
+            _ugoiraState.value = UgoiraState.Failed
             sendMessage(UiMessage(R.string.viewer_msg_ugoira_load_failed))
+        } else {
+            _ugoiraState.value = UgoiraState.Ready(frames)
         }
     }
 

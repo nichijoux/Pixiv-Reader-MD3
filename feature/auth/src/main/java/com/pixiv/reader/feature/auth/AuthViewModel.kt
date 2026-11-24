@@ -13,13 +13,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class AuthUiState(
-    val isLoading: Boolean = false,
-    val error: UiMessage? = null,
-)
+sealed interface AuthUiState {
+    data object Idle : AuthUiState
+
+    data object Loading : AuthUiState
+
+    data class Error(val message: UiMessage) : AuthUiState
+}
 
 sealed interface AuthEvent {
     data class OpenLoginPage(val url: String) : AuthEvent
@@ -37,7 +39,7 @@ class AuthViewModel @Inject constructor(
 
     val isLoggedIn: StateFlow<Boolean> = sessionRepository.isLoggedIn
 
-    private val _uiState = MutableStateFlow(AuthUiState())
+    private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     private val _events = Channel<AuthEvent>(Channel.BUFFERED)
@@ -55,11 +57,11 @@ class AuthViewModel @Inject constructor(
     }
 
     fun startLogin() {
-        if (_uiState.value.isLoading) return
+        if (_uiState.value is AuthUiState.Loading) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.value = AuthUiState.Loading
             val url = sessionRepository.buildLoginUrl()
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.value = AuthUiState.Idle
             _events.send(AuthEvent.OpenLoginPage(url))
         }
     }
@@ -71,7 +73,9 @@ class AuthViewModel @Inject constructor(
     }
 
     fun dismissError() {
-        _uiState.update { it.copy(error = null) }
+        if (_uiState.value is AuthUiState.Error) {
+            _uiState.value = AuthUiState.Idle
+        }
     }
 
     private suspend fun processCallback(uri: Uri) {
@@ -82,22 +86,22 @@ class AuthViewModel @Inject constructor(
         }
         processedCode = code
 
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.value = AuthUiState.Loading
         when (val result = sessionRepository.processLogin(uri)) {
             is PixivAuthResult.Success -> {
+                _uiState.value = AuthUiState.Idle
                 _events.send(AuthEvent.LoginSuccess)
             }
             is PixivAuthResult.Failure.MissingCode ->
-                _uiState.update { it.copy(error = UiMessage(R.string.auth_error_missing_code)) }
+                _uiState.value = AuthUiState.Error(UiMessage(R.string.auth_error_missing_code))
             is PixivAuthResult.Failure.MissingVerifier ->
-                _uiState.update { it.copy(error = UiMessage(R.string.auth_error_missing_verifier)) }
+                _uiState.value = AuthUiState.Error(UiMessage(R.string.auth_error_missing_verifier))
             is PixivAuthResult.Failure.ServerRejected ->
-                _uiState.update {
-                    it.copy(error = UiMessage(R.string.auth_error_server_rejected, listOf(result.httpCode, result.message)))
-                }
+                _uiState.value = AuthUiState.Error(
+                    UiMessage(R.string.auth_error_server_rejected, listOf(result.httpCode, result.message)),
+                )
             is PixivAuthResult.Failure.NetworkError ->
-                _uiState.update { it.copy(error = UiMessage(R.string.auth_error_network)) }
+                _uiState.value = AuthUiState.Error(UiMessage(R.string.auth_error_network))
         }
-        _uiState.update { it.copy(isLoading = false) }
     }
 }

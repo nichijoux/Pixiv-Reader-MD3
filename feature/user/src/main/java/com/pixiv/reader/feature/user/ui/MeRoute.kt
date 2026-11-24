@@ -107,9 +107,7 @@ fun MeRoute(
     val exportDirPermFailed = stringResource(R.string.me_export_dir_permission_failed)
     // 落盘期间忽略重复点击，否则连点会让 DataStore 并发写竞态
     var switchingLanguage by remember { mutableStateOf(false) }
-    var showClearCache by remember { mutableStateOf(false) }
-    var showLogoutConfirm by remember { mutableStateOf(false) }
-    var showFileNameTemplate by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<MeDialog?>(null) }
 
     UiMessageEffect(viewModel.message, notificationHostState)
 
@@ -155,7 +153,7 @@ fun MeRoute(
                 MeAccountSection(
                     profile = ProfileHeaderData(user),
                     onClickProfile = viewModel.ownUid?.let { uid -> { onOpenUser(uid) } },
-                    onLogout = { showLogoutConfirm = true },
+                    onLogout = { activeDialog = MeDialog.LOGOUT },
                 )
 
                 // ── 用户内容管理 ──
@@ -257,7 +255,7 @@ fun MeRoute(
                     onSetViewerOrientation = viewModel::setViewerOrientation,
                     onSetFollowSortMode = viewModel::setFollowSortMode,
                     onSetClipboardLinkPrompt = viewModel::setClipboardLinkPrompt,
-                    onOpenFileNameTemplate = { showFileNameTemplate = true },
+                    onOpenFileNameTemplate = { activeDialog = MeDialog.FILE_NAME_TEMPLATE },
                 )
 
                 // ── 系统设置（每项独立卡片：自动更新 / 存储） ──
@@ -285,7 +283,7 @@ fun MeRoute(
                         }
                     },
                     onResetExportDir = viewModel::resetNovelExportDir,
-                    onClearCache = { showClearCache = true },
+                    onClearCache = { activeDialog = MeDialog.CLEAR_CACHE },
                 )
 
                 // ── 关于信息 ──
@@ -299,34 +297,45 @@ fun MeRoute(
         }
     }
 
-    // 清除缓存确认
-    if (showClearCache) {
-        ConfirmDialog(
+    when (activeDialog) {
+        MeDialog.CLEAR_CACHE -> ConfirmDialog(
             title = stringResource(R.string.me_cache_clear_title),
             message = stringResource(R.string.me_cache_clear_message),
             confirmText = stringResource(R.string.me_clear),
             onConfirm = {
                 viewModel.clearCache()
-                showClearCache = false
+                activeDialog = null
             },
-            onDismiss = { showClearCache = false },
+            onDismiss = { activeDialog = null },
         )
-    }
 
-    if (showFileNameTemplate) {
-        NovelFileNameTemplateDialog(
+        MeDialog.FILE_NAME_TEMPLATE -> NovelFileNameTemplateDialog(
             initialSingle = novelFileNameTemplate,
             initialSeries = novelFileNameTemplateSeries,
             onSave = { single, series ->
                 viewModel.setNovelFileNameTemplates(single, series)
-                showFileNameTemplate = false
+                activeDialog = null
             },
             onReset = {
                 viewModel.resetNovelFileNameTemplates()
-                showFileNameTemplate = false
+                activeDialog = null
             },
-            onDismiss = { showFileNameTemplate = false },
+            onDismiss = { activeDialog = null },
         )
+
+        MeDialog.LOGOUT -> ConfirmDialog(
+            title = stringResource(R.string.me_logout_confirm_title),
+            message = stringResource(R.string.me_logout_confirm_message),
+            confirmText = stringResource(R.string.me_logout),
+            variant = ConfirmDialogVariant.WARNING,
+            onConfirm = {
+                onLogout()
+                activeDialog = null
+            },
+            onDismiss = { activeDialog = null },
+        )
+
+        null -> Unit
     }
 
     // 与启动自动检查弹层共用 core:ui 的 UpdateReleaseDialog
@@ -345,18 +354,10 @@ fun MeRoute(
             onDismiss = viewModel::dismissUpdateDialog,
         )
     }
+}
 
-    if (showLogoutConfirm) {
-        ConfirmDialog(
-            title = stringResource(R.string.me_logout_confirm_title),
-            message = stringResource(R.string.me_logout_confirm_message),
-            confirmText = stringResource(R.string.me_logout),
-            variant = ConfirmDialogVariant.WARNING,
-            onConfirm = {
-                onLogout()
-                showLogoutConfirm = false
-            },
-            onDismiss = { showLogoutConfirm = false },
-        )
-    }
+private enum class MeDialog {
+    CLEAR_CACHE,
+    FILE_NAME_TEMPLATE,
+    LOGOUT,
 }

@@ -70,6 +70,7 @@ import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.fanbox.R
+import com.pixiv.reader.core.common.LoadState
 import com.pixiv.reader.feature.fanbox.state.FanboxCreatorsState
 import com.pixiv.reader.feature.fanbox.state.FanboxHomeViewModel
 import com.pixiv.reader.feature.fanbox.state.FanboxPostViewModel
@@ -223,7 +224,7 @@ private fun FanboxPostPane(
     val commentsState by viewModel.comments.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    fun openLink(url: String) = openFanboxLink(context, url, postState.post?.title.orEmpty(), onOpenWeb)
+    fun openLink(url: String) = openFanboxLink(context, url, postState.postOrNull?.title.orEmpty(), onOpenWeb)
 
     FanboxPostContent(
         postState = postState,
@@ -452,30 +453,33 @@ private fun CreatorsPage(
 ) {
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
-    when {
-        state.isLoading -> LoadingBox()
-        state.error != null -> ErrorBox(message = state.error, onRetry = onRetry)
-        state.items.isEmpty() -> EmptyBox(text = stringResource(R.string.fanbox_empty_creators))
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            items(
-                state.items,
-                key = { it.creatorId ?: it.user?.userId ?: it.hashCode().toString() },
-            ) { creator ->
-                FanboxCreatorCard(
-                    creator = creator,
-                    onClick = {
-                        creator.creatorId?.let { id -> onOpenCreator(id, creator.user?.name.orEmpty()) }
-                    },
-                    // 进场淡入 + 刷新时位置平滑过渡
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
-                )
+    when (state) {
+        LoadState.Loading -> LoadingBox()
+        is LoadState.Error -> ErrorBox(message = state.message, onRetry = onRetry)
+        is LoadState.Content -> if (state.data.isEmpty()) {
+            EmptyBox(text = stringResource(R.string.fanbox_empty_creators))
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                items(
+                    state.data,
+                    key = { it.creatorId ?: it.user?.userId ?: it.hashCode().toString() },
+                ) { creator ->
+                    FanboxCreatorCard(
+                        creator = creator,
+                        onClick = {
+                            creator.creatorId?.let { id -> onOpenCreator(id, creator.user?.name.orEmpty()) }
+                        },
+                        // 进场淡入 + 刷新时位置平滑过渡
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        ),
+                    )
+                }
             }
         }
     }

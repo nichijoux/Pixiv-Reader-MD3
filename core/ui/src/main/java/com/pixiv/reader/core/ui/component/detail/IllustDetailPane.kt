@@ -55,8 +55,7 @@ fun IllustDetailPane(
 
     val illust by viewModel.illust.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
-    val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
-    val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
+    val ugoiraState by viewModel.ugoiraState.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
@@ -96,8 +95,7 @@ fun IllustDetailPane(
             else -> IllustDetailContent(
                 illust = illust,
                 pages = pages,
-                ugoiraFrames = ugoiraFrames,
-                ugoiraProgress = ugoiraProgress,
+                ugoiraState = ugoiraState,
                 relatedItems = relatedItems,
                 strings = strings,
                 onPageChange = {},

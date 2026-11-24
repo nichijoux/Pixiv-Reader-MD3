@@ -118,7 +118,7 @@ internal fun NovelSeriesList(
     val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
     val isWatchlisted = watchlistState.isOn
     val isWatchlisting = watchlistState.inFlight
-    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
+    val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
 
@@ -145,7 +145,7 @@ internal fun NovelSeriesList(
                         isWatchlisted = isWatchlisted,
                         isWatchlisting = isWatchlisting,
                         onToggleWatchlist = viewModel::toggleWatchlist,
-                        downloading = downloading,
+                        downloading = exportState.isRunning,
                         onDownload = {
                             // 打开弹窗前先拉全量分册（供「选取部分」）
                             viewModel.ensureAllChaptersLoaded()

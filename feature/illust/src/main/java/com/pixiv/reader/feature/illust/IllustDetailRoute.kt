@@ -85,8 +85,7 @@ fun IllustDetailRoute(
     // 取路由参数而非 illust.id：数据未到时也要能定位 hero key
     val routeIllustId by viewModel.illustIdFlow.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
-    val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
-    val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
+    val ugoiraState by viewModel.ugoiraState.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
     val isBookmarked = bookmarkState.isOn
@@ -328,8 +327,7 @@ fun IllustDetailRoute(
                         item(key = "pager") {
                             IllustPagePager(
                                 pages = pages,
-                                ugoiraFrames = ugoiraFrames,
-                                ugoiraProgress = ugoiraProgress,
+                                ugoiraState = ugoiraState,
                                 onPageChange = { currentPage = it },
                                 onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
                                 strings = illustDetailStrings,
@@ -425,14 +423,12 @@ private fun TwoPaneContent(
     strings: IllustDetailStrings,
     viewModel: IllustViewModel,
 ) {
-    val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
-    val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
+    val ugoiraState by viewModel.ugoiraState.collectAsStateWithLifecycle()
     val relatedItems by viewModel.relatedPaged.items.collectAsStateWithLifecycle()
     IllustDetailContent(
         illust = illust,
         pages = pages,
-        ugoiraFrames = ugoiraFrames,
-        ugoiraProgress = ugoiraProgress,
+        ugoiraState = ugoiraState,
         relatedItems = relatedItems,
         strings = strings,
         onPageChange = onPageChange,

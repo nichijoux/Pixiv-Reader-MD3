@@ -88,8 +88,7 @@ fun NovelDetailPane(
     val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
     val isAuthorFollowed = authorFollowState.isOn
     val isAuthorFollowing = authorFollowState.inFlight
-    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
-    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     var showDownloadDialog by remember { mutableStateOf(false) }
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
@@ -172,8 +171,7 @@ fun NovelDetailPane(
                             progress = progress,
                             isAuthorFollowed = isAuthorFollowed,
                             isAuthorFollowing = isAuthorFollowing,
-                            downloading = downloading,
-                            downloadProgress = downloadProgress,
+                            exportState = exportState,
                             // pane 无悬浮返回按钮，onBack 不会被触发，占位安全
                             onBack = {},
                             onOpenNovel = viewModel::switchTo,
@@ -196,7 +194,7 @@ fun NovelDetailPane(
                                 isBookmarking = isBookmarking,
                                 isWatchlisted = isWatchlisted,
                                 isWatchlisting = isWatchlisting,
-                                downloading = downloading,
+                                downloading = exportState.isRunning,
                                 onBookmark = viewModel::toggleBookmark,
                                 onWatchlist = viewModel::toggleWatchlist,
                                 onDownload = { showDownloadDialog = true },

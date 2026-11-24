@@ -77,27 +77,28 @@ fun LoginScreen(
 
         Spacer(Modifier.height(40.dp))
 
-        if (uiState.isLoading) {
-            LoadingIndicator()
-        }
-
-        if (uiState.error != null) {
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(uiState.error.res, *uiState.error.args.toTypedArray()),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(4.dp))
-            TextButton(onClick = onDismissError) { Text(stringResource(R.string.auth_got_it)) }
+        val isLoading = uiState is AuthUiState.Loading
+        when (uiState) {
+            AuthUiState.Loading -> LoadingIndicator()
+            is AuthUiState.Error -> {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(uiState.message.res, *uiState.message.args.toTypedArray()),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onDismissError) { Text(stringResource(R.string.auth_got_it)) }
+            }
+            AuthUiState.Idle -> Unit
         }
 
         Spacer(Modifier.height(16.dp))
 
         Button(
             onClick = onLogin,
-            enabled = !uiState.isLoading,
+            enabled = !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = AppShapes.pill,
         ) {
@@ -108,7 +109,7 @@ fun LoginScreen(
 
         OutlinedButton(
             onClick = onRegister,
-            enabled = !uiState.isLoading,
+            enabled = !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = AppShapes.pill,
         ) {

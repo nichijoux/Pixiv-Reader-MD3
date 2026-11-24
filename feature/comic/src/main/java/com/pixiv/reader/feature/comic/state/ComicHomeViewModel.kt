@@ -3,6 +3,7 @@ package com.pixiv.reader.feature.comic.state
 import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.ComicBanner
 import com.pixiv.api.model.ComicWorkSummary
+import com.pixiv.reader.core.common.LoadState
 import com.pixiv.reader.core.common.loadFailureMessage
 import com.pixiv.reader.core.network.comic.ComicRepository
 import com.pixiv.reader.core.network.message.MessageViewModel
@@ -10,6 +11,7 @@ import com.pixiv.reader.feature.comic.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,21 +23,19 @@ enum class ComicRankingMode {
     POPULARITY,
 }
 
-data class ComicTopState(
+data class ComicTopData(
     val banners: List<ComicBanner> = emptyList(),
     val recentWorks: List<ComicWorkSummary> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
 )
+
+typealias ComicTopState = LoadState<ComicTopData>
 
 /** 标签 + 当前模式/标签下的榜单（服务端整榜下发，无翻页游标）。 */
 data class ComicRankingState(
     val labels: List<String> = emptyList(),
     val selectedMode: ComicRankingMode = ComicRankingMode.WEEKLY,
     val selectedLabel: String? = null,
-    val works: List<ComicWorkSummary> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
+    val loadState: LoadState<List<ComicWorkSummary>> = LoadState.Loading,
 )
 
 @HiltViewModel
@@ -43,11 +43,14 @@ class ComicHomeViewModel @Inject constructor(
     private val comicRepository: ComicRepository,
 ) : MessageViewModel() {
 
-    private val _top = MutableStateFlow(ComicTopState())
+    private val _top = MutableStateFlow<ComicTopState>(LoadState.Loading)
     val top: StateFlow<ComicTopState> = _top.asStateFlow()
 
     private val _ranking = MutableStateFlow(ComicRankingState())
     val ranking: StateFlow<ComicRankingState> = _ranking.asStateFlow()
+
+    private var topJob: Job? = null
+    private var rankingJob: Job? = null
 
     init {
         loadTop()
@@ -55,32 +58,31 @@ class ComicHomeViewModel @Inject constructor(
     }
 
     fun loadTop() {
-        // 占用加载标志：连点重试只保留一个请求。
-        if (_top.value.isLoading) return
-        _top.value = _top.value.copy(isLoading = true, error = null)
-        viewModelScope.launch {
+        if (topJob?.isActive == true) return
+        _top.value = LoadState.Loading
+        topJob = viewModelScope.launch {
             try {
                 val data = comicRepository.api.top().data
-                _top.value = _top.value.copy(
-                    banners = data?.banners.orEmpty(),
-                    recentWorks = data?.recentUpdatedOfficialWorks.orEmpty(),
+                _top.value = LoadState.Content(
+                    ComicTopData(
+                        banners = data?.banners.orEmpty(),
+                        recentWorks = data?.recentUpdatedOfficialWorks.orEmpty(),
+                    ),
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _top.value = _top.value.copy(error = e.message.orEmpty())
+                _top.value = LoadState.Error(e.message)
                 notifyFailure(e)
-            } finally {
-                _top.value = _top.value.copy(isLoading = false)
             }
         }
     }
 
     private fun loadLabels() {
-        // 标签请求与榜单请求共用排行加载标志。
-        if (_ranking.value.isLoading) return
-        _ranking.value = _ranking.value.copy(isLoading = true, error = null)
-        viewModelScope.launch {
+        // 标签请求与榜单请求共用 rankingJob，避免并发覆盖。
+        if (rankingJob?.isActive == true) return
+        _ranking.value = _ranking.value.copy(loadState = LoadState.Loading)
+        rankingJob = viewModelScope.launch {
             try {
                 // 两个榜单共用同一组标签，只拉周榜的。
                 val labels = comicRepository.api.weeklyRankingLabels().data?.labels.orEmpty()
@@ -91,26 +93,24 @@ class ComicHomeViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _ranking.value = _ranking.value.copy(error = e.message.orEmpty())
+                _ranking.value = _ranking.value.copy(loadState = LoadState.Error(e.message))
                 notifyFailure(e)
                 return@launch
-            } finally {
-                _ranking.value = _ranking.value.copy(isLoading = false)
             }
-            loadRanking()
+            fetchRankingForCurrentSelection()
         }
     }
 
     fun selectRankingMode(mode: ComicRankingMode) {
         if (_ranking.value.selectedMode == mode) return
-        // 在途时不并发拉榜，由 loadRanking 收尾补拉。
+        // 在途时不并发拉榜，由当前请求收尾补拉。
         _ranking.value = _ranking.value.copy(selectedMode = mode)
         loadRanking()
     }
 
     fun selectLabel(label: String) {
         if (_ranking.value.selectedLabel == label) return
-        // 在途时不并发拉榜，由 loadRanking 收尾补拉。
+        // 在途时不并发拉榜，由当前请求收尾补拉。
         _ranking.value = _ranking.value.copy(selectedLabel = label)
         loadRanking()
     }
@@ -120,12 +120,17 @@ class ComicHomeViewModel @Inject constructor(
     }
 
     private fun loadRanking() {
-        val snapshot = _ranking.value
-        val label = snapshot.selectedLabel ?: return
-        // 用快照占用加载标志，确保任一时刻只有一条榜单请求。
-        if (snapshot.isLoading) return
-        _ranking.value = snapshot.copy(works = emptyList(), isLoading = true, error = null)
-        viewModelScope.launch {
+        if (_ranking.value.selectedLabel == null || rankingJob?.isActive == true) return
+        rankingJob = viewModelScope.launch {
+            fetchRankingForCurrentSelection()
+        }
+    }
+
+    private suspend fun fetchRankingForCurrentSelection() {
+        while (true) {
+            val snapshot = _ranking.value
+            val label = snapshot.selectedLabel ?: return
+            _ranking.value = snapshot.copy(loadState = LoadState.Loading)
             try {
                 val items = when (snapshot.selectedMode) {
                     ComicRankingMode.WEEKLY ->
@@ -133,21 +138,20 @@ class ComicHomeViewModel @Inject constructor(
                     ComicRankingMode.POPULARITY ->
                         comicRepository.api.popularityRanking(label).data?.ranking.orEmpty()
                 }
-                // 等待响应期间切换了选项时，旧榜单不可写入当前选择。
+                // 等待响应期间切换了选项时，丢弃旧榜单并在下一轮补拉最新选择。
                 if (isRankingSelectionCurrent(snapshot)) {
-                    _ranking.value = _ranking.value.copy(works = items)
+                    _ranking.value = _ranking.value.copy(loadState = LoadState.Content(items))
+                    return
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 if (isRankingSelectionCurrent(snapshot)) {
-                    _ranking.value = _ranking.value.copy(error = e.message.orEmpty())
+                    _ranking.value = _ranking.value.copy(loadState = LoadState.Error(e.message))
                     notifyFailure(e)
+                    return
                 }
-            } finally {
-                _ranking.value = _ranking.value.copy(isLoading = false)
             }
-            if (!isRankingSelectionCurrent(snapshot)) loadRanking()
         }
     }
 

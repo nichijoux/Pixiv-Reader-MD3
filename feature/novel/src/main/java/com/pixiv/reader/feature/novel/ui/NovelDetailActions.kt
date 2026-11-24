@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.pixiv.reader.core.common.ExportState
 import com.pixiv.reader.core.common.ui.MAX_CONTENT_WIDTH_DP
 import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
@@ -48,8 +49,7 @@ import com.pixiv.reader.feature.novel.R
 
 @Composable
 internal fun NovelActions(
-    downloading: Boolean,
-    downloadProgress: String?,
+    exportState: ExportState,
     onRead: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
@@ -70,9 +70,9 @@ internal fun NovelActions(
                 modifier = Modifier.padding(start = Spacing.xsPlus),
             )
         }
-        if (downloading && !downloadProgress.isNullOrBlank()) {
+        if (exportState is ExportState.Running && exportState.status.isNotBlank()) {
             Text(
-                text = downloadProgress,
+                text = exportState.status,
                 style = novelMetaStyle(),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = Spacing.sm),

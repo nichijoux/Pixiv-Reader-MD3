@@ -63,6 +63,25 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
+enum class ReaderSource {
+    ONLINE,
+    LOCAL,
+}
+
+sealed interface ReaderLoadState {
+    data object Loading : ReaderLoadState
+
+    data object Empty : ReaderLoadState
+
+    data class Ready(
+        val novel: Novel,
+        val document: NovelDocument,
+        val source: ReaderSource,
+    ) : ReaderLoadState
+
+    data class Error(val message: UiMessage) : ReaderLoadState
+}
+
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -75,37 +94,32 @@ class ReaderViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : MessageViewModel() {
 
+    private data class LoadedContent(
+        val novel: Novel,
+        val document: NovelDocument,
+        val source: ReaderSource,
+    )
+
     private val novelId: Long = savedStateHandle.get<Long>("novelId") ?: 0L
 
-    private val _novel = MutableStateFlow<Novel?>(null)
-    val novel: StateFlow<Novel?> = _novel.asStateFlow()
+    private val _loadState = MutableStateFlow<ReaderLoadState>(ReaderLoadState.Loading)
+    val loadState: StateFlow<ReaderLoadState> = _loadState.asStateFlow()
 
-    private val _document = MutableStateFlow<NovelDocument?>(null)
-    val document: StateFlow<NovelDocument?> = _document.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _error = MutableStateFlow<UiMessage?>(null)
-    val error: StateFlow<UiMessage?> = _error.asStateFlow()
-
-    /** UI 顶部据此显示「本地」徽标。 */
-    private val _isOffline = MutableStateFlow(false)
-    val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
-
-    /** 本地文档直接渲染，跳过网络加载。 */
-    private val _isLocalMode = MutableStateFlow(false)
+    /** 正文已就绪但进度恢复尚未完成（或失败重试）时的暂存内容。 */
+    private var loadedContent: LoadedContent? = null
 
     fun useLocalDocument(document: NovelDocument, title: String) {
-        if (_isLocalMode.value && _document.value === document) return
+        val current = loadedContent
+        if (current?.source == ReaderSource.LOCAL && current.document === document) return
         // 先切换加载分支，避免旧在线任务回写本地文档。
         loadJob?.cancel()
         loadJob = null
-        _isLocalMode.value = true
-        _progressRestored.value = false
-        _novel.value = Novel(id = novelId, title = title)
-        _document.value = document
-        _isOffline.value = true
+        loadedContent = LoadedContent(
+            novel = Novel(id = novelId, title = title),
+            document = document,
+            source = ReaderSource.LOCAL,
+        )
+        _loadState.value = ReaderLoadState.Loading
         load()
     }
 
@@ -160,7 +174,10 @@ class ReaderViewModel @Inject constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val displayDocument: StateFlow<NovelDocument?> =
-        combine(_document, _chineseConvert) { doc, mode -> doc to mode }
+        combine(
+            _loadState.map { (it as? ReaderLoadState.Ready)?.document }.distinctUntilChanged(),
+            _chineseConvert,
+        ) { doc, mode -> doc to mode }
             .flatMapLatest { (doc, mode) ->
                 when {
                     doc == null -> flowOf(null)
@@ -200,10 +217,6 @@ class ReaderViewModel @Inject constructor(
     private val _percentage = MutableStateFlow(0)
     val percentage: StateFlow<Int> = _percentage.asStateFlow()
 
-    /** UI 据此决定初始翻页/滚动位置。 */
-    private val _progressRestored = MutableStateFlow(false)
-    val progressRestored: StateFlow<Boolean> = _progressRestored.asStateFlow()
-
     // ── 服务端状态（ToggleUiState 状态机：阅读书签 / 收藏 / 追更） ──
     private val _markState = MutableStateFlow(ToggleUiState.OFF)
     val markState: StateFlow<ToggleUiState> = _markState.asStateFlow()
@@ -226,7 +239,7 @@ class ReaderViewModel @Inject constructor(
                 .map { it[novelId] }
                 .distinctUntilChanged()
                 .collect { bookmarked ->
-                    if (!_isLocalMode.value && bookmarked != null &&
+                    if (loadedContent?.source != ReaderSource.LOCAL && bookmarked != null &&
                         !_bookmarkState.value.inFlight && _bookmarkState.value.isOn != bookmarked
                     ) {
                         _bookmarkState.value = if (bookmarked) ToggleUiState.ON else ToggleUiState.OFF
@@ -272,17 +285,15 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun load() {
-        if (loadJob?.isActive == true || _progressRestored.value) return
+        if (loadJob?.isActive == true || _loadState.value is ReaderLoadState.Ready) return
         loadJob = viewModelScope.launch {
             try {
-                _isLoading.value = true
-                _error.value = null
+                _loadState.value = ReaderLoadState.Loading
                 // 本地文档与进度恢复重试都复用已有正文
-                if (_document.value != null) {
-                    restoreProgress()
+                loadedContent?.let { existing ->
+                    restoreProgress(existing)
                     return@launch
                 }
-                if (_isLocalMode.value) return@launch
                 // 缓存命中（阅读时预加载过 / 此前刚读过）：跳章秒开
                 val cached = readerChapterCache.getChapter(novelId)
                 Log.i(
@@ -294,7 +305,10 @@ class ReaderViewModel @Inject constructor(
                 } else {
                     val (detail, document) = contentLoader.load(novelId).getOrThrow()
                     currentCoroutineContext().ensureActive()
-                    if (detail == null) return@launch
+                    if (detail == null) {
+                        _loadState.value = ReaderLoadState.Empty
+                        return@launch
+                    }
                     readerChapterCache.putChapter(novelId, ReaderChapterCache.Entry(detail, document))
                     applyLoaded(detail, document)
                 }
@@ -302,56 +316,55 @@ class ReaderViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "load reader failed", e)
-                _error.value = loadFailureMessage(
-                    e,
-                    R.string.reader_error_load_failed_reason,
-                    R.string.reader_error_load_failed,
-                )
-            } finally {
-                // 已切换分支时，加载标志由新任务负责。
-                if (isActive) _isLoading.value = false
+                if (isActive) {
+                    _loadState.value = ReaderLoadState.Error(
+                        loadFailureMessage(
+                            e,
+                            R.string.reader_error_load_failed_reason,
+                            R.string.reader_error_load_failed,
+                        ),
+                    )
+                }
             }
         }
     }
 
     private suspend fun applyLoaded(detail: Novel, document: NovelDocument) {
-        _novel.value = detail
-        _document.value = document
+        val content = LoadedContent(detail, document, ReaderSource.ONLINE)
+        loadedContent = content
         // 目录构建含系列小说列表的网络请求，放到 IO 之外异步执行
-        viewModelScope.launch { buildToc() }
-        loadServerState()
-        restoreProgress()
+        viewModelScope.launch { buildToc(detail) }
+        loadServerState(detail)
+        restoreProgress(content)
     }
 
     /** 在线章节缺本地记录时可回退官方书签。 */
-    private suspend fun restoreProgress() {
-        val document = _document.value ?: return
+    private suspend fun restoreProgress(content: LoadedContent) {
         // 快速离开再进入时，等待上一阅读器正在提交的进度。
         val local = progressWriteMutex.withLock { readingProgressDao.getByNovel(novelId) }
         val offset = when {
-            seekToEndRequested -> document.textLength
-            local != null -> local.charOffset.coerceIn(0, document.textLength)
-            _isLocalMode.value -> 0
-            else -> estimateOffsetFromServerMarker()
+            seekToEndRequested -> content.document.textLength
+            local != null -> local.charOffset.coerceIn(0, content.document.textLength)
+            content.source == ReaderSource.LOCAL -> 0
+            else -> estimateOffsetFromServerMarker(content.novel, content.document)
         }
         currentCoroutineContext().ensureActive()
-        // 先发布偏移和百分比，随后放行首次定位。
+        // 先发布偏移和百分比，随后迁移至 Ready 放行首次定位。
         _charOffset.value = offset
-        _percentage.value = document.percentageAt(offset)
-        _progressRestored.value = true
+        _percentage.value = content.document.percentageAt(offset)
+        _loadState.value = ReaderLoadState.Ready(content.novel, content.document, content.source)
     }
 
     /** 系列上一章「尾页」进入时置位（reader/{id}?toEnd=true）。 */
     private var seekToEndRequested = false
 
     fun seekToEnd() {
-        if (!_progressRestored.value) seekToEndRequested = true
+        if (_loadState.value !is ReaderLoadState.Ready) seekToEndRequested = true
     }
 
     /** 书签缺失或读取失败时返回 0。 */
-    private suspend fun estimateOffsetFromServerMarker(): Int {
-        val document = _document.value ?: return 0
-        return readerResult {
+    private suspend fun estimateOffsetFromServerMarker(novel: Novel, document: NovelDocument): Int =
+        readerResult {
             // 官方页码只用于在线章节没有本地记录时的兜底定位。
             val marker = pixivRepository.api.getNovelMarkers().marked_novels
                 .firstOrNull { it.novel?.id == novelId }?.novel_marker ?: return 0
@@ -359,20 +372,19 @@ class ReaderViewModel @Inject constructor(
             estimateCharFromOfficialPage(
                 page = marker.page,
                 textLength = document.textLength,
-                officialPageCount = (_novel.value?.page_count ?: 1).coerceAtLeast(1),
+                officialPageCount = (novel.page_count ?: 1).coerceAtLeast(1),
             )
         }.getOrDefault(0)
-    }
 
-    private fun loadServerState() {
+    private fun loadServerState(detail: Novel) {
         viewModelScope.launch {
             try {
                 // 优先保留当前会话中的操作结果，其次回退接口详情自带的收藏状态并写入覆盖流。
                 val initialBookmarked = favoriteActions.novelBookmarks.value[novelId]
-                    ?: (_novel.value?.is_bookmarked == true)
+                    ?: (detail.is_bookmarked == true)
                 _bookmarkState.value = if (initialBookmarked) ToggleUiState.ON else ToggleUiState.OFF
                 favoriteActions.setNovelBookmarkState(novelId, initialBookmarked)
-                val seriesId = _novel.value?.series?.id ?: return@launch
+                val seriesId = detail.series?.id ?: return@launch
                 val resp = pixivRepository.api.getNovelSeries(seriesId)
                 _watchlistState.value =
                     if (resp.novel_series_detail?.watchlist_added == true) ToggleUiState.ON
@@ -388,22 +400,20 @@ class ReaderViewModel @Inject constructor(
     // ── 进度上报（由 UI 在翻页/滚动时调用） ──
 
     fun reportPage(startChar: Int) {
-        if (!_progressRestored.value) return // 恢复完成前忽略 UI 上报
-        val document = _document.value ?: return
-        val offset = startChar.coerceIn(0, document.textLength)
+        val ready = _loadState.value as? ReaderLoadState.Ready ?: return
+        val offset = startChar.coerceIn(0, ready.document.textLength)
         _charOffset.value = offset
-        _percentage.value = document.percentageAt(offset)
+        _percentage.value = ready.document.percentageAt(offset)
         scheduleProgressSave()
-        scheduleMarkerSync(offset)
+        scheduleMarkerSync(ready, offset)
     }
 
     fun reportScrollOffset(offset: Int) {
-        if (!_progressRestored.value) return
-        val document = _document.value ?: return
-        val clamped = offset.coerceIn(0, document.textLength)
+        val ready = _loadState.value as? ReaderLoadState.Ready ?: return
+        val clamped = offset.coerceIn(0, ready.document.textLength)
         if (kotlin.math.abs(clamped - _charOffset.value) < 50) return // 防抖：避免高频写
         _charOffset.value = clamped
-        _percentage.value = document.percentageAt(clamped)
+        _percentage.value = ready.document.percentageAt(clamped)
         scheduleProgressSave()
     }
 
@@ -415,16 +425,15 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    /** 尚未恢复时返回 null：此时不得用默认偏移覆盖旧记录。 */
+    /** 尚未就绪时返回 null：此时不得用默认偏移覆盖旧记录。 */
     private fun progressSnapshot(): ReadingProgressEntity? {
-        // 退出或销毁时可能仍在读 Room
-        if (!_progressRestored.value) return null
-        val detail = _novel.value
+        val ready = _loadState.value as? ReaderLoadState.Ready ?: return null
+        val detail = ready.novel
         return ReadingProgressEntity(
             novelId = novelId,
-            seriesId = detail?.series?.id ?: 0L,
-            title = detail?.title,
-            coverUrl = detail?.image_urls?.medium ?: detail?.image_urls?.square_medium,
+            seriesId = detail.series?.id ?: 0L,
+            title = detail.title,
+            coverUrl = detail.image_urls?.medium ?: detail.image_urls?.square_medium,
             chapterOrder = 0,
             charOffset = _charOffset.value,
             percentage = _percentage.value,
@@ -453,18 +462,17 @@ class ReaderViewModel @Inject constructor(
     }
 
     /** 按字符比例低频同步在线章节的官方书签。 */
-    private fun scheduleMarkerSync(offset: Int) {
-        if (_isLocalMode.value) return
-        val pageCount = _novel.value?.page_count ?: 0
+    private fun scheduleMarkerSync(ready: ReaderLoadState.Ready, offset: Int) {
+        if (ready.source == ReaderSource.LOCAL) return
+        val pageCount = ready.novel.page_count ?: 0
         if (pageCount <= 0) return
         markerJob?.cancel()
         markerJob = viewModelScope.launch {
             delay(3000.milliseconds)
-            val document = _document.value ?: return@launch
             // 按字符比例换算官方页码（与书签换算共用同一纯函数；pageCount 已保证 >= 1）
             val page = estimateOfficialPage(
                 charOffset = offset,
-                textLength = document.textLength,
+                textLength = ready.document.textLength,
                 officialPageCount = pageCount,
             )
             readerResult { pixivRepository.api.addNovelMarker(novelId, page) }
@@ -567,14 +575,13 @@ class ReaderViewModel @Inject constructor(
     /**
      * 系列小说展示系列内各本，非系列只显示本小说；系列列表优先走缓存，目录就绪后预加载相邻章。
      */
-    private suspend fun buildToc() {
-        val detail = _novel.value
-        val series = detail?.series
+    private suspend fun buildToc(detail: Novel) {
+        val series = detail.series
         if (series == null) {
             _toc.value = listOf(
                 ReaderTocItem(
-                    detail?.title ?: context.getString(R.string.reader_toc_current_novel),
-                    detail?.id ?: 0L,
+                    detail.title ?: context.getString(R.string.reader_toc_current_novel),
+                    detail.id,
                     0
                 ),
             )
@@ -589,7 +596,7 @@ class ReaderViewModel @Inject constructor(
                     0
                 )
             }
-            preloadNeighborChapters()
+            preloadNeighborChapters(detail)
             return
         }
         _tocLoading.value = true
@@ -603,7 +610,7 @@ class ReaderViewModel @Inject constructor(
                     0
                 )
             }
-            preloadNeighborChapters()
+            preloadNeighborChapters(detail)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -614,8 +621,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    private fun preloadNeighborChapters() {
-        val current = _novel.value ?: return
+    private fun preloadNeighborChapters(current: Novel) {
         val tocIndex = _toc.value.indexOfFirst { it.novelId == current.id }
         if (tocIndex < 0) return
         val neighbors = listOfNotNull(
@@ -646,7 +652,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun searchText(query: String) {
-        val text = _document.value?.fullText ?: return
+        val text = (_loadState.value as? ReaderLoadState.Ready)?.document?.fullText ?: return
         if (query.isBlank()) {
             _searchResults.value = emptyList()
             _searchIndex.value = -1
@@ -723,7 +729,8 @@ class ReaderViewModel @Inject constructor(
 
     /** 添加时需按当前阅读位置换算官方页码。 */
     fun toggleMark() {
-        if (_isLocalMode.value) return
+        val ready = _loadState.value as? ReaderLoadState.Ready ?: return
+        if (ready.source == ReaderSource.LOCAL) return
         runToggle(
             _markState,
             R.string.reader_msg_mark_added,
@@ -732,10 +739,10 @@ class ReaderViewModel @Inject constructor(
             readerResult {
                 if (target) {
                     val offset = _charOffset.value
-                    val pageCount = (_novel.value?.page_count ?: 1).coerceAtLeast(1)
+                    val pageCount = (ready.novel.page_count ?: 1).coerceAtLeast(1)
                     val page = estimateOfficialPage(
                         charOffset = offset,
-                        textLength = (_document.value?.textLength ?: 1).coerceAtLeast(1),
+                        textLength = ready.document.textLength.coerceAtLeast(1),
                         officialPageCount = pageCount,
                     )
                     pixivRepository.api.addNovelMarker(novelId, page)
@@ -748,7 +755,7 @@ class ReaderViewModel @Inject constructor(
 
     /** 经 FavoriteActions 统一收口，断网自动入队。 */
     fun toggleBookmark() {
-        if (_isLocalMode.value || novelId <= 0L) return
+        if (loadedContent?.source == ReaderSource.LOCAL || novelId <= 0L) return
         runToggle(
             _bookmarkState,
             CoreR.string.core_msg_bookmarked,
@@ -758,8 +765,9 @@ class ReaderViewModel @Inject constructor(
 
     /** 不在系列内或本地模式时忽略。 */
     fun toggleWatchlist() {
-        if (_isLocalMode.value) return
-        val seriesId = _novel.value?.series?.id ?: run {
+        val ready = _loadState.value as? ReaderLoadState.Ready ?: return
+        if (ready.source == ReaderSource.LOCAL) return
+        val seriesId = ready.novel.series?.id ?: run {
             trySendMessage(UiMessage(R.string.reader_msg_not_in_series))
             return
         }

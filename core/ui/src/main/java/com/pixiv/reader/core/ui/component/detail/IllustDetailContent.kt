@@ -86,7 +86,7 @@ import coil.compose.AsyncImage
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.network.model.IllustPageInfo
-import com.pixiv.reader.core.network.ugoira.UgoiraFrame
+import com.pixiv.reader.core.network.ugoira.UgoiraState
 import com.pixiv.reader.core.ui.component.card.TagChip
 import com.pixiv.reader.core.ui.component.card.UserAvatar
 import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
@@ -134,8 +134,7 @@ data class IllustDetailStrings(
 fun IllustDetailContent(
     illust: Illust?,
     pages: List<IllustPageInfo>,
-    ugoiraFrames: List<UgoiraFrame>,
-    ugoiraProgress: Float?,
+    ugoiraState: UgoiraState,
     relatedItems: List<Illust>,
     strings: IllustDetailStrings,
     onPageChange: (Int) -> Unit,
@@ -167,8 +166,7 @@ fun IllustDetailContent(
         if (pages.isNotEmpty() || seed != null) {
             IllustPagePager(
                 pages = pages,
-                ugoiraFrames = ugoiraFrames,
-                ugoiraProgress = ugoiraProgress,
+                ugoiraState = ugoiraState,
                 onPageChange = onPageChange,
                 onOpenViewer = onOpenViewer,
                 strings = strings,
@@ -218,6 +216,14 @@ fun IllustDetailContent(
  * 多 P 大图 Pager：仅换页时用弹簧吸附高度，同页比例修正（原图就绪/hero 接棒）直接落地以防二次跳动；
  * 占位态（`pages` 为空但有 [seed]）在同一 hero 容器内渲染种子封面，避免 loading/content 互斥子树重播 morph 动画。
  */
+private sealed interface PageImageState {
+    data object Loading : PageImageState
+
+    data class Loaded(val ratio: Float?) : PageImageState
+
+    data object Failed : PageImageState
+}
+
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -225,8 +231,7 @@ fun IllustPagePager(
     pages: List<IllustPageInfo>,
     onPageChange: (Int) -> Unit,
     onOpenViewer: (Int) -> Unit,
-    ugoiraFrames: List<UgoiraFrame> = emptyList(),
-    ugoiraProgress: Float? = null,
+    ugoiraState: UgoiraState = UgoiraState.Idle,
     strings: IllustDetailStrings,
     illustId: Long? = null,
     placeholderUrl: String? = null,
@@ -243,18 +248,15 @@ fun IllustPagePager(
 
     val current = pages.getOrNull(currentPage)
     // 必须以 URL 为 key 同步重置状态，不可用 LaunchedEffect：Coil 内存命中走 Main.immediate 同步触发
-    // onSuccess，若后续被 LaunchedEffect 覆盖回 false 会导致预加载页转圈永挂
-    var imageRatio by remember(current?.displayUrl) { mutableStateOf<Float?>(null) }
-    var loadDone by remember(current?.displayUrl) { mutableStateOf(false) }
-    var loadFailed by remember(current?.displayUrl) { mutableStateOf(false) }
+    // onSuccess，若后续被 LaunchedEffect 覆盖回 Loading 会导致预加载页转圈永挂
+    var imageState by remember(current?.displayUrl) { mutableStateOf<PageImageState>(PageImageState.Loading) }
     var retryKey by remember(current?.displayUrl) { mutableIntStateOf(0) }
     fun retry() {
-        loadFailed = false
-        loadDone = false
-        imageRatio = null
+        imageState = PageImageState.Loading
         retryKey++
     }
 
+    val imageRatio = (imageState as? PageImageState.Loaded)?.ratio
     val webRatio = current
         ?.takeIf { it.width > 0 && it.height > 0 }
         ?.let { it.width.toFloat() / it.height.toFloat() }
@@ -266,7 +268,7 @@ fun IllustPagePager(
     // fallbackRatio 仅为估值不代表图片就绪，不计入 ready 以免首帧误隐藏转圈
     val ready = imageRatio != null || webRatio != null
     // 图片未就绪前用 surface 底色避免露黑块，就绪后切黑底压 letterbox 黑帧
-    val containerColor = if (placeholderOnly || (!ready && !loadDone)) {
+    val containerColor = if (placeholderOnly || (!ready && imageState is PageImageState.Loading)) {
         MaterialTheme.colorScheme.surface
     } else {
         Color.Black
@@ -344,21 +346,20 @@ fun IllustPagePager(
                                     contentScale = ContentScale.Fit,
                                     onSuccess = { res ->
                                         val d = res.result.drawable
-                                        if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
-                                            imageRatio =
-                                                d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+                                        val ratio = if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
+                                            d.intrinsicWidth.toFloat() / d.intrinsicHeight.toFloat()
+                                        } else {
+                                            null
                                         }
-                                        loadDone = true
-                                        loadFailed = false
+                                        imageState = PageImageState.Loaded(ratio)
                                     },
                                     onError = {
-                                        loadDone = true
-                                        loadFailed = true
+                                        imageState = PageImageState.Failed
                                     },
                                 )
                             }
                             // 动图封面失败不拦截播放，帧就绪后照常覆盖显示
-                            if (loadFailed && ugoiraFrames.isEmpty()) {
+                            if (imageState is PageImageState.Failed && ugoiraState !is UgoiraState.Ready) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -383,19 +384,19 @@ fun IllustPagePager(
                                 }
                             }
                             if (index == 0) {
-                                when {
-                                    ugoiraFrames.isNotEmpty() -> {
+                                when (ugoiraState) {
+                                    is UgoiraState.Ready -> {
                                         val maxDecodeSize =
                                             with(LocalDensity.current) { pagerMaxWidth.roundToPx() }
                                         UgoiraPlayer(
-                                            frames = ugoiraFrames,
+                                            frames = ugoiraState.frames,
                                             modifier = Modifier.fillMaxSize(),
                                             maxDecodeSize = maxDecodeSize,
                                             contentScale = ContentScale.Fit,
                                         )
                                     }
 
-                                    ugoiraProgress != null -> {
+                                    is UgoiraState.Loading -> {
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -408,7 +409,7 @@ fun IllustPagePager(
                                             ) {
                                                 LoadingIndicator(color = Color.White)
                                                 Text(
-                                                    text = "${(ugoiraProgress * 100).toInt()}%",
+                                                    text = "${(ugoiraState.progress * 100).toInt()}%",
                                                     style = MaterialTheme.typography.labelMedium,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Color.White,
@@ -416,6 +417,8 @@ fun IllustPagePager(
                                             }
                                         }
                                     }
+
+                                    UgoiraState.Idle, UgoiraState.Failed -> Unit
                                 }
                             }
                         }
@@ -430,7 +433,7 @@ fun IllustPagePager(
                 }
             }
             if (!placeholderOnly) {
-                if (!ready && !loadDone) {
+                if (!ready && imageState is PageImageState.Loading) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,

@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.common.config.ViewerOrientation
 import com.pixiv.reader.core.network.download.UgoiraExportFormat
 import com.pixiv.reader.core.network.model.IllustPageInfo
+import com.pixiv.reader.core.network.ugoira.UgoiraState
 import com.pixiv.reader.core.ui.R as CoreUiR
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.bookmark.BookmarkEditSheet
@@ -94,8 +95,9 @@ fun ViewerRoute(
     BackHandler(onBack = onBack)
     val illust by viewModel.illust.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
-    val isGif by viewModel.isGif.collectAsStateWithLifecycle()
-    val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
+    val ugoiraState by viewModel.ugoiraState.collectAsStateWithLifecycle()
+    val isGif = ugoiraState.isUgoira
+    val ugoiraFrames = (ugoiraState as? UgoiraState.Ready)?.frames.orEmpty()
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
     val isBookmarked = bookmarkState.isOn
     val isOriginal by viewModel.isOriginal.collectAsStateWithLifecycle()
@@ -127,9 +129,7 @@ fun ViewerRoute(
         }
     }
     var anyZoomed by remember { mutableStateOf(false) }
-    var menuExpanded by remember { mutableStateOf(false) }
-    var showGifExportSheet by remember { mutableStateOf(false) }
-    var showWallpaperConfirm by remember { mutableStateOf(false) }
+    var activeOverlay by remember { mutableStateOf<ViewerOverlay?>(null) }
     // 仅单击图片区切换显隐，滑动翻页不影响
     var barsVisible by remember { mutableStateOf(true) }
     val barsShown = barsVisible
@@ -254,7 +254,7 @@ fun ViewerRoute(
                     maxLines = 1,
                 )
                 Box {
-                    IconButton(onClick = { menuExpanded = true }) {
+                    IconButton(onClick = { activeOverlay = ViewerOverlay.MENU }) {
                         Icon(
                             Icons.Filled.MoreVert,
                             contentDescription = stringResource(R.string.viewer_cd_more),
@@ -262,8 +262,8 @@ fun ViewerRoute(
                         )
                     }
                     DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
+                        expanded = activeOverlay == ViewerOverlay.MENU,
+                        onDismissRequest = { activeOverlay = null },
                         // 全 App 统一浮层：高圆角 + 抬高一层容器色
                         shape = AppShapes.large,
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -276,14 +276,14 @@ fun ViewerRoute(
                                     contentDescription = null,
                                 )
                             },
-                            onClick = { menuExpanded = false; viewModel.toggleBookmark() },
+                            onClick = { activeOverlay = null; viewModel.toggleBookmark() },
                         )
                         // 收藏设置：公开/私密 + 标签（弹层保存）
                         DropdownMenuItem(
                             text = { Text(stringResource(CoreUiR.string.bookmark_edit_title)) },
                             leadingIcon = { Icon(Icons.Filled.Label, contentDescription = null) },
                             onClick = {
-                                menuExpanded = false
+                                activeOverlay = null
                                 viewModel.bookmarkEditor.open()
                             },
                         )
@@ -291,10 +291,10 @@ fun ViewerRoute(
                             text = { Text(stringResource(R.string.viewer_menu_download_original)) },
                             leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
                             onClick = {
-                                menuExpanded = false
                                 if (isGif) {
-                                    showGifExportSheet = true
+                                    activeOverlay = ViewerOverlay.GIF_EXPORT
                                 } else {
+                                    activeOverlay = null
                                     pages.getOrNull(currentIndex)?.let(viewModel::download)
                                 }
                             },
@@ -302,7 +302,7 @@ fun ViewerRoute(
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.viewer_menu_report)) },
                             leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
-                            onClick = { menuExpanded = false; viewModel.report() },
+                            onClick = { activeOverlay = null; viewModel.report() },
                         )
                     }
                 }
@@ -349,12 +349,12 @@ fun ViewerRoute(
                 onBookmark = viewModel::toggleBookmark,
                 onDownload = {
                     if (isGif) {
-                        showGifExportSheet = true
+                        activeOverlay = ViewerOverlay.GIF_EXPORT
                     } else {
                         pages.getOrNull(currentIndex)?.let(viewModel::download)
                     }
                 },
-                onWallpaper = { if (!isGif) showWallpaperConfirm = true },
+                onWallpaper = { if (!isGif) activeOverlay = ViewerOverlay.WALLPAPER_CONFIRM },
                 onOriginal = viewModel::toggleOriginal,
             )
         }
@@ -382,28 +382,26 @@ fun ViewerRoute(
         onConfirm = viewModel::saveBookmarkEditor,
     )
 
-    if (showWallpaperConfirm) {
-        ConfirmDialog(
+    when (activeOverlay) {
+        ViewerOverlay.WALLPAPER_CONFIRM -> ConfirmDialog(
             title = stringResource(R.string.viewer_wallpaper_confirm_title),
             message = stringResource(R.string.viewer_wallpaper_confirm_message),
             confirmText = stringResource(R.string.viewer_cd_set_wallpaper),
             onConfirm = {
-                showWallpaperConfirm = false
+                activeOverlay = null
                 pages.getOrNull(currentIndex)?.let(viewModel::wallpaper)
             },
-            onDismiss = { showWallpaperConfirm = false },
+            onDismiss = { activeOverlay = null },
             variant = ConfirmDialogVariant.WARNING,
         )
-    }
 
-    if (showGifExportSheet) {
-        ModalBottomSheet(onDismissRequest = { showGifExportSheet = false }) {
+        ViewerOverlay.GIF_EXPORT -> ModalBottomSheet(onDismissRequest = { activeOverlay = null }) {
             GifExportOption(
                 icon = Icons.Filled.Videocam,
                 title = stringResource(R.string.viewer_gif_export_mp4),
                 subtitle = stringResource(R.string.viewer_gif_export_mp4_desc),
             ) {
-                showGifExportSheet = false
+                activeOverlay = null
                 viewModel.downloadGif(UgoiraExportFormat.MP4)
             }
             GifExportOption(
@@ -411,12 +409,20 @@ fun ViewerRoute(
                 title = stringResource(R.string.viewer_gif_export_zip),
                 subtitle = stringResource(R.string.viewer_gif_export_zip_desc),
             ) {
-                showGifExportSheet = false
+                activeOverlay = null
                 viewModel.downloadGif(UgoiraExportFormat.ZIP)
             }
             Spacer(modifier = Modifier.navigationBarsPadding())
         }
+
+        ViewerOverlay.MENU, null -> Unit
     }
+}
+
+private enum class ViewerOverlay {
+    MENU,
+    GIF_EXPORT,
+    WALLPAPER_CONFIRM,
 }
 
 @Composable

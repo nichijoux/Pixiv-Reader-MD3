@@ -626,6 +626,8 @@ private fun DurationPickerContent(
     )
 }
 
+private enum class DateSlot { START, END }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DateRangeContent(
@@ -634,8 +636,7 @@ private fun DateRangeContent(
     onConfirm: (String?, String?) -> Unit,
     onClose: () -> Unit,
 ) {
-    var pickingStart by remember { mutableStateOf(true) }
-    var showDialog by remember { mutableStateOf(false) }
+    var pickingSlot by remember { mutableStateOf<DateSlot?>(null) }
     var draftStart by remember { mutableStateOf(startDate) }
     var draftEnd by remember { mutableStateOf(endDate) }
 
@@ -660,12 +661,10 @@ private fun DateRangeContent(
         }
         Column(modifier = Modifier.padding(horizontal = Spacing.lgPlus)) {
             DateFieldRow(stringResource(R.string.filter_date_start), draftStart) {
-                pickingStart = true
-                showDialog = true
+                pickingSlot = DateSlot.START
             }
             DateFieldRow(stringResource(R.string.filter_date_end), draftEnd) {
-                pickingStart = false
-                showDialog = true
+                pickingSlot = DateSlot.END
             }
             Button(
                 onClick = { onConfirm(draftStart, draftEnd) },
@@ -677,22 +676,22 @@ private fun DateRangeContent(
         }
     }
 
-    if (showDialog) {
+    pickingSlot?.let { slot ->
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = (if (pickingStart) draftStart else draftEnd)?.let(::parseDatePickerMillis),
+            initialSelectedDateMillis = (if (slot == DateSlot.START) draftStart else draftEnd)?.let(::parseDatePickerMillis),
         )
         DatePickerDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { pickingSlot = null },
             confirmButton = {
                 TextButton(onClick = {
                     val date = pickerState.selectedDateMillis?.let(::formatDatePickerMillis)
-                    if (pickingStart) draftStart = date else draftEnd = date
-                    showDialog = false
+                    if (slot == DateSlot.START) draftStart = date else draftEnd = date
+                    pickingSlot = null
                 }) { Text(stringResource(R.string.common_confirm)) }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    showDialog = false
+                    pickingSlot = null
                 }) { Text(stringResource(R.string.common_cancel)) }
             },
         ) {

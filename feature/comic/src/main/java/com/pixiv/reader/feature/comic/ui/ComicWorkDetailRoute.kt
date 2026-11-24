@@ -54,12 +54,12 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.BackTopAppBar
+import com.pixiv.reader.core.common.LoadState
 import com.pixiv.reader.core.common.format.formatCount
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.comic.R
 import com.pixiv.reader.feature.comic.state.ComicEpisodesState
 import com.pixiv.reader.feature.comic.state.ComicWorkDetailViewModel
-import com.pixiv.reader.feature.comic.state.ComicWorkState
 
 /** 免费章节点进阅读器，付费章节只提示锁定（服务端 sales_type 决定）。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,22 +77,22 @@ fun ComicWorkDetailRoute(
     Scaffold(
         topBar = {
             BackTopAppBar(
-                title = work.work?.name.orEmpty().ifEmpty { stringResource(R.string.comic_title) },
+                title = (work as? LoadState.Content)?.data?.name.orEmpty().ifEmpty { stringResource(R.string.comic_title) },
                 onBack = onBack,
             )
         },
         snackbarHost = { NotificationHost(notificationHost) },
     ) { padding ->
-        when {
-            work.isLoading && work.work == null -> LoadingBox(Modifier.padding(padding))
-            work.error != null && work.work == null -> ErrorBox(
-                message = work.error,
+        when (val currentWork = work) {
+            LoadState.Loading -> LoadingBox(Modifier.padding(padding))
+            is LoadState.Error -> ErrorBox(
+                message = currentWork.message,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
-            else -> AdaptiveContentBox(modifier = Modifier.padding(padding).fillMaxSize()) {
+            is LoadState.Content -> AdaptiveContentBox(modifier = Modifier.padding(padding).fillMaxSize()) {
                 ComicWorkDetailContent(
-                    work = work,
+                    data = currentWork.data,
                     episodes = episodes,
                     notificationHost = notificationHost,
                     onRetry = viewModel::retry,
@@ -106,7 +106,7 @@ fun ComicWorkDetailRoute(
 
 @Composable
 private fun ComicWorkDetailContent(
-    work: ComicWorkState,
+    data: ComicWork,
     episodes: ComicEpisodesState,
     notificationHost: NotificationHostState,
     onRetry: () -> Unit,
@@ -117,7 +117,6 @@ private fun ComicWorkDetailContent(
     val lockedToast = stringResource(R.string.comic_locked_toast)
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
-    val data = work.work ?: return
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.lg),
@@ -155,30 +154,32 @@ private fun ComicWorkDetailContent(
                 }
             }
         }
-        when {
-            episodes.isLoading && episodes.entries.isEmpty() ->
+        when (val epState = episodes.loadState) {
+            LoadState.Loading ->
                 item(key = "comic_work_episodes_loading") { LoadingBox() }
-            episodes.error != null && episodes.entries.isEmpty() ->
+            is LoadState.Error ->
                 item(key = "comic_work_episodes_error") {
-                    ErrorBox(message = episodes.error, onRetry = onRetry)
+                    ErrorBox(message = epState.message, onRetry = onRetry)
                 }
-            episodes.entries.isEmpty() ->
+            is LoadState.Content -> if (epState.data.isEmpty()) {
                 item(key = "comic_work_episodes_empty") {
                     EmptyBox(text = stringResource(R.string.comic_empty_episodes))
                 }
-            else -> items(episodes.entries, key = { entry -> entry.episode?.id ?: entry.hashCode() }) { entry ->
-                ComicEpisodeRow(
-                    entry = entry,
-                    onOpenReader = onOpenReader,
-                    onLocked = {
-                        notificationHost.show(lockedToast, type = NotificationType.Error)
-                    },
-                    // 正序/倒序切换时整列条目平滑重排（该场景收益最高）
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
-                )
+            } else {
+                items(epState.data, key = { entry -> entry.episode?.id ?: entry.hashCode() }) { entry ->
+                    ComicEpisodeRow(
+                        entry = entry,
+                        onOpenReader = onOpenReader,
+                        onLocked = {
+                            notificationHost.show(lockedToast, type = NotificationType.Error)
+                        },
+                        // 正序/倒序切换时整列条目平滑重排（该场景收益最高）
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        ),
+                    )
+                }
             }
         }
     }

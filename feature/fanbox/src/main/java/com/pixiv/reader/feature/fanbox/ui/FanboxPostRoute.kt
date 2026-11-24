@@ -86,7 +86,7 @@ fun FanboxPostRoute(
 
     // 兜底「在网页中打开」与外链路由共用
     val postUrl = "${FanboxHeaderInterceptor.FANBOX_URL}posts/${viewModel.postId}"
-    val title = postState.post?.title.orEmpty().ifEmpty { stringResource(R.string.fanbox_post_title) }
+    val title = postState.postOrNull?.title.orEmpty().ifEmpty { stringResource(R.string.fanbox_post_title) }
 
     fun openLink(url: String) = openFanboxLink(context, url, title, onOpenWeb)
 
@@ -139,40 +139,39 @@ internal fun FanboxPostContent(
     modifier: Modifier = Modifier,
 ) {
     AdaptiveContentBox(modifier = modifier) {
-        when {
-            postState.isLoading -> LoadingBox()
-            postState.error != null -> ErrorBox(message = postState.error, onRetry = onRetry)
-            else -> LazyColumn(
+        when (postState) {
+            FanboxPostState.Loading -> LoadingBox()
+            is FanboxPostState.Error -> ErrorBox(message = postState.message, onRetry = onRetry)
+            is FanboxPostState.Loaded -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = Spacing.xl),
             ) {
-                postState.post?.let { post ->
-                    item(key = "header") { PostHeader(post = post, onOpenWeb = onOpenWeb) }
-                    item(key = "body_notice") { BodyNotice(postState = postState) }
+                val post = postState.post
+                item(key = "header") { PostHeader(post = post, onOpenWeb = onOpenWeb) }
+                item(key = "body_notice") { BodyNotice(postState = postState) }
 
-                    postState.sections.forEachIndexed { index, section ->
-                        item(key = "section_$index") {
-                            SectionContent(
-                                section = section,
-                                onOpenImage = onOpenImage,
-                                openLink = openLink,
-                            )
-                        }
+                postState.sections.forEachIndexed { index, section ->
+                    item(key = "section_$index") {
+                        SectionContent(
+                            section = section,
+                            onOpenImage = onOpenImage,
+                            openLink = openLink,
+                        )
                     }
+                }
 
-                    if (post.isRestricted) {
-                        item(key = "plans") {
-                            PlansSection(
-                                state = plansState,
-                                plansUrl = "${FanboxHeaderInterceptor.FANBOX_URL}@${post.creatorId.orEmpty()}/plans",
-                                creatorName = post.user?.name.orEmpty(),
-                                onOpenWeb = onOpenWeb,
-                            )
-                        }
+                if (post.isRestricted) {
+                    item(key = "plans") {
+                        PlansSection(
+                            state = plansState,
+                            plansUrl = "${FanboxHeaderInterceptor.FANBOX_URL}@${post.creatorId.orEmpty()}/plans",
+                            creatorName = post.user?.name.orEmpty(),
+                            onOpenWeb = onOpenWeb,
+                        )
                     }
-                    item(key = "comments") {
-                        CommentsSection(state = commentsState)
-                    }
+                }
+                item(key = "comments") {
+                    CommentsSection(state = commentsState)
                 }
             }
         }
@@ -235,10 +234,9 @@ private fun PostHeader(post: FanboxPost, onOpenWeb: (String, String) -> Unit) {
 
 /** 受限帖说明与元数据兜底说明共用；均正常则不渲染。 */
 @Composable
-private fun BodyNotice(postState: FanboxPostState) {
-    val post = postState.post ?: return
+private fun BodyNotice(postState: FanboxPostState.Loaded) {
     val message = when {
-        post.isRestricted -> stringResource(R.string.fanbox_restricted_title)
+        postState.post.isRestricted -> stringResource(R.string.fanbox_restricted_title)
         postState.bodyFallback -> stringResource(R.string.fanbox_body_fallback)
         else -> return
     }
@@ -427,7 +425,7 @@ private fun EmbedCard(section: FanboxSection.Embed, openLink: (String) -> Unit) 
 /** 赞助方案段（受限帖）：标题 + 方案卡（费用 / 说明 / 加入按钮 → 网页）。 */
 @Composable
 private fun PlansSection(
-    state: com.pixiv.reader.feature.fanbox.state.FanboxPlansState,
+    state: FanboxPlansState,
     plansUrl: String,
     creatorName: String,
     onOpenWeb: (String, String) -> Unit,
@@ -439,16 +437,16 @@ private fun PlansSection(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         )
-        when {
-            state.isLoading -> Box(Modifier.fillMaxWidth().height(96.dp)) { LoadingBox(Modifier.fillMaxSize()) }
-            state.error != null -> Text(
-                text = state.error,
+        when (state) {
+            FanboxPlansState.Idle -> Unit
+            FanboxPlansState.Loading -> Box(Modifier.fillMaxWidth().height(96.dp)) { LoadingBox(Modifier.fillMaxSize()) }
+            is FanboxPlansState.Error -> Text(
+                text = state.message.orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = Spacing.lg),
             )
-            state.items.isEmpty() -> Unit
-            else -> state.items.forEach { plan ->
+            is FanboxPlansState.Loaded -> state.items.forEach { plan ->
                 Card(
                     shape = AppShapes.card,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
@@ -496,32 +494,37 @@ private fun PlansSection(
 
 @Composable
 private fun CommentsSection(state: FanboxCommentsState) {
+    val commentCount = (state as? FanboxCommentsState.Loaded)
+        ?.items?.sumOf { 1 + it.replies.orEmpty().size } ?: 0
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.lg)) {
         Text(
-            text = stringResource(R.string.fanbox_comments_title, state.items.sumOf { 1 + it.replies.orEmpty().size }),
+            text = stringResource(R.string.fanbox_comments_title, commentCount),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         )
-        when {
-            state.locked -> LockedNotice()
-            state.isLoading -> Box(Modifier.fillMaxWidth().height(96.dp)) { LoadingBox(Modifier.fillMaxSize()) }
-            state.error != null -> Text(
-                text = state.error,
+        when (state) {
+            FanboxCommentsState.Locked -> LockedNotice()
+            FanboxCommentsState.Loading -> Box(Modifier.fillMaxWidth().height(96.dp)) { LoadingBox(Modifier.fillMaxSize()) }
+            is FanboxCommentsState.Error -> Text(
+                text = state.message.orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = Spacing.lg),
             )
-            state.items.isEmpty() -> Text(
-                text = stringResource(R.string.fanbox_comments_empty),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = Spacing.lg),
-            )
-            else -> state.items.forEach { comment ->
-                CommentRow(comment = comment, indent = false)
-                comment.replies.orEmpty().forEach { reply ->
-                    CommentRow(comment = reply, indent = true)
+            is FanboxCommentsState.Loaded -> if (state.items.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.fanbox_comments_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.lg),
+                )
+            } else {
+                state.items.forEach { comment ->
+                    CommentRow(comment = comment, indent = false)
+                    comment.replies.orEmpty().forEach { reply ->
+                        CommentRow(comment = reply, indent = true)
+                    }
                 }
             }
         }

@@ -30,8 +30,8 @@ import com.pixiv.reader.core.network.model.snapshotPayload
 import com.pixiv.reader.core.network.model.toPages
 import com.pixiv.reader.core.network.paging.PagedState
 import com.pixiv.reader.core.network.session.PixivRepository
-import com.pixiv.reader.core.network.ugoira.UgoiraFrame
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import com.pixiv.reader.core.network.ugoira.UgoiraState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -79,12 +79,8 @@ class IllustViewModel @Inject constructor(
     private val _pages = MutableStateFlow<List<IllustPageInfo>>(emptyList())
     val pages: StateFlow<List<IllustPageInfo>> = _pages.asStateFlow()
 
-    private val _ugoiraFrames = MutableStateFlow<List<UgoiraFrame>>(emptyList())
-    val ugoiraFrames: StateFlow<List<UgoiraFrame>> = _ugoiraFrames.asStateFlow()
-
-    /** zip 下载进度 0..1（下载中）；null = 未开始/已就绪/失败。 */
-    private val _ugoiraProgress = MutableStateFlow<Float?>(null)
-    val ugoiraProgress: StateFlow<Float?> = _ugoiraProgress.asStateFlow()
+    private val _ugoiraState = MutableStateFlow<UgoiraState>(UgoiraState.Idle)
+    val ugoiraState: StateFlow<UgoiraState> = _ugoiraState.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -154,8 +150,7 @@ class IllustViewModel @Inject constructor(
         _illustId.value = id
         _illust.value = null
         _pages.value = emptyList()
-        _ugoiraFrames.value = emptyList()
-        _ugoiraProgress.value = null
+        _ugoiraState.value = UgoiraState.Idle
         _error.value = null
         // 三对开关状态机 + 编辑器保存标志整体复位（成对生命周期：一条流清一条）
         _bookmarkState.value = ToggleUiState.OFF
@@ -308,22 +303,23 @@ class IllustViewModel @Inject constructor(
 
     private suspend fun loadUgoira(requestedId: Long) {
         val scope = CoroutineScope(currentCoroutineContext())
-        _ugoiraProgress.value = 0f
+        _ugoiraState.value = UgoiraState.Loading(0f)
         try {
             val frames = ugoiraLoader.prepare(requestedId) { progress ->
                 // 回调来自 IO；纳入同一任务后，切换作品会取消正在排队的进度更新。
                 scope.launch {
-                    if (_ugoiraProgress.value != null) _ugoiraProgress.value = progress
+                    if (_ugoiraState.value is UgoiraState.Loading) {
+                        _ugoiraState.value = UgoiraState.Loading(progress)
+                    }
                 }
             }
             scope.ensureActive()
-            _ugoiraFrames.value = frames.orEmpty()
+            _ugoiraState.value = if (frames.isNullOrEmpty()) UgoiraState.Failed else UgoiraState.Ready(frames)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "加载插画动图失败", e)
-        } finally {
-            if (scope.isActive) _ugoiraProgress.value = null
+            if (scope.isActive) _ugoiraState.value = UgoiraState.Failed
         }
     }
 

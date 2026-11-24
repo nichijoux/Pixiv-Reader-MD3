@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.api.model.ComicBanner
+import com.pixiv.reader.core.common.LoadState
 import com.pixiv.reader.feature.comic.state.ComicRankingMode
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
@@ -129,10 +130,11 @@ private fun ComicTopTab(
 ) {
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
-    when {
-        top.isLoading && top.recentWorks.isEmpty() -> ComicHomeSkeleton(showRankingHeader = false)
-        top.error != null && top.recentWorks.isEmpty() -> ErrorBox(message = top.error, onRetry = onRetry)
-        else -> AdaptiveContentBox {
+    when (top) {
+        LoadState.Loading -> ComicHomeSkeleton(showRankingHeader = false)
+        is LoadState.Error -> ErrorBox(message = top.message, onRetry = onRetry)
+        is LoadState.Content -> AdaptiveContentBox {
+            val data = top.data
             LazyVerticalGrid(
                 columns = GridCells.Fixed(GRID_COLUMNS),
                 state = rememberLazyGridState(),
@@ -141,9 +143,9 @@ private fun ComicTopTab(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                if (top.banners.isNotEmpty()) {
+                if (data.banners.isNotEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "comic_top_banners") {
-                        ComicBannerRow(banners = top.banners, onOpenWork = onOpenWork)
+                        ComicBannerRow(banners = data.banners, onOpenWork = onOpenWork)
                     }
                 }
                 item(span = { GridItemSpan(maxLineSpan) }, key = "comic_top_recent_title") {
@@ -153,12 +155,12 @@ private fun ComicTopTab(
                         modifier = Modifier.padding(top = Spacing.sm),
                     )
                 }
-                if (top.recentWorks.isEmpty()) {
+                if (data.recentWorks.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "comic_top_empty") {
                         EmptyBox(text = stringResource(R.string.comic_empty_recent))
                     }
                 }
-                items(top.recentWorks, key = { it.id }) { work ->
+                items(data.recentWorks, key = { it.id }) { work ->
                     ComicWorkCard(
                         title = work.title.orEmpty(),
                         author = work.author.orEmpty(),
@@ -214,10 +216,11 @@ private fun ComicRankingTab(
 ) {
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
+    val loadState = ranking.loadState
     when {
-        ranking.isLoading && ranking.works.isEmpty() && ranking.labels.isEmpty() ->
+        loadState is LoadState.Loading && ranking.labels.isEmpty() ->
             ComicHomeSkeleton(showRankingHeader = true)
-        ranking.error != null && ranking.works.isEmpty() -> ErrorBox(message = ranking.error, onRetry = onRetry)
+        loadState is LoadState.Error -> ErrorBox(message = loadState.message, onRetry = onRetry)
         else -> LazyVerticalGrid(
             columns = GridCells.Fixed(GRID_COLUMNS),
             state = rememberLazyGridState(),
@@ -253,24 +256,26 @@ private fun ComicRankingTab(
                     }
                 }
             }
-            if (ranking.works.isEmpty() && !ranking.isLoading) {
-                item(span = { GridItemSpan(maxLineSpan) }, key = "comic_ranking_empty") {
-                    EmptyBox(text = stringResource(R.string.comic_empty_ranking))
+            if (loadState is LoadState.Content) {
+                if (loadState.data.isEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "comic_ranking_empty") {
+                        EmptyBox(text = stringResource(R.string.comic_empty_ranking))
+                    }
                 }
-            }
-            items(ranking.works, key = { "${ranking.selectedMode}-${ranking.selectedLabel}-${it.id}" }) { work ->
-                ComicWorkCard(
-                    title = work.title.orEmpty(),
-                    author = work.author.orEmpty(),
-                    coverUrl = work.thumbnailImageUrl ?: work.mainImageUrl,
-                    storiesCount = work.storiesCount,
-                    onClick = { onOpenWork(work.id) },
-                    // key 含模式/标签前缀：切榜即整榜换 key → 全量重新进场淡入（此处正是想要的语义）
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
-                        placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
-                    ),
-                )
+                items(loadState.data, key = { "${ranking.selectedMode}-${ranking.selectedLabel}-${it.id}" }) { work ->
+                    ComicWorkCard(
+                        title = work.title.orEmpty(),
+                        author = work.author.orEmpty(),
+                        coverUrl = work.thumbnailImageUrl ?: work.mainImageUrl,
+                        storiesCount = work.storiesCount,
+                        onClick = { onOpenWork(work.id) },
+                        // key 含模式/标签前缀：切榜即整榜换 key → 全量重新进场淡入（此处正是想要的语义）
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
+                            placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
+                        ),
+                    )
+                }
             }
         }
     }

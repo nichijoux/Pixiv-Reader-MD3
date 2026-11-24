@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixiv.api.model.FanboxCreator
 import com.pixiv.api.model.FanboxPost
 import com.pixiv.api.model.FanboxPostList
+import com.pixiv.reader.core.common.LoadState
 import com.pixiv.reader.core.common.UiMessage
 import com.pixiv.reader.core.network.fanbox.FanboxRepository
 import com.pixiv.reader.core.network.message.MessageViewModel
@@ -12,6 +13,7 @@ import com.pixiv.reader.feature.fanbox.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,11 +21,7 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
 /** 推荐创作者无游标，故用独立三态而不用 [PagedState]。 */
-data class FanboxCreatorsState(
-    val items: List<FanboxCreator> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
-)
+typealias FanboxCreatorsState = LoadState<List<FanboxCreator>>
 
 /**
  * FANBOX 认证走 cookie：`FANBOXSESSID` 存在但失效时 post.listHome 返回 401，
@@ -36,8 +34,10 @@ class FanboxHomeViewModel @Inject constructor(
 
     val postsPaged = PagedState<FanboxPost>(keySelector = { it.id })
 
-    private val _creators = MutableStateFlow(FanboxCreatorsState())
+    private val _creators = MutableStateFlow<FanboxCreatorsState>(LoadState.Loading)
     val creators: StateFlow<FanboxCreatorsState> = _creators.asStateFlow()
+
+    private var creatorsJob: Job? = null
 
     /** 会话已过期（401）——true 时 UI 以「重新登录」引导替代普通错误态。 */
     private val _sessionExpired = MutableStateFlow(false)
@@ -64,15 +64,15 @@ class FanboxHomeViewModel @Inject constructor(
     }
 
     fun loadCreators() {
-        if (_creators.value.isLoading) return
-        _creators.value = FanboxCreatorsState(isLoading = true)
-        viewModelScope.launch {
+        if (creatorsJob?.isActive == true) return
+        _creators.value = LoadState.Loading
+        creatorsJob = viewModelScope.launch {
             try {
                 val list = fanboxRepository.api.creatorListRecommended().body?.creators.orEmpty()
-                _creators.value = FanboxCreatorsState(items = list)
+                _creators.value = LoadState.Content(list)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _creators.value = FanboxCreatorsState(error = e.message)
+                _creators.value = LoadState.Error(e.message)
             }
         }
     }
@@ -82,7 +82,7 @@ class FanboxHomeViewModel @Inject constructor(
         _sessionExpired.value = false
         postsPaged.reset()
         loadPosts()
-        if (_creators.value.error != null) loadCreators()
+        if (_creators.value is LoadState.Error) loadCreators()
     }
 
     /**

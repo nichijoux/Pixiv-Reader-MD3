@@ -72,6 +72,8 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.reader.R
+import com.pixiv.reader.feature.reader.state.ReaderLoadState
+import com.pixiv.reader.feature.reader.state.ReaderSource
 import com.pixiv.reader.feature.reader.state.ReaderTapZone
 import com.pixiv.reader.feature.reader.state.ReaderViewModel
 import com.pixiv.reader.feature.reader.state.ReaderPage
@@ -160,14 +162,14 @@ fun ReaderRoute(
     onOpenNovelToEnd: (Long) -> Unit = onOpenNovel,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
-    val novel by viewModel.novel.collectAsStateWithLifecycle()
-    val document by viewModel.document.collectAsStateWithLifecycle()
+    val loadState by viewModel.loadState.collectAsStateWithLifecycle()
+    val readyState = loadState as? ReaderLoadState.Ready
+    val novel = readyState?.novel
+    val document = readyState?.document
+    val isOffline = readyState?.source == ReaderSource.LOCAL
     val displayDocument by viewModel.displayDocument.collectAsStateWithLifecycle()
     val chineseConvert by viewModel.chineseConvert.collectAsStateWithLifecycle()
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
-    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
 
     // 简繁转换区仅应用语言为中文（简体/繁体）时显示
     val systemLanguage = LocalConfiguration.current.locales[0].language
@@ -199,7 +201,6 @@ fun ReaderRoute(
     val dualPageMode by viewModel.dualPageMode.collectAsStateWithLifecycle()
     val brightness by viewModel.brightness.collectAsStateWithLifecycle()
 
-    val progressRestored by viewModel.progressRestored.collectAsStateWithLifecycle()
     val percentage by viewModel.percentage.collectAsStateWithLifecycle()
     // 开关状态机：单流收集
     val markState by viewModel.markState.collectAsStateWithLifecycle()
@@ -239,13 +240,10 @@ fun ReaderRoute(
     val themeColors = remember(effectiveTheme) { readerThemeColors(effectiveTheme) }
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
-    var settingsOpen by remember { mutableStateOf(false) }
+    var activeSheet by remember { mutableStateOf<ReaderSheet?>(null) }
     var pageInfo by remember { mutableStateOf(0 to 0) }
-    var showClearFontConfirm by remember { mutableStateOf(false) }
     var barsVisible by remember { mutableStateOf(false) }
     var jumpToChar by remember { mutableStateOf<Int?>(null) }
-    var tocOpen by remember { mutableStateOf(false) }
-    var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
     // 底栏进度条跳转所需的跨页列表（readerSurface 内经 SideEffect 回写，仅排版变化时更新）
@@ -366,22 +364,17 @@ fun ReaderRoute(
             // Crossfade：加载完成（Loading/Error/空态 → 正文）淡入过渡，
             // 缓存命中的章节秒开时也有内容动画（与慢加载观感一致）。
             // 渲染用 displayDocument（按简繁转换设置转换文本块）；进度/搜索锚点仍在原始 document 上。
-            Crossfade(targetState = displayDocument, animationSpec = tween(200)) { doc ->
-                when {
-                    !progressRestored && isLoading -> LoadingBox()
-                    !progressRestored && error != null ->
-                        ErrorBox(message = error?.let {
-                            stringResource(
-                                it.res,
-                                *it.args.toTypedArray()
-                            )
-                        }.orEmpty(), onRetry = viewModel::load)
-
-                    doc == null && document != null -> LoadingBox()
-                    doc == null -> EmptyBox(stringResource(R.string.reader_empty_content))
-                    // 子组件只定位一次，进度未就绪时避免以 0 初始化。
-                    !progressRestored -> LoadingBox()
-                    else -> {
+            Crossfade(targetState = loadState, animationSpec = tween(200)) { state ->
+                when (state) {
+                    ReaderLoadState.Loading -> LoadingBox()
+                    is ReaderLoadState.Error ->
+                        ErrorBox(
+                            message = stringResource(state.message.res, *state.message.args.toTypedArray()),
+                            onRetry = viewModel::load,
+                        )
+                    ReaderLoadState.Empty -> EmptyBox(stringResource(R.string.reader_empty_content))
+                    is ReaderLoadState.Ready -> {
+                        val doc = displayDocument ?: state.document
                         // 双页判定：按应用配置（横屏 = 宽 > 高；平板 = smallestScreenWidthDp ≥ 600）；
                         // 滑动模式恒为单列（legado 同语义，翻页/仿真模式才生效）
                         val configuration = LocalConfiguration.current
@@ -631,9 +624,9 @@ fun ReaderRoute(
                 canNextChapter = canNextChapter,
                 onPrevChapter = onPrevChapterRequest,
                 onNextChapter = onNextChapterRequest,
-                onToc = { tocOpen = true },
-                onSearch = { searchOpen = true },
-                onSettings = { settingsOpen = true },
+                onToc = { activeSheet = ReaderSheet.Toc },
+                onSearch = { activeSheet = ReaderSheet.Search },
+                onSettings = { activeSheet = ReaderSheet.Settings() },
             )
         }
 
@@ -646,82 +639,81 @@ fun ReaderRoute(
         )
     }
 
-    if (settingsOpen) {
-        ReaderSettingsSheet(
-            fontSize = fontSize,
-            lineHeight = lineHeight,
-            fontFamilyKey = fontFamily,
-            fontWeight = fontWeight,
-            paragraphIndent = paragraphIndent,
-            paragraphSpacing = paragraphSpacing,
-            letterSpacing = letterSpacing,
-            theme = effectiveTheme,
-            pageMode = pageMode,
-            dualPageMode = dualPageMode,
-            brightness = brightness,
-            followSystem = followSystem,
-            hasCustomFont = customFontPath.isNotBlank(),
-            onFontSizeChange = viewModel::onFontSizeChange,
-            onLineHeightChange = viewModel::onLineHeightChange,
-            onFontFamilyChange = viewModel::onFontFamilyChange,
-            onFontWeightChange = viewModel::onFontWeightChange,
-            onParagraphIndentChange = viewModel::onParagraphIndentChange,
-            onParagraphSpacingChange = viewModel::onParagraphSpacingChange,
-            onLetterSpacingChange = viewModel::onLetterSpacingChange,
-            onThemeChange = viewModel::onReaderThemeChange,
-            onPageModeChange = viewModel::onPageModeChange,
-            onDualPageModeChange = viewModel::onDualPageModeChange,
-            onBrightnessChange = viewModel::onBrightnessChange,
-            onFollowSystemChange = viewModel::onFollowSystemChange,
-            chineseConvert = chineseConvert,
-            showChineseConvert = showChineseConvert,
-            onChineseConvertChange = viewModel::onChineseConvertChange,
-            onImportFont = {
-                fontPicker.launch(
-                    arrayOf(
-                        "font/ttf",
-                        "font/otf",
-                        "application/octet-stream"
+    // 搜索面板：跳转当前匹配项，支持上一条/下一条
+    val isSearchOpen = activeSheet is ReaderSheet.Search
+    LaunchedEffect(isSearchOpen, searchIndex) {
+        if (isSearchOpen && searchIndex >= 0) {
+            searchResults.getOrNull(searchIndex)?.let { jumpToChar = it }
+        }
+    }
+
+    when (val sheet = activeSheet) {
+        is ReaderSheet.Settings -> {
+            ReaderSettingsSheet(
+                fontSize = fontSize,
+                lineHeight = lineHeight,
+                fontFamilyKey = fontFamily,
+                fontWeight = fontWeight,
+                paragraphIndent = paragraphIndent,
+                paragraphSpacing = paragraphSpacing,
+                letterSpacing = letterSpacing,
+                theme = effectiveTheme,
+                pageMode = pageMode,
+                dualPageMode = dualPageMode,
+                brightness = brightness,
+                followSystem = followSystem,
+                hasCustomFont = customFontPath.isNotBlank(),
+                onFontSizeChange = viewModel::onFontSizeChange,
+                onLineHeightChange = viewModel::onLineHeightChange,
+                onFontFamilyChange = viewModel::onFontFamilyChange,
+                onFontWeightChange = viewModel::onFontWeightChange,
+                onParagraphIndentChange = viewModel::onParagraphIndentChange,
+                onParagraphSpacingChange = viewModel::onParagraphSpacingChange,
+                onLetterSpacingChange = viewModel::onLetterSpacingChange,
+                onThemeChange = viewModel::onReaderThemeChange,
+                onPageModeChange = viewModel::onPageModeChange,
+                onDualPageModeChange = viewModel::onDualPageModeChange,
+                onBrightnessChange = viewModel::onBrightnessChange,
+                onFollowSystemChange = viewModel::onFollowSystemChange,
+                chineseConvert = chineseConvert,
+                showChineseConvert = showChineseConvert,
+                onChineseConvertChange = viewModel::onChineseConvertChange,
+                onImportFont = {
+                    fontPicker.launch(
+                        arrayOf(
+                            "font/ttf",
+                            "font/otf",
+                            "application/octet-stream"
+                        )
                     )
+                },
+                onClearFont = { activeSheet = ReaderSheet.Settings(confirmClearFont = true) },
+                onDismiss = { activeSheet = null },
+            )
+            if (sheet.confirmClearFont) {
+                ConfirmDialog(
+                    title = stringResource(R.string.reader_settings_clear_font_title),
+                    message = stringResource(R.string.reader_settings_clear_font_message),
+                    confirmText = stringResource(R.string.reader_settings_clear),
+                    onConfirm = {
+                        viewModel.clearCustomFont()
+                        activeSheet = ReaderSheet.Settings(confirmClearFont = false)
+                    },
+                    onDismiss = { activeSheet = ReaderSheet.Settings(confirmClearFont = false) },
                 )
-            },
-            onClearFont = { showClearFontConfirm = true },
-            onDismiss = { settingsOpen = false },
-        )
-    }
+            }
+        }
 
-    if (showClearFontConfirm) {
-        ConfirmDialog(
-            title = stringResource(R.string.reader_settings_clear_font_title),
-            message = stringResource(R.string.reader_settings_clear_font_message),
-            confirmText = stringResource(R.string.reader_settings_clear),
-            onConfirm = {
-                viewModel.clearCustomFont()
-                showClearFontConfirm = false
-            },
-            onDismiss = { showClearFontConfirm = false },
-        )
-    }
-
-    if (tocOpen) {
-        ReaderTocSheet(
+        ReaderSheet.Toc -> ReaderTocSheet(
             toc = toc,
             tocLoading = tocLoading,
             currentNovelId = novelId,
             onJumpToChar = { jumpToChar = it },
             onOpenNovel = onOpenNovel,
-            onDismiss = { tocOpen = false },
+            onDismiss = { activeSheet = null },
         )
-    }
 
-    // 搜索面板：跳转当前匹配项，支持上一条/下一条
-    LaunchedEffect(searchOpen, searchIndex) {
-        if (searchOpen && searchIndex >= 0) {
-            searchResults.getOrNull(searchIndex)?.let { jumpToChar = it }
-        }
-    }
-    if (searchOpen) {
-        ReaderSearchSheet(
+        ReaderSheet.Search -> ReaderSearchSheet(
             query = searchQuery,
             onQueryChange = {
                 searchQuery = it
@@ -734,9 +726,19 @@ fun ReaderRoute(
             onNext = { viewModel.setSearchIndex(searchIndex + 1) },
             onSelect = { offset ->
                 jumpToChar = offset
-                searchOpen = false
+                activeSheet = null
             },
-            onDismiss = { searchOpen = false },
+            onDismiss = { activeSheet = null },
         )
+
+        null -> Unit
     }
+}
+
+private sealed interface ReaderSheet {
+    data class Settings(val confirmClearFont: Boolean = false) : ReaderSheet
+
+    data object Toc : ReaderSheet
+
+    data object Search : ReaderSheet
 }

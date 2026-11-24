@@ -19,29 +19,43 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
-/** 正文取不到时退回元数据（[FanboxPostState.bodyFallback]），页面不塌。 */
-data class FanboxPostState(
-    val post: FanboxPost? = null,
-    val sections: List<FanboxSection> = emptyList(),
-    val isLoading: Boolean = true,
-    val error: String? = null,
-    val bodyFallback: Boolean = false,
-)
+/** 正文取不到时退回元数据（[Loaded.bodyFallback]），页面不塌。 */
+sealed interface FanboxPostState {
+    data object Loading : FanboxPostState
+
+    data class Loaded(
+        val post: FanboxPost,
+        val sections: List<FanboxSection>,
+        val bodyFallback: Boolean = false,
+    ) : FanboxPostState
+
+    data class Error(val message: String? = null) : FanboxPostState
+
+    val postOrNull: FanboxPost?
+        get() = (this as? Loaded)?.post
+}
 
 /** 仅受限帖加载。 */
-data class FanboxPlansState(
-    val items: List<FanboxPlan> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
-)
+sealed interface FanboxPlansState {
+    data object Idle : FanboxPlansState
 
-/** [locked] = 赞助门槛拦截（PLEDGE_INSUFFICIENT），按锁定展示而非报错。 */
-data class FanboxCommentsState(
-    val items: List<FanboxComment> = emptyList(),
-    val isLoading: Boolean = true,
-    val error: String? = null,
-    val locked: Boolean = false,
-)
+    data object Loading : FanboxPlansState
+
+    data class Loaded(val items: List<FanboxPlan>) : FanboxPlansState
+
+    data class Error(val message: String? = null) : FanboxPlansState
+}
+
+/** [Locked] = 赞助门槛拦截（PLEDGE_INSUFFICIENT），按锁定展示而非报错。 */
+sealed interface FanboxCommentsState {
+    data object Loading : FanboxCommentsState
+
+    data class Loaded(val items: List<FanboxComment>) : FanboxCommentsState
+
+    data object Locked : FanboxCommentsState
+
+    data class Error(val message: String? = null) : FanboxCommentsState
+}
 
 @HiltViewModel
 class FanboxPostViewModel @Inject constructor(
@@ -53,13 +67,13 @@ class FanboxPostViewModel @Inject constructor(
     var postId: String = savedStateHandle["postId"] ?: ""
         private set
 
-    private val _post = MutableStateFlow(FanboxPostState())
+    private val _post = MutableStateFlow<FanboxPostState>(FanboxPostState.Loading)
     val post: StateFlow<FanboxPostState> = _post.asStateFlow()
 
-    private val _plans = MutableStateFlow(FanboxPlansState())
+    private val _plans = MutableStateFlow<FanboxPlansState>(FanboxPlansState.Idle)
     val plans: StateFlow<FanboxPlansState> = _plans.asStateFlow()
 
-    private val _comments = MutableStateFlow(FanboxCommentsState())
+    private val _comments = MutableStateFlow<FanboxCommentsState>(FanboxCommentsState.Loading)
     val comments: StateFlow<FanboxCommentsState> = _comments.asStateFlow()
 
     private var postJob: Job? = null
@@ -76,9 +90,9 @@ class FanboxPostViewModel @Inject constructor(
         postJob?.cancel()
         plansJob?.cancel()
         commentsJob?.cancel()
-        _post.value = FanboxPostState(isLoading = true)
-        _plans.value = FanboxPlansState()
-        _comments.value = FanboxCommentsState(isLoading = true)
+        _post.value = FanboxPostState.Loading
+        _plans.value = FanboxPlansState.Idle
+        _comments.value = FanboxCommentsState.Loading
         postJob = viewModelScope.launch { loadPostInternal(targetId) }
         commentsJob = viewModelScope.launch { loadCommentsInternal(targetId) }
     }
@@ -98,21 +112,20 @@ class FanboxPostViewModel @Inject constructor(
             if (meta != null) {
                 applyPost(targetId, meta, bodyFallback = true)
             } else {
-                _post.value = FanboxPostState(isLoading = false, error = "empty response")
+                _post.value = FanboxPostState.Error("empty response")
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             if (targetId != postId) return
-            _post.value = FanboxPostState(isLoading = false, error = e.message)
+            _post.value = FanboxPostState.Error(e.message)
         }
     }
 
     private fun applyPost(targetId: String, post: FanboxPost, bodyFallback: Boolean) {
         if (targetId != postId) return
-        _post.value = FanboxPostState(
+        _post.value = FanboxPostState.Loaded(
             post = post,
             sections = parseFanboxBody(post),
-            isLoading = false,
             bodyFallback = bodyFallback,
         )
         // 受限帖才有付费墙方案段；post.get / post.info 都带 creatorId。
@@ -124,17 +137,17 @@ class FanboxPostViewModel @Inject constructor(
 
     private fun loadPlans(targetId: String, creatorId: String) {
         plansJob?.cancel()
-        _plans.value = FanboxPlansState(isLoading = true)
+        _plans.value = FanboxPlansState.Loading
         plansJob = viewModelScope.launch {
             try {
                 val list = fanboxRepository.api.planListCreator(creatorId).body?.plans.orEmpty()
                 if (targetId == postId) {
-                    _plans.value = FanboxPlansState(items = list)
+                    _plans.value = FanboxPlansState.Loaded(list)
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (targetId == postId) {
-                    _plans.value = FanboxPlansState(error = e.message)
+                    _plans.value = FanboxPlansState.Error(e.message)
                 }
             }
         }
@@ -145,18 +158,16 @@ class FanboxPostViewModel @Inject constructor(
         try {
             val items = fanboxRepository.api.postGetComments(targetId).body?.commentList?.items.orEmpty()
             if (targetId == postId) {
-                _comments.value = FanboxCommentsState(items = items, isLoading = false)
+                _comments.value = FanboxCommentsState.Loaded(items)
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             if (targetId != postId) return
-            // 错误体只可读取一次，两处状态共用同一次赞助门槛判定。
-            val locked = isPledgeRequired(e)
-            _comments.value = FanboxCommentsState(
-                isLoading = false,
-                error = if (locked) null else e.message,
-                locked = locked,
-            )
+            _comments.value = if (isPledgeRequired(e)) {
+                FanboxCommentsState.Locked
+            } else {
+                FanboxCommentsState.Error(e.message)
+            }
         }
     }
 
@@ -175,7 +186,7 @@ class FanboxPostViewModel @Inject constructor(
 
     /** 全屏路由经 SavedStateHandle 初始化，平板 pane 由首页驱动切换。 */
     fun loadPost(newPostId: String) {
-        if (newPostId.isBlank() || (newPostId == postId && _post.value.post != null)) return
+        if (newPostId.isBlank() || (newPostId == postId && _post.value is FanboxPostState.Loaded)) return
         postId = newPostId
         startLoadJobs(newPostId)
     }

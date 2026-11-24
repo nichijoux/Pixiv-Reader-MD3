@@ -107,14 +107,14 @@ internal fun ComicReaderContent(
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
         Box(Modifier.fillMaxSize()) {
-            when {
-                state.isLoading -> LoadingBox()
-                state.error != null || state.episode == null -> ErrorBox(
+            when (state) {
+                ComicReaderUiState.Loading -> LoadingBox()
+                is ComicReaderUiState.Error -> ErrorBox(
                     // 异常 message 面向用户不可读时回退通用文案（ErrorBox 内部空值兜底）
-                    message = state.error,
+                    message = state.message,
                     onRetry = onRetry,
                 )
-                else -> ComicReaderPager(
+                is ComicReaderUiState.Ready -> ComicReaderPager(
                     state = state,
                     onBack = onBack,
                     onRetryPage = onRetryPage,
@@ -128,12 +128,12 @@ internal fun ComicReaderContent(
 
 @Composable
 private fun ComicReaderPager(
-    state: ComicReaderUiState,
+    state: ComicReaderUiState.Ready,
     onBack: () -> Unit,
     onRetryPage: (Int) -> Unit,
     onOpenNext: (Long) -> Unit,
 ) {
-    val episode = state.episode ?: return
+    val episode = state.episode
     val listState = rememberLazyListState()
     var chromeVisible by remember { mutableStateOf(true) }
     // 页码取最近可见项；列表为空时须钳位，否则 upperBound < 0 抛 IllegalArgumentException

@@ -29,12 +29,16 @@ sealed interface ComicPageUi {
     data object Failed : ComicPageUi
 }
 
-data class ComicReaderUiState(
-    val isLoading: Boolean = true,
-    val error: String? = null,
-    val episode: ComicReadEpisode? = null,
-    val pages: List<ComicPageUi> = emptyList(),
-)
+sealed interface ComicReaderUiState {
+    data object Loading : ComicReaderUiState
+
+    data class Ready(
+        val episode: ComicReadEpisode,
+        val pages: List<ComicPageUi>,
+    ) : ComicReaderUiState
+
+    data class Error(val message: String? = null) : ComicReaderUiState
+}
 
 /**
  * fetchReadEpisode 两步签名流取页数据后逐页下载去扰落盘（[ComicPageLoader.loadPage]
@@ -49,7 +53,7 @@ class ComicReaderViewModel @Inject constructor(
 
     private val episodeId: Long = savedStateHandle["episodeId"] ?: 0L
 
-    private val _state = MutableStateFlow(ComicReaderUiState())
+    private val _state = MutableStateFlow<ComicReaderUiState>(ComicReaderUiState.Loading)
     val state: StateFlow<ComicReaderUiState> = _state.asStateFlow()
 
     /** 加载代次：重进下一话 / 重试时作废旧代次的页结果，防止旧页覆盖新章节。 */
@@ -61,14 +65,13 @@ class ComicReaderViewModel @Inject constructor(
 
     fun load() {
         val gen = ++loadGeneration
-        _state.value = ComicReaderUiState(isLoading = true)
+        _state.value = ComicReaderUiState.Loading
         viewModelScope.launch {
             try {
                 // 两步流：viewer 页 salt → read_v4；失败走统一错误态
                 val episode = comicRepository.fetchReadEpisode(episodeId)
                 if (gen != loadGeneration) return@launch
-                _state.value = ComicReaderUiState(
-                    isLoading = false,
+                _state.value = ComicReaderUiState.Ready(
                     episode = episode,
                     pages = episode.pages.orEmpty().map { ComicPageUi.Loading },
                 )
@@ -78,15 +81,16 @@ class ComicReaderViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 if (gen != loadGeneration) return@launch
-                _state.value = ComicReaderUiState(isLoading = false, error = e.message)
+                _state.value = ComicReaderUiState.Error(e.message)
                 trySendMessage(loadFailureMessage(e, R.string.comic_load_failed_reason, R.string.comic_load_failed))
             }
         }
     }
 
     fun retryPage(index: Int) {
-        val page = _state.value.episode?.pages?.getOrNull(index) ?: return
-        if (_state.value.pages.getOrNull(index) is ComicPageUi.Ready) return
+        val ready = _state.value as? ComicReaderUiState.Ready ?: return
+        val page = ready.episode.pages?.getOrNull(index) ?: return
+        if (ready.pages.getOrNull(index) is ComicPageUi.Ready) return
         updatePage(index, ComicPageUi.Loading)
         launchPageLoad(loadGeneration, index, page)
     }
@@ -107,9 +111,10 @@ class ComicReaderViewModel @Inject constructor(
     }
 
     private fun updatePage(index: Int, ui: ComicPageUi) {
-        val pages = _state.value.pages.toMutableList()
-        if (index >= pages.size) return
+        val ready = _state.value as? ComicReaderUiState.Ready ?: return
+        if (index >= ready.pages.size) return
+        val pages = ready.pages.toMutableList()
         pages[index] = ui
-        _state.value = _state.value.copy(pages = pages)
+        _state.value = ready.copy(pages = pages)
     }
 }
