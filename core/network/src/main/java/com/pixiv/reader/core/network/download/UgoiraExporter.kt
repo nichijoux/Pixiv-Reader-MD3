@@ -20,25 +20,16 @@ import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** ugoira 动图导出格式：MP4 视频（H.264，逐帧 pts 表达变速帧）或 ZIP 帧包（原始帧 + 延时表）。 */
 enum class UgoiraExportFormat(val format: String) {
     MP4(DownloadEntryEntity.FORMAT_MP4),
     ZIP(DownloadEntryEntity.FORMAT_ZIP);
 
     companion object {
-        /** 由下载索引 format 列还原（重试分发用）；无法识别时默认 MP4。 */
         fun from(raw: String?): UgoiraExportFormat = entries.firstOrNull { it.format == raw } ?: MP4
     }
 }
 
-/**
- * ugoira 动图导出器（参照 NovelExporter 编排模式）：
- * metadata → 下载帧包 zip（[ProgressDownloader] Range 断点续传）→ 解压帧 →
- * 按格式产出（MP4 经 [Mp4FrameEncoder] 编码 / ZIP 直接交付原始包 + 延时表 sidecar）。
- *
- * 状态全程写入下载索引（targetType="ugoira"，format=MP4/ZIP）：下载管理页展示进度卡片，
- * 完成通知由 DownloadCompletionNotifier 统一发出。MP4 成功后清理中间产物（zip + 解压帧）。
- */
+/** 动图导出器：Range 续传帧包并导出 MP4/ZIP，全程写下载索引；MP4 成功后清理中间产物。 */
 @Singleton
 class UgoiraExporter @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -47,14 +38,6 @@ class UgoiraExporter @Inject constructor(
     private val downloadEntryDao: DownloadEntryDao,
 ) {
 
-    /**
-     * 导出动图为 MP4 / ZIP。
-     *
-     * @param illustId 动图作品 id
-     * @param format 导出格式
-     * @param illust 作品详情快照（Worker 内拉取；可能为 null——仅卡片展示信息缺失，不阻断导出）
-     * @return 产物路径（MP4=文件路径，ZIP=帧包所在目录）
-     */
     suspend fun export(
         illustId: Long,
         format: UgoiraExportFormat,
@@ -64,7 +47,6 @@ class UgoiraExporter @Inject constructor(
             val dir = File(context.filesDir, "Downloads/ugoira_$illustId").apply { mkdirs() }
             upsert(illustId, format, status = DownloadEntryEntity.STATUS_DOWNLOADING, progress = 0, localPath = dir.path, illust = illust)
 
-            // 元数据：高清 zip 优先，缺失回退 medium（与在线播放同源）
             val meta = pixivRepository.api.getUgoiraMetadata(illustId).ugoira_metadata
                 ?: error(context.getString(R.string.ugoira_error_no_metadata))
             val zipUrl = meta.zip_urls?.large ?: meta.zip_urls?.medium
@@ -72,35 +54,30 @@ class UgoiraExporter @Inject constructor(
             val frames = meta.frames.orEmpty()
             if (frames.isEmpty()) error(context.getString(R.string.ugoira_error_no_frames))
 
-            // 下载阶段进度权重：ZIP 导出即最终产物（100%）；MP4 下载只占前半（50%）
             val downloadWeight = if (format == UgoiraExportFormat.ZIP) 100 else 50
-            // MP4 的中间帧包必须用独立文件名：与 ZIP 交付物同名会互相覆盖，
-            // 且 MP4 完成后的清理会把用户已导出的 ZIP 一并删掉
+            // MP4 中间帧包须独立命名，避免覆盖用户已导出的 ZIP 或在完成后误删
             val zipName = if (format == UgoiraExportFormat.ZIP) ZIP_NAME else MP4_SOURCE_ZIP_NAME
             var lastWrittenPct = -1
             val zipFile = progressDownloader.download(zipUrl, "ugoira_$illustId/$zipName") { done, total ->
                 val pct = if (total > 0) (done * 100 / total).toInt() else 0
-                // 节流：ProgressDownloader 每 8KB 回调一次，仅百分比变化才落库
-                // （10MB 动图原来约 1280 次 UPDATE，现在最多 100 次）
+                // 每 8KB 回调一次，仅百分比变化才落库以减少写入
                 if (pct != lastWrittenPct) {
                     lastWrittenPct = pct
                     updateProgress(illustId, format, (pct * downloadWeight / 100).coerceIn(0, downloadWeight))
                 }
             }.getOrThrow()
 
-            // 解压帧（已解压文件跳过，天然断点续解压；缺 entry / 损坏 zip 删除待重下）
             val frameDir = File(dir, FRAMES_DIR).apply { mkdirs() }
             val entries = try {
                 UgoiraFrameExtractor.unzip(zipFile, frameDir, frames)
             } catch (e: Exception) {
-                // 删除损坏/缺帧 zip，下次重试重新下载；异常向上传播 → 外层标记 failed
+                // 删除损坏/缺帧 zip，确保下次重试重新下载
                 runCatching { zipFile.delete() }
                 throw e
             }
 
             val resultPath = when (format) {
                 UgoiraExportFormat.ZIP -> {
-                    // ZIP 交付：原始帧包 + 延时表 sidecar（供外部工具还原播放节奏）
                     writeFrameDelays(dir, entries)
                     zipFile.path
                 }
@@ -112,23 +89,20 @@ class UgoiraExporter @Inject constructor(
                 illustId, format, status = DownloadEntryEntity.STATUS_DONE, progress = 100,
                 localPath = resultPath, illust = illust, widthHeightOf(entries),
             )
-            // MP4 成功后清理中间产物（zip + 解压帧），释放私有目录空间
             if (format == UgoiraExportFormat.MP4) {
                 runCatching { frameDir.deleteRecursively() }
                 runCatching { zipFile.delete() }
             }
             resultPath
         }.onFailure { e ->
-            // 协程取消（Worker 被系统停止）不落 failed 状态——保留断点现场待重试续传
+            // 取消时不落 failed，保留断点现场供续传
             if (e is kotlinx.coroutines.CancellationException) throw e
             Log.w(TAG, "ugoira 导出失败 illustId=$illustId format=$format", e)
-            // 失败仍带作品快照（保留卡片展示信息）；REPLACE 覆写会把进度重置为 0
-            // （与插画下载 Worker 失败路径行为一致），重试从断点续传继续
+            // 失败仍写快照保留卡片信息，进度归零后重试走断点续传
             runCatching { upsert(illustId, format, status = DownloadEntryEntity.STATUS_FAILED, illust = illust) }
         }
     }
 
-    /** MP4 编码：首帧解析尺寸 → 逐帧惰性解码（编码器用完即 recycle）→ 后半程进度（50..100）。 */
     private suspend fun encodeMp4(
         illustId: Long,
         format: UgoiraExportFormat,
@@ -137,7 +111,6 @@ class UgoiraExporter @Inject constructor(
         illust: Illust?,
     ): String {
         val out = File(dir, "ugoira_$illustId.mp4")
-        // 解析首帧尺寸（帧序列尺寸一致；仅用于编码器配置与卡片宽高显示）
         val (width, height) = decodeBounds(entries.first().file)
         val delays = IntArray(entries.size) { entries[it].delayMs }
         val last = intArrayOf(49)
@@ -158,7 +131,6 @@ class UgoiraExporter @Inject constructor(
         return out.path
     }
 
-    /** 延时表 sidecar（帧文件名 + 毫秒），与 zip 同目录。 */
     private fun writeFrameDelays(dir: File, entries: List<UgoiraFrame>) {
         val json = org.json.JSONArray().apply {
             entries.forEach { entry ->
@@ -171,22 +143,18 @@ class UgoiraExporter @Inject constructor(
         File(dir, DELAYS_FILE).writeText(json.toString())
     }
 
-    /** 首帧尺寸（卡片按真实比例显示；解码失败回退 0 走结构字段）。 */
     private fun widthHeightOf(entries: List<UgoiraFrame>): Pair<Int, Int> = decodeBounds(entries.first().file)
 
-    /** 只解析图片尺寸不加载像素（inJustDecodeBounds）。 */
     private fun decodeBounds(file: File): Pair<Int, Int> {
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, opts)
         return opts.outWidth to opts.outHeight
     }
 
-    /** 进度节流写入（百分比有变化才落库）。 */
     private suspend fun updateProgress(illustId: Long, format: UgoiraExportFormat, progress: Int) {
         runCatching { downloadEntryDao.updateProgress("ugoira", illustId, format.format, progress.coerceIn(0, 100)) }
     }
 
-    /** 写/更新下载索引条目（与插画下载同款 payloadJson 快照格式，下载管理页通用解析）。 */
     private suspend fun upsert(
         illustId: Long,
         format: UgoiraExportFormat,
@@ -219,10 +187,8 @@ class UgoiraExporter @Inject constructor(
     private companion object {
         const val TAG = "UgoiraExporter"
 
-        /** ZIP 交付物文件名（同时作为 ZIP 导出的最终产物）。 */
         const val ZIP_NAME = "ugoira.zip"
 
-        /** MP4 导出的中间帧包文件名（与 [ZIP_NAME] 分开，避免互相覆盖/误删）。 */
         const val MP4_SOURCE_ZIP_NAME = "ugoira_mp4_source.zip"
         const val FRAMES_DIR = "frames"
         const val DELAYS_FILE = "frame_delays.json"

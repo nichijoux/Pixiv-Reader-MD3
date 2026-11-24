@@ -26,13 +26,6 @@ import com.pixiv.reader.core.ui.component.list.PagedFeed
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallGrid
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 用户公开收藏页：拉取指定用户公开收藏的插画瀑布流。
- *
- * @param onBack 返回
- * @param onOpenIllust 打开作品详情
- * @param onOpenUser 点击作者行打开用户主页
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserBookmarksRoute(

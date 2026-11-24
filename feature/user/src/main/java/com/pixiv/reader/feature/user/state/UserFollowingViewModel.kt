@@ -11,9 +11,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 
-/**
- * 用户关注列表页 ViewModel：拉取指定用户的关注列表（`/v1/user/following` restrict=public）。
- */
 @HiltViewModel
 class UserFollowingViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -42,7 +39,6 @@ class UserFollowingViewModel @Inject constructor(
         viewModelScope.launch { paged.loadMore() }
     }
 
-    /** 关注 / 取关用户（nowFollowed 为目标状态，由组件回调）。 */
     fun toggleFollowUser(userId: Long, nowFollowed: Boolean) =
         favoriteActions.toggleFollowUserSilent(viewModelScope, userId, nowFollowed)
 }

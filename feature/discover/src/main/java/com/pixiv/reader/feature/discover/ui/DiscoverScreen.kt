@@ -23,18 +23,6 @@ import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
 
-/**
- * 发现页搜索：热门 + 历史 → 联想 → 结果（TabRow + HorizontalPager 滑动切换插画/小说/用户）。
- * 筛选入口在搜索框右侧，面板按当前类型动态渲染。
- *
- * 直达能力：输入 pixiv 链接后按搜索直接跳详情页；输入**纯数字 ID** 时联想列表顶部
- * 给出「按 ID 打开小说/插画/用户/系列」四个提示行，由用户自行选择目标类型
- * （提示行跳转不写搜索历史；Enter / 搜索按钮行为保持普通搜索不变）。
- *
- * 子组件：搜索栏 [SearchField]、初始面板 [IdlePanel]、联想 [SuggestionList]、
- * 结果 [SearchResultPager] / [IllustSearchResults] / [NovelSearchResults] / [UserSearchResults]、
- * 筛选 [FilterBottomSheet]。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverRoute(
@@ -49,7 +37,7 @@ fun DiscoverRoute(
     onOpenWallpaperRanking: () -> Unit = {},
     modifier: Modifier = Modifier,
     initialQuery: String? = null,
-    // 跨 Tab 标签搜索的预选类型（仅 initialQuery 非空时生效；null 不切换）
+    // 仅 initialQuery 非空时生效；null 不切换当前类型
     initialTagType: TagType? = null,
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
@@ -67,10 +55,6 @@ fun DiscoverRoute(
 
     var showFilter by remember { mutableStateOf(false) }
 
-    /**
-     * 统一搜索提交入口：若输入是 pixiv 链接（如 novel/show.php?id=…）则直接跳对应详情页，
-     * 否则走普通搜索。URL 跳转不写搜索历史、不发搜索请求。
-     */
     val submitSearch: () -> Unit = {
         val link = PixivUrlParser.parse(query)
         when (link?.type) {
@@ -82,7 +66,6 @@ fun DiscoverRoute(
         }
     }
 
-    // 跨 Tab 标签搜索：从别处带关键词或标签类型变化进入时自动搜索；携带 pixiv 链接则直接跳详情。
     LaunchedEffect(initialQuery, initialTagType) {
         if (!initialQuery.isNullOrBlank()) {
             when (initialTagType) {
@@ -102,13 +85,12 @@ fun DiscoverRoute(
         }
     }
 
-    // 平板限宽居中：搜索栏 + TabRow + 结果列表不超过 MAX_CONTENT_WIDTH_DP。
-    // 发现页为全屏页（MainShell 隐藏底栏），底部需自行避让系统导航栏
+    // 发现页在 MainShell 中隐藏底栏，需自行消费系统导航栏 inset
     AdaptiveContentBox {
         Column(
             modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
         ) {
-            // 搜索栏（聚焦高亮 + 清除/搜索按钮）；外层共享元素修饰（MainShell 构造）驱动 hero 过渡
+            // 外部 modifier 仅挂在搜索栏容器上，供 MainShell 的 sharedBounds hero 过渡对齐
             Box(modifier = modifier) {
                 SearchField(
                     query = query,
@@ -129,7 +111,6 @@ fun DiscoverRoute(
                 )
                 query.isNotBlank() -> SuggestionList(
                     suggestions = suggestions,
-                    // 纯数字输入：联想列表顶部提供按 ID 直达小说/插画/用户/系列的提示行（不写搜索历史）
                     numericId = parseNumericId(query),
                     onOpenNovel = onOpenNovel,
                     onOpenIllust = onOpenIllust,

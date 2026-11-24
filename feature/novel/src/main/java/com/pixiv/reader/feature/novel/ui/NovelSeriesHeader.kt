@@ -40,24 +40,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
-/**
- * 系列信息头：大封面（真实图/图标兜底）+ 标题/简介 + 篇数/连载态徽章 + 作者行（头像/名称/关注）
- * + 操作行（追更 + 下载）+ 总字数。
- *
- * @param detail 系列详情（标题/徽章/作者/简介等）
- * @param onOpenAuthor 点击作者名打开主页（参数为作者 id）
- * @param coverUrl 系列封面 URL（首册 medium；null 走书本图标兜底）
- * @param onOpenCover 点击封面打开全屏大图
- * @param isAuthorFollowed 作者是否已关注
- * @param isAuthorFollowing 关注请求进行中（进行中禁用关注按钮防连点）
- * @param onToggleFollowAuthor 关注/取关作者回调
- * @param isWatchlisted 本系列是否已追更
- * @param isWatchlisting 追更请求进行中（进行中禁用追更按钮防连点）
- * @param onToggleWatchlist 追更/取消追更回调
- * @param downloading 下载进行中（进行中禁用下载按钮）
- * @param onDownload 点击下载按钮（先拉全量分册后由调用方打开下载弹窗）
- * @return 无返回值（渲染 Composable）
- */
 @Composable
 internal fun SeriesHeader(
     detail: NovelSeriesDetail,
@@ -80,7 +62,7 @@ internal fun SeriesHeader(
             .padding(horizontal = Spacing.lg, vertical = Spacing.lg),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            // 大封面：3:4（110×148dp）；有真实封面图走 PixivImage（自动 Referer），无则 MD3 图标容器兜底
+            // 有真实封面图走 PixivImage，无则 MD3 图标容器兜底
             if (!coverUrl.isNullOrBlank()) {
                 PixivImage(
                     url = coverUrl,
@@ -140,7 +122,6 @@ internal fun SeriesHeader(
         val caption = detail.caption?.takeIf { it.isNotBlank() }
             ?: detail.display_text?.takeIf { it.isNotBlank() }
         if (caption != null) {
-            // 简介：HTML 富文本（加粗/换行/pixiv 深链样式），3 行截断；系列页无链接跳转回调
             HtmlCaptionText(
                 html = caption,
                 style = MaterialTheme.typography.bodyMedium,
@@ -150,7 +131,6 @@ internal fun SeriesHeader(
                 modifier = Modifier.padding(top = Spacing.mdPlus),
             )
         }
-        // 作者行：头像 + 名称（可点击进主页）+ 关注/取关按钮（占满整行）
         detail.user?.let { author ->
             Row(
                 modifier = Modifier
@@ -181,7 +161,7 @@ internal fun SeriesHeader(
                 )
             }
         }
-        // 操作行：追更（铃铛图标，已追更切换实心/文案）+ 下载（整系列 / 选取部分由弹窗决定）
+        // 操作行：追更 + 下载（整系列 / 选取部分由弹窗决定）
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -216,7 +196,6 @@ internal fun SeriesHeader(
     }
 }
 
-/** MD3 药丸徽章（AssistChip 视觉，扁平无交互）。 */
 @Composable
 private fun SeriesMetaChip(
     text: String,

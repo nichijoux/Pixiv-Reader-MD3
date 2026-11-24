@@ -59,11 +59,6 @@ import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 阅读器顶栏浮层：返回 / 标题 / 更多菜单（收藏 / 阅读书签 / 追更）。
- * 由外层 [ReaderRoute] 在工具栏可见时叠加显示；本组件内部持有菜单展开状态。
- * 注意：[modifier] 由调用方在 BoxScope 内传入（如 `Modifier.align(Alignment.TopCenter)`）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ReaderTopBar(
@@ -128,7 +123,6 @@ internal fun ReaderTopBar(
                     DropdownMenu(
                         expanded = menuOpen,
                         onDismissRequest = { menuOpen = false },
-                        // 全 App 统一浮层：高圆角 + 抬高一层容器色
                         shape = AppShapes.large,
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     ) {
@@ -192,19 +186,6 @@ internal fun ReaderTopBar(
     }
 }
 
-/**
- * 阅读器底栏浮层：进度胶囊卡片（点状轨道滑条 + 上/下一章圆钮，独立圆角浮层）
- * 与工具栏（目录/搜索/设置）两个分离浮层。
- * 沉浸式：工具栏背景延伸覆盖导航栏（小白条）区域。
- * 两者一起滑入滑出；拖动松手后回调 [onSeekFinished]（0..1 比例）执行快速跳转。
- *
- * @param progressFraction 当前进度 0..1（翻页模式 = 跨页位置，滚动模式 = 全章百分比）
- * @param onSeekFinished 松手回调（参数 = 目标位置比例）
- * @param canPrevChapter 是否存在上一章（无则禁用上一章圆钮）
- * @param canNextChapter 是否存在下一章（无则禁用下一章圆钮）
- * @param onPrevChapter 跳转上一章
- * @param onNextChapter 跳转下一章
- */
 @Composable
 internal fun ReaderBottomToolBar(
     themeColors: ReaderThemeColors,
@@ -220,7 +201,6 @@ internal fun ReaderBottomToolBar(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        // 进度卡片：独立圆角浮层，背景与工具栏同色
         Row(
             modifier = Modifier
                 .padding(horizontal = Spacing.md)
@@ -252,7 +232,6 @@ internal fun ReaderBottomToolBar(
             )
         }
         Spacer(Modifier.height(Spacing.xs))
-        // 工具栏：背景覆盖导航栏区域（沉浸）
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -270,14 +249,6 @@ internal fun ReaderBottomToolBar(
     }
 }
 
-/**
- * 进度胶囊滑条（点状轨道 + 大圆 thumb）：点击/横向拖拽定位，松手回调 [onSeekFinished]（0..1）。
- * 拖动期间以拖拽值为准——跳转完成前页面进度尚未变化，直接绑定会回弹。
- *
- * @param dotColor 轨道圆点颜色
- * @param thumbColor 滑块圆颜色
- * @param capsuleColor 胶囊背景颜色
- */
 @Composable
 private fun ReaderDotSlider(
     fraction: Float,
@@ -287,6 +258,7 @@ private fun ReaderDotSlider(
     onSeekFinished: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 拖动期间优先展示拖拽值，避免跳转完成前受外部旧进度回弹
     var dragValue by remember { mutableStateOf<Float?>(null) }
     val currentOnSeekFinished by rememberUpdatedState(onSeekFinished)
     val value = (dragValue ?: fraction).coerceIn(0f, 1f)
@@ -295,14 +267,13 @@ private fun ReaderDotSlider(
             .height(CAPSULE_HEIGHT)
             .background(capsuleColor, AppShapes.pill)
             .pointerInput(Unit) {
-                // 点击直接定位并回调，经 rememberUpdatedState 读取最新跨页回调避免陈旧捕获。
+                // 经 rememberUpdatedState 读取最新回调，避免 pointerInput(Unit) 捕获陈旧闭包
                 detectTapGestures { offset ->
                     if (size.width <= 0) return@detectTapGestures
                     currentOnSeekFinished((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
                 }
             }
             .pointerInput(Unit) {
-                // 横向拖拽跟手，松手回调，尺寸未就绪（width<=0）时跳过避免 NaN。
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { change, _ ->
                         change.consume()
@@ -319,7 +290,6 @@ private fun ReaderDotSlider(
             },
     ) {
         Canvas(Modifier.matchParentSize()) {
-            // 点状轨道：留出 thumb 半径边距，圆点均匀满铺
             val pad = THUMB_SIZE.toPx() / 2f
             val dotRadius = 2.dp.toPx()
             val gap = 11.dp.toPx()
@@ -330,7 +300,6 @@ private fun ReaderDotSlider(
             for (i in 0..count) {
                 drawCircle(color = dotColor, radius = dotRadius, center = Offset(pad + i * step, cy))
             }
-            // thumb：大圆 + 中心小点
             val thumbX = pad + value * span
             val thumbR = THUMB_SIZE.toPx() / 2f
             drawCircle(color = thumbColor, radius = thumbR, center = Offset(thumbX, cy))
@@ -343,22 +312,10 @@ private fun ReaderDotSlider(
     }
 }
 
-/** 胶囊高度。 */
 private val CAPSULE_HEIGHT = 52.dp
 
-/** 滑块圆直径。 */
 private val THUMB_SIZE = 32.dp
 
-/**
- * 章节跳转圆形按钮（上一章/下一章）：Expressive [FilledIconButton] 圆钮，
- * 按压自带 spring 形变动效；禁用时降透明度且不可点。
- *
- * @param enabled 是否可点（存在邻章）
- * @param forward true = 下一章（快进图标），false = 上一章（快退图标）
- * @param themeColors 阅读主题色
- * @param onClick 点击回调
- * @return 无返回值
- */
 @Composable
 private fun ReaderChapterButton(
     enabled: Boolean,
@@ -392,16 +349,6 @@ private fun ReaderChapterButton(
     }
 }
 
-/**
- * 工具行（目录/搜索/设置）：全宽沉浸条样式，主题色背景延伸覆盖导航栏区域，
- * 三钮 SpaceEvenly 均布。
- *
- * @param themeColors 阅读主题色
- * @param onToc 打开目录面板
- * @param onSearch 打开搜索面板
- * @param onSettings 打开设置面板
- * @return 无返回值
- */
 @Composable
 private fun ReaderToolBar(
     themeColors: ReaderThemeColors,
@@ -417,7 +364,6 @@ private fun ReaderToolBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        // 紧凑高度：40dp 触控（标准 48dp 降低观感高度，仍满足最低触控要求）
         IconButton(onClick = onToc, modifier = Modifier.size(40.dp)) {
             Icon(
                 Icons.AutoMirrored.Filled.List,

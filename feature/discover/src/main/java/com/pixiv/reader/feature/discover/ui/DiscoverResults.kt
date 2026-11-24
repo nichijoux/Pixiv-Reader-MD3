@@ -30,14 +30,6 @@ import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
 
-/**
- * 显示普通模式的插画搜索结果与分页瀑布流。
- *
- * @param viewModel 搜索状态与分页操作
- * @param onOpenIllust 打开插画详情的回调
- * @param onOpenUser 打开作者主页的回调
- * @return 无返回值
- */
 @Composable
 internal fun IllustSearchResults(
     viewModel: DiscoverViewModel,
@@ -49,7 +41,6 @@ internal fun IllustSearchResults(
     val isLoadingMore by viewModel.illustPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.illustPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.illustPaged.error.collectAsStateWithLifecycle()
-    // 瀑布流按插画 ID 建键，跨页重复作品只展示一次。
     val uniqueItems = remember(items) { items.distinctBy { it.id } }
 
     when {
@@ -72,15 +63,6 @@ internal fun IllustSearchResults(
     }
 }
 
-/**
- * 显示普通模式的小说搜索结果与分页列表。
- *
- * @param viewModel 搜索状态与分页操作
- * @param onOpenNovel 打开小说详情的回调
- * @param onOpenUser 打开作者主页的回调
- * @param onOpenSeries 打开小说系列的回调
- * @return 无返回值
- */
 @Composable
 internal fun NovelSearchResults(
     viewModel: DiscoverViewModel,
@@ -93,7 +75,7 @@ internal fun NovelSearchResults(
     val isLoadingMore by viewModel.novelPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.novelPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.novelPaged.error.collectAsStateWithLifecycle()
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    // item lambda 非组合上下文，需在外部提前读取 motionScheme
     val motionScheme = MaterialTheme.motionScheme
 
     when {
@@ -108,7 +90,7 @@ internal fun NovelSearchResults(
             contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            // 相邻响应可能返回同一小说，索引区分重复条目且在追加时保持稳定。
+            // 相邻分页可能返回同一小说，附带索引避免 key 冲突
             itemsIndexed(items, key = { index, novel -> "novel_${novel.id}_$index" }) { _, novel ->
                 NovelRow(
                     novel = novel,
@@ -125,7 +107,6 @@ internal fun NovelSearchResults(
                         viewModel.search()
                     },
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                    // 进场淡入 + 新搜索/翻页追加时位置平滑过渡
                     modifier = Modifier.animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -142,18 +123,6 @@ internal fun NovelSearchResults(
     }
 }
 
-/**
- * 小说搜索结果单行：转发到通用 [NovelCard]。
- *
- * @param novel 小说数据
- * @param onClick 卡片点击
- * @param onOpenAuthor 作者行点击
- * @param onToggleFavorite 收藏切换回调（参数为切换后是否已收藏）
- * @param onTagClick 标签点击（跳搜索）
- * @param onSeriesClick 系列标题点击
- * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
- * @return 无返回值
- */
 @Composable
 private fun NovelRow(
     novel: Novel,
@@ -175,13 +144,6 @@ private fun NovelRow(
     )
 }
 
-/**
- * 显示用户搜索结果，并在触底时加载下一页。
- *
- * @param viewModel 搜索状态与分页操作
- * @param onOpenUser 打开用户主页的回调
- * @return 无返回值
- */
 @Composable
 internal fun UserSearchResults(
     viewModel: DiscoverViewModel,
@@ -192,7 +154,7 @@ internal fun UserSearchResults(
     val isLoadingMore by viewModel.userPaged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by viewModel.userPaged.hasMore.collectAsStateWithLifecycle()
     val error by viewModel.userPaged.error.collectAsStateWithLifecycle()
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    // item lambda 非组合上下文，需在外部提前读取 motionScheme
     val motionScheme = MaterialTheme.motionScheme
 
     when {
@@ -207,7 +169,7 @@ internal fun UserSearchResults(
             contentPadding = PaddingValues(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
         ) {
-            // 重复用户和缺少用户对象的条目都需要独立键。
+            // 重复用户及缺失 user 字段的条目需要按索引生成唯一键
             itemsIndexed(items, key = { index, preview -> "user_${preview.user?.id}_$index" }) { _, preview ->
                 UserRow(
                     preview = preview,
@@ -215,7 +177,6 @@ internal fun UserSearchResults(
                     onToggleFollow = { followed ->
                         preview.user?.id?.let { viewModel.toggleFollowUser(it, followed) }
                     },
-                    // 进场淡入 + 新搜索时位置平滑过渡
                     modifier = Modifier.animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -232,15 +193,6 @@ internal fun UserSearchResults(
     }
 }
 
-/**
- * 用户搜索结果单行：转发到通用 [CreatorProfileCard]。
- *
- * @param preview 用户预览数据
- * @param onClick 卡片点击（打开用户主页）
- * @param onToggleFollow 关注切换回调（参数为切换后是否已关注）
- * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
- * @return 无返回值
- */
 @Composable
 private fun UserRow(
     preview: UserPreview,

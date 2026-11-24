@@ -42,28 +42,12 @@ import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
- * SAF 初始定位 URI：内置存储 Download 文件夹。
- * 传给 [ActivityResultContracts.OpenDocumentTree] 的 EXTRA_INITIAL_URI，打开选择器时
- * 直接定位到 Download（而非存储根——Android 11+ 禁止授权存储卷根目录，会弹隐私提示）。
+ * 选择器直接定位到 Download：Android 11+ 禁止授权存储卷根目录（会弹隐私提示拦下选择）。
  */
 private val DOWNLOAD_DOCUMENT_URI = Uri.parse(
     "content://com.android.externalstorage.documents/document/primary%3ADownload",
 )
 
-/**
- * 我的页「系统设置」：自动更新 / 下载通知（含 Android 16 实况胶囊权限引导）/ 下载位置（SAF）/ 清除缓存。
- * Expressive 分组面板：四项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
- * 每行前置图标带各自点缀色。
- *
- * @param autoUpdate 自动更新开关
- * @param novelExportDir 小说导出目录（SAF tree URI；空串 = 应用默认）
- * @param cacheSize 缓存占用（已格式化文案，如 "12.3 MB"）
- * @param onSetAutoUpdate 设置自动更新开关
- * @param onPickExportDir 用户经 SAF 选定目录（拿到的 tree Uri）
- * @param onResetExportDir 重置导出目录为应用默认
- * @param onClearCache 请求清除缓存（确认弹窗由调用方持有）
- * @return 无返回值
- */
 @Composable
 internal fun MeSystemSection(
     autoUpdate: Boolean,
@@ -100,7 +84,6 @@ internal fun MeSystemSection(
     ) { uri ->
         if (uri != null) onPickExportDir(uri)
     }
-    // 当前导出目录显示名（未配置 = 应用默认）
     val exportDirName = remember(novelExportDir) {
         if (novelExportDir.isBlank()) {
             context.getString(R.string.me_export_dir_default)
@@ -120,7 +103,6 @@ internal fun MeSystemSection(
         else -> stringResource(R.string.me_download_notif_enabled)
     }
     MeGroupCard {
-        // 自动更新（开关行：整行可点切换）
         MeSwitchRow(
             icon = Icons.Filled.SystemUpdateAlt,
             title = stringResource(R.string.me_auto_update),
@@ -129,7 +111,6 @@ internal fun MeSystemSection(
             accent = SettingAccentGreen,
             onCheckedChange = onSetAutoUpdate,
         )
-        // 下载通知与 Android 16 实况胶囊权限状态与跳转入口
         MeRow(
             icon = Icons.Filled.NotificationsActive,
             title = stringResource(R.string.me_download_notifications),
@@ -155,7 +136,6 @@ internal fun MeSystemSection(
                 }
             },
         )
-        // 下载位置（导航行：点击打开 SAF 选择器；已配置时尾随「重置」行内动作）
         MeRow(
             icon = Icons.Filled.FolderOpen,
             title = stringResource(R.string.me_export_dir),
@@ -169,10 +149,10 @@ internal fun MeSystemSection(
                     }
                 }
             },
-            // 初始定位到 Download：避免用户从存储根进入时被系统「保护隐私」限制拦截
+            // 避免从存储根进入时被系统「保护隐私」限制拦截
             onClick = { exportDirLauncher.launch(DOWNLOAD_DOCUMENT_URI) },
         )
-        // 清除缓存（动作行：行内「清除」与整行点击均走确认弹窗，弹窗由 MeRoute 持有）
+        // 确认弹窗由 MeRoute 持有，行内按钮与整行点击走同一条路径
         MeRow(
             icon = Icons.Filled.DeleteSweep,
             title = stringResource(R.string.me_clear_cache),
@@ -189,12 +169,6 @@ internal fun MeSystemSection(
     }
 }
 
-/**
- * 读取当前应用的系统通知与 Android 16 实况通知（Promoted）开启状态。
- *
- * @param context Android 上下文
- * @return Pair(系统通知是否开启, Android 16 实况通知是否允许)
- */
 private fun readNotificationStatus(context: Context): Pair<Boolean, Boolean> {
     val postGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(
@@ -207,12 +181,6 @@ private fun readNotificationStatus(context: Context): Pair<Boolean, Boolean> {
     return enabled to liveEnabled
 }
 
-/**
- * 打开系统应用通知管理页。
- *
- * @param context Android 上下文
- * @return 无返回值
- */
 private fun openNotificationSettings(context: Context) {
     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
         putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
@@ -220,12 +188,7 @@ private fun openNotificationSettings(context: Context) {
     runCatching { context.startActivity(intent) }
 }
 
-/**
- * 在 Android 16+ 上优先打开实况通知开关页；若 ROM 未实现该页则回退到普通通知管理页。
- *
- * @param context Android 上下文
- * @return 无返回值
- */
+/** ROM 可能未实现实况通知开关页，启动失败就回退到普通通知管理页。 */
 private fun openPromotedNotificationSettings(context: Context) {
     if (Build.VERSION.SDK_INT >= 36) {
         val promoIntent = Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply {

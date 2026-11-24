@@ -7,45 +7,23 @@ import android.graphics.Rect
 import java.security.MessageDigest
 
 /**
- * COMIC 正文图 gridshuffle 去扰。
- *
- * 服务端下发的正文图是「打乱图」：把图按 [gridsize]（实测 32px）切方块后，
- * 逐块行做 Fisher–Yates 洗牌（每行各自的置换，从同一条随机流顺序抽取），
- * 宽高不能整除 gridsize 的边缘条带不打乱。还原即在客户端复现同一条随机流、
- * 生成同样的置换，把打乱图第 c 块搬回第 `perm[c]` 块。
- *
- * 随机流派生与运算语义来自开源参考实现（Lumingtianze/pixiv_comic_dl，Rust），
- * 已于 2026-09-15 用真实章节图端到端验证（打乱图 → 还原 → 画面完整正确）：
- * 1. seed = SHA256(STATIC_KEY + page.key) 前 16 字节，按小端解成 4 个 u32；
- * 2. XorShift128 状态机，先丢弃 100 次输出；
- * 3. 每行：`arr = [0..cols-1]`，i 从 cols-1 降到 1，`j = next() mod (i+1)`，
- *    交换 arr[i] 与 arr[j]。
- *
- * 运算全程用 Kotlin Int（JVM 32 位补码，乘法 / 移位 / 异或天然按 u32 wrapping 语义）。
+ * COMIC 正文图 gridshuffle 去扰：按 gridsize（实测 32px）切块，用同一 XorShift128 流
+ * （seed=SHA256(STATIC_KEY+pageKey) 前 16 字节小端 4×u32，预热丢弃 100 次）逐块行做
+ * Fisher–Yates 置换，将打乱图第 c 块搬回 perm[c]；不能整除的边缘条带不打乱。
  */
 object ComicGridUnscrambler {
 
-    /** 官方 web viewer 内置的固定扰动常量（混淆强度的来源，更换需重新抓包）。 */
+    /** 官方 web viewer 固定扰动常量，服务端更换时需重新抓包。 */
     const val STATIC_KEY = "4wXCKprMMoxnyJ3PocJFs4CYbfnbazNe"
 
-    /** 预热丢弃的输出次数。 */
     private const val WARM_UP = 100
 
-    /**
-     * 生成每块行的列置换（纯函数，可单测锁定算法）。
-     *
-     * @param pageKey 页签名 key（read_v4 返回的 `ComicPage.key`）
-     * @param cols 整除部分的块列数（width / gridsize 向下取整）
-     * @param rows 整除部分的块行数（height / gridsize 向下取整）
-     * @return 长度 rows 的置换表，每项为 0..cols-1 的一个排列
-     */
     fun permutationsFor(pageKey: String, cols: Int, rows: Int): List<IntArray> {
-        // 每行从同一条流继续抽取（不重置状态），与服务端打乱顺序一致
+        // 每行从同一流继续抽取（不重置状态），与服务端打乱顺序一致
         val xs = XorShift128(pageKey)
         val perms = ArrayList<IntArray>(rows.coerceAtLeast(0))
         repeat(rows) {
             val arr = IntArray(cols) { it }
-            // Fisher–Yates：i 从末位降到 1，j 取余限制在未洗牌前缀内
             for (i in cols - 1 downTo 1) {
                 val j = Integer.remainderUnsigned(xs.next(), i + 1)
                 val t = arr[i]
@@ -57,24 +35,15 @@ object ComicGridUnscrambler {
         return perms
     }
 
-    /**
-     * 还原一张打乱图。
-     *
-     * @param src 打乱原图（调用方负责回收）
-     * @param gridsize 方块边长（read_v4 返回的 `ComicPage.gridsize`）
-     * @param pageKey 页签名 key（参与种子派生）
-     * @return 还原后的可变 ARGB_8888 Bitmap。不构成打乱条件或无法分配副本时返回 [src] 同一实例。
-     */
+    /** 还原打乱图；不满足打乱条件或无法分配副本时返回原 [src]（调用方负责回收）。 */
     fun unscramble(src: Bitmap, gridsize: Int, pageKey: String): Bitmap {
-        // 非法块大小无法生成有效网格，保留原图。
         if (gridsize <= 0) return src
         val g = gridsize
         val cols = src.width / g
         val rows = src.height / g
-        // 少于两个可换位的块时洗牌无意义（未打乱变换的图 / 异常数据），原样返回
         if (cols < 2 || rows < 1) return src
 
-        // Canvas 只能写入可变位图，先复制原图以保留网格外的边缘条带。
+        // 先复制原图以保留网格外未打乱的边缘条带
         val out = src.copy(Bitmap.Config.ARGB_8888, true) ?: return src
         val canvas = Canvas(out)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG)
@@ -83,7 +52,7 @@ object ComicGridUnscrambler {
             val perm = perms[r]
             val y = r * g
             for (c in 0 until cols) {
-                // 还原方向（已实测验证）：打乱图第 c 块 → 还原图第 perm[c] 块
+                // 还原方向：打乱图第 c 块 → 还原图第 perm[c] 块
                 val sx = c * g
                 val dx = perm[c] * g
                 canvas.drawBitmap(
@@ -97,21 +66,13 @@ object ComicGridUnscrambler {
         return out
     }
 
-    /**
-     * XorShift128 伪随机流（u32 语义）。next() 一步的变换：
-     * ```
-     * s1 = s[1]; r = rotl(s1 * 5, 7) * 9; t = s1 << 9
-     * s[2] ^= s[0]; s[3] ^= s[1]; s[1] ^= s[2]; s[0] ^= s[3]
-     * s[2] ^= t; s[3] = rotl(s[3], 11)
-     * ```
-     */
+    // Kotlin Int 32 位补码天然满足 u32 wrapping 语义
     private class XorShift128(pageKey: String) {
 
-        /** 4 个 u32 状态字（小端读入）。 */
         private val s = IntArray(4)
 
         init {
-            // 种子：SHA256(STATIC_KEY + pageKey) 前 16 字节，小端 4 × u32
+            // seed = SHA256(STATIC_KEY + pageKey) 前 16 字节，按小端解成 4 个 u32
             val digest = MessageDigest.getInstance("SHA-256")
                 .digest((STATIC_KEY + pageKey).toByteArray())
             for (i in 0 until 4) {
@@ -119,11 +80,9 @@ object ComicGridUnscrambler {
                 for (b in 0 until 4) v = v or ((digest[i * 4 + b].toInt() and 0xFF) shl (b * 8))
                 s[i] = v
             }
-            // 预热：与服务端打乱时同样丢弃前 100 次输出
             repeat(WARM_UP) { next() }
         }
 
-        /** 推进状态并返回一个 u32 输出（Kotlin Int，按 32 位 wrapping）。 */
         fun next(): Int {
             val s1 = s[1]
             val r = Integer.rotateLeft(s1 * 5, 7) * 9

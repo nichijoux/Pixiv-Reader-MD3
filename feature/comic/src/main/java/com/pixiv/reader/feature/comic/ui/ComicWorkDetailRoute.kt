@@ -61,15 +61,7 @@ import com.pixiv.reader.feature.comic.state.ComicEpisodesState
 import com.pixiv.reader.feature.comic.state.ComicWorkDetailViewModel
 import com.pixiv.reader.feature.comic.state.ComicWorkState
 
-/**
- * COMIC 作品详情路由：作品头图信息 + 标签 + 简介（可展开）+ 章节列表
- * （asc/desc 排序切换；免费章节点进阅读器，付费章节提示锁定）。
- *
- * @param onBack 返回回调（上层 safeBack）
- * @param onOpenReader 进阅读器（章节 id，免费章节才可点）
- * @param viewModel Hilt 注入的详情 VM
- * @return 无返回值
- */
+/** 免费章节点进阅读器，付费章节只提示锁定（服务端 sales_type 决定）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComicWorkDetailRoute(
@@ -112,17 +104,6 @@ fun ComicWorkDetailRoute(
     }
 }
 
-/**
- * 详情内容主体（信息 + 章节列表同列滚动）。
- *
- * @param work 作品状态
- * @param episodes 章节列表状态
- * @param notificationHost 通知宿主（付费章节点击提示）
- * @param onRetry 整页重试
- * @param onToggleOrder 排序切换
- * @param onOpenReader 进阅读器回调
- * @return 无返回值
- */
 @Composable
 private fun ComicWorkDetailContent(
     work: ComicWorkState,
@@ -203,12 +184,7 @@ private fun ComicWorkDetailContent(
     }
 }
 
-/**
- * 作品头部：封面 + 名称 / 作者 / 话数 / 点赞。
- *
- * @param work 作品数据
- * @return 无返回值
- */
+/** 封面 + 名称 / 作者 / 话数 / 点赞。 */
 @Composable
 private fun ComicWorkHeader(work: ComicWork) {
     Row(verticalAlignment = Alignment.Top) {
@@ -253,12 +229,6 @@ private fun ComicWorkHeader(work: ComicWork) {
     }
 }
 
-/**
- * 标签行：分类（带主题色）+ 标签横向滚动。
- *
- * @param work 作品数据
- * @return 无返回值
- */
 @Composable
 private fun ComicTagRow(work: ComicWork) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -305,12 +275,6 @@ private fun ComicTagRow(work: ComicWork) {
     }
 }
 
-/**
- * 简介块：默认最多 4 行，点击展开 / 收起。
- *
- * @param work 作品数据
- * @return 无返回值
- */
 @Composable
 private fun ComicDescription(work: ComicWork) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -324,15 +288,7 @@ private fun ComicDescription(work: ComicWork) {
     )
 }
 
-/**
- * 章节行：话数 + 副标题 + 状态徽标（免费可点 / 付费锁定 / 未公开置灰）。
- *
- * @param entry 章节条目
- * @param onOpenReader 进阅读器回调
- * @param onLocked 点到不可读章节的提示回调
- * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
- * @return 无返回值
- */
+/** 免费可点 / 付费锁定 / 未公开置灰三种态。 */
 @Composable
 private fun ComicEpisodeRow(
     entry: ComicEpisodeEntry,

@@ -10,18 +10,12 @@ import java.util.zip.ZipInputStream
 import org.jsoup.Jsoup
 
 /**
- * EPUB 小说解析：解压 zip → container.xml → content.opf（manifest/spine）→
- * 按 spine 顺序读取章节 xhtml → 提取段落/标题/引用/分隔线 → [NovelDocument]。
- * 正文插图（img）跳过，文本为主。
+ * EPUB 解析：解压 zip → container.xml → content.opf（manifest/spine）→ 按 spine 顺序读章节 xhtml，
+ * 提取段落/标题/引用/分隔线；正文插图（img）跳过，文本为主。
  */
 object EpubNovelParser {
 
-    /**
-     * 解析 EPUB 文件为结构化小说文档。
-     *
-     * @param file 本地 EPUB 文件
-     * @return 解析得到的 [NovelDocument]；文件损坏、缺少 OPF 或无有效正文块时返回 null
-     */
+    /** 文件损坏、缺少 OPF 或无有效正文块时返回 null。 */
     fun parse(file: File): NovelDocument? = runCatching {
         val entries = mutableMapOf<String, ByteArray>()
         ZipInputStream(file.inputStream().buffered()).use { zip ->
@@ -33,18 +27,15 @@ object EpubNovelParser {
                 zip.closeEntry()
             }
         }
-        // container.xml → opf 路径
         val containerXml = entries["META-INF/container.xml"]?.toString(Charsets.UTF_8)
             ?: return@runCatching null
         val opfPath = Jsoup.parse(containerXml).select("rootfile").attr("full-path").trimStart('/')
         val opfBytes = findZipEntry(entries, opfPath) ?: return@runCatching null
         val opfDoc = Jsoup.parse(opfBytes.toString(Charsets.UTF_8))
         val baseDir = opfPath.substringBeforeLast('/', "")
-        // manifest：id → href
         val manifest = opfDoc.select("manifest item").associate { item ->
             item.attr("id") to item.attr("href")
         }
-        // spine：章节顺序
         val spine = opfDoc.select("spine itemref").mapNotNull { item ->
             manifest[item.attr("idref")]
         }
@@ -76,7 +67,7 @@ object EpubNovelParser {
         NovelDocument(blocks = assigned, fullText = fullText, textLength = fullText.length)
     }.getOrNull()
 
-    /** 根据 OPF 基准目录规范化 `../`、`.` 与 URL 编码后查找章节字节。 */
+    /** 根据 OPF 基准目录规范化 `../`、`.` 后查找章节字节（href 可能是 URL 编码）。 */
     private fun findChapterEntry(
         entries: Map<String, ByteArray>,
         baseDir: String,
@@ -102,7 +93,6 @@ object EpubNovelParser {
         }.getOrNull()
     }
 
-    /** 折叠路径中的 `.`、`..` 与多余斜杠，得到 zip 内的规范相对路径。 */
     private fun normalizeRelativePath(baseDir: String, href: String): String {
         val combined = if (baseDir.isBlank() || href.startsWith('/')) href else "$baseDir/$href"
         val stack = ArrayDeque<String>()

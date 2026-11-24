@@ -5,18 +5,16 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** 相对时间结果：[Res] 走 stringResource 格式化，[Date] 为直接展示的日期文本。 */
+/** [Res] 走 stringResource 格式化，[Date] 为直接展示的日期文本。 */
 sealed interface RelativeTime {
-    /** 文案资源（刚刚 / N 分钟前 / N 小时前 / N 天前）。 */
     data class Res(val resId: Int, val arg: Long = 0L) : RelativeTime
 
-    /** 超过一周：直接显示日期（yyyy-MM-dd，本地时区）。 */
+    /** 超过一周：直接显示本地时区的 yyyy-MM-dd。 */
     data class Date(val text: String) : RelativeTime
 }
 
 /**
- * 通知时间（ISO 8601，如 `2026-08-26T12:30:00+09:00`）转相对时间。
- * 解析失败或时间在未来（时钟偏差）返回 null，UI 不显示时间。
+ * 通知时间（ISO 8601）转相对时间。解析失败或时间在未来（时钟偏差）返回 null，UI 不显示时间。
  */
 fun relativeTime(iso: String?, nowMs: Long): RelativeTime? {
     val t = iso?.let {

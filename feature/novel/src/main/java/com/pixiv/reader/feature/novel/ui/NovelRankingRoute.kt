@@ -57,24 +57,10 @@ import com.pixiv.reader.feature.novel.state.labelRes
 import com.pixiv.reader.feature.novel.state.matchesLanguageFilter
 
 /**
- * 小说排行榜全屏页：分段 Tab + 左右滑动切换（复用通用 [RankingList]）。
- * 条目使用通用 [NovelCard]（上下两部分布局），封面左上角叠加排名徽标（[NovelCard.rank]）。
- *
- * 平板（内容区 ≥704dp，[isDetailPaneEnabled]）：Master-Detail 双栏——列表先全宽浏览，
- * 点击卡片后列表左移让位 + 右侧详情 pane 滑入（[ListDetailOverlay] + [NovelDetailPane]，
- * 评论/下载弹窗内嵌 pane，返回键三级导航）；小屏退化单栏，点击直接全屏跳详情。
- *
- * 每段数据由 ViewModel 内独立 PagedState 承载（RankingList 按段 collect），滑动切回已加载段
- * 不重复请求、无过渡动画。
- *
- * 支持按日期回看历史榜单：TopAppBar 日历入口（语言筛选旁）选日期（仅昨天及更早），TabRow
- * 上方日期 chip 显示/清除；「mode × 日期」各段独立缓存，语言筛选与日期筛选互不影响。
- *
- * @param onBack 返回
- * @param onOpenNovel 点击卡片（含封面）打开小说详情（小屏单栏路径）
- * @param onOpenUser 点击作者行打开用户主页
- * @param onSearchTag 点击标签搜索（排行榜页暂不跳转，由调用方决定）
- * @param onOpenReader 右栏「开始阅读」打开阅读器
+ * 小说排行榜全屏页：分段 Tab + 滑动切换（复用 [RankingList]），卡片封面叠名次徽标。
+ * 平板（内容区 ≥704dp）走 Master-Detail：列表让位 + 右栏 [NovelDetailPane]（评论/下载内嵌，
+ * 返回键三级导航）；小屏单栏点击直接全屏跳详情。
+ * 各段 PagedState 独立缓存：切回已加载段不重复请求、无过渡动画；日期与语言筛选互不影响。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,19 +76,17 @@ fun NovelRankingRoute(
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
     val languageFilter by viewModel.languageFilter.collectAsStateWithLifecycle()
-    // 日期筛选状态（null = 最新榜）：驱动 TopAppBar 入口着色与 TabRow 上方日期 chip 行
+    // 日期筛选状态：null = 最新榜
     val currentDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     var menuExpanded by remember { mutableStateOf(false) }
-    // pane 模式判定（全屏页无 NavigationRail，不减 rail 宽）——顶层捕获，
-    // 与 ListDetailOverlay 内部判定一致；点击分流用同一值
+    // 全屏页无 NavigationRail 故不减 rail 宽；顶层捕获一次，与 ListDetailOverlay 内部判定一致
     val paneEnabled = isDetailPaneEnabled(subtractRail = false)
     var selected by remember { mutableStateOf<Novel?>(null) }
-    // 详情/评论 ViewModel（同一 backstack entry 作用域），pane 内部按选中项 switchTo；
-    // 详情、评论区、下载弹窗全部由 NovelDetailPane 内嵌管理
+    // 同一 backstack entry 作用域：pane 内部按选中项 switchTo，详情/评论/下载弹窗均由 pane 自管
     val detailVm: NovelViewModel = hiltViewModel()
     val commentVm: CommentListViewModel = hiltViewModel()
 
-    // 单栏/双栏共用的榜单列表：仅 modifier 与点击分流不同，其余参数与条目渲染完全一致
+    // 单栏/双栏共用：仅 modifier 与点击分流不同
     val rankingList: @Composable (Modifier, (Novel) -> Unit) -> Unit = { listModifier, onItemClick ->
         RankingList(
             modes = viewModel.modes,
@@ -119,7 +103,7 @@ fun NovelRankingRoute(
             skeleton = { NovelFeedSkeleton(showBannerHeader = false) },
             stateKey = currentDate.orEmpty(),
             listHeader = {
-                // 日期 chip 行：TabRow 上方、限宽内容块内（pane 让位时随列表移动）
+                // 日期 chip 行：限宽内容块内，pane 让位时随列表移动
                 currentDate?.let { date ->
                     RankingDateChipRow(
                         date = date,
@@ -147,7 +131,6 @@ fun NovelRankingRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    // 平板限宽居中（与下方 RankingList 内容对齐）
                     AdaptiveContentTitle(stringResource(R.string.novel_ranking_title))
                 },
                 navigationIcon = {
@@ -183,7 +166,6 @@ fun NovelRankingRoute(
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
-                            // 全 App 统一浮层：高圆角 + 抬高一层容器色
                             shape = AppShapes.large,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         ) {
@@ -205,7 +187,6 @@ fun NovelRankingRoute(
                             }
                         }
                     }
-                    // 日期筛选入口：查看过去某天的历史榜单（与语言筛选并列）
                     RankingDatePickerButton(
                         selectedDate = currentDate,
                         onSelectDate = viewModel::selectDate,
@@ -219,7 +200,7 @@ fun NovelRankingRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         if (paneEnabled) {
-            // pane 模式：列表全宽浏览，点击后左移让位 + 右侧详情 pane 滑入（与小说 Tab 同款）
+            // pane 模式：列表全宽浏览，点击后左移让位 + 右侧 pane 滑入
             ListDetailOverlay(
                 selected = selected,
                 onClose = { selected = null },
@@ -227,20 +208,16 @@ fun NovelRankingRoute(
                 listContent = { listMax ->
                     // 外层限宽跟随让位值（RankingList 内部还有一层 760 限宽，取较小者生效）
                     AdaptiveContentBox(maxWidth = listMax) {
-                        // 点击分流：pane 启用 → 进右栏
                         rankingList(Modifier) { item -> selected = item }
                     }
                 },
                 detailPane = {
-                    // 右侧详情 pane：内嵌 NovelViewModel + CommentListViewModel（本页作用域），
-                    // 详情/评论区/下载弹窗全部内嵌，返回键三级导航由 pane 自管
                     NovelDetailPane(
                         selectedId = selected?.id,
                         placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
                         onOpenReader = onOpenReader,
                         onOpenUser = onOpenUser,
                         onOpenSeries = onOpenSeries,
-                        // 右栏标签点击 → 搜索（与列表卡标签同通道）
                         onSearchTag = onSearchTag,
                         commentVm = commentVm,
                         viewModel = detailVm,
@@ -248,7 +225,7 @@ fun NovelRankingRoute(
                 },
             )
         } else {
-            // 小屏（内容区 < 704dp）：单栏列表，点击行直接跳全屏详情（原行为不变）
+            // 小屏单栏：点击直接跳全屏详情
             rankingList(Modifier.padding(padding)) { onOpenNovel(it.id) }
         }
     }

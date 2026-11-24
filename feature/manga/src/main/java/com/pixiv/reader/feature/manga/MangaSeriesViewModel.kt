@@ -18,9 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * 漫画系列详情 ViewModel（`v1/illust/series`）：
- * 系列详情（复用 NovelSeriesDetail 类型，含 `watchlist_added` 追更态）+ 系列内作品分页。
- * 追更 toggle 走 FavoriteActions 统一收口（断网自动入队待同步）。
+ * 漫画系列详情（`v1/illust/series`）：系列详情（复用 NovelSeriesDetail，含 watchlist_added）+ 系列内作品分页。
  */
 @HiltViewModel
 class MangaSeriesViewModel @Inject constructor(
@@ -29,17 +27,16 @@ class MangaSeriesViewModel @Inject constructor(
     private val favoriteActions: FavoriteActions,
 ) : MessageViewModel() {
 
-    /** 系列路由参数 id（固定）。 */
+    /** 路由参数，固定。 */
     private val seriesId: Long = savedStateHandle.get<Long>("seriesId") ?: 0L
 
-    /** 系列详情（标题/简介/作者/追更态/总话数）。 */
     private val _detail = MutableStateFlow<NovelSeriesDetail?>(null)
     val detail: StateFlow<NovelSeriesDetail?> = _detail.asStateFlow()
 
-    /** 系列内作品分页（PagedState 累积，触底加载）。 */
+    /** PagedState 累积，触底加载。 */
     val paged = PagedState<Illust>(keySelector = { it.id })
 
-    /** 追更状态机（detail.watchlist_added 初始化为 ON/OFF；[toggleWatchlist] 驱动转移）。 */
+    /** 由 detail.watchlist_added 初始化，[toggleWatchlist] 驱动转移。 */
     private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
     val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
@@ -48,7 +45,6 @@ class MangaSeriesViewModel @Inject constructor(
         if (seriesId > 0L) load()
     }
 
-    /** 首次加载 / 失败重试：详情 + 系列内作品第一页。 */
     fun load() {
         viewModelScope.launch {
             paged.loadInitial(
@@ -66,16 +62,12 @@ class MangaSeriesViewModel @Inject constructor(
         }
     }
 
-    /** 触底加载更多系列内作品。 */
     fun loadMore() {
         viewModelScope.launch { paged.loadMore() }
     }
 
     /**
-     * 追更 / 取消追更（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，
-     * 失败回滚；成功经消息通道提示；断网自动入队待同步）。
-     *
-     * @return 无返回值（操作完成后结束的协程）
+     * [ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；断网自动入队待同步。
      */
     fun toggleWatchlist() {
         runToggle(

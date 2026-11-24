@@ -3,15 +3,12 @@ package com.pixiv.api.model
 import com.google.gson.annotations.SerializedName
 
 /**
- * pixiv COMIC（comic.pixiv.net）数据模型，字段对齐服务端 JSON（`/api/app/` 下
- * 各端点，2026-09 实测抓包）。
+ * pixiv COMIC（comic.pixiv.net）数据模型：`/api/app/` 各端点，2026-09 实测抓包。
  *
- * 约定（防 Gson UnsafeAllocator 对缺失键给 null 打穿 Kotlin 非空类型）：
- * - 字符串 / 集合 / 对象字段一律可空（默认 null），使用处 `.orEmpty()` 兜底；
- * - 基础类型（Int / Long / Boolean）保持非空——JVM 原始类型缺失时是 0 / false，不会 NPE。
- *
- * 各端点响应统一为 `{"data": {...}}` 外壳；搜索结果复用 [ComicWork]（缺
- * magazine / tags / first_episode / is_following 等字段时服务端直接不给，解析为 null）。
+ * Gson UnsafeAllocator 对缺失键给 null，会打穿 Kotlin 非空类型：字符串/集合/对象字段
+ * 一律可空并由使用处 `.orEmpty()` 兜底；基础类型保持非空（缺失即 0 / false，不会 NPE）。
+ * 响应统一为 `{"data": {...}}` 外壳；搜索结果复用 [ComicWork]（服务端少给
+ * magazine / tags / first_episode / is_following，解析为 null）。
  */
 
 // ── 排行榜 ───────────────────────────────────────────────────────────────────
@@ -136,14 +133,12 @@ data class ComicCategory(
     @SerializedName("glyph_name") val glyphName: String? = null,
 )
 
-/** 连载杂志。 */
 data class ComicMagazine(
     val id: Long = 0,
     val name: String? = null,
     val image: ComicWorkImage? = null,
 )
 
-/** 作品标签。 */
 data class ComicTag(
     val id: Long = 0,
     val name: String? = null,
@@ -156,7 +151,6 @@ data class ComicEpisodesResponse(
     val data: ComicEpisodes? = null,
 )
 
-/** 章节列表。 */
 data class ComicEpisodes(
     val episodes: List<ComicEpisodeEntry>? = null,
 )
@@ -176,9 +170,7 @@ data class ComicEpisodeEntry(
  */
 data class ComicEpisode(
     val id: Long = 0,
-    /** 话数标题（「第1話①」）。 */
     @SerializedName("numbering_title") val numberingTitle: String? = null,
-    /** 本话副标题。 */
     @SerializedName("sub_title") val subTitle: String? = null,
     @SerializedName("read_start_at") val readStartAt: Long = 0,
     @SerializedName("thumbnail_image_url") val thumbnailImageUrl: String? = null,
@@ -188,7 +180,6 @@ data class ComicEpisode(
     @SerializedName("is_purchased") val isPurchased: Boolean = false,
     val state: String? = null,
 ) {
-    /** 是否可直接免费阅读。 */
     val isReadable: Boolean
         get() = state == "readable" && (salesType == "free" || isPurchased)
 }

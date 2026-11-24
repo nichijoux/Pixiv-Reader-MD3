@@ -6,8 +6,7 @@ import com.pixiv.reader.core.novel.model.assignCharRanges
 import com.pixiv.reader.core.novel.model.buildFullText
 
 /**
- * Markdown 小说解析：`#`/`##` 标题、`>` 引用、`---` 分隔线、普通段落 → [NovelDocument]。
- * 用于下载管理页点击 .md 导出文件时应用内直接阅读。
+ * 只识别标题/引用/分隔线，其余行按普通段落；用于下载管理页点 .md 导出文件时应用内直接阅读。
  */
 object MarkdownNovelParser {
 

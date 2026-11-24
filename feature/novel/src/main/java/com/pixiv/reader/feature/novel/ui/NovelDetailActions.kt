@@ -46,7 +46,6 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.extendedColors
 import com.pixiv.reader.feature.novel.R
 
-/** 操作区（内容区）：阅读主按钮（AutoStories 图标）+ 下载进度；四个竖排按钮固定在底部见 [NovelActionBar]。 */
 @Composable
 internal fun NovelActions(
     downloading: Boolean,
@@ -82,39 +81,10 @@ internal fun NovelActions(
     }
 }
 
-/**
- * 底部固定操作条：收藏 / 追更 / 下载 / 评论 四个竖排 icon+文字按钮（对齐插画详情页风格，
- * 复用 core:ui [VerticalActionButton]），Scaffold 外 Box 底部固定，限宽居中（平板与内容对齐）。
- *
- * @param novelId 当前小说 id（作为收藏弹跳「上一态」记忆的 key——平板 pane 不按 id 重建组合，
- *   切换作品时须重置，否则 A 未收藏 → 选中已收藏 B 会误播弹跳与触觉）
- * @param navigationBarInset 是否追加系统导航栏避让——Scaffold bottomBar 场景（手机全屏详情页）
- *   为 true；Master-Detail 右栏内嵌场景为 false（外层 Scaffold padding 已含导航栏避让，
- *   再加会导致操作条比左栏底部高出一个导航栏高度、无法对齐）
- * @param seriesId 所属系列 id（null/非正数表示无系列，追更按钮禁用）
- * @param privacy 收藏三态（决定收藏按钮图标与文案：未收藏 / 公开 / 私密）
- * @param isBookmarking 收藏请求进行中（进行中禁用收藏按钮防连点）
- * @param isWatchlisted 是否已追更（决定追更按钮图标与文案）
- * @param isWatchlisting 追更请求进行中（进行中禁用追更按钮防连点）
- * @param downloading 下载进行中（进行中禁用下载按钮）
- * @param onBookmark 收藏/取消收藏回调
- * @param onBookmarkLongClick 收藏按钮长按回调（打开收藏设置弹层）；null 不挂长按
- * @param onWatchlist 追更/取消追更回调
- * @param onDownload 打开下载格式选择弹窗回调
- * @param onComments 打开评论区回调
- * @param modifier 外部传入的 Modifier
- */
-/**
- * 收藏三态（[NovelActionBar] 收藏按钮形态；私密收藏经长按菜单设置）。
- */
+/** 私密收藏经长按菜单设置。 */
 enum class BookmarkPrivacy {
-    /** 未收藏。 */
     NONE,
-
-    /** 已收藏（公开）。 */
     PUBLIC,
-
-    /** 已收藏（私密）。 */
     PRIVATE,
 }
 
@@ -135,9 +105,9 @@ internal fun NovelActionBar(
     navigationBarInset: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    // 收藏心形弹跳：privacy 由 NONE 变为已收藏（公开/私密）时触发 0.6 → 过冲 → 1 的 pop
+    // 收藏心形弹跳：0.6 → 过冲 → 1 的 pop
     val favoriteBounce = remember { Animatable(1f) }
-    // 上一次收藏态：key 为小说 id（pane 切换作品时重置为该作品当前态，防止跨作品误播）
+    // key 为小说 id：pane 不按 id 重建组合，不重置会跨作品误播弹跳与触觉
     var wasBookmarked by remember(novelId) { mutableStateOf(privacy != BookmarkPrivacy.NONE) }
     val haptic = rememberHapticCue()
     LaunchedEffect(privacy) {
@@ -145,7 +115,6 @@ internal fun NovelActionBar(
         val becameBookmarked = bookmarked && !wasBookmarked
         wasBookmarked = bookmarked
         if (becameBookmarked) {
-            // 成功确认触觉 + 心形缩放 pop（MediumBouncy 过冲后回落到 1f）
             haptic(PixivHaptics.HapticCue.SUCCESS)
             favoriteBounce.snapTo(0.6f)
             favoriteBounce.animateTo(
@@ -161,7 +130,7 @@ internal fun NovelActionBar(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            // 导航栏避让按场景开关：bottomBar 场景自带，pane 内嵌场景由外层统一处理
+            // 导航栏避让按场景开关：bottomBar 场景自带，pane 内嵌场景由外层统一处理，否则会多出一圈导航栏高度
             .then(if (navigationBarInset) Modifier.navigationBarsPadding() else Modifier),
     ) {
         Row(
@@ -174,7 +143,7 @@ internal fun NovelActionBar(
             VerticalActionButton(
                 icon = if (privacy != BookmarkPrivacy.NONE) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 label = when (privacy) {
-                    // 私密收藏单独标识（核心文案走 core:ui）
+                    // 私密收藏文案在 core:ui
                     BookmarkPrivacy.PRIVATE -> stringResource(CoreUiR.string.bookmark_private_cd)
                     BookmarkPrivacy.PUBLIC -> stringResource(R.string.novel_bookmarked)
                     BookmarkPrivacy.NONE -> stringResource(R.string.novel_bookmark)
@@ -182,12 +151,10 @@ internal fun NovelActionBar(
                 active = privacy != BookmarkPrivacy.NONE,
                 enabled = !isBookmarking,
                 onClick = onBookmark,
-                // 长按打开收藏设置（公开/私密 + 标签）
                 onLongClick = onBookmarkLongClick,
                 modifier = Modifier.weight(1f),
-                // 收藏激活用扩展语义红（浅/深双档合规）
                 activeIconTint = MaterialTheme.extendedColors.favorite,
-                // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
+                // 只缩放图标，避免与按钮自身按压缩放叠加
                 iconModifier = Modifier.graphicsLayer {
                     scaleX = favoriteBounce.value
                     scaleY = favoriteBounce.value

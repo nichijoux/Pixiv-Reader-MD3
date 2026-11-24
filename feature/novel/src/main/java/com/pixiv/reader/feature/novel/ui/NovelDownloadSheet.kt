@@ -52,24 +52,20 @@ import com.pixiv.reader.core.ui.theme.Sizes
 
 // ── 下载底部弹窗 ─────────────────────────────────────────────────────────────
 
-/** 下载范围：单本 / 整个系列 / 系列部分分册。 */
 enum class NovelDownloadScope { SINGLE, SERIES, PARTIAL }
 
 /**
- * 下载弹窗配置：决定范围标签与默认选中，与分册数据是否已加载解耦。
- * - [Detail]：小说详情页。「单个文件 / 整个系列」（[hasSeries] 控制是否显示范围切换），默认单个文件
- * - [Series]：小说系列页。「整个系列 / 选取部分」，默认整个系列；
- *   [partialChapters] 异步到达只影响多选列表内容，不影响标签与默认选中。
+ * 范围标签与默认选中由此决定，与分册数据是否已加载解耦：Detail「单个文件 / 整个系列」（[hasSeries]
+ * 控制是否显示切换），Series「整个系列 / 选取部分」，后者 partialChapters 异步到达不影响标签与默认值。
  */
 sealed interface DownloadSheetConfig {
     data class Detail(val hasSeries: Boolean) : DownloadSheetConfig
     data class Series(val partialChapters: List<Novel>) : DownloadSheetConfig
 }
 
-/** 部分下载分册多选列表最大高度（内部滚动，避免章节过多把导出格式挤出屏幕）。 */
+/** 限高内部滚动，避免章节过多把导出格式挤出屏幕。 */
 private val PARTIAL_LIST_MAX_HEIGHT = 280.dp
 
-/** 下载格式行信息（标题、副标题、图标）。 */
 private data class DownloadFormatInfo(
     val format: NovelExportFormat,
     val titleRes: Int,
@@ -77,7 +73,6 @@ private data class DownloadFormatInfo(
     val icon: ImageVector,
 )
 
-/** 五种导出格式。 */
 private val DOWNLOAD_FORMATS = listOf(
     DownloadFormatInfo(
         NovelExportFormat.TXT,
@@ -111,11 +106,6 @@ private val DOWNLOAD_FORMATS = listOf(
     ),
 )
 
-/**
- * 下载选择底部弹窗：从底部弹出。
- * 范围标签与默认选中由 [config] 决定（见 [DownloadSheetConfig]）；
- * 下方单一格式列表；点击格式行按当前选中范围导出。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DownloadSheet(
@@ -126,10 +116,9 @@ internal fun DownloadSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isSeriesPage = config is DownloadSheetConfig.Series
     val partialChapters = (config as? DownloadSheetConfig.Series)?.partialChapters.orEmpty()
-    // 范围默认值由页面类型决定（与分册数据加载状态无关）：系列页「整个系列」，详情页「单个文件」
+    // 默认值由页面类型决定，与分册数据加载状态无关
     val defaultScope = if (isSeriesPage) NovelDownloadScope.SERIES else NovelDownloadScope.SINGLE
     var scope by rememberSaveable { mutableStateOf(defaultScope) }
-    // 部分下载选中分册（默认全选）
     var selectedIds by rememberSaveable(partialChapters) {
         mutableStateOf(partialChapters.map { it.id }.toSet())
     }
@@ -150,8 +139,7 @@ internal fun DownloadSheet(
                 modifier = Modifier.padding(horizontal = Spacing.lgPlus, vertical = Spacing.xs),
             )
             if (isSeriesPage || (config as? DownloadSheetConfig.Detail)?.hasSeries == true) {
-                // 范围选择器：系列页「整个系列 / 选取部分」；详情页「单个文件 / 整个系列」
-                // （全 App 统一等宽胶囊分段，行为与原先非等宽 trailing 写法一致）
+                // 系列页「整个系列 / 选取部分」；详情页「单个文件 / 整个系列」
                 val options = if (isSeriesPage) {
                     listOf(
                         NovelDownloadScope.SERIES to R.string.novel_download_scope_series,
@@ -172,7 +160,7 @@ internal fun DownloadSheet(
                         .padding(horizontal = Spacing.lgPlus, vertical = Spacing.xs),
                 )
             }
-            // 部分下载：分册多选列表（限高可滚动，避免章节太多把下方导出格式挤出屏幕）
+            // 限高可滚动，避免章节太多把下方导出格式挤出屏幕
             if (isSeriesPage && scope == NovelDownloadScope.PARTIAL) {
                 Text(
                     text = stringResource(
@@ -208,7 +196,7 @@ internal fun DownloadSheet(
                     icon = info.icon,
                     title = stringResource(info.titleRes),
                     subtitle = stringResource(info.descRes),
-                    // 部分下载且未选中任何分册：禁用（点击不触发导出）
+                    // 未选中任何分册时禁用
                     enabled = !(scope == NovelDownloadScope.PARTIAL && selectedIds.isEmpty()),
                     onClick = {
                         when (scope) {
@@ -237,16 +225,7 @@ internal fun DownloadSheet(
     }
 }
 
-/**
- * 小说详情下载格式弹窗（详情全屏页 / 右栏 pane 共用调用块）：
- * 「单个文件 / 整个系列」范围切换 + 导出格式列表，选择结果经 [onExport] 转发 VM。
- *
- * @param visible 弹窗可见性（用户点下载且详情数据就绪才为 true）
- * @param seriesId 当前小说系列 id（null / 非正 = 无有效系列，隐藏范围切换整行）
- * @param onExport 导出回调（formatName 格式名；series=true 整系列 / false 单本）
- * @param onDismiss 关闭弹窗
- * @return 无返回值（不可见时不渲染任何内容）
- */
+/** 详情全屏页 / 右栏 pane 共用：范围切换 + 导出格式列表，结果经 [onExport] 转发 VM。 */
 @Composable
 internal fun NovelDetailDownloadSheet(
     visible: Boolean,
@@ -256,7 +235,7 @@ internal fun NovelDetailDownloadSheet(
 ) {
     if (!visible) return
     DownloadSheet(
-        // 真实系列 id 必为正：过滤 pixiv 空对象（Series(id=0)）误判，无系列时整行隐藏
+        // 真实系列 id 必为正，过滤 pixiv 的 Series(id=0) 空对象误判
         config = DownloadSheetConfig.Detail(seriesId?.let { it > 0L } == true),
         onFormat = { format: NovelExportFormat, scope: NovelDownloadScope, _: List<Long> ->
             onExport(format.name, scope == NovelDownloadScope.SERIES)
@@ -265,7 +244,6 @@ internal fun NovelDetailDownloadSheet(
     )
 }
 
-/** 部分下载分册选择行：checkbox + 标题 + 字数。 */
 @Composable
 private fun PartialChapterRow(
     novel: Novel,

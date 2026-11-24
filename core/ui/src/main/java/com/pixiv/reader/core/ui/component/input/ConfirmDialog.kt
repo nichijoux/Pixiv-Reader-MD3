@@ -38,12 +38,6 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/**
- * 确认提示框的视觉种类：决定图标、强调色与确认按钮配色。
- *
- * - [DANGER]：删除 / 清空等危险操作（error 红色系，默认图标删除）。
- * - [WARNING]：提示 / 确认类非破坏操作（primary 蓝色系，默认图标 Info，如退出登录）。
- */
 enum class ConfirmDialogVariant(
     val defaultIcon: ImageVector,
 ) {
@@ -51,30 +45,7 @@ enum class ConfirmDialogVariant(
     WARNING(Icons.Filled.Info),
 }
 
-/**
- * 通用确认提示框（项目定制风格，对齐 DESIGN.md 通用组件约定）。
- *
- * ## UI 设计方式
- * 窗口级 [Dialog]（自带 scrim，点外部 / 返回键触发 [onDismiss]）+ 居中卡片：
- * `MaterialTheme.shapes.extraLarge`（28dp，Expressive）弹层圆角 + `surfaceContainerHigh` 底 +
- * `tonalElevation` 8dp（与 M3 AlertDialog 圆角口径一致）；
- * 首行「40dp 圆底图标 + 标题」同行（图标作为标题引导，`titleMedium SemiBold`），
- * 说明 `bodyMedium onSurfaceVariant`（或 [bodyContent] 自定义正文插槽）；
- * 底部按钮行右对齐——取消为 [TextButton]（onSurfaceVariant），确认为**强调色实心按钮**。
- * 强调色按 [variant]：删除类用 `error`（危险操作语义），提示类用 `primary`（如退出登录）。
- * 全部尺寸走 `Spacing` / `MaterialTheme.shapes` Token，无散落 magic number。
- *
- * @param title 确认标题（如「清空搜索历史？」「退出登录？」）
- * @param message 确认说明（删除类通常含「此操作不可撤销」语义）；提供 [bodyContent] 时可省略
- * @param confirmText 确认按钮文字（如「清空」「删除」「退出登录」）
- * @param onConfirm 确认回调（执行操作并自行关闭对话框）
- * @param onDismiss 取消/外部点击/返回回调
- * @param modifier 外层 Modifier（默认空）
- * @param variant 视觉种类（默认 [ConfirmDialogVariant.DANGER]，删除/清空类）
- * @param icon 顶部图标；null 时用 [ConfirmDialogVariant.defaultIcon]（默认删除图标）
- * @param dismissText 取消按钮文字；null 时用通用「取消」文案
- * @param bodyContent 自定义正文插槽（如可滚动的更新日志）；非 null 时替代 [message] 文本
- */
+/** 通用确认提示框；同时传入 [bodyContent] 与 [message] 时优先展示 [bodyContent]。 */
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -88,7 +59,6 @@ fun ConfirmDialog(
     dismissText: String? = null,
     bodyContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    // 强调色：删除类 error / 提示类 primary
     val accent = when (variant) {
         ConfirmDialogVariant.DANGER -> MaterialTheme.colorScheme.error
         ConfirmDialogVariant.WARNING -> MaterialTheme.colorScheme.primary
@@ -117,9 +87,7 @@ fun ConfirmDialog(
                 tonalElevation = 8.dp,
             ) {
                 Column(modifier = Modifier.padding(Spacing.xl)) {
-                    // 图标 + 标题同行（图标作为标题引导，不再孤立）
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 图标：强调色 8% 圆底 + 强调色图标
                         Box(
                             modifier = Modifier
                                 .size(Sizes.s40)
@@ -141,7 +109,6 @@ fun ConfirmDialog(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    // 正文：自定义插槽（如可滚动更新日志）优先，否则 message 说明文本
                     if (bodyContent != null) {
                         Column(
                             modifier = Modifier.padding(top = Spacing.sm),

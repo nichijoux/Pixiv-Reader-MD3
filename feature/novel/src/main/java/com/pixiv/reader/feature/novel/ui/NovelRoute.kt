@@ -69,13 +69,8 @@ import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import kotlinx.coroutines.launch
 
 /**
- * 小说 Tab：推荐 / 关注 / 追更 三段页签（PrimaryTabRow 等宽铺满）+ 推荐页排行榜入口 banner。
- *
- * 顶部与漫画 Tab 一致：`Scaffold + TopAppBar`（自带状态栏 inset），actions 为排行榜入口。
- * 推荐页：排行榜入口 banner（列表头部，随滚动）+ 推荐流；关注页：关注用户的新小说流；追更页：追更小说流。
- * 三个流各自独立 PagedState（数据驻留 VM），关注/追更首次进入才加载，切回不重复请求；
- * 均支持下拉刷新（PullToRefreshBox）。初始页由「我的-浏览设置-小说默认页」决定。
- * item 与搜索结果一致（NovelCard）：整卡（含封面）→ 详情、作者→主页、收藏、标签→搜索。
+ * 小说 Tab：推荐 / 关注 / 追更 三段页签 + 推荐页排行榜入口 banner。
+ * 三流各自独立 PagedState（数据驻留 VM），关注/追更首次进入才加载；初始页由「我的-浏览设置-小说默认页」决定。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,11 +87,11 @@ fun NovelRoute(
 ) {
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
-    // Master-Detail：选中小说 / 系列 id（平板详情 pane，互斥；手机端不启用恒为 null 不生效）
+    // Master-Detail：选中小说 / 系列 id（互斥；手机端不启用 pane，恒为 null）
     var selectedNovelId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedSeriesId by rememberSaveable { mutableStateOf<Long?>(null) }
-    // pane 间互跳返回栈（"N:小说"/"S:系列"）：每次互跳压栈当前选中，
-    // 返回键逐级还原上一个 pane，栈空才关闭 pane（防互跳链被返回键一步清空）
+    // pane 间互跳返回栈（"N:小说"/"S:系列"）：每次互跳压栈当前选中，返回键逐级还原，
+    // 栈空才关闭 pane；否则互跳链会被返回键一步清空
     var paneHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
     val closePane = {
         selectedNovelId = null
@@ -108,7 +103,7 @@ fun NovelRoute(
         val current = selectedNovelId?.let { "N:$it" } ?: selectedSeriesId?.let { "S:$it" }
         if (current != null) paneHistory = paneHistory + current
     }
-    // 返回键：栈非空逐级还原上一个选中（pane 间回退），栈空关闭 pane
+    // 返回键：栈空则关闭 pane
     val popPaneOrClose = {
         val last = paneHistory.lastOrNull()
         if (last == null) {
@@ -123,10 +118,9 @@ fun NovelRoute(
             }
         }
     }
-    // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
+    // 回调 lambda 非 composable 上下文，pane 判定需在此捕获
     val detailPaneEnabled = isDetailPaneEnabled()
 
-    // 操作通知（收藏等）：collect VM message → NotificationHost
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
 
@@ -139,7 +133,7 @@ fun NovelRoute(
         }
     }
 
-    // 关注/追更 Tab 首次进入才加载（数据已驻留则不重复请求）
+    // 首次进入才加载（数据已驻留则不重复请求）
     LaunchedEffect(pagerState.currentPage) {
         when (pagerState.currentPage) {
             1 -> viewModel.ensureFollowLoaded()
@@ -149,8 +143,8 @@ fun NovelRoute(
 
     Scaffold(
         snackbarHost = {
-            // 沉浸式底部（contentWindowInsets=0）后 Scaffold 不再自动避开导航栏，
-            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
+            // 沉浸式底部（contentWindowInsets=0）后 Scaffold 不再自动避开导航栏，通知条需自行避让；
+            // 手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让
             NotificationHost(
                 notificationHostState,
                 modifier = Modifier.navigationBarsPadding(),
@@ -159,7 +153,6 @@ fun NovelRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    // 平板限宽居中（与下方 AdaptiveContentBox 内容对齐）
                     AdaptiveContentTitle(stringResource(R.string.novel_title))
                 },
                 actions = {
@@ -176,24 +169,23 @@ fun NovelRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
-        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
+        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表直通）；
+        // 手机端底部导航栏由壳层 AdaptiveNavScaffold 的 bottomBar 承担
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
+        // 平板 Master-Detail：主列表左移 + 右侧 pane（手机不启用，退化为主列表原样）
         ListDetailOverlay(
             selected = selectedNovelId ?: selectedSeriesId,
             onClose = closePane,
             // 返回键沿 pane 互跳链逐级回退，栈空才关闭
             onBack = popPaneOrClose,
-            // 消费已应用的 padding，内部 navigationBarsPadding/imePadding 按剩余可见 inset 自适应
+            // 已应用 padding 需 consume，内部 navigationBarsPadding/imePadding 才能按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             listContent = { listMax ->
-                // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
+                // 限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
                 AdaptiveContentBox(maxWidth = listMax) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // 类型页签：推荐 / 关注 / 追更（PrimaryTabRow 等宽铺满，对齐排行页约定；
-                        // 选中态跟 Pager 落页，点击反向滚页）
+                        // 等宽铺满；选中态跟 Pager 落页，点击反向滚页
                         PrimaryTabRow(
                             selectedTabIndex = pagerState.currentPage.coerceIn(0, 2),
                             containerColor = MaterialTheme.colorScheme.surface,
@@ -223,13 +215,11 @@ fun NovelRoute(
                                     kind = NovelFeedTabKind.RECOMMEND,
                                     scrollToTopKey = reselectKey,
                                     onOpenNovelRanking = onOpenNovelRanking,
-                                    // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
                                     onOpenNovel = { id ->
                                         if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
                                     },
                                     onOpenUser = onOpenUser,
                                     onSearchTag = onSearchTag,
-                                    // 系列 pane 启用 → 进右栏；否则全屏路由
                                     onOpenSeries = { id ->
                                         if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
                                     },
@@ -264,7 +254,7 @@ fun NovelRoute(
                 }
             },
             detailPane = {
-                // 右侧详情 pane：内嵌 NovelViewModel + CommentListViewModel（同一 backstack entry 作用域）
+                // 同一 backstack entry 作用域
                 val detailVm: NovelViewModel = hiltViewModel()
                 val commentVm: CommentListViewModel = hiltViewModel()
                 when {
@@ -273,9 +263,8 @@ fun NovelRoute(
                         placeholder = stringResource(R.string.novel_ranking_preview_placeholder),
                         onOpenReader = onOpenReader,
                         onOpenUser = onOpenUser,
-                        // 右栏标签点击 → 搜索（与列表卡标签同通道）
                         onSearchTag = onSearchTag,
-                        // 「查看完整系列」：pane 启用 → 压栈当前选中、切换到系列 pane；否则全屏路由
+                        // 「查看完整系列」：pane 启用则压栈当前选中并切到系列 pane
                         onOpenSeries = { id ->
                             if (detailPaneEnabled) {
                                 pushPaneHistory()
@@ -289,7 +278,7 @@ fun NovelRoute(
                         viewModel = detailVm,
                     )
                     else -> {
-                        // 系列 pane：与本模块 NovelSeriesPane 直连（无槽位），分册点击切回小说 pane
+                        // 与本模块 NovelSeriesPane 直连（无槽位），分册点击切回小说 pane
                         val seriesVm: NovelSeriesViewModel = hiltViewModel()
                         NovelSeriesPane(
                             selectedId = selectedSeriesId,
@@ -303,7 +292,7 @@ fun NovelRoute(
                                     onOpenNovel(id)
                                 }
                             },
-                            // 分册卡系列标题：压栈当前选中、原地切换系列（返回键可回退）
+                            // 分册卡系列标题：压栈后原地切换系列（返回键可回退）
                             onOpenSeries = { id ->
                                 pushPaneHistory()
                                 selectedSeriesId = id
@@ -320,24 +309,11 @@ fun NovelRoute(
     }
 }
 
-/** 推荐 / 关注共用 tab 种类（差异：数据源、刷新回调、空态文案、推荐页排行榜 banner）。 */
 private enum class NovelFeedTabKind { RECOMMEND, FOLLOW }
 
 /**
- * 推荐页 / 关注页共用 tab：三态 + 下拉刷新 + 触底加载（[NovelPagedList]）。
- * 双胞胎实现（原 NovelRecommendTab / NovelFollowTab）按 [kind] 收敛差异：
- * 数据源（feed/follow 分页状态）、刷新/重试/加载更多回调、空态文案；推荐页列表头有排行榜入口 banner。
- *
- * @param kind tab 种类（RECOMMEND 推荐 / FOLLOW 关注）
- * @param scrollToTopKey 回顶信号（当前 tab 被再次点击时变化，滚回首项）
- * @param onOpenNovelRanking 打开小说排行榜（仅推荐页 banner 使用）
- * @param onOpenNovel 打开小说详情
- * @param onOpenUser 打开用户主页
- * @param onSearchTag 标签搜索
- * @param onOpenSeries 打开系列详情
- * @param onToggleFavorite 收藏 / 取消收藏（目标状态由卡片回调）
- * @param viewModel 小说信息流 ViewModel
- * @return 无返回值（渲染 Composable）
+ * 推荐 / 关注共用 tab，按 [kind] 收敛数据源、刷新/重试/加载更多回调、空态文案差异
+ * （推荐页列表头额外有排行榜入口 banner）。
  */
 @Composable
 private fun NovelFeedTab(
@@ -351,7 +327,6 @@ private fun NovelFeedTab(
     onToggleFavorite: (Long, Boolean) -> Unit,
     viewModel: NovelFeedViewModel,
 ) {
-    // 差异收敛：数据源分页状态 / 刷新中状态（推荐 → feed，关注 → follow）
     val paged = when (kind) {
         NovelFeedTabKind.RECOMMEND -> viewModel.feed
         NovelFeedTabKind.FOLLOW -> viewModel.follow
@@ -367,7 +342,6 @@ private fun NovelFeedTab(
     val error by paged.error.collectAsStateWithLifecycle()
     val isRefreshing by refreshingState.collectAsStateWithLifecycle()
     val isRecommend = kind == NovelFeedTabKind.RECOMMEND
-    // 排行榜入口 banner 仅推荐页有（列表头部，随滚动）
     val header: (@Composable () -> Unit)? = if (isRecommend) {
         {
             RankingBanner(
@@ -401,7 +375,6 @@ private fun NovelFeedTab(
     )
 }
 
-/** 追更页：已追更的小说系列列表（复用 core:ui [SeriesCard]，下拉刷新 + 触底自动加载）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NovelWatchlistTab(
@@ -418,7 +391,7 @@ private fun NovelWatchlistTab(
     val isRefreshing by viewModel.isWatchlistRefreshing.collectAsStateWithLifecycle()
     val infos by viewModel.watchlistInfos.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
+    // 仅在 isRefreshing false→true 时响一次
     val haptic = rememberHapticCue()
     var wasRefreshing by remember { mutableStateOf(isRefreshing) }
     LaunchedEffect(isRefreshing) {
@@ -427,7 +400,7 @@ private fun NovelWatchlistTab(
         }
         wasRefreshing = isRefreshing
     }
-    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    // 首组合只记录 key 不触发，key 变化（当前 tab 被再次点击）才滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {
         if (scrollToTopKey != lastScrollKey) {
@@ -442,7 +415,7 @@ private fun NovelWatchlistTab(
         modifier = Modifier.fillMaxSize(),
     ) {
         when {
-            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位
+            // 首载与下拉刷新（reset 会清空 items）共用骨架
             (isLoading || isRefreshing) && items.isEmpty() -> NovelFeedSkeleton(showBannerHeader = false)
             error != null && items.isEmpty() -> ErrorBox(
                 message = error,
@@ -474,13 +447,13 @@ private fun NovelWatchlistTab(
                             } else {
                                 series.title
                             },
-                            // 封面/简介/连载状态/字数来自 getNovelSeries 详情（SeriesDetailCache，与用户页同缓存）
+                            // 详情字段来自 getNovelSeries（与用户页同 SeriesDetailCache）
                             coverUrl = info?.coverUrl,
                             caption = info?.caption,
                             isConcluded = info?.isConcluded,
                             partsCount = series.published_content_count,
                             totalChars = info?.totalChars ?: 0,
-                            // 最近更新时间（ISO 取前 10 位 yyyy-MM-dd，与 NovelCard 一致），作者行右侧 icon 展示
+                            // ISO 取前 10 位 yyyy-MM-dd（与 NovelCard 一致）
                             updatedAt = series.last_published_content_datetime?.take(10),
                             authorName = series.user?.name,
                             authorAvatarUrl = series.user?.profile_image_urls?.best(),

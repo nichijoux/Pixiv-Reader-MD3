@@ -21,12 +21,9 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * pixiv 评论文本表情映射：`(name)` → emoji 数字 id。
- * URL 规则 `https://s.pximg.net/common/images/emoji/{id}.png`，数据对齐 pixiv 官方
- * （Pixiv-Shaft Emoji.java / pixiv-viewer-app stampList.json 一致）。
- *
- * 供评论**渲染侧**（把 `(xxx)` 文本转行内图）、**输入框 VisualTransformation**（显示表情图像）
- * 与**发布面板**（表情选择器显示图像）共用。
+ * pixiv 评论文本表情映射：`(name)` → emoji 数字 id，URL 为
+ * `https://s.pximg.net/common/images/emoji/{id}.png`，数据对齐 pixiv 官方
+ * （Pixiv-Shaft Emoji.java / pixiv-viewer-app stampList.json 一致）。渲染侧、输入框与发布面板共用。
  */
 val PIXIV_EMOJI_IDS: Map<String, Int> = mapOf(
     "normal" to 101,
@@ -69,7 +66,7 @@ val PIXIV_EMOJI_IDS: Map<String, Int> = mapOf(
     "star" to 503,
 )
 
-/** 评论表情标签（与 [PIXIV_EMOJI_IDS] 的 key 一致），发布面板选项顺序。 */
+/** 必须与 [PIXIV_EMOJI_IDS] 的 key 同集，顺序即面板选项顺序。 */
 val PIXIV_EMOJI_TAGS: List<String> = listOf(
     "normal",
     "surprise",
@@ -111,22 +108,9 @@ val PIXIV_EMOJI_TAGS: List<String> = listOf(
     "star",
 )
 
-/**
- * 表情图片 URL（`s.pximg.net/common/images/emoji/{id}.png`）。
- * 输入框行内图 / 渲染侧 / 发布面板选择器共用；tag 未命中映射返回 null。
- */
 fun pixivEmojiUrl(tag: String): String? =
     PIXIV_EMOJI_IDS[tag]?.let { id -> "https://s.pximg.net/common/images/emoji/$id.png" }
 
-/**
- * pixiv 评论表情图片（按 [tag] 从 [PIXIV_EMOJI_IDS] 取 id，渲染 `s.pximg.net/common/images/emoji/{id}.png`）。
- * 用于发布面板表情选择器显示图像；渲染侧（评论文本 `(xxx)` 转图）在本模块复用同映射。
- *
- * @param tag 表情标签（如 `normal`/`happy`，不含括号）
- * @param contentDescription 无障碍描述
- * @param modifier 外部传入的 Modifier（如尺寸/圆角/点击）
- * @param size 图片边长（默认 24dp，对齐 pixiv 网页行内表情）
- */
 @Composable
 fun PixivEmojiTagImage(
     tag: String,
@@ -143,13 +127,7 @@ fun PixivEmojiTagImage(
     )
 }
 
-/**
- * 评论表情选择项（发布面板用）：圆角底 + emoji 图像，点击回调。
- * 显示**图像**而非文本标签（用户可视化选择）。
- *
- * @param tag 表情标签（不含括号）
- * @param onClick 点击回调（外部插 `($tag)` 到草稿）
- */
+/** 发布面板表情选择项：显示图像而非文本标签，点击后由外部插 `($tag)` 到草稿。 */
 @Composable
 fun PixivEmojiTagChip(
     tag: String,
@@ -168,19 +146,15 @@ fun PixivEmojiTagChip(
     }
 }
 
-/** `(xxx)` 表情标签正则（名字为小写字母/数字/下划线）；编解码与渲染侧共用。 */
+/** 须与 core:comment data/EmoteDraftCodec 的标签正则一致，否则编码出的 `(tag)` 渲染不出图。 */
 internal val EMOJI_TAG_REGEX = Regex("""\(([a-z0-9_]+)\)""")
 
-/** 评论表情行内图片尺寸（对齐 pixiv 网页 24px）。 */
+/** 对齐 pixiv 网页 24px */
 private val EMOJI_SIZE_SP = 24.sp
 private val EMOJI_SIZE_DP = 24.dp
 
 /**
- * 把评论文本解析为含行内表情图片的 [AnnotatedString] + inlineContent 映射。
  * 未命中映射的 `(word)` 保持原文本；每个命中表情用 `appendInlineContent` 占位（文本长度不变）。
- * 渲染侧（评论文本转图）与发布面板预览共用。
- *
- * @param contentDescription 表情图的无障碍描述；null 不描述
  */
 fun buildEmojiAnnotatedString(
     text: String,

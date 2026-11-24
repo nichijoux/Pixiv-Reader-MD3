@@ -55,11 +55,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * 插画详情 ViewModel（core:network 下沉，供 feature:illust 详情路由与 feature:manga 排行右栏共用）。
- * 详情 / 多页（网页接口补每 P 真实宽高）/ 动图帧（ugoira）/ 相关推荐 / 收藏 / 作者关注。
- * 附带副作用：打开详情写浏览历史；下载整个作品（全部页）由 [IllustDownloadWorker] 后台执行。
- *
- * illustId 从 SavedStateHandle 读取（详情路由参数）；排行右栏等内嵌场景无此参数（=0），
- * 不预载，由调用方 [switchTo] 驱动加载。
+ * illustId 取自 SavedStateHandle；排行右栏无该参数（=0）不预载，由 [switchTo] 驱动加载。
  */
 @HiltViewModel
 class IllustViewModel @Inject constructor(
@@ -72,10 +68,8 @@ class IllustViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : MessageViewModel() {
 
-    /** 详情页路由参数 id（固定，详情路由用；排行右栏等内嵌场景无此参数时走 [switchTo]）。 */
     private val illustId: Long = savedStateHandle.get<Long>("illustId") ?: 0L
 
-    /** 当前展示的作品 id（可变：排行右栏随选中项切换；无路由参数时初始为 0 待 [switchTo]）。 */
     private val _illustId = MutableStateFlow(illustId)
     val illustIdFlow: StateFlow<Long> = _illustId.asStateFlow()
 
@@ -85,11 +79,10 @@ class IllustViewModel @Inject constructor(
     private val _pages = MutableStateFlow<List<IllustPageInfo>>(emptyList())
     val pages: StateFlow<List<IllustPageInfo>> = _pages.asStateFlow()
 
-    /** 动图帧（ugoira 作品非空）：详情页 pager 播放动画（帧未就绪显示静态封面）。 */
     private val _ugoiraFrames = MutableStateFlow<List<UgoiraFrame>>(emptyList())
     val ugoiraFrames: StateFlow<List<UgoiraFrame>> = _ugoiraFrames.asStateFlow()
 
-    /** 动图 zip 下载进度 0..1（下载中）；null = 未开始/已就绪/失败（详情页转圈提示用）。 */
+    /** zip 下载进度 0..1（下载中）；null = 未开始/已就绪/失败。 */
     private val _ugoiraProgress = MutableStateFlow<Float?>(null)
     val ugoiraProgress: StateFlow<Float?> = _ugoiraProgress.asStateFlow()
 
@@ -99,25 +92,20 @@ class IllustViewModel @Inject constructor(
     private val _error = MutableStateFlow<UiMessage?>(null)
     val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
-    /** 收藏状态机（一键收藏按钮；详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移）。 */
     private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
     val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    /** 收藏编辑器保存进行中（防连点 + 弹层确认按钮禁用；一键收藏走 [_bookmarkState] 独立防连点）。 */
     private val _isEditorSaving = MutableStateFlow(false)
     val isEditorSaving: StateFlow<Boolean> = _isEditorSaving.asStateFlow()
 
-    /** 作者关注状态机（作者行关注胶囊；用 user/detail 权威刷新）。 */
     private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
     val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
-    /** 所属漫画系列追更状态机（illust.series 非空时经系列详情加载；详情页追更按钮）。 */
     private val _seriesWatchlistState = MutableStateFlow(ToggleUiState.OFF)
     val seriesWatchlistState: StateFlow<ToggleUiState> = _seriesWatchlistState.asStateFlow()
 
     val relatedPaged = PagedState<Illust>(keySelector = { it.id })
 
-    /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
     val bookmarkEditor = BookmarkEditor(
         scope = viewModelScope,
         api = pixivRepository.api,
@@ -156,13 +144,7 @@ class IllustViewModel @Inject constructor(
         if (illustId > 0L) load()
     }
 
-    /**
-     * 切换到另一作品（排行右栏选中项变化时调用）。
-     * 清空旧作品全部状态后重新加载；加载期间旧内容先清空避免错位。
-     *
-     * @param id 新选中的作品 ID
-     * @return 无返回值
-     */
+    /** 排行右栏切换选中项时调用；先清空旧作品全部状态，避免加载期间新旧内容错位。 */
     fun switchTo(id: Long) {
         if (id == _illustId.value || id <= 0L) return
         // 先取消旧作品的详情、附属加载和相关推荐，再发布新作品状态。
@@ -185,11 +167,7 @@ class IllustViewModel @Inject constructor(
         load()
     }
 
-    /**
-     * 加载当前作品详情，并在同一任务下启动只属于该作品的附属请求。
-     *
-     * @return 无返回值
-     */
+    /** 附属请求挂在同一任务下，随作品切换一起取消。 */
     fun load() {
         val requestedId = _illustId.value
         loadJob?.cancel()
@@ -236,12 +214,7 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 独立记录实际打开过的作品，保存历史卡片需要的完整快照。
-     *
-     * @param ill 已打开的作品
-     * @return 无返回值
-     */
+    /** 独立任务写入，保存历史卡片渲染所需的完整快照。 */
     private fun recordHistory(ill: Illust) {
         viewModelScope.launch {
             try {
@@ -263,13 +236,7 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 从作者详情补齐作品内嵌信息可能缺失的关注态。
-     *
-     * @param userId 作品作者 ID
-     * @return 无返回值
-     * @throws CancellationException 作者详情请求被取消
-     */
+    /** 作品内嵌的关注态可能过期，用作者详情校正。 */
     private suspend fun loadAuthorFollowState(userId: Long) {
         try {
             val followed = pixivRepository.api.getUserDetail(userId).user?.is_followed ?: return
@@ -284,12 +251,7 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 关注 / 取关作者（作者行胶囊，[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，
-     * 失败回滚；经 FavoriteActions 统一收口）。
-     *
-     * @return 无返回值（操作完成后结束的协程）
-     */
+    /** [ToggleUiState] 状态机：进行中保留旧文案并禁用防连点，失败回滚。 */
     fun toggleFollowAuthor() {
         val userId = _illust.value?.user?.id ?: return
         runToggle(
@@ -299,13 +261,6 @@ class IllustViewModel @Inject constructor(
         ) { favoriteActions.toggleFollowUser(userId, it) }
     }
 
-    /**
-     * 从漫画系列详情补齐所属系列的追更态。
-     *
-     * @param seriesId 作品所属的漫画系列 ID
-     * @return 无返回值
-     * @throws CancellationException 系列详情请求被取消
-     */
     private suspend fun loadSeriesWatchlistState(seriesId: Long) {
         try {
             val watching = pixivRepository.api.getIllustSeries(seriesId)
@@ -319,12 +274,7 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 追更 / 取消追更所属漫画系列（详情页追更按钮，[ToggleUiState] 状态机：进行中保留旧文案
-     * 禁用防连点，失败回滚；经 FavoriteActions 统一收口，断网自动入队）。
-     *
-     * @return 无返回值（操作完成后结束的协程）
-     */
+    /** [ToggleUiState] 状态机；断网时由 [FavoriteActions] 自动入队待恢复。 */
     fun toggleSeriesWatchlist() {
         val seriesId = _illust.value?.series?.id ?: return
         runToggle(
@@ -334,13 +284,7 @@ class IllustViewModel @Inject constructor(
         ) { favoriteActions.toggleMangaWatchlist(seriesId, it) }
     }
 
-    /**
-     * 通过网页接口补齐当前作品的逐页原图尺寸。
-     *
-     * @param requestedId 发起请求时的作品 ID
-     * @return 无返回值
-     * @throws CancellationException 页面尺寸请求被取消
-     */
+    /** 网页接口按原页序给尺寸，缺失项保留已有值。 */
     private suspend fun loadRealSizes(requestedId: Long) {
         try {
             val sizes = pixivRepository.webApi.getIllustPages(requestedId).body.orEmpty()
@@ -362,13 +306,6 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 读取当前作品的动图帧，并在主线程回填下载进度。
-     *
-     * @param requestedId 发起请求时的作品 ID
-     * @return 无返回值
-     * @throws CancellationException 动图加载被取消
-     */
     private suspend fun loadUgoira(requestedId: Long) {
         val scope = CoroutineScope(currentCoroutineContext())
         _ugoiraProgress.value = 0f
@@ -390,11 +327,6 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 加载或重试当前作品的相关推荐首页。
-     *
-     * @return 无返回值
-     */
     fun loadRelated() {
         if (relatedLoadJob?.isActive == true) return
         val requestedId = _illustId.value
@@ -407,11 +339,7 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 收藏 / 取消收藏插画（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
-     * 经 FavoriteActions 统一收口，断网自动入队）。成功静默（详情页收藏图标即时反馈），
-     * 仅刷新收藏态与编辑器回显/清空；失败发通知。
-     */
+    /** 成功静默（图标即时反馈），仅失败发通知。 */
     fun toggleBookmark() {
         runToggle(
             _bookmarkState,
@@ -425,10 +353,6 @@ class IllustViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 期间以 [_isEditorSaving] 防连点（弹层确认按钮禁用同一标志）。
-     */
     fun saveBookmarkEditor() {
         runActionNotified(
             _isEditorSaving,
@@ -442,11 +366,8 @@ class IllustViewModel @Inject constructor(
     }
 
     /**
-     * 下载整个作品到 filesDir/Downloads/，由 WorkManager 后台执行：
-     * 静态插画走 [IllustDownloadWorker]（全部页），动图（ugoira）走 [UgoiraExportWorker]（默认 MP4）。
-     * 索引写入完成后才提交给 WorkManager，提交失败时回滚索引。
-     *
-     * @return 无返回值
+     * 静态插画走 [IllustDownloadWorker]（全部页），动图走 [UgoiraExportWorker]（MP4）。
+     * 先写索引再入队、入队失败回滚索引，避免管理页残留无任务的条目。
      */
     fun download() {
         // 固定目标及详情快照，避免切换右栏后下载记录写到其他作品。

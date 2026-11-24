@@ -28,16 +28,8 @@ import com.pixiv.reader.feature.novel.R
 import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 
 /**
- * 小说系列详情页：系列信息头（标题/简介/篇数/连载态/作者行+关注/追更+下载）+ 分册 NovelCard 列表。
- * 底部沉浸式：Scaffold 不消耗系统栏 insets，列表内容背景延伸覆盖导航栏（列表底 padding 避让手势条）。
- * 内容区与下载弹窗/通知宿主复用 [NovelSeriesBody] + [NovelSeriesList]（右栏 pane 同款）。
- *
- * @param onBack 返回
- * @param onOpenNovel 打开分册详情
- * @param onOpenCover 打开封面全屏大图
- * @param onOpenUser 打开作者主页
- * @param onSearchTag 标签搜索
- * @param onOpenSeries 打开系列详情（分册点系列标题回当前系列）
+ * 小说系列详情页：信息头 + 分册列表；内容区与下载弹窗/通知宿主复用 [NovelSeriesBody] + [NovelSeriesList]。
+ * 底部沉浸式：Scaffold 不消耗系统栏 insets，列表底 padding 自行避让手势条。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +43,7 @@ fun NovelSeriesRoute(
     viewModel: NovelSeriesViewModel = hiltViewModel(),
 ) {
     val detail by viewModel.detail.collectAsStateWithLifecycle()
-    // 下载格式弹窗（进程重建后保留，与系列页历史行为一致）
+    // 进程重建后保留（与系列页历史行为一致）
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
 
     NovelSeriesBody(
@@ -60,7 +52,7 @@ fun NovelSeriesRoute(
         onShowDownloadDialogChange = { showDownloadDialog = it },
     ) {
         Scaffold(
-            // 底部沉浸式：不消耗系统栏 insets，内容背景延伸到导航栏后面
+            // 不消耗系统栏 insets，内容背景延伸到导航栏后面
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 TopAppBar(

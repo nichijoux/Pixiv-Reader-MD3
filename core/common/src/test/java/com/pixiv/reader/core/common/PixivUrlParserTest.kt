@@ -128,7 +128,6 @@ class PixivUrlParserTest {
 
     @Test
     fun `新式小说链接与系列区分`() {
-        // novel/series 仍解析为系列；novel/{id} 为单本
         assertEquals(
             PixivLink(PixivLinkType.SERIES, 1342417L),
             PixivUrlParser.parse("https://www.pixiv.net/novel/series/1342417"),

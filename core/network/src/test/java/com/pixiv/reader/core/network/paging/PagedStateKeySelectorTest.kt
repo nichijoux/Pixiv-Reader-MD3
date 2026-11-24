@@ -14,11 +14,6 @@ class PagedStateKeySelectorTest {
         override val nextPageUrl: String? = null,
     ) : Pageable<Item>
 
-    /**
-     * 验证首页和续页保留同键首项，空键项按原顺序全部保留。
-     *
-     * @return 无返回值
-     */
     @Test
     fun `keeps first keyed item and all unkeyed items across pages`() = runTest {
         val first = Item(1L, "first")
@@ -37,11 +32,6 @@ class PagedStateKeySelectorTest {
         assertEquals(listOf(first, unkeyed, second, unkeyed), state.items.value)
     }
 
-    /**
-     * 验证老快照预填时去重，首页刷新成功时用新数据替换快照。
-     *
-     * @return 无返回值
-     */
     @Test
     fun `deduplicates old snapshots and replaces them on refresh`() = runTest {
         val cached = Item(1L, "cached")
@@ -56,11 +46,6 @@ class PagedStateKeySelectorTest {
         assertEquals(listOf(updated), state.items.value)
     }
 
-    /**
-     * 验证分页加载失败后再次调用 loadMore 会先清除旧错误并正常追加续页。
-     *
-     * @return 无返回值
-     */
     @Test
     fun `clears loadMore error and succeeds on retry`() = runTest {
         val first = Item(1L, "first")

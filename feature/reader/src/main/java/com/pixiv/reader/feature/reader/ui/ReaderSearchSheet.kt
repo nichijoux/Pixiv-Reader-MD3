@@ -30,10 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 阅读器全文搜索面板（底部弹层）。
- * 输入即搜（委托 VM 的全文搜索），列表展示命中上下文，支持上一条/下一条与点击跳转。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ReaderSearchSheet(
@@ -121,7 +117,6 @@ internal fun ReaderSearchSheet(
     }
 }
 
-/** 搜索匹配的上下文片段（前后各截取一段）。 */
 private fun searchSnippet(fullText: String?, offset: Int): String {
     val text = fullText ?: return ""
     val start = (offset - 12).coerceAtLeast(0)

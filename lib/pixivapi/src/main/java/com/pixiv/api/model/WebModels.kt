@@ -3,19 +3,12 @@ package com.pixiv.api.model
 import com.google.gson.annotations.SerializedName
 import java.io.Serializable
 
-/**
- * 网页 API（www.pixiv.net ajax）数据模型
- * 来源：Pixiv-Shaft `ceui/loxia/SquareResponse.kt` / `StreetResponse.kt` / `PixivWebApi.kt`
- */
-
-/** 网页接口统一响应包装 */
 data class WebResponse<T>(
     val error: Boolean? = null,
     val message: String? = null,
     val body: T? = null,
 ) : Serializable
 
-/** 网页作品（ajax 版精简结构） */
 data class WebIllust(
     val id: Long = 0L,
     val title: String? = null,
@@ -46,7 +39,6 @@ data class WebIllust(
     val bookmarkData: Any? = null,
 ) : Serializable
 
-/** 网页用户详情 */
 data class WebUserDetail(
     val userId: String? = null,
     val name: String? = null,
@@ -77,7 +69,6 @@ data class WebSocialLink(
     val url: String? = null,
 ) : Serializable
 
-/** 每 P 真实原图宽高（/ajax/illust/{id}/pages） */
 data class WebIllustPage(
     val width: Int = 0,
     val height: Int = 0,
@@ -148,7 +139,6 @@ data class RankingItem(
     val id: Long = 0L,
 ) : Serializable
 
-/** 搜索（圈子）响应 */
 data class CircleResponse(
     val error: Boolean? = null,
     val message: String? = null,
@@ -324,7 +314,6 @@ data class UserTagIllust(
 
 // ── 网页小说详情（/ajax/novel/{id}） ──────────────────────────────────────────
 
-/** 网页小说详情（正文 + 嵌入图片映射）。 */
 data class WebNovel(
     val id: Long = 0L,
     val title: String? = null,
@@ -344,9 +333,9 @@ data class WebNovel(
 data class WebEmbeddedImage(
     val novelImageId: String? = null,
     val sl: String? = null,
-    /** 各尺寸 URL：240mw / 480mw / 1200x1200 / 128x128 / original */
+    /** 各尺寸 URL：240mw / 480mw / 1200x1200 / 128x128 / original。 */
     val urls: Map<String, String?>? = null,
-    /** 部分响应直接给 url 字段（兼容） */
+    /** 部分响应直接给 url 字段。 */
     val url: String? = null,
     val width: Int = 0,
     val height: Int = 0,

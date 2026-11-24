@@ -48,14 +48,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 
-/**
- * 小说下载命名模板编辑底部弹层（Expressive 表单承载范式，与收藏编辑器同容器）：单本下载 / 系列导出
- * 两套模板分别配置。
- *
- * 顶部范围切换（单本/系列）决定当前编辑的模板与预览口径；占位符 chips 点击追加；
- * 占位符语义说明默认折叠（chips 已直观列出可用占位符，避免常驻提示挤占弹层），
- * 点「占位符说明」按需展开；保存时两套一起落盘；恢复默认将两套重置为各自默认值。
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun NovelFileNameTemplateDialog(
@@ -69,7 +61,6 @@ internal fun NovelFileNameTemplateDialog(
     var activeScope by rememberSaveable { mutableIntStateOf(0) }
     var singleTemplate by rememberSaveable { mutableStateOf(initialSingle) }
     var seriesTemplate by rememberSaveable { mutableStateOf(initialSeries) }
-    // 占位符说明展开状态（默认收起）
     var showHelp by rememberSaveable { mutableStateOf(false) }
     val editingSeries = activeScope == 1
     val activeTemplate = if (editingSeries) seriesTemplate else singleTemplate
@@ -78,8 +69,7 @@ internal fun NovelFileNameTemplateDialog(
         if (editingSeries) seriesTemplate += token else singleTemplate += token
     }
 
-    // 预览与真实渲染同一函数、同一回退默认：
-    // 单本不传系列（{series} 无系列直接留空）；系列传示例系列名。
+    // 预览必须与真实导出走同一函数、同一回退默认，否则用户看到的文件名与实际不符。
     val preview = if (editingSeries) {
         renderNovelFileName(
             template = seriesTemplate,
@@ -104,7 +94,6 @@ internal fun NovelFileNameTemplateDialog(
         )
     }
 
-    // 底部弹层：下拉关闭走 onDismiss；内容自带纵向滚动（小屏 + 键盘展开也不截断）
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
@@ -112,7 +101,6 @@ internal fun NovelFileNameTemplateDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 键盘弹起时内容整体上移（文本输入在 sheet 中不被遮挡）
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.xl)
@@ -124,7 +112,6 @@ internal fun NovelFileNameTemplateDialog(
                 text = stringResource(R.string.me_novel_file_name_template),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             )
-            // 范围切换：单本下载 / 系列导出（全 App 统一胶囊分段）
             PillSegmentedRow(
                 options = listOf(
                     false to R.string.me_file_name_scope_single,
@@ -152,7 +139,6 @@ internal fun NovelFileNameTemplateDialog(
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             )
-            // 帮助开关（按需展示）：点击展开/收起占位符语义说明
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -181,7 +167,6 @@ internal fun NovelFileNameTemplateDialog(
                     modifier = Modifier.padding(top = Spacing.xs),
                 )
             }
-            // 占位符插入按钮（浅色容器 + 全圆胶囊，点击追加到当前编辑模板末尾）
             FlowRow(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
@@ -198,7 +183,6 @@ internal fun NovelFileNameTemplateDialog(
                     )
                 }
             }
-            // 预览
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -215,7 +199,6 @@ internal fun NovelFileNameTemplateDialog(
                     maxLines = 1,
                 )
             }
-            // 操作行：恢复默认（左侧低权）+ 取消 / 保存（右侧，保存为强调色实心主操作）
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

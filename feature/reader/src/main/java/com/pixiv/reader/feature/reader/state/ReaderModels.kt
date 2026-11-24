@@ -3,7 +3,6 @@ package com.pixiv.reader.feature.reader.state
 import androidx.compose.ui.text.TextStyle
 
 /**
- * 目录项。
  * [novelId] = -1 表示当前小说（页内按 [charOffset] 跳转）；
  * 否则为系列内目标小说（点击打开该本阅读器，[charOffset] 恒为 0）。
  */
@@ -13,9 +12,7 @@ data class ReaderTocItem(
     val charOffset: Int = 0,
 )
 
-/** 页内元素：一行文本 / 段距空隙 / 一张图片。 */
 sealed class PageElement {
-    /** 该元素对应的全文字符区间（空隙/图片恒为 0,0）。 */
     abstract val startChar: Int
     abstract val endChar: Int
 
@@ -24,19 +21,12 @@ sealed class PageElement {
         val style: TextStyle,
         override val startChar: Int,
         override val endChar: Int,
-        /** 渲染行高（px） */
         val heightPx: Int,
-        /**
-         * 两端对齐富余宽度（px，0 = 不拉伸）：
-         * 段落中间行按 legado textFullJustify 语义把「内容宽 - 行宽」记到行上，
-         * 渲染期用词距/字距拉伸补足（末行/标题/分隔线恒为 0）。
-         */
+        /** 两端对齐富余宽度（px，0 = 不拉伸）：段落中间行留给渲染期按词距/字距补足，末行与标题恒为 0。 */
         val justifyExtraPx: Float = 0f,
     ) : PageElement()
 
-    /** 段距空隙（legado paragraphSpacing：段落之后的显式间距，不参与两端对齐拉伸）。 */
     data class Gap(
-        /** 空隙高度（px） */
         val heightPx: Int,
     ) : PageElement() {
         override val startChar: Int = 0
@@ -46,7 +36,6 @@ sealed class PageElement {
     data class Image(
         val url: String,
         val caption: String?,
-        /** 渲染高度（px），已按页高自适应，保证同页可容纳文字 */
         val heightPx: Int,
     ) : PageElement() {
         override val startChar: Int = 0
@@ -54,68 +43,42 @@ sealed class PageElement {
     }
 }
 
-/**
- * 具备字符锚点区间的分页对象（[ReaderPage] / [ReaderSpread] 共同实现）：
- * 供 [indexForChar]（字符偏移 → 页/跨页下标）做统一判定。
- */
+/** 具备半开全文字符区间 [startChar, endChar) 的分页单元（负值视为无效），供 [indexForChar] 统一查找。 */
 internal interface CharAnchored {
-    /** 起始字符偏移（无效为负）。 */
     val startChar: Int
-
-    /** 结束字符偏移（不含，无效为负）。 */
     val endChar: Int
 }
 
-/**
- * 分页结果：一页由有序的文本行与图片组成。
- * 图片不再独占整页，而是按顺序插入文本流（高度自适应），一页可同时显示图片与文字。
- */
 data class ReaderPage(
     override val startChar: Int,
     override val endChar: Int,
     val elements: List<PageElement>,
 ) : CharAnchored
 
-/** 一页里的一行（保留全局字符区间用于进度映射）。 */
 internal data class MeasuredLine(
     val text: String,
     val startOffset: Int,
     val endOffset: Int,
     val heightPx: Int,
-    /** 两端对齐富余宽度（px），见 [PageElement.TextLine.justifyExtraPx]。 */
     val justifyExtraPx: Float = 0f,
 )
 
 /**
- * 跨页：翻页/仿真模式的翻页单元。
- *
- * - [columns] = 1：单页模式，[left] 为整宽页、[right] 恒为 null；
- * - [columns] = 2：双页模式，[left]/[right] 为按列宽分页出的两个半页；
- *   章节末页落单时 [right] 为 null（右半按纸色留白）。
- *
- * 字符区间取左页起点到右页（无右页则左页）终点，进度/跳转锚点与单页语义一致。
+ * 翻页/仿真模式的翻页单元：[columns] = 1 时 [left] 为整宽页且 [right] 恒为 null；
+ * [columns] = 2 时两两配对，末页落单则 [right] 为 null（右半留白）。
  */
 data class ReaderSpread(
     val left: ReaderPage?,
     val right: ReaderPage?,
     val columns: Int,
 ) : CharAnchored {
-    /** 跨页起始字符偏移（左页起点；空跨页返回 0）。 */
     override val startChar: Int
         get() = left?.startChar ?: right?.startChar ?: 0
 
-    /** 跨页结束字符偏移（右页终点，无右页则左页终点；空跨页返回 0）。 */
     override val endChar: Int
         get() = right?.endChar ?: left?.endChar ?: 0
 }
 
-/**
- * 把按列宽分页出的页面列表配对成跨页列表。
- *
- * @param pages 按列内容宽分页出的页面列表（双页时每页已是半宽）
- * @param columns 列数：1 = 单页模式（逐页包装，渲染占满整宽）；2 = 双页模式（两两配对，末页落单右半留白）
- * @return 跨页列表（空输入返回空列表）
- */
 fun buildSpreads(pages: List<ReaderPage>, columns: Int): List<ReaderSpread> {
     if (pages.isEmpty()) return emptyList()
     return if (columns <= 1) {
@@ -131,21 +94,9 @@ fun buildSpreads(pages: List<ReaderPage>, columns: Int): List<ReaderSpread> {
     }
 }
 
-/** 触控井字九宫格分区：中间格切换工具栏，左/右半区翻页。 */
 enum class ReaderTapZone { LEFT, CENTER, RIGHT }
 
-/**
- * 触控井字九宫格分区判定（纯函数）：宽高各三等分，
- * 中间格（宽、高各 1/3 的正方形）→ [ReaderTapZone.CENTER]；
- * 其余 8 格沿中间对称轴平分为左/右半区 → [ReaderTapZone.LEFT] / [ReaderTapZone.RIGHT]。
- * 翻页与仿真两条手势管线共用本判定（各自的手势响应保持独立）。
- *
- * @param x 点击 x 坐标（px）
- * @param y 点击 y 坐标（px）
- * @param width 容器宽（px）
- * @param height 容器高（px）
- * @return 点击落点所属分区
- */
+/** 触控九宫格分区判定（翻页与仿真手势管线共用）。 */
 fun readerTapZone(x: Float, y: Float, width: Float, height: Float): ReaderTapZone =
     if (x >= width / 3f && x <= 2f * width / 3f && y >= height / 3f && y <= 2f * height / 3f) {
         ReaderTapZone.CENTER

@@ -58,24 +58,9 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.UserSection
 
-/** 简介默认截断行数（防过长简介挤压下方分区内容）。 */
+/** 简介默认截断行数：过长简介会挤压下方分区内容。 */
 private const val MAX_COMMENT_LINES = 4
 
-/**
- * 用户主页头部第一行（常驻不折叠）：头像 / 名称 / @account / 关注·拉黑按钮。
- * 下滑时本行保持可见，仅下方 [UserHeaderDetails]（简介 + 统计格）收起。
- *
- * @param user 用户实体
- * @param isFollowed 是否已关注
- * @param isFollowing 关注请求进行中（防重复点击）
- * @param isBlocked 是否已拉黑
- * @param isBlocking 拉黑请求进行中
- * @param onToggleFollow 关注/取关回调（公开关注）
- * @param onFollowPrivately 私密关注回调（关注按钮长按触发）
- * @param onToggleBlock 拉黑/解除拉黑回调
- * @param onOpenAvatar 头像点击（打开全屏大图）
- * @return 无返回值
- */
 @Composable
 internal fun UserHeaderProfileRow(
     user: User,
@@ -117,7 +102,7 @@ internal fun UserHeaderProfileRow(
                 )
             }
         }
-        // 关注 / 拉黑 双按钮（关注按钮自绘以支持长按 = 私密关注）
+        // 关注按钮自绘：需要长按 = 私密关注，M3 按钮不暴露长按
         FollowButton(
             isFollowed = isFollowed,
             isFollowing = isFollowing,
@@ -140,15 +125,7 @@ internal fun UserHeaderProfileRow(
 }
 
 /**
- * 关注按钮（自绘替代 FilledTonalButton 以支持长按手势）：
- * 视觉对齐 M3 tonal button（secondaryContainer 底 + onSecondaryContainer 字 + 全圆角胶囊）；
- * 点击 = 公开关注 / 取关，长按 = 私密关注（未关注态生效，进行中禁用）。
- *
- * @param isFollowed 是否已关注
- * @param isFollowing 关注请求进行中（禁用防重复点击）
- * @param onToggleFollow 点击回调（公开关注/取关）
- * @param onFollowPrivately 长按回调（私密关注）
- * @return 无返回值
+ * 自绘以支持长按 = 私密关注（FilledTonalButton 只暴露 onClick），视觉对齐 M3 tonal button。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -189,17 +166,6 @@ private fun FollowButton(
     }
 }
 
-/**
- * 用户主页头部可折叠区：签名简介（可展开/收起）+ 统计格（可点击）。
- * 下滑列表时整块向上收起，常驻的 [UserHeaderProfileRow] 与分区 Tab 不受影响。
- *
- * @param user 用户实体（取简介文案）
- * @param profile 用户统计（插画/小说/公开收藏/关注数）
- * @param onScrollToSection 点击统计格滑动切换分区
- * @param onOpenUserBookmarks 打开该用户公开收藏
- * @param onOpenUserFollowing 打开该用户关注列表
- * @return 无返回值
- */
 @Composable
 internal fun UserHeaderDetails(
     user: User,
@@ -211,7 +177,6 @@ internal fun UserHeaderDetails(
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
         val comment = user.comment
         if (!comment.isNullOrBlank()) {
-            // 简介限高：默认 4 行截断 + 展开/收起（防过长简介挤压下方分区内容；短简介无按钮）
             var expanded by rememberSaveable { mutableStateOf(false) }
             var truncated by remember { mutableStateOf(false) }
             val clamped = !expanded
@@ -240,7 +205,6 @@ internal fun UserHeaderDetails(
                 }
             }
         }
-        // 统计格：插画 / 小说 / 收藏 / 关注（可点击，各配彩色图标徽标）
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.mdPlus),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -282,17 +246,7 @@ internal fun UserHeaderDetails(
 }
 
 /**
- * 单个统计格（可选彩色图标徽标 + 数值 + 标签，可点击）。
- *
- * 图标渲染在数值上方，容器尺寸固定（24dp 徽标）并留出对称间距，
- * 保证四格文字基线对齐、不因有无图标而高度错位（折叠裁剪区依赖稳定高度）。
- *
- * @param label 统计项文案
- * @param value 统计数值；null 显示占位「-」
- * @param icon 数值上方图标徽标；null 不渲染图标
- * @param accent 图标点缀色（[Color.Unspecified] 时由徽标组件回退主题 primary）
- * @param onClick 点击回调（插画/小说滚到分区，收藏/关注跳列表；置于末位以支持尾随 lambda）
- * @return 无返回值
+ * 图标槽固定尺寸并留对称间距：否则四格文字基线会因有无图标而错位，折叠裁剪区依赖稳定高度。
  */
 @Composable
 private fun StatItem(
@@ -309,7 +263,6 @@ private fun StatItem(
             .clickable(onClick = onClick)
             .padding(horizontal = Spacing.md, vertical = Spacing.xsPlus),
     ) {
-        // 图标徽标固定在数值上方，底部留 4dp 与文字分隔
         if (icon != null) {
             AccentIconBadge(
                 icon = icon,
@@ -333,7 +286,6 @@ private fun StatItem(
     }
 }
 
-/** 加载骨架：头部（头像/名称/按钮/统计）+ Tab 条 + 瀑布流占位，呼吸脉冲。 */
 @Composable
 internal fun UserProfileSkeleton() {
     val color = skeletonPulseColor(label = "userSkeleton")

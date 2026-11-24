@@ -21,31 +21,8 @@ import com.pixiv.reader.core.network.illust.IllustViewModel
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 
 /**
- * 插画详情 pane（Master-Detail 右栏，首页 / 作品页共用）。
- *
- * 复用 [IllustViewModel]（调用方 `hiltViewModel()` 注入，core:ui 不依赖 hilt）——
- * 选中项变化时 [switchTo] 加载；详情内相关作品点击原地替换；三态自管。
- * 评论内嵌：点评论按钮切到评论区（右栏限定，不开全屏页），返回键/顶部返回条
- * 切回详情；再按返回键关闭 pane（BackHandler 由外层 [ListDetailOverlay] 处理，
- * 本层注册的 BackHandler 先于外层触发——导航链：评论 → 详情 → 列表）。
- * 评论 UI 经 [comments] 槽位注入（评论竖切在 core:comment 模块，避免 core:ui 反向依赖）；
- * 无内建关闭按钮：pane 关闭由系统返回 / 外层关闭入口承担。
- *
- * hero：宿主 [com.pixiv.reader.core.ui.component.layout.ListDetailOverlay] 的 AnimatedVisibility
- * 已下发 [LocalNavAnimatedVisibilityScope]，pane 内大图与左栏卡片按同 key 匹配 morph；
- * 种子在本层统一消费一次后经 `seed` / `heroIllustId` 参数下发（避免上下游争抢 consume）。
- *
- * @param selectedId 当前选中作品 id（null = 未选中，显示 [placeholder]）
- * @param strings 详情块文案（调用方模块提供，避免 core:ui 引用 feature 资源）
- * @param placeholder 未选中时的占位提示文案
- * @param onOpenUser 点击作者打开用户主页（全屏路由）
- * @param onOpenViewer 点击图片打开全屏查看器（全屏路由，参数为作品 id + 页码）
- * @param comments 评论区槽位（参数为 onBackToDetail：顶部返回条点击后切回详情；
- *   通常渲染 core:comment 的 [com.pixiv.reader.core.comment.ui.CommentPane]）
- * @param onOpenComments 点击评论按钮回调（调用方在此定位评论目标，如
- *   `commentVm.switchTo(CommentTarget.ILLUST, id)` 后进入评论区）
- * @param viewModel 插画详情 ViewModel（调用方注入）
- * @param onSearchTag 标签点击回调（传标签名，通常跳转标签搜索；默认空实现不跳转）
+ * Master-Detail 右栏详情 pane：评论 UI 经 [comments] 槽位注入以避免 core:ui 反向依赖 core:comment；
+ * 内嵌评论的 BackHandler 先于外层关闭 pane 触发（导航链：评论 → 详情 → 列表）。
  */
 @Composable
 fun IllustDetailPane(
@@ -60,25 +37,20 @@ fun IllustDetailPane(
     onSearchTag: (String) -> Unit = {},
 ) {
     val currentId = selectedId
-    // 选中项变化时加载详情（幂等：同 id 不重载；排行右栏同款模式）
     LaunchedEffect(currentId) {
         if (currentId != null) viewModel.switchTo(currentId)
     }
-    // hero 种子在 pane 层消费一次，经参数下发 IllustDetailContent：
-    // 上下游各自 consume 会互相抢（取出即删，第二个拿到 null）
+    // 在 pane 层单次消费种子再下发，避免与下游争抢（consume 取出即删）
     val heroSeed = remember(currentId) {
         currentId?.let { HeroSeedStore.consume(illustCoverKey(it)) }
     }
-    // hero 种子兜底清理：pane 命中缓存 / 加载分支不再消费种子时清掉，切换选中项 / 销毁时清理，
-    // 避免左栏反复点卡后进程内残留无界增长
+    // 命中缓存未消费或切卡销毁时兜底清理残留种子，防进程内无界增长
     DisposableEffect(currentId) {
         onDispose {
             if (currentId != null) HeroSeedStore.clear(illustCoverKey(currentId))
         }
     }
-    // 评论区开关：右栏内嵌（详情 ↔ 评论切换，不跳全屏）
     var showComments by remember { mutableStateOf(false) }
-    // 返回键导航：评论 → 详情（先于外层 pane 关闭的 BackHandler 触发）
     BackHandler(enabled = showComments) { showComments = false }
 
     val illust by viewModel.illust.collectAsStateWithLifecycle()
@@ -87,7 +59,6 @@ fun IllustDetailPane(
     val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
     val isBookmarked = bookmarkState.isOn
     val isBookmarking = bookmarkState.inFlight
@@ -101,9 +72,6 @@ fun IllustDetailPane(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        // hero 共享边界：scope 由宿主 [com.pixiv.reader.core.ui.component.layout.ListDetailOverlay]
-        // 的 AnimatedVisibility 下发（经 [LocalNavAnimatedVisibilityScope]），pane 内大图与左栏卡片
-        // 按同 key 匹配 morph；无宿主（预览 / 其他直接调用场景）时自然退化为 null，不挂共享边界
         when {
             currentId == null -> Box(
                 modifier = Modifier.fillMaxSize(),
@@ -123,7 +91,6 @@ fun IllustDetailPane(
                 onRetry = viewModel::load,
             )
 
-            // 进入评论区：槽位参数为 onBackToDetail（评论区顶部返回条点击后切回详情）
             showComments -> comments { showComments = false }
 
             else -> IllustDetailContent(
@@ -149,7 +116,6 @@ fun IllustDetailPane(
                     showComments = true
                     onOpenComments()
                 },
-                // hero：数据未到时以大图 seed 占位参与 morph，数据到达后同一 key 交棒真图
                 seed = heroSeed,
                 heroIllustId = currentId,
             )

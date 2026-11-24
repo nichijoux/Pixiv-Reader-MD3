@@ -48,18 +48,14 @@ class ReaderPageMappingTest {
         assertEquals(0, estimateCharFromOfficialPage(0, 400, 10))
     }
 
-    // ── 跨页（双页）配对与定位 ──
-
     @Test
     fun `双页模式两两配对且末页落单右半留白`() {
         val spreads = buildSpreads(pages, columns = 2)
         assertEquals(2, spreads.size)
-        // 跨页 0：页 0 + 页 1
         assertEquals(0, spreads[0].startChar)
         assertEquals(250, spreads[0].endChar)
         assertEquals(pages[0], spreads[0].left)
         assertEquals(pages[1], spreads[0].right)
-        // 跨页 1：页 2 落单 → right 为 null（右半留白），区间只到页 2 终点
         assertEquals(pages[2], spreads[1].left)
         assertNull(spreads[1].right)
         assertEquals(250, spreads[1].startChar)
@@ -90,7 +86,6 @@ class ReaderPageMappingTest {
         assertEquals(0, spreads.spreadIndexForChar(0))
         assertEquals(0, spreads.spreadIndexForChar(99))
         assertEquals(0, spreads.spreadIndexForChar(150))
-        // 跨页 1 只有左页（250..400）
         assertEquals(1, spreads.spreadIndexForChar(250))
         assertEquals(1, spreads.spreadIndexForChar(399))
     }

@@ -33,16 +33,6 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
 
-/**
- * 我的页「账号」区块：用户头像/昵称/@account（整行可点跳转个人主页）+ 退出登录行。
- * 复用 [MeGroupCard] 与 [MeRow] 保持与下方各设置分组完全一致的 Material 3 Expressive 风格
- * （28dp extraLarge 圆角、不透明 surfaceContainer、组内留白分隔无分割线）。
- *
- * @param profile 用户头部展示数据（昵称 / @account / 头像 URL）
- * @param onClickProfile 点击用户资料行跳转个人主页的回调；uid 未就绪时传 null 禁用点击与尾随箭头
- * @param onLogout 点击退出登录行的回调（由上层触发确认弹窗）
- * @return 无返回值
- */
 @Composable
 internal fun MeAccountSection(
     profile: ProfileHeaderData,
@@ -53,7 +43,7 @@ internal fun MeAccountSection(
     val haptic = rememberHapticCue()
     val interactionSource = remember { MutableInteractionSource() }
     MeGroupCard {
-        // 用户资料行：整行承载点击（UserAvatar 不单独挂 onClick，避免嵌套可点击与双涟漪）
+        // 整行承载点击（UserAvatar 不单独挂 onClick，否则嵌套可点击会双涟漪）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -116,7 +106,6 @@ internal fun MeAccountSection(
                 MeArrowTrailing()
             }
         }
-        // 退出登录行：与常规设置项保持统一前置徽标与尾随箭头语汇
         MeRow(
             icon = Icons.AutoMirrored.Filled.Logout,
             title = stringResource(R.string.me_logout),

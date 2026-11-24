@@ -14,22 +14,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** 漫画 Tab 内容类型：漫画 / 插画 / 动图。 */
 enum class MangaContentType { MANGA, ILLUST, UGOIRA }
 
 /**
- * 漫画 Tab ViewModel：漫画 / 插画 / 动图三流，各自独立 `PagedState` 分页（切类型懒加载、数据驻留 VM）。
- * - 漫画：`GET /v1/manga/recommended` 游标分页
- * - 插画：`GET /v1/illust/recommended`（与首页推荐同款）
- * - 动图：`GET /v1/search/illust?content_type=ugoira` —— Pixiv 无动图推荐/排行接口，
- *   唯一纯动图流是搜索过滤（`content_type=ugoira` 已在发现页筛选验证可用）；
- *   默认搜索词「動画」为 Pixiv 动图作品高频 tag，避免空词搜索。
- * 收藏/取消收藏由瀑布流卡片回调。
+ * 漫画 Tab ViewModel：漫画 / 插画 / 动图三流，各自独立 [PagedState]（切类型懒加载、数据驻留 VM）。
+ * 动图流只能走搜索过滤（content_type=ugoira）：Pixiv 无动图推荐/排行接口。
  */
 @HiltViewModel
 class MangaViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
-    /** 动图加载器：供动图 Tab 瀑布流卡片播放动画（核心层 @Singleton）。 */
     val ugoiraLoader: UgoiraLoader,
     private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
@@ -38,20 +31,17 @@ class MangaViewModel @Inject constructor(
     val illustPaged = PagedState<Illust>(keySelector = { it.id })
     val ugoiraPaged = PagedState<Illust>(keySelector = { it.id })
 
-    // 默认选中插画（菜单展示顺序由 MangaRoute 的 MENU_ORDER 决定，与枚举声明顺序解耦）
+    // 默认选中插画；菜单展示顺序由 MangaRoute 的 MENU_ORDER 决定，与枚举声明顺序解耦
     private val _tab = MutableStateFlow(MangaContentType.ILLUST)
     val tab: StateFlow<MangaContentType> = _tab.asStateFlow()
 
-    /** 下拉刷新指示（PullToRefreshBox 用，按当前内容类型生效）。 */
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     init {
-        // 预载默认 Tab（插画）首屏数据；其余类型经 selectTab 懒加载
         loadIllust()
     }
 
-    /** 切换内容类型：对应列表为空时懒加载（避免每次切换都重新请求）。 */
     fun selectTab(tab: MangaContentType) {
         _tab.value = tab
         when (tab) {
@@ -61,7 +51,6 @@ class MangaViewModel @Inject constructor(
         }
     }
 
-    /** 加载更多：按当前内容类型拉取对应列表下一页。 */
     fun loadMore() {
         viewModelScope.launch {
             when (_tab.value) {
@@ -72,7 +61,6 @@ class MangaViewModel @Inject constructor(
         }
     }
 
-    /** 重试：按当前内容类型重新加载。 */
     fun retry() {
         when (_tab.value) {
             MangaContentType.MANGA -> loadManga()
@@ -115,7 +103,6 @@ class MangaViewModel @Inject constructor(
         }
     }
 
-    /** 下拉刷新：重拉当前内容类型第一页（清空旧列表），结束后复位指示（防重入）。 */
     fun pullRefresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
@@ -159,12 +146,12 @@ class MangaViewModel @Inject constructor(
         }
     }
 
-    /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
+    /** nowFavorite 是目标状态（组件回调传入），无需先读本地缓存。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 
     companion object {
-        /** 动图流默认搜索词：Pixiv 动图高频 tag（无专门动图推荐接口，仅搜索可过滤纯动图）。 */
+        /** 无专门动图推荐接口，只能靠高频 tag 过滤出纯动图（避免空词搜索）。 */
         private const val UGOIRA_TAG = "動画"
         private const val UGOIRA_CONTENT_TYPE = "ugoira"
     }

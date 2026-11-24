@@ -19,10 +19,9 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * 插画下载后台任务（WorkManager）：下载整个作品（全部页）或指定单页到 `filesDir/Downloads/pixiv_{id}/`。
- * inputData：`illustId`（必填）、`pageIndex`（可选；缺省/-1 = 下载全部页，≥0 = 查看器下载单页）。
- *
- * 进度按页加权写入下载索引（`progress` 0-100：`(已完页×100 + 当前页字节%)/总页`）。
- * 普通 [CoroutineWorker]（非 @HiltWorker）+ Hilt EntryPoint 手动取依赖——规避 @HiltWorker 聚合空 Map 问题。
+ * inputData：`illustId`（必填）、`pageIndex`（可选；缺省/-1 = 全部页，≥0 = 单页）。
+ * 进度按页加权：`(已完页×100 + 当前页字节%)/总页`。
+ * 不用 @HiltWorker + EntryPoint 手动取依赖：规避 @HiltWorker 聚合空 Map 问题。
  */
 class IllustDownloadWorker(
     appContext: Context,
@@ -100,9 +99,8 @@ class IllustDownloadWorker(
         }
     }
 
-    /** 下载单页：downloading（页加权进度）→ 保存；最后（或单页）标记完成。
-     * `.part` + rename 断点语义由共享 [IllustPageDownloader] 提供（viewer 前台下载同款），
-     * 前台中断残留 .part 不会被本方法的"目标已存在"判定误认为完整页。 */
+    /** 单页下载：`.part` + rename 断点语义由共享 [IllustPageDownloader] 提供（viewer 前台下载同款），
+     * 前台中断残留的 `.part` 不会被「目标已存在」判定误认为完整页。 */
     private suspend fun downloadPage(
         dao: com.pixiv.reader.core.database.dao.DownloadEntryDao,
         pageDownloader: com.pixiv.reader.core.network.download.IllustPageDownloader,
@@ -212,7 +210,6 @@ class IllustDownloadWorker(
         const val KEY_ILLUST_ID = "illustId"
         const val KEY_PAGE_INDEX = "pageIndex"
 
-        /** 最大尝试次数（首次 + 重试）：runAttemptCount 达到此值后转 Result.failure。 */
         const val MAX_ATTEMPTS = 3
     }
 }

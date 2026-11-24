@@ -62,13 +62,7 @@ import com.pixiv.reader.feature.comic.state.ComicReaderUiState
 import com.pixiv.reader.feature.comic.state.ComicReaderViewModel
 
 /**
- * COMIC 阅读器全屏路由：沉浸式竖向连续滚动（条漫），点击画面切换顶栏；
- * 页级失败可单页重试，末尾提供「下一话」续读入口。
- *
- * @param onBack 返回回调（上层 safeBack）
- * @param onOpenNext 续读下一话（上层以替换栈方式导航，避免阅读器无限压栈）
- * @param viewModel Hilt 注入的阅读器 VM
- * @return 无返回值（组合输出 UI）
+ * 沉浸式竖向连续滚动（条漫）；页级失败可单页重试，末尾提供「下一话」续读入口。
  */
 @Composable
 fun ComicReaderRoute(
@@ -102,17 +96,6 @@ fun ComicReaderRoute(
     )
 }
 
-/**
- * 阅读器内容（黑底容器 + 三态）。
- *
- * @param state 阅读器状态流
- * @param hostState 通知宿主状态（加载失败消息）
- * @param onBack 返回回调
- * @param onRetry 整章重试
- * @param onRetryPage 单页重试
- * @param onOpenNext 续读下一话
- * @return 无返回值
- */
 @Composable
 internal fun ComicReaderContent(
     state: ComicReaderUiState,
@@ -143,15 +126,6 @@ internal fun ComicReaderContent(
     }
 }
 
-/**
- * 沉浸式滚动主体：LazyColumn 竖向连续滚动 + 点击切换顶栏 + 页码指示。
- *
- * @param state 已就绪的阅读器状态
- * @param onBack 返回回调
- * @param onRetryPage 单页重试
- * @param onOpenNext 续读下一话
- * @return 无返回值
- */
 @Composable
 private fun ComicReaderPager(
     state: ComicReaderUiState,
@@ -162,7 +136,7 @@ private fun ComicReaderPager(
     val episode = state.episode ?: return
     val listState = rememberLazyListState()
     var chromeVisible by remember { mutableStateOf(true) }
-    // 当前页码 = 最近完整可见项（空列表保护，避免 upperBound < 0 抛 IllegalArgumentException）
+    // 页码取最近可见项；列表为空时须钳位，否则 upperBound < 0 抛 IllegalArgumentException
     val currentPage by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex.coerceIn(0, (state.pages.size - 1).coerceAtLeast(0))
@@ -247,16 +221,7 @@ private fun ComicReaderPager(
     }
 }
 
-/**
- * 单页渲染：等比占位 + 状态覆盖（就绪文件 / 失败重试；加载中纯黑占位）。
- *
- * @param ui 页状态
- * @param width 元数据宽（占位比例用）
- * @param height 元数据高
- * @param index 页序号（重试回传）
- * @param onRetryPage 单页重试回调
- * @return 无返回值
- */
+/** 等比占位：加载中纯黑，就绪盖文件，失败给重试。 */
 @Composable
 private fun ComicReaderPageItem(
     ui: ComicPageUi,
@@ -298,13 +263,7 @@ private fun ComicReaderPageItem(
     }
 }
 
-/**
- * 末尾续读区：下一话可读显示入口按钮，否则显示「已是最新一话」。
- *
- * @param nextEpisode 下一话（无则只显示结束文案）
- * @param onOpenNext 续读回调
- * @return 无返回值
- */
+/** 下一话可读才给入口，否则显示「已是最新一话」。 */
 @Composable
 private fun ComicReaderEndSection(
     nextEpisode: ComicEpisode?,

@@ -8,11 +8,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 /**
- * 插画排行榜 ViewModel：7 段榜单（日/周/月/男性向/女性向/新人/R18）滑动切换。
- * 榜单拉取与收藏切换在共享基类 [IllustRankingViewModelBase]，本类仅提供插画分段 mode。
- *
- * 分段 mode（插画专属 `day`/`day_male`/`day_female`；周/月/新人/R18 为通用 mode）：
- * - 日榜 `day` / 周榜 `week` / 月榜 `month` / 男性向 `day_male` / 女性向 `day_female` / 新人 `week_rookie` / R18 `day_r18`
+ * 插画榜 7 段（日/周/月/男性向/女性向/新人/R18）。插画专属 mode：day / day_male / day_female；
+ * 周/月/新人/R18 为通用 mode。
  */
 @HiltViewModel
 class IllustRankingViewModel @Inject constructor(

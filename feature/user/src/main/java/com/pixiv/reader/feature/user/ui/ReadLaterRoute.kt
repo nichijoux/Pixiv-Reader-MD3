@@ -56,16 +56,6 @@ import com.pixiv.reader.feature.user.data.restoreIllust
 import com.pixiv.reader.feature.user.data.restoreNovelCardData
 import com.pixiv.reader.feature.user.state.ReadLaterViewModel
 
-/**
- * 稍后再看页（Me 页入口）：作品 / 小说 分段控件 + HorizontalPager 左右滑动切换 + 快照卡片列表。
- * 卡片数据从 `payloadJson` 离线还原（与浏览历史同范式：插画直解 `Illust`、小说逐字段重建防 NPE）；
- * 移除入口 = 长按卡片（全局动作菜单「移出稍后再看」），另提供顶栏清空（确认框）。
- *
- * @param onBack 返回
- * @param onOpenIllust 打开插画详情
- * @param onOpenNovel 打开小说详情
- * @param onOpenUser 打开用户主页
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReadLaterRoute(
@@ -79,7 +69,7 @@ fun ReadLaterRoute(
     val context = LocalContext.current
     var showClearConfirm by remember { mutableStateOf(false) }
     val gson = remember { Gson() }
-    // 分段页签（值与 VM 筛选一致）：作品 / 小说
+    // 取值必须与 VM 筛选字符串一致（"illust" / "novel"）
     val readLaterTabs = listOf("illust", "novel")
 
     Scaffold(
@@ -93,7 +83,6 @@ fun ReadLaterRoute(
                 },
                 actions = {
                     if (items.isNotEmpty()) {
-                        // 清空：Expressive 圆形 tonal 图标按钮（删除色），点击弹确认框
                         FilledTonalIconButton(onClick = { showClearConfirm = true }) {
                             Icon(
                                 imageVector = Icons.Filled.DeleteOutline,
@@ -112,8 +101,7 @@ fun ReadLaterRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段（作品 / 小说）+ 左右滑动切换：SegmentedPager 双向同步
-                // （选中态跟 Pager 落页，点击反向滚页；落页回写 VM 筛选，页 0=作品 / 1=小说）
+                // 选中态跟 Pager 落页，点击反向滚页，落页回写 VM 筛选（页 0=作品 / 1=小说）
                 SegmentedPager(
                     tabs = readLaterTabs,
                     onSelect = viewModel::setFilter,
@@ -140,7 +128,6 @@ fun ReadLaterRoute(
         }
     }
 
-    // 清空稍后再看确认
     if (showClearConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.read_later_clear_title),
@@ -155,7 +142,6 @@ fun ReadLaterRoute(
     }
 }
 
-/** 稍后再看·插画列表：payloadJson 还原 `Illust` + 瀑布流（含收藏按钮，无分页）。 */
 @Composable
 private fun ReadLaterIllustList(
     entries: List<ReadLaterEntity>,
@@ -163,8 +149,7 @@ private fun ReadLaterIllustList(
     onOpenIllust: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
 ) {
-    // payloadJson 解析一次并随 entries 记忆（List<ReadLaterEntity> 不稳定，无 remember 时父级
-    // 任何重组都会触发全量 Gson 反序列化）
+    // 无 remember 时父级任何重组都会触发全量 Gson 反序列化
     val illusts = remember(entries) { entries.map { restoreIllust(it.payloadJson, gson, it.targetId, it.title, it.coverUrl) } }
     if (illusts.isEmpty()) {
         ReadLaterEmpty(
@@ -184,7 +169,6 @@ private fun ReadLaterIllustList(
     )
 }
 
-/** 稍后再看·小说列表：payloadJson 还原 `NovelCardData` + NovelCard 列表（无分页）。 */
 @Composable
 private fun ReadLaterNovelList(
     entries: List<ReadLaterEntity>,
@@ -193,7 +177,6 @@ private fun ReadLaterNovelList(
     onOpenNovel: (Long) -> Unit,
     onOpenUser: (Long) -> Unit,
 ) {
-    // payloadJson 解析一次并随 entries 记忆（与插画分支同范式）：避免每次重组全量 Gson 反序列化；
     // 条目与还原结果成对保存，列表 key 仍用条目自身 id
     val cards = remember(entries, context, gson) {
         entries.map { entry ->
@@ -229,7 +212,6 @@ private fun ReadLaterNovelList(
                 onOpenAuthor = { card.authorId.takeIf { it != 0L }?.let(onOpenUser) },
                 onToggleFavorite = {},
                 onTagClick = {},
-                // 进场淡入 + 移除条目时位置平滑重排
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                     placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -241,14 +223,6 @@ private fun ReadLaterNovelList(
 
 // ── 空态（快照还原转换见 SnapshotRestore.kt） ────────────────────────────────
 
-/**
- * Expressive 空态：圆形图标底 + 标题 + 操作提示（稍后再看页专用）。
- *
- * @param icon 空态图标（插画=图片 / 小说=书本）
- * @param title 空态主文案
- * @param hint 操作提示副文案
- * @return 无返回值
- */
 @Composable
 private fun ReadLaterEmpty(
     icon: ImageVector,
@@ -262,7 +236,6 @@ private fun ReadLaterEmpty(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // 图标：primary 8% 圆底 + primary 图标（与 ConfirmDialog 图标底同语汇）
         Box(
             modifier = Modifier
                 .size(64.dp)

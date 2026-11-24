@@ -1,13 +1,7 @@
 package com.pixiv.reader.core.common.config
 
-/**
- * 应用模式枚举集（统一裸 int 模式值）。
- *
- * 存储值即 [value]（int），与既有 DataStore 写入值完全一致，无迁移。
- * 反序列化一律走 [from]（非法值回退默认枚举）。
- */
+// 各枚举的 value 即 DataStore 持久化的裸 int，勿改既有编号；非法值经 from() 回退默认。
 
-/** 应用主题模式：跟随系统 / 浅色 / 深色（MainActivity + 我的页）。 */
 enum class ThemeMode(val value: Int) {
     FOLLOW_SYSTEM(0),
     LIGHT(1),
@@ -18,7 +12,6 @@ enum class ThemeMode(val value: Int) {
     }
 }
 
-/** 插画查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向。 */
 enum class ViewerOrientation(val value: Int) {
     HORIZONTAL(0),
     VERTICAL(1),
@@ -30,7 +23,6 @@ enum class ViewerOrientation(val value: Int) {
     }
 }
 
-/** 小说 Tab 默认页：推荐 / 关注。 */
 enum class NovelDefaultTab(val value: Int) {
     RECOMMEND(0),
     FOLLOW(1);
@@ -41,7 +33,6 @@ enum class NovelDefaultTab(val value: Int) {
     }
 }
 
-/** 阅读器翻页方式：滑动 / 翻页 / 仿真。 */
 enum class ReaderPageMode(val value: Int) {
     SCROLL(0),
     PAGINATE(1),
@@ -52,11 +43,7 @@ enum class ReaderPageMode(val value: Int) {
     }
 }
 
-/**
- * 阅读器双页显示（仅翻页与仿真模式生效，滑动模式恒为单列）：
- * 关闭 / 强制开启 / 仅横屏 / 横屏或平板（默认）。
- * 横屏判定 = 视口宽 > 高；平板判定 = smallestScreenWidthDp >= 600。
- */
+/** 仅翻页与仿真模式生效，滑动模式恒为单列；横屏 = 视口宽 > 高，平板 = smallestScreenWidthDp >= 600。 */
 enum class ReaderDualPageMode(val value: Int) {
     OFF(0),
     ALWAYS(1),
@@ -69,7 +56,6 @@ enum class ReaderDualPageMode(val value: Int) {
     }
 }
 
-/** 阅读器主题：日间 / 纸张 / 夜间 / 深黑。 */
 enum class ReaderThemeMode(val value: Int) {
     DAY(0),
     PAPER(1),
@@ -81,7 +67,6 @@ enum class ReaderThemeMode(val value: Int) {
     }
 }
 
-/** 关注页左列用户排序：关注时间（官方序）/ 名称升序 / 名称降序 / 代表作最新发布。 */
 enum class FollowSortMode(val value: Int) {
     FOLLOW_TIME(0),
     NAME_ASC(1),
@@ -94,25 +79,11 @@ enum class FollowSortMode(val value: Int) {
     }
 }
 
-/**
- * 手机端底部导航栏样式：贴边短栏 / 悬浮胶囊。
- *
- * @property value 持久化到 DataStore 的整数枚举值
- */
 enum class BottomNavBarStyle(val value: Int) {
-    /** M3 Expressive 64dp 贴边短栏（默认） */
     DOCKED(0),
-
-    /** 悬浮胶囊导航栏（水平内缩、全圆胶囊容器） */
     FLOATING_CAPSULE(1);
 
     companion object {
-        /**
-         * 将持久化的整数值反序列化为导航栏样式；非法值回退默认贴边短栏。
-         *
-         * @param value 存储整数值
-         * @return 对应的 [BottomNavBarStyle] 枚举项
-         */
         fun from(value: Int): BottomNavBarStyle =
             entries.firstOrNull { it.value == value } ?: DOCKED
     }

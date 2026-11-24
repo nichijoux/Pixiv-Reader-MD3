@@ -70,11 +70,6 @@ import com.pixiv.reader.feature.reader.R
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/**
- * 阅读器设置面板（参考 legado-with-MD3）：
- * - 排版区两列网格：字号 Stepper / 字重下拉（细体·常规·粗体·自定义 100–900）/ 缩进·段距·行距·字距滑条
- * - 字体 / 主题（含跟随系统）/ 翻页模式 / 亮度
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderSettingsSheet(
@@ -126,17 +121,14 @@ fun ReaderSettingsSheet(
                 fontWeight = FontWeight.SemiBold
             )
 
-            // ── 排版：两两分组一行 ──
             SectionTitle(
                 text = stringResource(R.string.reader_settings_section_typography),
                 modifier = Modifier.padding(top = 18.dp),
                 icon = Icons.Filled.FormatSize,
                 accent = SettingAccentAmber,
-                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
                 style = MaterialTheme.typography.labelLarge,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.smPlus)) {
-                // 字号：Stepper（MD3：outlined 按钮自带边框，中间值，间距拉开）
                 TypographyCard(
                     title = stringResource(R.string.reader_settings_font_size),
                     modifier = Modifier.weight(1f),
@@ -167,14 +159,12 @@ fun ReaderSettingsSheet(
                         }
                     }
                 }
-                // 字重：下拉（细体/常规/粗体/自定义）
                 FontWeightCard(
                     fontWeight = fontWeight,
                     onFontWeightChange = onFontWeightChange,
                     modifier = Modifier.weight(1f),
                 )
             }
-            // 字重自定义：跨行滑条 100~900（复用 SliderCard 形态）
             val customWeight = fontWeight !in FONT_WEIGHT_PRESETS
             AnimatedVisibility(visible = customWeight) {
                 SliderCard(
@@ -238,7 +228,6 @@ fun ReaderSettingsSheet(
                 )
             }
 
-            // ── 亮度（联动系统真实亮度；1.0 = 跟随系统）──
             SliderCard(
                 title = stringResource(R.string.reader_settings_brightness),
                 valueText = if (brightness >= 1f) {
@@ -259,7 +248,6 @@ fun ReaderSettingsSheet(
                 modifier = Modifier.padding(top = 18.dp),
                 icon = Icons.Filled.FontDownload,
                 accent = SettingAccentBlue,
-                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
                 style = MaterialTheme.typography.labelLarge,
             )
             SettingSegmentedRow(
@@ -270,7 +258,6 @@ fun ReaderSettingsSheet(
                 },
                 onSelect = onFontFamilyChange,
             )
-            // 自定义字体：导入 / 清除
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
@@ -291,20 +278,17 @@ fun ReaderSettingsSheet(
                 modifier = Modifier.padding(top = 18.dp),
                 icon = Icons.Filled.Palette,
                 accent = SettingAccentViolet,
-                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
                 style = MaterialTheme.typography.labelLarge,
             )
             SettingSegmentedRow(
                 options = ReaderThemeMode.entries.toList(),
                 selected = theme,
-                // 跟随系统深色模式时四档主题锁定不可选
                 enabled = { !followSystem },
                 labelRes = { mode ->
                     READER_THEME_NAME_RES[ReaderThemeMode.entries.indexOf(mode)]
                 },
                 onSelect = onThemeChange,
             )
-            // 跟随系统深色模式
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.smPlus),
                 verticalAlignment = Alignment.CenterVertically,
@@ -325,7 +309,6 @@ fun ReaderSettingsSheet(
                 modifier = Modifier.padding(top = 18.dp),
                 icon = Icons.Filled.SwapVert,
                 accent = SettingAccentTeal,
-                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
                 style = MaterialTheme.typography.labelLarge,
             )
             SettingSegmentedRow(
@@ -337,13 +320,11 @@ fun ReaderSettingsSheet(
                 onSelect = onPageModeChange,
             )
 
-            // 双页显示：翻页/仿真模式下按视口宽度对半分页并排成跨页（滑动模式不生效）
             SectionTitle(
                 text = stringResource(R.string.reader_settings_dual_page),
                 modifier = Modifier.padding(top = 18.dp),
                 icon = Icons.AutoMirrored.Filled.MenuBook,
                 accent = SettingAccentGreen,
-                // 沿用原分组标题的 labelLarge 层级（SectionTitle 默认 labelMedium 偏低）
                 style = MaterialTheme.typography.labelLarge,
             )
             SettingSegmentedRow(
@@ -355,7 +336,6 @@ fun ReaderSettingsSheet(
                 onSelect = onDualPageModeChange,
             )
 
-            // 简繁转换（仅应用语言为中文时显示；OpenCC 转换正文文本块）
             if (showChineseConvert) {
                 SectionTitle(
                     text = stringResource(R.string.reader_settings_chinese_convert),
@@ -377,7 +357,6 @@ fun ReaderSettingsSheet(
     }
 }
 
-/** 字重预设（细体 300 / 常规 400 / 粗体 700）；不在其中的视为自定义 100..900。 */
 private val FONT_WEIGHT_PRESETS = intArrayOf(300, 400, 700)
 
 @Composable
@@ -413,7 +392,6 @@ private fun FontWeightCard(
             DropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
-                // 全 App 统一浮层：高圆角 + 抬高一层容器色
                 shape = AppShapes.large,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
@@ -438,20 +416,7 @@ private fun FontWeightCard(
     }
 }
 
-/**
- * 排版卡片：标题 + 可选值 + 内容区（surfaceContainerLow 圆角卡，紧凑高度）。
- *
- * [icon] 非空时在标题左侧渲染 28dp 图标徽标。当前六个分组的图标统一由分组标题
- * （[SectionTitle]）承载，卡片级图标留作后续「无分组标题的独立卡」备用，避免同组双图标。
- *
- * @param title 卡片标题
- * @param modifier 外部 Modifier
- * @param valueText 标题右侧当前值文案；null 不显示
- * @param icon 标题左侧可选图标徽标；null 不渲染
- * @param accent 图标徽标点缀色（[Color.Unspecified] 时由徽标组件回退主题 primary）
- * @param content 卡片内容
- * @return 无返回值
- */
+/** [icon] 留作无分组标题的独立卡备用，避免与 [SectionTitle] 形成同组双图标。 */
 @Composable
 private fun TypographyCard(
     title: String,
@@ -467,7 +432,6 @@ private fun TypographyCard(
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = Spacing.smPlus, vertical = Spacing.xsPlus),
     ) {
-        // 标题行：可选图标徽标 + 标题 + 右侧当前值（单行，避免撑高卡片）
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -477,7 +441,6 @@ private fun TypographyCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
-                // 卡片级图标徽标（可选）：彩色风格关闭时自动回退主题单色
                 if (icon != null) {
                     AccentIconBadge(
                         icon = icon,
@@ -505,7 +468,6 @@ private fun TypographyCard(
     }
 }
 
-/** 滑条卡：标题 + 值 + Slider + 范围标签（紧凑：滑条压矮、小字号）。 */
 @Composable
 private fun SliderCard(
     title: String,
@@ -551,23 +513,9 @@ private fun SliderCard(
     }
 }
 
-/** 浮点值按步进拍平（避免滑条中间值抖动）。 */
 private fun roundStep(value: Float, step: Float): Float =
     Math.round(value / step) * step
 
-/**
- * 通用分段选择行：全 App 统一胶囊分段（[PillSegmentedRow]）惯式收敛
- * （字体 / 主题 / 翻页模式 / 双页显示 / 简繁转换五处共用）。
- * 长文案由分段标签自身缩字处理，不会换行把轨道撑高错位。
- *
- * @param T 选项类型
- * @param options 选项列表（顺序 = 分段顺序）
- * @param selected 当前选中项
- * @param enabled 各选项是否可点（映射到 [PillSegmentedRow] 的 `optionEnabled`）
- * @param labelRes 选项文案资源（在组合期由 [PillSegmentedRow] 内部 stringResource 解析）
- * @param onSelect 选项点击回调
- * @return 无返回值（UI 渲染）
- */
 @Composable
 private fun <T> SettingSegmentedRow(
     options: List<T>,
@@ -585,7 +533,6 @@ private fun <T> SettingSegmentedRow(
     )
 }
 
-/** em 值格式化：0 → "0"；+0.05 → "+0.05"；-0.05 → "-0.05"。 */
 private fun formatEm(value: Float): String {
     val rounded = Math.round(value * 100) / 100f
     return if (rounded == 0f) "0"
@@ -593,7 +540,6 @@ private fun formatEm(value: Float): String {
     else String.format(Locale.US, "%.2f", rounded)
 }
 
-/** 简繁转换三档：(值, 文案)。0 关闭 / 1 简体→繁体 / 2 繁体→简体。 */
 private val CHINESE_CONVERT_OPTIONS = listOf(
     0 to R.string.reader_settings_convert_off,
     1 to R.string.reader_settings_convert_s2t,

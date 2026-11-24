@@ -16,20 +16,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.RandomAccessFile
 
-/**
- * PDF 字体发现工具（纯 JVM 可测，无 Android 依赖）：
- * 目录扫描 + CFF 轮廓检测（pdfbox-android 只能嵌入 glyf 轮廓字体）。
- */
 internal object PdfFonts {
 
     private fun isFontFile(name: String) =
         name.endsWith(".ttf") || name.endsWith(".otf") || name.endsWith(".ttc")
 
-    /**
-     * 扫描系统字体目录，返回符号字体候选（排除彩色 emoji 位图字体）。
-     * 匹配规则：文件名含 "symbol"，或含 "emoji" 且非彩色（单色 emoji 字体）；
-     * 不依赖具体文件名，OEM 定制命名也能命中。
-     */
     fun systemSymbolCandidates(fontsDir: File): List<File> {
         val files = fontsDir.listFiles() ?: return emptyList()
         return files.filter { f ->
@@ -39,15 +30,6 @@ internal object PdfFonts {
         }.sortedBy { it.name }
     }
 
-    /**
-     * 扫描系统字体目录，返回可作为 PDF 主字体的 CJK 候选（glyf 轮廓 + cmap 覆盖中文）。
-     * 与 PdfFontTest 使用同一判定逻辑（[hasCjkGlyph]），适配才返回：
-     * - 排除符号/emoji/彩色字体（不负责中文）
-     * - CFF 轮廓（pdfbox 无法嵌入）经 [hasCffTable] 过滤；TTC 容器保守跳过
-     * - 剩余文件逐个 TTFParser 解析验证中文（U+4E00）与假名（U+3042）字形
-     * 现代设备通常返回空（系统 CJK 全为 CFF），老设备可命中 DroidSansFallback.ttf，
-     * OEM 定制 TrueType 中文字体（如 MiSans）也能自动发现。结果按偏好排序（Droid 优先）。
-     */
     fun systemCjkCandidates(fontsDir: File): List<File> {
         val files = fontsDir.listFiles() ?: return emptyList()
         return files.filter { f ->
@@ -61,7 +43,7 @@ internal object PdfFonts {
         }.sortedWith(compareBy({ !it.name.lowercase().contains("droid") }, { it.name }))
     }
 
-    /** 解析字体并检查 cmap 是否覆盖中文（U+4E00）与常用假名（U+3042）。 */
+    /** 检查 cmap 是否同时覆盖汉字（U+4E00）与平假名（U+3042）。 */
     fun hasCjkGlyph(file: File): Boolean = runCatching {
         val ttf = TTFParser().parse(file)
         ttf.use { ttf ->
@@ -70,19 +52,14 @@ internal object PdfFonts {
         }
     }.getOrDefault(false)
 
-    /**
-     * 检测字体文件是否为 CFF/OTF 轮廓（读 sfnt 表目录查 "CFF " 表）。
-     * pdfbox-android 的子集化/完整嵌入都只支持 glyf（TrueType）轮廓，
-     * CFF 字体（如系统 NotoSansCJK）嵌入会在 save 阶段抛异常，必须跳过。
-     * TTC 容器 / 解析失败保守返回 true（跳过）。
-     */
+    /** pdfbox-android 仅支持嵌入 glyf（TrueType）轮廓，CFF/OTF 字体在 save 阶段会抛异常；TTC 与解析失败保守跳过。 */
     fun hasCffTable(file: File): Boolean = try {
         RandomAccessFile(file, "r").use { raf ->
             raf.seek(0)
             val tag0 = ByteArray(4)
             raf.readFully(tag0)
-            if (tag0.decodeToString() == "ttcf") return true // TTC 容器不做子字体级判定，跳过
-            raf.seek(4) // 跳过 sfnt version
+            if (tag0.decodeToString() == "ttcf") return true
+            raf.seek(4)
             val numTables = raf.readUnsignedShort()
             for (i in 0 until numTables) {
                 raf.seek(12L + i * 16L)
@@ -93,11 +70,10 @@ internal object PdfFonts {
             false
         }
     } catch (_: Exception) {
-        true // 无法解析时保守视为不可嵌入
+        true
     }
 }
 
-/** PDF 排版参数（对齐阅读器设置：字号/行距/段首缩进/段距）。 */
 internal data class PdfLayoutSettings(
     val fontSize: Float,
     val lineHeightMultiplier: Float,
@@ -105,7 +81,6 @@ internal data class PdfLayoutSettings(
     val paragraphSpacingEm: Float,
 )
 
-/** PDF 内容元素流：文本块（块首行是否缩进由 [indent] 控制，标题/元数据不缩进）或内嵌图片。 */
 internal sealed class PdfContent {
     data class Text(val text: String, val indent: Boolean) : PdfContent()
     data class Picture(val bytes: ByteArray, val mime: String) : PdfContent() {
@@ -130,44 +105,28 @@ internal sealed class PdfContent {
     }
 }
 
-/**
- * PDF 渲染器（pdfbox-android）：A4 分页，加载系统中日文字体，按元素流绘制并自动换行/分页；
- * 排版参数对齐阅读器设置（缩进/段距/字号/行距）。
- *
- * 从 NovelExporter 拆分（原单类五职责之一）：字体发现/加载/排版渲染与导出编排解耦。
- */
 internal object PdfRenderer {
 
     private const val TAG = "PdfRenderer"
 
-    /** 打包的 PDF 中文字体（AOSP DroidSansFallbackFull，TrueType/glyf 轮廓）。 */
     private const val ASSET_CJK_FONT = "pdf_fonts/DroidSansFallbackFull.ttf"
 
-    /** 打包的 PDF 符号字体（DejaVu Sans，含 ❤ 等 CJK 缺失字形）。 */
     private const val ASSET_SYMBOL_FONT = "pdf_fonts/DejaVuSans.ttf"
 
-    /** 系统 CJK 候选扫描结果缓存（进程内有效；字体文件变更需重启进程）。 */
     @Volatile
     private var cachedCjkCandidates: List<File>? = null
 
-    /**
-     * 生成 PDF 字节（pdfbox-android）。
-     */
     fun buildPdf(
         context: Context,
         contents: List<PdfContent>,
         layout: PdfLayoutSettings
     ): ByteArray {
-        // pdfbox-android 的 cmap/afm 等运行时资源打包在 APK assets 里，使用前必须先初始化
-        // 资源加载器；否则 PDType0Font.load 抛 "Could not find referenced cmap stream
-        // Identity-H"、PDType1Font（Helvetica 退化路径）类初始化抛 "afm not found"。
-        // 重复调用幂等（内部 isReady 守卫）。
+        // pdfbox-android 的 cmap/afm 在 assets 中，加载字体前必须初始化（重复调用幂等），否则报 cmap/afm not found
         PDFBoxResourceLoader.init(context)
         val doc = PDDocument()
         doc.use { doc ->
             val fonts = loadPdfFonts(context, doc)
             if (fonts.isEmpty()) {
-                // 无可用系统中文字体：退化为 Helvetica（仅 Latin-1 字形，中文不显示；无字形字符跳过不画）
                 Log.w(TAG, "buildPdf 无可用系统中文字体，退化为 Helvetica（中文将不显示）")
             } else {
                 Log.d(
@@ -188,22 +147,9 @@ internal object PdfRenderer {
         }
     }
 
-    /**
-     * 加载 PDF 渲染字体集（pdfbox-android；仅真机验证）。
-     *
-     * 返回按优先级排序的字体列表，渲染时逐字符选择第一个能编码该字符的字体：
-     * 1. 系统 CJK 字体（glyf 轮廓且 cmap 覆盖中文，[PdfFonts.systemCjkCandidates] 自动
-     *    发现）：老设备 DroidSansFallback.ttf、OEM 定制 TrueType 中文字体直接复用，
-     *    免打包体积；现代设备系统 CJK 全为 CFF 不可嵌入，此步通常为空。
-     * 2. 打包中文字体 `assets/pdf_fonts/DroidSansFallbackFull.ttf`（AOSP，Apache 2.0）兜底。
-     * 3. 打包符号字体 `assets/pdf_fonts/DejaVuSans.ttf`（双许可，含 ❤ U+2764 等
-     *    Dingbats/杂项符号——CJK 字体不覆盖这些字形）。
-     * 4. 系统符号字体（glyf）：目录扫描自动发现，CFF 经 [PdfFonts.hasCffTable] 过滤。
-     * 全部失败返回空列表（调用方退化为 Helvetica，仅 Latin-1 字形）。
-     */
+    /** 按优先级加载字体（系统 glyf CJK → 打包 CJK → 打包符号 → 系统 glyf 符号），渲染时逐字符取首个可编码字体；全失败返回空列表退化 Helvetica。 */
     private fun loadPdfFonts(context: Context, doc: PDDocument): List<PDFont> {
         val fonts = mutableListOf<PDFont>()
-        // 1. 系统 CJK（进程内缓存扫描结果，避免每次导出全目录解析）
         val systemCjk = cachedCjkCandidates ?: PdfFonts.systemCjkCandidates(File("/system/fonts"))
             .also { cachedCjkCandidates = it }
         for (file in systemCjk) {
@@ -220,7 +166,6 @@ internal object PdfRenderer {
             }
             Log.w(TAG, "系统 CJK 字体加载失败 path=${file.path}", result.exceptionOrNull())
         }
-        // 2-3. 打包字体兜底
         for ((asset, desc) in listOf(
             ASSET_CJK_FONT to "打包中文字体",
             ASSET_SYMBOL_FONT to "打包符号字体",
@@ -235,7 +180,6 @@ internal object PdfRenderer {
                 }
                 .onFailure { e -> Log.w(TAG, "${desc}加载失败 $asset", e) }
         }
-        // 4. 系统符号字体（glyf）：目录扫描自动发现，CFF 轮廓（pdfbox 无法嵌入）跳过
         for (file in PdfFonts.systemSymbolCandidates(File("/system/fonts"))) {
             if (PdfFonts.hasCffTable(file)) {
                 Log.d(TAG, "跳过 CFF 轮廓符号字体 path=${file.path}")
@@ -257,21 +201,6 @@ internal object PdfRenderer {
         return fonts
     }
 
-    /**
-     * 按元素流绘制 PDF（pdfbox-android）：
-     * - [PdfContent.Text]：段落文本行——空行（段落边界）渲染段距空隙；段落首行缩进
-     *   （[PdfContent.Text.indent]=false 的标题/元数据块不缩进）；超宽按字符断行、到底换页
-     * - [PdfContent.Picture]：内嵌插图（jpg/png），按可用宽度等比缩放居中绘制，
-     *   高度不够自动换页；格式不支持（webp 等）或损坏的图片跳过
-     *
-     * 排版对齐阅读器设置（[PdfLayoutSettings]）：字号、行距（1.6+增量）、
-     * 段首缩进（字号 × 缩进数）、段距（em × 字号）。
-     *
-     * 多字体渲染：每个字符选用字体列表中第一个能编码它的字体（主中文字体优先，
-     * 符号字体兜底 ❤ 等 CJK 缺字形符号）；所有字体都无法编码的字符跳过不画
-     * （不替换为 '?'，保持原文语义）。字体切换通过同一文本对象内 setFont(Tf) 实现，
-     * 不影响文本基线位置。
-     */
     private fun renderPdf(
         doc: PDDocument,
         fonts: List<PDFont>,
@@ -281,7 +210,6 @@ internal object PdfRenderer {
         val fontSize = layout.fontSize
         val leading = fontSize * layout.lineHeightMultiplier
         val margin = 50f
-        // 段首缩进 = 全角字宽（= 字号）× 缩进数；段距空隙 = 段距(em) × 字号
         val indentWidth = fontSize * layout.indentCount
         val paragraphGap = fontSize * layout.paragraphSpacingEm
         var page = PDPage(PDRectangle.A4)
@@ -323,7 +251,7 @@ internal object PdfRenderer {
                 inTextBlock = true
                 content.setFont(primary, fontSize)
                 content.newLineAtOffset(margin, y)
-                activeFont = primary // 新页字体重置为 primary，同步跟踪变量
+                activeFont = primary
                 newPageCount++
             }
 
@@ -332,7 +260,6 @@ internal object PdfRenderer {
             for (item in contents) {
                 when (item) {
                     is PdfContent.Picture -> {
-                        // 插图：jpg/png 内嵌（webp 等 pdfbox 不支持 → 跳过）
                         val img = runCatching {
                             PDImageXObject.createFromByteArray(doc, item.bytes, item.mime)
                         }.getOrNull()
@@ -362,12 +289,12 @@ internal object PdfRenderer {
                         inTextBlock = true
                         content.setFont(primary, fontSize)
                         content.newLineAtOffset(margin, y)
-                        activeFont = primary // 图片恢复后字体重置为 primary
+                        activeFont = primary
                         pictureCount++
                     }
 
                     is PdfContent.Text -> {
-                        var atParagraphStart = true // 块首行视为段首（缩进由 indent 与首行标记控制）
+                        var atParagraphStart = true
                         for (line in item.text.lines()) {
                             if (line.isBlank()) {
                                 // 空行 = 段落/块边界：渲染段距空隙（阅读器段距语义，非整行行距）
@@ -379,7 +306,7 @@ internal object PdfRenderer {
                                 atParagraphStart = true
                                 continue
                             }
-                            // 逐字符绑定字体：null = 无任何字体能编码（跳过不画，宽 0）
+                            // 无法被任一字体编码的字符置 null（跳过不画而非替换 '?'）
                             val glyphs = line.map { ch ->
                                 fonts.firstOrNull { runCatching { it.encode(ch.toString()) }.isSuccess }
                                     ?.let { ch to it }
@@ -391,7 +318,6 @@ internal object PdfRenderer {
                                 } else {
                                     0f
                                 }
-                            // 按首行扣减缩进后的实际行宽断行，并在换行后以当前触发字形宽度作为新行起始宽度。
                             val rows = mutableListOf<List<Pair<Char, PDFont>>>()
                             var start = 0
                             var rowLimit = (usableWidth - firstRowIndent).coerceAtLeast(fontSize)
@@ -417,8 +343,6 @@ internal object PdfRenderer {
                                 if (y < margin + leading) newPage()
                                 val indent = if (rowIndex == 0) firstRowIndent else 0f
                                 if (indent > 0f) content.newLineAtOffset(indent, 0f)
-                                // 行内按连续同字体分段绘制（setFont 切换不改变文本位置）；
-                                // activeFont 为跨行跟踪变量（见上），勿在此重复声明
                                 var i = 0
                                 while (i < row.size) {
                                     val (_, f) = row[i]
@@ -438,7 +362,6 @@ internal object PdfRenderer {
                                     }
                                     i = j
                                 }
-                                // 换行：退回缩进 + 下移一行
                                 content.newLineAtOffset(-indent, -leading)
                                 y -= leading
                                 atParagraphStart = false

@@ -14,12 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * 小说排行榜 ViewModel：6 段榜单（日榜/周榜/男性向/女性向/新人/R18）滑动切换，
- * `GET /v1/novel/ranking?mode=&date=` 游标分页（分段/惰性加载/重试/触底骨架在
- * [RankingPagedViewModel]，mode 与插画榜通用无小说专属 mode，支持 [selectDate]
- * 按日期回看历史榜单）。
- */
+/** 6 段榜单；分段/惰性加载/重试/触底由 [RankingPagedViewModel] 承担，mode 与插画榜通用。 */
 @HiltViewModel
 class NovelRankingViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -37,7 +32,7 @@ class NovelRankingViewModel @Inject constructor(
 ) {
 
 
-    /** 语言筛选：全部 / 仅中文 / 仅日语。内存态不持久化，与漫画榜类型切换一致。 */
+    /** 内存态不持久化，与漫画榜类型切换一致。 */
     private val _languageFilter = MutableStateFlow(NovelLanguageFilter.ALL)
     val languageFilter: StateFlow<NovelLanguageFilter> = _languageFilter.asStateFlow()
 
@@ -45,7 +40,6 @@ class NovelRankingViewModel @Inject constructor(
         _languageFilter.value = filter
     }
 
-    /** 段数据首载：拉取指定 mode（可选历史日期）的小说榜单第一页，翻页走 next_url。 */
     override suspend fun loadInitialFor(paged: PagedState<Novel>, mode: String, date: String?) {
         paged.loadInitial(
             fetch = { pixivRepository.api.getRankingNovels(mode, date) },
@@ -53,7 +47,6 @@ class NovelRankingViewModel @Inject constructor(
         )
     }
 
-    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调），成功/失败发通知。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
         toggleFavoriteNotified(
             nowFavorite,
@@ -63,10 +56,8 @@ class NovelRankingViewModel @Inject constructor(
         ) { favoriteActions.toggleNovelFavorite(novelId, it) }
 }
 
-/** 小说排行榜语言筛选维度。 */
 enum class NovelLanguageFilter { ALL, CHINESE, JAPANESE }
 
-/** @return 筛选项对应的文案资源。 */
 @androidx.annotation.StringRes
 fun NovelLanguageFilter.labelRes(): Int = when (this) {
     NovelLanguageFilter.ALL -> R.string.novel_ranking_filter_all
@@ -75,10 +66,8 @@ fun NovelLanguageFilter.labelRes(): Int = when (this) {
 }
 
 /**
- * 判定小说是否命中语言筛选项。
- *
- * 优先接口 `language` 字段（zh-cn/ja/en…，app-api 可能缺省）；缺失时用「是否含假名」
- * 启发式：日文正文几乎必含假名而中文不含；无 CJK 字符的其它语种作品不落入中/日筛选。
+ * 优先接口 `language` 字段（app-api 可能缺省），缺失时用「是否含假名」启发式：
+ * 日文正文几乎必含假名而中文不含，无 CJK 字符的其它语种作品不落入中/日筛选。
  */
 internal fun Novel.matchesLanguageFilter(filter: NovelLanguageFilter): Boolean {
     language?.lowercase()?.let { lang ->

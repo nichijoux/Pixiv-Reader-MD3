@@ -30,19 +30,11 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/** 封面占位宽高比序列（width/height）：模拟真实作品比例多样性，制造瀑布流错落高度。 */
+/** 模拟真实作品比例多样性，制造瀑布流错落高度。 */
 private val COVER_RATIOS = listOf(3f / 4f, 4f / 3f, 1f, 2f / 3f)
 
 /**
- * 插画/漫画排行榜加载骨架：与真实榜单同款**瀑布流网格**（`LazyVerticalStaggeredGrid` +
- * `StaggeredGridCells.Adaptive([gridMinColumnWidth])`，列数/内容边距/间距与 [RankingList]
- * 完全一致），每张占位卡对齐 [IllustCard]（rank 参数渲染排名徽标）——封面（比例交替制造错落高度）+
- * 左上排名徽标胶囊 + 右下收藏数胶囊 + 标题条/作者行。渲染 12 张占位卡，
- * 1s 缓慢呼吸脉冲，数据到位后淡入真实列表。
- *
- * @param gridMinColumnWidth 瀑布流自适应列宽（须与 [RankingList] 的 gridMinColumnWidth 传同一值，
- *                           否则骨架列数与真实列表不一致）
- * @return 无返回值
+ * 列数/内容边距/间距须与 [RankingList] 一致，否则首载切真实列表时会跳列。
  */
 @Composable
 fun RankingIllustSkeleton(gridMinColumnWidth: Dp = RANKING_GRID_MIN_COLUMN_WIDTH) {
@@ -60,11 +52,9 @@ fun RankingIllustSkeleton(gridMinColumnWidth: Dp = RANKING_GRID_MIN_COLUMN_WIDTH
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
-                // 真实卡片为 cardLarge（14dp）圆角
                 shape = AppShapes.cardLarge,
             ) {
                 Column {
-                    // 封面区：比例按索引交替（竖/横/方），叠加徽标与收藏数占位
                     Box(modifier = Modifier.fillMaxWidth()) {
                         SkeletonBlock(
                             modifier = Modifier
@@ -72,7 +62,6 @@ fun RankingIllustSkeleton(gridMinColumnWidth: Dp = RANKING_GRID_MIN_COLUMN_WIDTH
                                 .aspectRatio(COVER_RATIOS[index % COVER_RATIOS.size]),
                             color = color,
                         )
-                        // 左上排名徽标占位：胶囊形（对齐真实徽标的圆角文字条）
                         SkeletonBlock(
                             modifier = Modifier
                                 .padding(Spacing.sm)
@@ -81,7 +70,6 @@ fun RankingIllustSkeleton(gridMinColumnWidth: Dp = RANKING_GRID_MIN_COLUMN_WIDTH
                                 .clip(AppShapes.pill),
                             color = color,
                         )
-                        // 右下收藏数占位：小胶囊（对齐真实卡片右下角「♥ 数量」角标）
                         SkeletonBlock(
                             modifier = Modifier
                                 .padding(Spacing.sm)
@@ -91,7 +79,6 @@ fun RankingIllustSkeleton(gridMinColumnWidth: Dp = RANKING_GRID_MIN_COLUMN_WIDTH
                             color = color,
                         )
                     }
-                    // 信息区：标题条 + 作者行（头像 + 名称条）
                     Column(modifier = Modifier.padding(Spacing.smPlus)) {
                         SkeletonBlock(
                             modifier = Modifier

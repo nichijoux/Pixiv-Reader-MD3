@@ -30,10 +30,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/**
- * 小说搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.NovelCard]（横排卡片列表）渲染 6 张占位卡
- * ——圆角 16dp Card + 左侧 104dp 3/4 封面块 + 右侧标题/作者条。
- */
 @Composable
 internal fun NovelSearchSkeleton() {
     val color = skeletonPulseColor()
@@ -87,10 +83,6 @@ internal fun NovelSearchSkeleton() {
     }
 }
 
-/**
- * 用户搜索结果骨架：仿 [com.pixiv.reader.core.ui.component.CreatorProfileCard] 渲染 5 张占位卡
- * ——圆角 16dp 卡片 + 顶部 120dp 三封面横排 + 底部 64dp 圆头像（重叠封面）+ 名称条 + 关注按钮块。
- */
 @Composable
 internal fun UserSearchSkeleton() {
     val color = skeletonPulseColor()

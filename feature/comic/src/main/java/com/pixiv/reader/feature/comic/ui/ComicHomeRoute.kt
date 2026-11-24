@@ -53,25 +53,12 @@ import com.pixiv.reader.feature.comic.state.ComicRankingState
 import com.pixiv.reader.feature.comic.state.ComicTopState
 import kotlinx.coroutines.launch
 
-/** 首页双页签（胶囊分段 + Pager 惯式）。 */
 private enum class ComicHomeTab(val labelRes: Int) {
-    /** 更新页（banner + 最近更新）。 */
     TOP(R.string.comic_tab_top),
 
-    /** 排行页（周榜 / 人气 × 分类标签）。 */
     RANKING(R.string.comic_tab_ranking),
 }
 
-/**
- * COMIC 首页路由：更新（banner 位 + 最近更新）与排行（模式 × 分类标签）双页签，
- * 顶栏提供搜索入口；作品点击进详情。
- *
- * @param onBack 返回回调（上层 safeBack）
- * @param onOpenWork 进作品详情（作品 id）
- * @param onOpenSearch 进搜索页
- * @param viewModel Hilt 注入的首页 VM
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComicHomeRoute(
@@ -107,7 +94,7 @@ fun ComicHomeRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding).fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                // tab 分段：以页码为值，点击反向滚页（选中态跟 Pager 落页）
+                // 以页码为值：点击反向滚页，选中态跟 Pager 落页。
                 PillSegmentedRow(
                     options = ComicHomeTab.entries.mapIndexed { index, tab -> index to tab.labelRes },
                     selected = pagerState.currentPage,
@@ -134,14 +121,6 @@ fun ComicHomeRoute(
     }
 }
 
-/**
- * 「更新」页：banner 横滑 + 最近更新作品网格。
- *
- * @param top 首页数据状态
- * @param onOpenWork 进详情回调
- * @param onRetry 整页重试
- * @return 无返回值
- */
 @Composable
 private fun ComicTopTab(
     top: ComicTopState,
@@ -198,13 +177,7 @@ private fun ComicTopTab(
     }
 }
 
-/**
- * banner 横滑行：站内作品页链接可直达详情，其余链接点击忽略（v1 不内嵌网页）。
- *
- * @param banners banner 列表
- * @param onOpenWork 进详情回调
- * @return 无返回值
- */
+/** banner 横滑行：站内作品页链接可直达详情，其余链接点击忽略（v1 不内嵌网页）。 */
 @Composable
 private fun ComicBannerRow(banners: List<ComicBanner>, onOpenWork: (Long) -> Unit) {
     LazyRow(
@@ -231,16 +204,6 @@ private fun ComicBannerRow(banners: List<ComicBanner>, onOpenWork: (Long) -> Uni
     }
 }
 
-/**
- * 「排行」页：模式分段（周榜 / 人气）+ 分类标签横滑 + 榜单网格。
- *
- * @param ranking 排行数据状态
- * @param onOpenWork 进详情回调
- * @param onSelectMode 切换模式
- * @param onSelectLabel 切换标签
- * @param onRetry 整页重试
- * @return 无返回值
- */
 @Composable
 private fun ComicRankingTab(
     ranking: ComicRankingState,
@@ -313,8 +276,7 @@ private fun ComicRankingTab(
     }
 }
 
-/** 榜单网格列数（手机 3 列，平板由 AdaptiveContentBox 限宽后仍适用）。 */
+/** 平板由 AdaptiveContentBox 限宽后仍适用。 */
 private const val GRID_COLUMNS = 3
 
-/** banner 卡基准宽（横滑行内的固定宽度，比例按元数据自适应）。 */
 private val BANNER_WIDTH = 280.dp

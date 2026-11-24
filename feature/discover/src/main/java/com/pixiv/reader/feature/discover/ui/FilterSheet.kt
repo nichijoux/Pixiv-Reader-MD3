@@ -74,7 +74,6 @@ import com.pixiv.reader.core.ui.theme.SettingAccentTeal
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/** 筛选面板二级页面（对齐 Pixiv-Shaft V3：主 sheet 行式列表，点击行切到对应 picker）。 */
 private sealed interface Picker {
     data class Simple(
         val title: String,
@@ -90,21 +89,6 @@ private sealed interface Picker {
     data object Other : Picker
 }
 
-/**
- * 高级筛选底部面板（对齐 Pixiv-Shaft V3 交互）：
- * 主视图 = 行式列表（检索范围/排序/…/其他条件），行右侧显示当前值摘要，点击行弹对应 picker；
- * 底部全宽「搜索」按钮一次生效。行按类型显隐（插画/小说专属维度）。
- *
- * @param filters 打开面板时的筛选条件
- * @param type 当前搜索类型
- * @param toolOptions 可用的绘制工具
- * @param genreOptions 可用的小说题材
- * @param langOptions 可用的作品语言
- * @param isPremium 当前账号是否为会员
- * @param onDismiss 关闭筛选面板的回调
- * @param onApply 提交筛选草稿的回调
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FilterBottomSheet(
@@ -121,9 +105,7 @@ internal fun FilterBottomSheet(
     var picker by remember { mutableStateOf<Picker?>(null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-    // 主面板 ↔ 二级 picker 切换动画：前进（进 picker）右滑入、返回（回主面板）左滑入，无跳变。
-    // Expressive 弹簧：位移走 spatial 档（进入带弹性 / 退出快吸附）、透明度走 effects 快档；
-    // transitionSpec 非组合上下文，规格在组合期先取好再闭包捕获
+    // transitionSpec 非组合上下文，动效规格需在组合期提前读取
     val slideInSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     val slideOutSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
     val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
@@ -198,7 +180,6 @@ internal fun FilterBottomSheet(
                     min = draft.bodyLengthMin,
                     max = draft.bodyLengthMax,
                     onPick = { unit, min, max ->
-                        // 预设与自定义范围均先写入草稿，搜索按钮统一提交。
                         draft = draft.copy(
                             bodyLengthUnit = unit.takeIf { it >= 0 },
                             bodyLengthMin = min, bodyLengthMax = max,
@@ -227,10 +208,6 @@ internal fun FilterBottomSheet(
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// 主视图：行式列表 + 底部「搜索」
-// ──────────────────────────────────────────────────────────────────────────
-
 @Composable
 private fun MainFilterContent(
     draft: SearchFilters,
@@ -245,7 +222,7 @@ private fun MainFilterContent(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // 行点击后弹出的 picker 参数全部在此（composable 上下文）预先算好
+    // onClick 非组合上下文，所有 picker 文案需在组合期提前构造
     val isNovel = type == SearchType.NOVEL
     val targetPicker = Picker.Simple(
         stringResource(R.string.filter_row_target),
@@ -333,7 +310,6 @@ private fun MainFilterContent(
     )
 
     Column(modifier = Modifier.padding(bottom = Spacing.xl)) {
-        // 标题行：标题 + 关闭
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -358,7 +334,6 @@ private fun MainFilterContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.lgPlus),
         ) {
-            // A 段：检索范围 / 排序方式
             FilterCard(
                 icon = Icons.Filled.Tune,
                 accent = SettingAccentBlue,
@@ -376,7 +351,6 @@ private fun MainFilterContent(
                     onOpenPicker(sortPicker)
                 }
             }
-            // B 段：内容条件（按类型显隐）
             FilterCard(
                 icon = Icons.Filled.FilterAlt,
                 accent = SettingAccentTeal,
@@ -437,10 +411,8 @@ private fun MainFilterContent(
                     }
                 }
             }
-            // C 段：其他条件
             FilterCard(
                 icon = Icons.Filled.MoreHoriz,
-                // 中性色：不参与七色点缀，保持与其他两组区分但视觉更轻
                 accent = MaterialTheme.colorScheme.onSurfaceVariant,
             ) {
                 FilterRow(stringResource(R.string.filter_row_other), otherSummary(draft, type)) {
@@ -449,7 +421,6 @@ private fun MainFilterContent(
             }
         }
 
-        // 底部操作：重置 + 搜索
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -476,17 +447,7 @@ private fun MainFilterContent(
     }
 }
 
-/**
- * 筛选分组卡片（Material surfaceContainer，圆角 16dp，组内行分隔）。
- *
- * 可选在卡片顶部渲染彩色图标徽标作为分组标记；彩色风格关闭时经 resolveAccent 回退主题单色。
- *
- * @param modifier 外部 Modifier
- * @param icon 分组图标；null 不渲染徽标（保持纯行式列表）
- * @param accent 图标徽标点缀色（[Color.Unspecified] 时由徽标组件回退主题 primary）
- * @param content 卡片内容（通常为若干 [FilterRow]）
- * @return 无返回值
- */
+// 分组图标点缀色由 AccentIconBadge 经 resolveAccent 解析，彩色风格关闭时回退主题主色
 @Composable
 private fun FilterCard(
     modifier: Modifier = Modifier,
@@ -502,7 +463,6 @@ private fun FilterCard(
             .padding(bottom = Spacing.md),
     ) {
         Column {
-            // 分组徽标行：仅 icon 非空时出现，作为卡片顶部左侧的分组标记
             if (icon != null) {
                 Row(
                     modifier = Modifier.padding(
@@ -527,7 +487,6 @@ private fun FilterCard(
     }
 }
 
-/** 筛选行：标题 + 当前值摘要 + 右箭头（卡片内样式）。 */
 @Composable
 private fun FilterRow(title: String, value: String, onClick: () -> Unit) {
     Column(
@@ -558,10 +517,6 @@ private fun FilterRow(title: String, value: String, onClick: () -> Unit) {
         HorizontalDivider(modifier = Modifier.padding(top = 13.dp), thickness = 0.5.dp)
     }
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-// 通用单选列表 picker（对齐 Shaft SimplePickerSheet；headerIndices 渲染分段标题）
-// ──────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun PickerListContent(
@@ -633,10 +588,6 @@ private fun PickerListContent(
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// 投稿期间 picker（对齐 Shaft DurationPickerSheet：不限/5 相对档/指定期间）
-// ──────────────────────────────────────────────────────────────────────────
-
 @Composable
 private fun DurationPickerContent(
     durationBucket: String?,
@@ -674,10 +625,6 @@ private fun DurationPickerContent(
         onClose = onClose,
     )
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-// 指定期间 picker（起/止日期，M3 DatePicker；选完自动续弹下一天）
-// ──────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -777,20 +724,6 @@ private fun DateFieldRow(label: String, value: String?, onClick: () -> Unit) {
     HorizontalDivider(thickness = 0.5.dp)
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// 正文长度 picker（对齐 Shaft：一段单选列表，文字数/单词数/阅读用时三组 × 4 预设 + 指定）
-// ──────────────────────────────────────────────────────────────────────────
-
-/**
- * 显示三种正文长度的预设档位，并按所选单位打开自定义范围。
- *
- * @param unit 草稿中现有的长度单位
- * @param min 草稿中现有的下限
- * @param max 草稿中现有的上限
- * @param onPick 保存单位与上下限的回调
- * @param onClose 关闭长度选择页的回调
- * @return 无返回值
- */
 @Composable
 private fun BodyLengthPickerContent(
     unit: Int?,
@@ -838,16 +771,6 @@ private fun BodyLengthPickerContent(
     }
 }
 
-/**
- * 收集可选的正文长度上下限，并在确认前校验输入。
- *
- * @param unit 长度单位（0 字符数，1 单词数，2 阅读分钟）
- * @param initialMin 同单位的已选下限
- * @param initialMax 同单位的已选上限
- * @param onDismiss 取消输入的回调
- * @param onConfirm 提交有效上下限的回调
- * @return 无返回值
- */
 @Composable
 private fun BodyLengthRangeDialog(
     unit: Int,
@@ -858,7 +781,6 @@ private fun BodyLengthRangeDialog(
 ) {
     var minInput by remember { mutableStateOf(initialMin?.toString().orEmpty()) }
     var maxInput by remember { mutableStateOf(initialMax?.toString().orEmpty()) }
-    // 空白表示不限制该端点；非空必须能转为接口接受的正整数。
     val min = minInput.trim().toIntOrNull()?.takeIf { it > 0 }
     val max = maxInput.trim().toIntOrNull()?.takeIf { it > 0 }
     val invalidMin = minInput.isNotBlank() && min == null
@@ -942,22 +864,13 @@ private fun bodyLengthSelectedIdx(unit: Int?, min: Int?, max: Int?): Int = when 
     else -> 0
 }
 
-/**
- * 将单选项映射为预设范围或对应单位的自定义输入。
- *
- * @param idx 选择项的列表位置
- * @param onPick 应用预设上下限的回调
- * @param onPickCustom 打开指定单位的输入对话框的回调
- * @return 无返回值
- */
 private fun handleBodyLengthPick(
     idx: Int,
     onPick: (Int, Int?, Int?) -> Unit,
     onPickCustom: (Int) -> Unit,
 ) {
-    // 自定义行只打开输入框，确认前不修改草稿。
     when (idx) {
-        0 -> onPick(-1, null, null)  // 不限
+        0 -> onPick(-1, null, null) // -1 表示不限（清空 unit）
         in 2..5 -> {
             val b = CHAR_BUCKETS[idx - 2]
             onPick(0, b.min, b.max)
@@ -978,10 +891,6 @@ private fun handleBodyLengthPick(
         18 -> onPickCustom(2)
     }
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-// 其他条件 picker（对齐 Shaft OtherFilterSheet：AI 三选一 + R18 三选一 + 工具(插画) + 开关(小说)）
-// ──────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun OtherPickerContent(
@@ -1042,14 +951,12 @@ private fun OtherPickerContent(
                 .padding(horizontal = Spacing.lgPlus)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // 分组标题统一走共享 SectionTitle；保留原 labelLarge + primary 的强调层级与顶部间距
             SectionTitle(
                 text = stringResource(R.string.filter_ai),
                 modifier = Modifier.padding(top = Spacing.lg),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
-            // AI 三选一（全 App 统一胶囊分段）
             val aiOptions = listOf(
                 AiFilter.ALL to R.string.filter_all,
                 AiFilter.HUMAN_ONLY to R.string.filter_ai_human,
@@ -1112,7 +1019,6 @@ private fun OtherPickerContent(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
-            // R18 三选一（全 App 统一胶囊分段）
             val r18Options = listOf(
                 R18Filter.ALL to R.string.filter_all,
                 R18Filter.SAFE_ONLY to R.string.filter_r18_safe,
@@ -1160,10 +1066,6 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-// 摘要文案（composable 内 stringResource）与档位常量
-// ──────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun targetSummary(target: String): String = stringResource(
@@ -1346,8 +1248,6 @@ private fun otherSummary(f: SearchFilters, type: SearchType): String {
     if (isNovel && f.isReplaceableOnly == true) flags += stringResource(R.string.filter_replaceable_only)
     return if (flags.isEmpty()) stringResource(R.string.filter_other_none) else flags.joinToString(" · ")
 }
-
-// ── 档位常量 ──
 
 private val ILLUST_TARGETS =
     listOf("partial_match_for_tags", "exact_match_for_tags", "title_and_caption")

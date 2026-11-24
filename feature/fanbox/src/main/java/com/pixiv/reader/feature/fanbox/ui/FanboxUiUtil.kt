@@ -4,13 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 
-/**
- * FANBOX ISO 时间截断展示（`2026-08-01T12:34:56+09:00` → `2026-08-01 12:34`）。
- * 首页投稿卡 / 帖子 header / 评论行共用。
- *
- * @param iso 服务端原始时间串
- * @return 截断时间；入参异常原样返回
- */
+/** ISO 时间截断展示（`2026-08-01T12:34:56+09:00` → `2026-08-01 12:34`），入参异常原样返回。 */
 internal fun formatFanboxDate(iso: String?): String {
     if (iso.isNullOrBlank()) return ""
     return runCatching {
@@ -19,16 +13,7 @@ internal fun formatFanboxDate(iso: String?): String {
     }.getOrDefault(iso)
 }
 
-/**
- * FANBOX 链接统一路由（PRD FR-8）：fanbox.cc（含子域）→ App 内可见 WebView；站外 → 系统浏览器。
- * 帖子详情全屏页 / 平板详情 pane 共用。
- *
- * @param context 用于发起站外浏览器 Intent 的 Context
- * @param url 目标链接
- * @param title WebView 标题（fanbox.cc 域内跳转时展示）
- * @param onOpenWeb 打开 App 内可见 WebView（url, title）
- * @return 无返回值
- */
+/** fanbox.cc（含子域）进 App 内可见 WebView，站外走系统浏览器。 */
 internal fun openFanboxLink(
     context: Context,
     url: String,

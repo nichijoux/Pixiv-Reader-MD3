@@ -3,10 +3,6 @@ package com.pixiv.reader.core.database.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-/**
- * 小说阅读进度（字符级）。
- * 同一系列下按 chapter_order 排序，char_offset 记录当前章节内滚动到的字符位置。
- */
 @Entity(tableName = "reading_progress")
 data class ReadingProgressEntity(
     @PrimaryKey val novelId: Long,

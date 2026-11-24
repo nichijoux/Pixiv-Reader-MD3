@@ -45,20 +45,6 @@ import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/**
- * 系列卡片数据（数据驱动：用户页系列列表 / 追更列表共用）。
- *
- * @param title 系列标题
- * @param caption 简介（用户页系列简介；追更场景无简介不传）
- * @param coverUrl 封面 URL（null 用 [SeriesBookCover] 图标容器兜底）
- * @param partsCount 已发布篇数（叠加显示在封面底部信息条）
- * @param totalChars 总字数（叠加显示在封面底部信息条，<=0 不显示）
- * @param isConcluded 连载状态（null 不显示状态徽章，徽章在封面左上角）
- * @param watchlisted 是否已追更（显示「已追更」徽章，封面左上角；追更列表全量追更可不传）
- * @param authorName 作者名称（null/空白不显示作者行）
- * @param authorAvatarUrl 作者头像 URL
- * @param updatedAt 最近更新时间（作者行右侧，icon + 日期）
- */
 data class SeriesCardData(
     val title: String,
     val caption: String? = null,
@@ -72,18 +58,6 @@ data class SeriesCardData(
     val updatedAt: String? = null,
 )
 
-/**
- * 系列卡片：封面 96x128（左上角状态徽章 + 底部 [icon] N 篇 [icon] N 字信息条），
- * 右侧列撑满封面高度（`height(IntrinsicSize.Min)` + `fillMaxHeight`）：
- * **标题顶对齐封面顶部**，`Spacer(weight 1f)` 弹性占位后 **作者行（头像+名称+更新时间）抵底对齐封面底部**。
- * 原实现位于 feature:user 用户页系列分区（内部组件），为供小说追更页复用上移到 core:ui。
- *
- * @param data 卡片展示数据（标题/封面/篇数字数/章节状态/作者行）
- * @param onClick 点击卡片回调
- * @param onOpenAuthor 点击作者行回调（默认空实现）
- * @param modifier 外部传入的 Modifier（调用方可用它挂 `animateItem` 等列表动效，在其上继续追加）
- * @return 无返回值
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SeriesCard(
@@ -92,7 +66,7 @@ fun SeriesCard(
     onOpenAuthor: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // interactionSource 与整卡手势共享：pressScale 需要收到 pressed 态
+    // 共享 interactionSource：pressScale 须与 clickable 共用 source 才能收到 pressed 态
     val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
@@ -109,7 +83,6 @@ fun SeriesCard(
             .padding(Spacing.mdPlus),
         verticalAlignment = Alignment.Top,
     ) {
-        // 封面（96x128）：真实封面 / 图标兜底 + 底部半透明统计条（篇数/字数）
         Box(
             modifier = Modifier
                 .size(width = 96.dp, height = 128.dp)
@@ -127,8 +100,7 @@ fun SeriesCard(
                     iconSize = 48.dp,
                 )
             }
-            // 底部信息条：遮罩黑底 + [icon] N 篇 [icon] N 字（FlowRow 窄屏换行）；
-            // 用 ImageScrim 而非 55% 黑：白字在最浅封面上也能保证 ≥8:1 对比度
+            // 用 ImageScrim（70% 黑）而非更淡遮罩，确保浅色封面上白字对比度 ≥8:1
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -162,7 +134,7 @@ fun SeriesCard(
                 }
             }
         }
-        // 右侧列：撑满封面高度——标题顶对齐封面顶部，作者行抵底对齐封面底部
+        // 依赖外层 Row 的 IntrinsicSize.Min 定高，使作者行通过 Spacer 抵底对齐封面
         Column(
             modifier = Modifier
                 .padding(start = Spacing.mdPlus)
@@ -176,7 +148,7 @@ fun SeriesCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            // 内容简介（1 行截断，不显示完整；保证总高度不超过封面 128dp、作者行恒抵底）
+            // 简介限 1 行防总高度超出 128dp 封面，保证作者行恒抵底
             val caption = data.caption
             if (!caption.isNullOrBlank()) {
                 Text(
@@ -188,7 +160,6 @@ fun SeriesCard(
                     modifier = Modifier.padding(top = Spacing.xs),
                 )
             }
-            // 状态徽章（连载中/已完结 + 已追更，彩色药丸，FlowRow 窄屏换行）
             FlowRow(
                 modifier = Modifier.padding(top = Spacing.sm),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
@@ -220,9 +191,7 @@ fun SeriesCard(
                     )
                 }
             }
-            // 弹性占位：把作者行推到列底部（与封面底部对齐）
             Spacer(Modifier.weight(1f))
-            // 作者行：头像 + 名称 + 右侧更新时间 icon + 日期（抵底）
             if (!data.authorName.isNullOrBlank()) {
                 Row(
                     modifier = Modifier

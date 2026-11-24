@@ -25,9 +25,7 @@ import com.pixiv.reader.core.ui.theme.ReaderPaperTopBar
 import com.pixiv.reader.feature.reader.R
 
 /**
- * 阅读器主题配色（4 套）：
- * [ReaderThemeMode.DAY] / [ReaderThemeMode.PAPER] / [ReaderThemeMode.NIGHT] / [ReaderThemeMode.DEEP_BLACK]
- * 色值统一来自 core:ui/theme/Color.kt（禁止在此写裸色值）。
+ * 阅读器 4 套独立调色板（色值来自 core:ui/theme/Color.kt，禁止裸色值；正文与工具栏不得引入应用主题色渐变）。
  */
 data class ReaderThemeColors(
     val background: Color,
@@ -79,7 +77,6 @@ val READER_PAGE_MODE_NAME_RES = intArrayOf(
     R.string.reader_page_mode_paginate,
     R.string.reader_page_mode_simulation,
 )
-/** 双页显示四档文案（顺序对应 [ReaderDualPageMode.entries]）。 */
 val READER_DUAL_PAGE_NAME_RES = intArrayOf(
     R.string.reader_dual_page_off,
     R.string.reader_dual_page_always,

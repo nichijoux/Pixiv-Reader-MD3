@@ -4,19 +4,16 @@ import com.pixiv.api.Pageable
 import com.google.gson.annotations.SerializedName
 
 /**
- * FANBOX（api.fanbox.cc）数据模型，字段对齐服务端 JSON（参照 Pixiv-Shaft classic 分支
- * `ceui/pixiv/api/FanboxApi.kt` 的模型定义）。
+ * FANBOX（api.fanbox.cc）数据模型。
  *
- * 约定（防 Gson UnsafeAllocator 对缺失键给 null 打穿 Kotlin 非空类型）：
- * - 字符串 / 集合 / 对象字段一律可空（默认 null），使用处 `.orEmpty()` 兜底；
- * - 基础类型（Int / Long / Boolean）保持非空——JVM 原始类型缺失时是 0 / false，不会 NPE。
+ * Gson UnsafeAllocator 对缺失键给 null：字符串/集合/对象字段一律可空并由使用处 `.orEmpty()`
+ * 兜底；基础类型保持非空（缺失即 0 / false）。
  */
 /** post.get / post.info 响应外壳（`body.post` 为帖子对象，两者同构）。 */
 data class FanboxPostDetailResponse(
     val body: FanboxPostWrapper? = null,
 )
 
-/** [FanboxPostDetailResponse.body] 的外壳。 */
 data class FanboxPostWrapper(
     val post: FanboxPost? = null,
 )
@@ -86,7 +83,6 @@ data class FanboxPlanList(
     val plans: List<FanboxPlan>? = null,
 )
 
-/** 一档赞助方案。 */
 data class FanboxPlan(
     val id: String = "",
     val title: String? = null,
@@ -98,11 +94,9 @@ data class FanboxPlan(
 )
 
 /**
- * 一条 FANBOX 投稿。
- *
- * 列表接口（post.listHome）与元数据兜底接口（post.get）**都不返回正文**（[type]/[body]
- * 为 null），付费墙后的帖子（[isRestricted] 为 true）服务端只给封面和标题；[type] / [body]
- * / [coverImageUrl] 只有经 WebView 打 post.info 才有。
+ * 列表接口（post.listHome）与元数据兜底接口（post.get）都不返回正文，付费墙后的帖子
+ * （[isRestricted]）服务端只给封面和标题；[type]/[body]/[coverImageUrl] 只有经 WebView
+ * 打 post.info 才有。
  */
 data class FanboxPost(
     val id: String = "",
@@ -130,9 +124,8 @@ data class FanboxPost(
 /**
  * 正文。字段按 [FanboxPost.type] 分家：
  * - `article`：[blocks] + 四张 map（块里只存 id，资源去 map 里查）；
- * - `image`：[text] + [images]；`file`：[text] + [files]；`text`：只有 [text]；
- * - `video`：[text] + 外链视频（原生不播，仅展示文字与占位）；
- * - `entry`：[html] 整段富文本。
+ * - `image`：[text]/[images]；`file`：[text]/[files]；`text`：只有 [text]；
+ * - `video`：[text] + 外链（原生不播，仅展示文字与占位）；`entry`：[html] 整段富文本。
  *
  * 受限帖（未赞助）服务端整块给 null——有 post 无 body 是正常态，不是解析失败。
  */
@@ -149,7 +142,7 @@ data class FanboxPostBody(
 )
 
 /**
- * 正文块（article 类型）。[type] 取值 `p` / `header` / `image` / `file` / `embed` /
+ * 正文块（article 类型）：[type] 为 `p` / `header` / `image` / `file` / `embed` /
  * `url_embed`，每种只填自己那一个资源 id 字段。
  */
 data class FanboxBlock(
@@ -177,7 +170,6 @@ data class FanboxBlockLink(
     val url: String? = null,
 )
 
-/** 正文图片资源。 */
 data class FanboxImage(
     val id: String? = null,
     val extension: String? = null,
@@ -187,7 +179,6 @@ data class FanboxImage(
     val thumbnailUrl: String? = null,
 )
 
-/** 正文附件资源。 */
 data class FanboxFile(
     val id: String? = null,
     val name: String? = null,
@@ -204,8 +195,8 @@ data class FanboxEmbed(
 )
 
 /**
- * 新式嵌入。[type] 为 `default` 时才有 [url]；`fanbox.post` / `fanbox.creator` 指向站内，
- * `html` / `html.card` 是一段 HTML——后几种统一按「打不开的卡片」占位处理。
+ * 新式嵌入：[type] 为 `default` 时才有 [url]；`fanbox.post` / `fanbox.creator` 指向站内，
+ * `html` / `html.card` 是一段 HTML。后几种统一按「打不开的卡片」占位处理。
  */
 data class FanboxUrlEmbed(
     val id: String? = null,
@@ -221,7 +212,6 @@ data class FanboxUser(
     val iconUrl: String? = null,
 )
 
-/** 列表接口的结构化封面。 */
 data class FanboxCover(
     val type: String? = null,
     val url: String? = null,
@@ -241,7 +231,6 @@ data class FanboxCreator(
     val category: String? = null,
 )
 
-/** 创作者主页展示图。 */
 data class FanboxProfileItem(
     val id: String? = null,
     val type: String? = null,

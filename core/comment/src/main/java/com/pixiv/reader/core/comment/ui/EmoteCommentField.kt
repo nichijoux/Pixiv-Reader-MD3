@@ -30,12 +30,11 @@ import com.pixiv.reader.core.comment.data.EmoteSegment
 import com.pixiv.reader.core.comment.data.encodeEmoteDraft
 import com.pixiv.reader.core.comment.data.toDraftText
 
-/** 输入框内行内表情图边长（对齐渲染侧 pixiv 网页 24px）。 */
+/** 对齐渲染侧 pixiv 网页的 24px */
 private const val EMOTE_SIZE_DP = 24f
 
 /**
- * 评论富文本输入框控制器：持有内部 [EditText] 引用，供表情面板在光标位置插入表情。
- * 通过 [androidx.compose.runtime.remember] 创建后传入 [EmoteCommentField]。
+ * 持有内部 [EditText] 引用，供表情面板在光标位置插入表情；经 remember 创建后传入 [EmoteCommentField]。
  */
 class EmoteFieldHandle internal constructor() {
     internal var view: EditText? = null
@@ -43,12 +42,10 @@ class EmoteFieldHandle internal constructor() {
     /** 程序化改写缓冲区时置 true，抑制 TextWatcher 回环上报。 */
     internal var applying = false
 
-    /** 最近一次接收/上报的草稿文本，用于双向同步去重。 */
     internal var latestDraft: String = ""
 
     /**
-     * 在光标处插入一个文本表情（选区非空则替换选区）。
-     * @return 插入后的完整草稿文本（调用方转交 onDraftChange 同步外部状态）；视图未就绪或标签非法返回 null
+     * 视图未就绪或标签非法时返回 null；返回值为插入后的完整草稿（调用方转交 onDraftChange 同步外部状态）。
      */
     fun insertEmote(tag: String): String? {
         val et = view ?: return null
@@ -70,18 +67,11 @@ class EmoteFieldHandle internal constructor() {
 }
 
 /**
- * 评论富文本输入框：AndroidView 包装原生 [EditText]，缓冲区内每个文本表情/回复提及为
- * 1 个 [EMOTE_SENTINEL] 占位字符 + Span——中文拼音组合输入、光标与选区均为原生行为，
- * 退格一次即整块删除。对外仍以含 `(tag)` / `@昵称 ` 的纯文本草稿经 [onDraftChange]
- * 双向同步（发布 API 协议不变）；表情图经 Coil 全局 loader（带 Referer）异步加载。
+ * AndroidView 包装原生 [EditText]：中文拼音组合输入、光标与选区均为原生行为；缓冲区内每个表情/提及为
+ * 1 个 [EMOTE_SENTINEL] 占位字符 + Span，退格一次即整块删除。对外仍以含 `(tag)` / `@昵称 ` 的纯文本草稿
+ * 经 [onDraftChange] 双向同步（发布 API 协议不变）；表情图经 Coil 全局 loader（带 Referer）异步加载。
  *
  * 视觉由 Compose 侧注入：容器描边在外层完成，本组件只负责文字/hint 配色。
- *
- * @param draft 外部草稿状态（含 `(tag)` 与开头 `@昵称 `）
- * @param onDraftChange 草稿变化回调（含插入表情后的回传）
- * @param hint 占位提示文案
- * @param mentionName 当前回复目标精确昵称；草稿以其 `@昵称 ` 开头时渲染为胶囊
- * @param onFieldActivated 输入框激活（获得焦点或被点按）回调：调用方收起表情面板并确保键盘弹出
  */
 @Composable
 fun EmoteCommentField(
@@ -119,7 +109,7 @@ fun EmoteCommentField(
                 onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
                     if (hasFocus) onFieldActivated()
                 }
-                // 已持有焦点时再次点按同样回调（无 focus 事件，覆盖"收面板/唤起键盘"路径）
+                // 已持有焦点时再次点按同样回调（无 focus 事件，覆盖“收面板/唤起键盘”路径）
                 setOnClickListener { onFieldActivated() }
             }
         },
@@ -139,8 +129,7 @@ fun EmoteCommentField(
 // ── 缓冲区构建 / 解析 ─────────────────────────────────────────
 
 /**
- * 外部草稿 → 重建编辑缓冲区：`(tag)` 段落挂行内图 Span、`@提及` 段落挂胶囊 Span。
- * 仅在外部变更时调用（watcher 已被 [EmoteFieldHandle.applying] 抑制），光标置于末尾。
+ * 仅在外部草稿变更时调用（watcher 已被 [EmoteFieldHandle.applying] 抑制），光标置于末尾。
  */
 private fun applyDraft(
     handle: EmoteFieldHandle,
@@ -175,7 +164,7 @@ private fun applyDraft(
     }
 }
 
-/** 缓冲区 → 草稿段落序列：占位字符按 Span 还原，孤儿占位符丢弃。 */
+/** 占位字符按 Span 还原，孤儿占位符丢弃。 */
 internal fun Editable.toSegments(): List<EmoteSegment> {
     val segments = mutableListOf<EmoteSegment>()
     val textBuffer = StringBuilder()
@@ -208,12 +197,10 @@ internal fun Editable.toSegments(): List<EmoteSegment> {
     return segments
 }
 
-/** 缓冲区 → 草稿文本（复用 core:common 序列化）。 */
 internal fun Editable.toDraftText(): String = toSegments().toDraftText()
 
 // ── Span 定义 ────────────────────────────────────────────────
 
-/** 在 [sb] 的 [start] 处挂载文本表情行内图 Span，并经 Coil 异步加载图片。 */
 private fun attachEmoteSpan(sb: SpannableStringBuilder, start: Int, tag: String, et: EditText) {
     val sizePx = (EMOTE_SIZE_DP * et.resources.displayMetrics.density).toInt()
     val swap = SwapDrawable(FixedSizeTransparentDrawable(sizePx))
@@ -245,7 +232,6 @@ private fun attachEmoteSpan(sb: SpannableStringBuilder, start: Int, tag: String,
     )
 }
 
-/** 在 [sb] 的 [start] 处挂载回复提及胶囊 Span（颜色随当前主题快照固定）。 */
 private fun attachMentionSpan(
     sb: SpannableStringBuilder,
     start: Int,
@@ -264,7 +250,7 @@ private fun attachMentionSpan(
     sb.setSpan(span, start, start + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 }
 
-/** 固定尺寸透明占位图：intrinsic 为正，加载前即保持行内宽度稳定。 */
+/** 占位图 intrinsic 为正，图片未加载完成时行内宽度就不会塌缩。 */
 private class FixedSizeTransparentDrawable(private val sizePx: Int) : Drawable() {
     override fun draw(canvas: Canvas) {}
 
@@ -280,15 +266,15 @@ private class FixedSizeTransparentDrawable(private val sizePx: Int) : Drawable()
     override fun getIntrinsicHeight(): Int = sizePx
 }
 
-/** 文本表情行内图 Span：携带标签用于反向序列化。 */
+/** 携带标签用于反向序列化。 */
 private class EmoteImageSpan(drawable: Drawable, val tag: String) : ImageSpan(drawable)
 
-/** 回复胶囊显示名最大字符数（超出截断加省略号；序列化仍用全名，payload 不受影响）。 */
+/** 超出截断加省略号；序列化仍用全名，payload 不受影响。 */
 private const val CHIP_MAX_NAME_LENGTH = 10
 
 /**
- * 回复提及胶囊（`@昵称`）：[ReplacementSpan] 实时绘制圆角底 + 昵称文本（字号略小于正文、
- * 超长显示名截断），单占位字符、一次退格整体删除；通过撑高 FontMetrics 容纳胶囊背景。
+ * 回复提及胶囊（`@昵称`）：[ReplacementSpan] 实时绘制圆角底 + 昵称，单占位字符、一次退格整体删除；
+ * 通过撑高 FontMetrics 容纳胶囊背景。
  */
 private class ReplyChipSpan(
     val name: String,
@@ -347,12 +333,10 @@ private class ReplyChipSpan(
     private fun width(): Float = textPaint.measureText("@$label") + hPad * 2
 
     private companion object {
-        /** 胶囊字号相对编辑器字号的缩放。 */
         const val CHIP_TEXT_SCALE = 0.82f
     }
 }
 
-/** 可热替换的转发 Drawable：表情位图异步加载完成后替换内部实现并刷新视图。 */
 private class SwapDrawable(initial: Drawable) : Drawable() {
     var delegate: Drawable = initial
         set(value) {

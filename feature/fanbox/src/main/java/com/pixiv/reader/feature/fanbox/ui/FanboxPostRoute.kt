@@ -66,15 +66,8 @@ import com.pixiv.reader.feature.fanbox.state.FanboxPostState
 import com.pixiv.reader.feature.fanbox.state.FanboxPostViewModel
 
 /**
- * FANBOX 帖子详情：header（封面 / 标题 / 创作者）→ 正文段（post.info，失败退 post.get
- * 仅元数据）→ 受限帖赞助方案 → 评论（楼中楼）。各段独立失败不塌整页。
- *
- * 链接路由（PRD FR-8）：fanbox.cc 域进可见 WebView，站外走系统浏览器。
- *
- * @param onBack 返回上一页
- * @param onOpenWeb 打开 App 内可见 WebView（url, title）
- * @param onOpenImage 打开全屏图片预览（url, title）
- * @param viewModel 页面状态
+ * header → 正文段（post.info，失败退 post.get 仅元数据）→ 受限帖赞助方案 → 评论，
+ * 各段独立失败不塌整页。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,11 +84,10 @@ fun FanboxPostRoute(
     UiMessageEffect(viewModel.message, notificationHost)
     val context = LocalContext.current
 
-    // 帖子网页地址（兜底「在网页中打开」与外链路由共用判定）
+    // 兜底「在网页中打开」与外链路由共用
     val postUrl = "${FanboxHeaderInterceptor.FANBOX_URL}posts/${viewModel.postId}"
     val title = postState.post?.title.orEmpty().ifEmpty { stringResource(R.string.fanbox_post_title) }
 
-    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器（共享实现见 [openFanboxLink]）。 */
     fun openLink(url: String) = openFanboxLink(context, url, title, onOpenWeb)
 
     Scaffold(
@@ -134,18 +126,7 @@ fun FanboxPostRoute(
     }
 }
 
-/**
- * 帖子详情内容块（不含 Scaffold/TopAppBar）：全屏路由与平板详情 pane 共用。
- *
- * @param postState 详情状态（元数据 + 正文段）
- * @param plansState 赞助方案段状态
- * @param commentsState 评论段状态
- * @param onRetry 整页重试
- * @param onOpenWeb 打开可见 WebView
- * @param onOpenImage 打开全屏图片
- * @param openLink 站内/站外链接统一路由
- * @param modifier 外部传入的 Modifier（通常带 padding）
- */
+/** 全屏路由与平板详情 pane 共用的内容块。 */
 @Composable
 internal fun FanboxPostContent(
     postState: FanboxPostState,
@@ -198,7 +179,6 @@ internal fun FanboxPostContent(
     }
 }
 
-/** 详情 header：封面 + 标题 + 创作者行（点击进创作者网页）。 */
 @Composable
 private fun PostHeader(post: FanboxPost, onOpenWeb: (String, String) -> Unit) {
     val fallbackTitle = stringResource(R.string.fanbox_post_title)
@@ -253,7 +233,7 @@ private fun PostHeader(post: FanboxPost, onOpenWeb: (String, String) -> Unit) {
     }
 }
 
-/** 正文前置提示：受限帖说明 / 元数据兜底说明 / 均正常则不渲染。 */
+/** 受限帖说明与元数据兜底说明共用；均正常则不渲染。 */
 @Composable
 private fun BodyNotice(postState: FanboxPostState) {
     val post = postState.post ?: return
@@ -283,9 +263,6 @@ private fun BodyNotice(postState: FanboxPostState) {
     }
 }
 
-/**
- * 单个正文段渲染：段落（链接/加粗）/ 标题 / 图片（点击全屏）/ 附件 / 嵌入占位。
- */
 @Composable
 private fun SectionContent(
     section: FanboxSection,
@@ -306,7 +283,7 @@ private fun SectionContent(
     }
 }
 
-/** 段落：链接（fanbox.cc 进 WebView / 站外系统浏览器）与加粗区间内联渲染。 */
+/** fanbox.cc 链接进 WebView，站外走系统浏览器；加粗区间内联渲染。 */
 @Composable
 private fun ParagraphText(section: FanboxSection.Paragraph, openLink: (String) -> Unit) {
     val linkColor = MaterialTheme.colorScheme.primary
@@ -517,7 +494,6 @@ private fun PlansSection(
     }
 }
 
-/** 评论段：锁定（赞助门槛）/ 加载 / 空 / 列表（楼中楼缩进）。 */
 @Composable
 private fun CommentsSection(state: FanboxCommentsState) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.lg)) {
@@ -574,7 +550,6 @@ private fun LockedNotice() {
     }
 }
 
-/** 评论行：头像 + 名字 + 时间 + 内容；楼中楼缩进展示。 */
 @Composable
 private fun CommentRow(comment: FanboxComment, indent: Boolean) {
     Row(
@@ -618,7 +593,6 @@ private fun CommentRow(comment: FanboxComment, indent: Boolean) {
     }
 }
 
-/** 16:9 封面图（header 顶部）。 */
 @Composable
 private fun PixvImage16to9(url: String, description: String?) {
     PixivImage(

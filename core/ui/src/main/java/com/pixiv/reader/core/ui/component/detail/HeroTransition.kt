@@ -20,105 +20,46 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import com.pixiv.reader.core.ui.component.image.PixivImage
 
-/**
- * hero 共享边界动画时长（ms）：固定短 tween，与路由 enter/exit 过渡的 spring 解耦。
- *
- * 不用 MotionScheme 的 spatial 弹簧——路由过渡已是 spring，两条 spring 并联会让 bounds
- * 动画在低速段拖尾，内容切换重挂后从中间态跳到终点，观感是「卡一下再猛跳」。
- */
+/** 固定短 tween 与路由 enter/exit spring 解耦：双 spring 并联会导致 bounds 拖尾后猛跳。 */
 private const val HERO_BOUNDS_MOTION_MS = 200
 
-/**
- * hero 过渡种子：卡片点击时快照封面信息，详情页加载期渲染占位图衔接 morph
- * （避免数据未到、终点无共享元素导致的「飞入空窗」）。
- *
- * @param coverUrl 卡片封面 URL（详情加载期占位图数据源；空串表示无封面，占位块留纯色底）
- * @param aspectRatio 卡片封面宽高比（`width / height`；null 表示无宽高数据，占位块按 1.5f 兜底，
- *   与 IllustPagePager 通用兜底保持一致）
- */
+/** 卡片点击时的封面快照，供详情加载期占位衔接 morph（aspectRatio 为 null 时按 1.5f 兜底）。 */
 data class HeroSeed(
     val coverUrl: String,
     val aspectRatio: Float?,
 )
 
 /**
- * hero 种子暂存（进程级单例，参照 `LocalReaderStore` 的一次性传递模式）。
- *
- * 键为 [illustCoverKey]/[novelCoverKey] 生成的共享元素 key（含类型前缀），
- * 避免插画与小说同 id 互相串用。卡片点击写入，详情加载期 `consume` 取出即删，
- * 详情路由销毁时 `clear` 兜底清残留（详情命中缓存、占位分支从未组合的情况）。
- * 仅在主线程（点击 / 组合）使用，无需加锁。
+ * 进程级一次性 hero 种子暂存（仅主线程使用，无需加锁）。
+ * 键须经 [illustCoverKey]/[novelCoverKey] 带类型前缀防串用；`consume` 取出即删，
+ * 详情路由销毁时须调 `clear` 兜底清理命中缓存未消费的残留。
  */
 object HeroSeedStore {
 
     private val seeds = mutableMapOf<String, HeroSeed>()
 
-    /**
-     * 暂存 hero 种子（同 key 覆盖）。
-     *
-     * @param key 共享元素 key（[illustCoverKey]/[novelCoverKey]）
-     * @param value 封面快照
-     * @return 无返回值
-     */
     fun seed(key: String, value: HeroSeed) {
         seeds[key] = value
     }
 
-    /**
-     * 取出并删除 hero 种子（仅一次有效，防过期残留被后续无关打开复用）。
-     *
-     * @param key 共享元素 key（[illustCoverKey]/[novelCoverKey]）
-     * @return 封面快照；未暂存过或已被取走时为 null
-     */
     fun consume(key: String): HeroSeed? = seeds.remove(key)
 
-    /**
-     * 丢弃 hero 种子（详情路由销毁时兜底清理未消费的残留）。
-     *
-     * @param key 共享元素 key（[illustCoverKey]/[novelCoverKey]）
-     * @return 无返回值
-     */
     fun clear(key: String) {
         seeds.remove(key)
     }
 }
 
-/**
- * 根级 SharedTransitionScope 下发通道（app 根部 `SharedTransitionLayout` 提供）。
- *
- * core:ui 不依赖 navigation-compose，故用 CompositionLocal 下发；无提供者（预览 / 测试 /
- * 未包根布局）时为 null，[heroBoundsModifier] 退化为普通 Modifier，组件调用方零改动。
- */
+/** core:ui 不依赖 navigation-compose，经此下发根级 SharedTransitionScope；未提供时 hero 退化为无操作。 */
 val LocalSharedTransitionScope = compositionLocalOf<SharedTransitionScope?> { null }
 
-/**
- * 当前导航目的地（composable 内容）的 [AnimatedVisibilityScope] 下发通道。
- *
- * 由顶层 NavHost 在详情路由 `composable {}` 内容内提供（receiver 即 AnimatedContentScope），
- * 详情侧 hero 元素据此判断「进入 / 退出」，以便跨 NavHost 层级与内层 Tab 卡片匹配。
- */
+/** 详情路由 composable 提供的可见性作用域，用于跨 NavHost 与内层 Tab 卡片匹配进出场。 */
 val LocalNavAnimatedVisibilityScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
-/**
- * 插画封面共享元素 key（卡片与详情大图用同一 key 匹配）。
- *
- * @param id 作品 id
- * @return 带类型前缀的 key
- */
 fun illustCoverKey(id: Long): String = "illust_cover_$id"
 
-/**
- * 小说封面共享元素 key（卡片与详情 banner 用同一 key 匹配）。
- *
- * @param id 小说 id
- * @return 带类型前缀的 key
- */
 fun novelCoverKey(id: Long): String = "novel_cover_$id"
 
-/**
- * 双 CompositionLocal 均可用时挂 `sharedBounds`（固定短 tween，与路由 spring 解耦），否则原样返回。
- * Tab 内搜索框等非详情路由场景需显式传入 [animatedVisibilityScope]。
- */
+/** 双 CompositionLocal 均可用时挂 `sharedBounds`，否则原样返回；Tab 内等非详情路由须显式传入 [animatedVisibilityScope]。 */
 @Composable
 fun Modifier.heroBoundsModifier(
     key: String,
@@ -127,10 +68,7 @@ fun Modifier.heroBoundsModifier(
     val sharedScope = LocalSharedTransitionScope.current ?: return this
     val visibilityScope = animatedVisibilityScope ?: LocalNavAnimatedVisibilityScope.current
         ?: return this
-    // 组合期取好动效规格：boundsTransform lambda 非组合上下文，不能读 MaterialTheme。
-    // 用固定短 tween 而非 spatial 弹簧：路由 enter 过渡本身也是 spring，两条 spring 并联时
-    // bounds 动画在低速段拖尾（封面停在中途约 400ms）后随内容切换重挂、从中间态直接跳到终点，
-    // 观感即「卡住一下再猛跳」。固定短时长让封面 morph 在路由过渡窗口内干净收敛。
+    // boundsTransform 非组合上下文，须在组合期提前构造 spec
     val boundsSpec: FiniteAnimationSpec<Rect> = tween(
         durationMillis = HERO_BOUNDS_MOTION_MS,
         easing = FastOutSlowInEasing,
@@ -144,18 +82,7 @@ fun Modifier.heroBoundsModifier(
     }
 }
 
-/**
- * 详情加载期 hero 占位封面：一次性取出卡片写入的 [HeroSeed]，按卡片比例 / 指定高度渲染封面，
- * 与卡片侧同 key 衔接 morph；数据到达后随加载分支整体销毁，真图以同 key 接棒。
- *
- * 无种子（未从卡片进入，如深链 / 平板上直接切换）时不渲染任何内容，纯骨架照常展示。
- *
- * @param key 共享元素 key（[illustCoverKey]/[novelCoverKey]）
- * @param modifier 外部 Modifier（通常用于顶部对齐）
- * @param height 固定高度（小说 banner 用）；null 时按种子宽高比自适应（插画用）
- * @param contentScale 封面填充方式（默认等比裁剪，与卡片封面一致）
- * @return 无返回值（有种子才渲染占位块）
- */
+/** 详情加载期一次性消费 [HeroSeed] 渲染占位衔接 morph；无种子（深链/平板直切）时不渲染。 */
 @Composable
 fun HeroSeedCover(
     key: String,
@@ -163,15 +90,14 @@ fun HeroSeedCover(
     height: Dp? = null,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
-    // 仅消费一次：remember 缓存结果，避免每次重组重复 consume（取出即删，二次取必为 null）
+    // remember 缓存 consume 结果：种子取出即删，避免重组二次消费拿到 null
     val seed = remember(key) { HeroSeedStore.consume(key) } ?: return
     Box(
         modifier = modifier
             .fillMaxWidth()
             .then(
                 if (height != null) Modifier.height(height)
-                // 与 IllustPagePager 通用兜底比例（1.5f）统一：seed 与 fallbackRatio 双缺的
-                // 罕见场景下，占位块与详情大图容器比例仍一致，接棒无高度跳变
+                // 1.5f 与 IllustPagePager 通用兜底一致，避免接棒高度跳变
                 else Modifier.aspectRatio(seed.aspectRatio ?: 1.5f),
             )
             .heroBoundsModifier(key),

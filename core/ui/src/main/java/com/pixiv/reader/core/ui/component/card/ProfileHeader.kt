@@ -20,30 +20,12 @@ import com.pixiv.reader.core.ui.R
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/** 个人中心数据（可复用：我的页 / 用户主页头部）。 */
 data class ProfileHeaderData(
     val name: String,
     val account: String? = null,
     val avatarUrl: String? = null,
 )
 
-/**
- * 个人中心头部（Material 主题自适应）。
- *
- * ## UI 设计方式
- * 横向 `Row`：72dp 圆形头像（可点击）+ 文本列（名称 `titleLarge` 加粗 + `@account` 次级色，
- * `weight(1f)` 占满）+ 可选操作按钮（`OutlinedButton`，如"退出登录"）。
- *
- * ## 交互
- * 点击头像/名称 → [onClickProfile]（打开用户主页）；[actionLabel]/[onAction] 同时非空时
- * 显示操作按钮（如退出登录）。
- *
- * @param profile 头部数据（名称/@account/头像 URL）
- * @param onClickProfile 点击头像或名称（打开用户主页）
- * @param modifier 外部传入的 Modifier
- * @param actionLabel 操作按钮文案；null 不显示按钮
- * @param onAction 操作按钮点击回调；null 不显示按钮
- */
 @Composable
 fun ProfileHeader(
     profile: ProfileHeaderData,
@@ -88,7 +70,6 @@ fun ProfileHeader(
     }
 }
 
-/** 便捷构造：由 User 模型生成 ProfileHeaderData。 */
 fun ProfileHeaderData(user: User?): ProfileHeaderData = ProfileHeaderData(
     name = user?.name.orEmpty(),
     account = user?.account,

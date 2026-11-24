@@ -5,10 +5,6 @@ import com.pixiv.api.model.AccountResponse
 import com.google.gson.Gson
 import com.tencent.mmkv.MMKV
 
-/**
- * 基于 MMKV 的会话持久化实现。
- * 存 access_token / refresh_token / user（Gson 序列化），以及网页 Cookie。
- */
 class MmkvSessionStore(private val mmkv: MMKV) : SessionStore {
 
     private val gson = Gson()

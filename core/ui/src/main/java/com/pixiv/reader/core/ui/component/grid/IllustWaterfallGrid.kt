@@ -32,32 +32,12 @@ import com.pixiv.reader.core.network.ugoira.UgoiraLoader
 import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/** 瀑布流封面高度循环（模拟不同纵横比，仅用于无宽高数据时的回退）。 */
+/** 仅在作品缺少宽高数据时作为瀑布流封面回退高度。 */
 private val CoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
 
 /**
- * 插画瀑布流（自适应列数）+ 触底加载，首页 / 搜索结果 / 收藏 / 浏览历史共用。
- *
- * ## UI 设计方式
- * `LazyVerticalStaggeredGrid` + `StaggeredGridCells.Adaptive(minColumnWidth)`：
- * 手机约 2 列，平板自动 4~5 列。内部每项渲染 [IllustCard]（封面按宽高比完整显示），
- * 并挂 `animateItem`：初始加载淡入、排序/刷新时位置平滑重排（规格取自主题 MotionScheme）。
- * `hasMore` 时网格尾部自动放一个加载 item 并触发 [onLoadMore]（无需调用方手动监听滚动）。
- *
- * @param illusts 作品列表（需含 `width/height` 以保证完整显示）
- * @param onItemClick 点击作品（参数为作品 id，通常打开详情）
- * @param onLoadMore 触底加载回调（`hasMore` 时自动触发）
- * @param hasMore 是否还有下一页
- * @param isLoadingMore 加载更多中（尾部显示加载指示器）
- * @param modifier 外部传入的 Modifier（默认 `fillMaxSize`）
- * @param contentPadding 网格内容边距
- * @param minColumnWidth 每列最小宽度（决定自适应列数）
- * @param onToggleFavorite 收藏切换回调（参数为 id + 目标状态）；null 则卡片不显示收藏按钮
- * @param onOpenUser 作者行点击回调（参数为作者用户 id；null 则卡片作者行不可点）
- * @param ugoiraLoader 动图加载器；非空时网格内 ugoira 卡片封面播放动画（透传 [IllustCard]）；null 恒静态
- * @param header 网格头部内容（整行跨列，随列表滚动，如排行榜入口 banner）；null 不显示
- * @param scrollToTopKey 回顶信号：key 相对上次组合变化时网格滚回首项（主壳「再次点击当前 tab」用）；
- *   首次组合仅记录不触发；默认 0 恒不触发
+ * 自适应列数插画瀑布流（[illusts] 需含 width/height 否则封面按回退高度裁切）；
+ * [scrollToTopKey] 仅在相对上次组合变化时滚回首项（首次组合不触发）。
  */
 @Composable
 fun IllustWaterfallGrid(
@@ -77,16 +57,14 @@ fun IllustWaterfallGrid(
     minColumnWidth: Dp = 160.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,
     onOpenUser: ((Long) -> Unit)? = null,
-    // 作品标签点击 → 跳发现页搜索该标签；null 卡片不展示标签行
     onTagClick: ((String) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
     header: (@Composable () -> Unit)? = null,
     scrollToTopKey: Int = 0,
 ) {
     val gridState: LazyStaggeredGridState = rememberLazyStaggeredGridState()
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    // 组合期捕获动效方案：items lambda 非组合上下文
     val motionScheme = MaterialTheme.motionScheme
-    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {
         if (scrollToTopKey != lastScrollKey) {
@@ -111,7 +89,7 @@ fun IllustWaterfallGrid(
             items = illusts,
             key = { it.id },
         ) { illust ->
-            // 避免负 ID 取模产生负数索引导致越界崩溃。
+            // 用 mod 避免负 ID 取余产生负数索引越界
             val coverHeight: Dp = CoverHeights[illust.id.mod(CoverHeights.size)]
             IllustCard(
                 illust = illust,
@@ -125,14 +103,12 @@ fun IllustWaterfallGrid(
                 ugoiraLoader = ugoiraLoader,
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 条目进场淡入 + 排序/刷新时的位置平滑过渡（动效规格取自主题 MotionScheme）
                     .animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
                     ),
             )
         }
-        // 分页尾部横向占满全列并透传错误状态，便于失败时手动重试。
         loadMoreFooter(
             hasMore = hasMore,
             isLoadingMore = isLoadingMore,

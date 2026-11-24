@@ -11,17 +11,19 @@ import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
-/** 通知分组子列表（/v1/notification/view-more，按组头通知 id 拉取，next_url 翻页）。 */
+/**
+ * 按组头通知 id 拉取子列表（/v1/notification/view-more）。
+ */
 @HiltViewModel
 class NotificationGroupViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val pixivRepository: PixivRepository,
 ) : ViewModel() {
 
-    /** 路由参数：分组头通知的 id。 */
+    /** 路由参数（checkNotNull：缺参即构造失败，不给错组预览）。 */
     private val groupId: Long = checkNotNull(savedStateHandle["groupId"])
 
-    /** 路由参数：组名（顶栏标题，可空）。 */
+    /** 路由参数，可空（缺省回退通用标题）。 */
     val groupTitle: String? = savedStateHandle["title"]
 
     val paged = PagedState<NotificationItem>(keySelector = { it.id })
@@ -30,7 +32,6 @@ class NotificationGroupViewModel @Inject constructor(
         load()
     }
 
-    /** 首次加载 / 错误重试。 */
     fun load() {
         viewModelScope.launch {
             paged.loadInitial(
@@ -45,7 +46,6 @@ class NotificationGroupViewModel @Inject constructor(
         }
     }
 
-    /** 触底加载下一页。 */
     fun loadMore() {
         viewModelScope.launch { paged.loadMore() }
     }

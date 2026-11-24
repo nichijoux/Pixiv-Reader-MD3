@@ -42,7 +42,6 @@ class DownloadCompletionNotifierTest {
         progress = progress,
     )
 
-    /** 按序发射状态投影快照的假 DAO（其余方法不可达）。 */
     private class FakeDao(private val snapshotsFlow: Flow<List<DownloadStatusRow>>) : DownloadEntryDao {
         constructor(snapshots: List<List<DownloadStatusRow>>) : this(flowOf(*snapshots.toTypedArray()))
 
@@ -71,7 +70,6 @@ class DownloadCompletionNotifierTest {
         override suspend fun delete(entity: DownloadEntryEntity) = throw UnsupportedOperationException()
     }
 
-    /** 记录所有系统通知调用的假输出端口。 */
     private class FakeSink : DownloadNotificationSink {
         data class ResultCall(val key: DownloadTaskKey, val title: String, val isSuccess: Boolean)
 
@@ -230,30 +228,25 @@ class DownloadCompletionNotifierTest {
         notifier.start(backgroundScope)
         runCurrent()
 
-        // 1. pending 入队 -> 立即显示不确定进度
         flow.emit(listOf(row(20, DownloadEntryEntity.STATUS_PENDING, progress = 0, title = "Art 20")))
         assertEquals(1, sink.shownProgress.size)
         assertTrue(sink.shownProgress[0].indeterminate)
 
-        // 2. 50ms 后切为 downloading -> 形态改变立即更新
         advanceTimeBy(50)
         flow.emit(listOf(row(20, DownloadEntryEntity.STATUS_DOWNLOADING, progress = 10, title = "Art 20")))
         assertEquals(2, sink.shownProgress.size)
         assertEquals(10, sink.shownProgress[1].progress)
         assertFalse(sink.shownProgress[1].indeterminate)
 
-        // 3. 150ms 后纯进度更新 -> 节流抑制，不立即发送
         advanceTimeBy(150)
         flow.emit(listOf(row(20, DownloadEntryEntity.STATUS_DOWNLOADING, progress = 35, title = "Art 20")))
         assertEquals(2, sink.shownProgress.size)
 
-        // 4. 满 500ms 尾随刷新触发 -> 补发 35%
         advanceTimeBy(500)
         runCurrent()
         assertEquals(3, sink.shownProgress.size)
         assertEquals(35, sink.shownProgress[2].progress)
 
-        // 5. 超出节流窗口后再更新 -> 立即发送
         advanceTimeBy(600)
         flow.emit(listOf(row(20, DownloadEntryEntity.STATUS_DOWNLOADING, progress = 80, title = "Art 20")))
         assertEquals(4, sink.shownProgress.size)
@@ -276,7 +269,6 @@ class DownloadCompletionNotifierTest {
         flow.emit(listOf(row(1, DownloadEntryEntity.STATUS_DOWNLOADING, progress = 60, title = "First")))
         assertEquals(60, sink.shownProgress.last().progress)
 
-        // 100ms 后增加第二个排队任务：活跃数变化立即刷新，平均进度 (60 + 0) / 2 = 30
         advanceTimeBy(100)
         flow.emit(
             listOf(
@@ -290,7 +282,6 @@ class DownloadCompletionNotifierTest {
         assertEquals(1, combined.pendingCount)
         assertEquals(30, combined.progress)
 
-        // 任务 1 失败，任务 2 开始下载 40%：撤销计数不变为 0，改为展示任务 2 且发出任务 1 失败通知
         advanceTimeBy(50)
         flow.emit(
             listOf(
@@ -323,14 +314,12 @@ class DownloadCompletionNotifierTest {
         flow.emit(listOf(row(30, DownloadEntryEntity.STATUS_DOWNLOADING, progress = 30, title = "CancelArt")))
         assertEquals(1, sink.shownProgress.size)
 
-        // 在尾随刷新触发前删除条目
         advanceTimeBy(100)
         flow.emit(emptyList())
         assertEquals(1, sink.cancelCount)
         assertFalse(notifier.hasActiveDownloads.value)
         assertTrue(sink.results.isEmpty())
 
-        // 推进超过节流时间：已取消的任务不得再次触发 showProgress
         advanceTimeBy(1_000)
         runCurrent()
         assertEquals(1, sink.shownProgress.size)

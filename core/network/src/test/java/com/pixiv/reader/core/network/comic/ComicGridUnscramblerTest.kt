@@ -4,13 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * gridshuffle 去扰纯函数单测：置换表用固定 key 锚定算法（锚点值由已验证的
- * 参考实现生成，任何算法参数变动都会被捕获）、置换合法性、洗牌-还原互逆。
- */
+/** 置换表用固定 key 锚定算法：锚点由已验证的参考实现生成，参数一变就失败。 */
 class ComicGridUnscramblerTest {
 
-    /** 真实形状的 page.key（43 位 URL-safe base64，2026-09 实测值），小网格锚点。 */
     @Test
     fun `permutation matches pinned algorithm output for test key`() {
         val perms = ComicGridUnscrambler.permutationsFor("test-key-1234", cols = 4, rows = 3)
@@ -41,7 +37,6 @@ class ComicGridUnscramblerTest {
         )
     }
 
-    /** 同 key 同形状两次生成结果一致（随机流派生确定性）。 */
     @Test
     fun `permutation is deterministic for same key`() {
         val a = ComicGridUnscrambler.permutationsFor("some-episode-key", cols = 22, rows = 32)
@@ -50,7 +45,6 @@ class ComicGridUnscramblerTest {
         assertEquals(a.map { it.toList() }, b.map { it.toList() })
     }
 
-    /** 每行都是 0..cols-1 的一个排列（无缺失 / 无重复）。 */
     @Test
     fun `each row is a valid permutation`() {
         val perms = ComicGridUnscrambler.permutationsFor("validity-key", cols = 22, rows = 8)
@@ -60,7 +54,7 @@ class ComicGridUnscramblerTest {
         }
     }
 
-    /** 洗牌（服务端方向）→ 还原（[ComicGridUnscrambler] 方向）互逆：块内容复原。 */
+    /** 服务端打乱方向与客户端还原方向互逆。 */
     @Test
     fun `scramble then restore restores original block order`() {
         val cols = 6

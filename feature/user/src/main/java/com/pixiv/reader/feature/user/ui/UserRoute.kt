@@ -63,36 +63,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * 用户主页（P5 重设计）：详情统计 + 关注/取关/拉黑 + 4 分区（插画/漫画/小说/系列）。
- * 顶部分区分段控件支持左右滑动切换（HorizontalPager），每段独立分页（PagedState 驻留 VM）。
- * 统计格可点击：插画/小说 → 滑动切段；收藏/关注 → 进入该用户的公开收藏/关注列表页。
- * 头部可折叠：列表上滑时简介与统计行收起（NestedScrollConnection 接管），
- * 头像/名称/关注·拉黑行与分区分段常驻；列表到顶下滑时折叠区先展开再滚动内容。
- *
- * ## 平板 Master-Detail
- * 点作品/小说/系列卡 → 右侧详情 pane 滑入（[ListDetailOverlay]，Scaffold 内容区内、
- * TopAppBar 下方起步，状态栏由顶栏避让）：作品卡 → core:ui [IllustDetailPane]（直接复用）；
- * 小说卡 → [novelDetailPane] 槽位、系列卡 → [seriesDetailPane] 槽位（feature:novel 的
- * 小说详情/系列 pane 由 app 组合根注入，feature 间禁止依赖，故经槽位反转）。
- * 系列 pane 内分册点击由宿主分流：pane 启用 → 切换到小说详情 pane，否则全屏路由。
- * 未启用 pane（手机竖屏）时点击回退全屏路由跳转。
- *
- * @param onBack 返回
- * @param onOpenIllust 打开作品详情（pane 未启用时的全屏路由跳转）
- * @param onOpenNovel 打开小说详情（pane 未启用时的全屏路由跳转）
- * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
- * @param onOpenCover 打开全屏大图（头部头像点击）
- * @param onOpenUser 打开用户主页
- * @param onSearchTag 标签搜索（跳发现页）
- * @param onOpenSeries 打开小说系列详情（全屏路由，系列不进 pane）
- * @param onOpenUserBookmarks 打开该用户公开收藏
- * @param onOpenUserFollowing 打开该用户关注列表
- * @param novelDetailPane 小说详情 pane 槽位（app 组合根注入；参数为选中小说 id、
- *   本页作用域的 [NovelViewModel] / [CommentListViewModel] 与「查看完整系列」回调
- *   （宿主分流 pane 内切换系列 pane / 全屏））
- * @param seriesDetailPane 小说系列 pane 槽位（app 组合根注入；参数为选中系列 id、
- *   分册点击回调（宿主分流 pane 内切换小说详情 / 全屏）与分册卡系列标题回调
- *   （宿主压栈后原地切换系列））
+ * 平板 Master-Detail：作品卡复用 core:ui [IllustDetailPane]，小说/系列 pane 经槽位由 app 组合根注入
+ * （feature 之间禁止依赖，故不直接引用）。pane 间互跳用 paneHistory 压栈，返回键逐级还原、栈空才关闭。
+ * 头部折叠由 NestedScrollConnection 接管：上滑先收简介+统计行，列表到顶后下滑先展开。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +77,7 @@ fun UserRoute(
     onOpenCover: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
-    // 小说分区标签点击（搜小说类型）；空则复用 [onSearchTag]
+    // 空则复用 [onSearchTag]
     onNovelSearchTag: ((String) -> Unit)? = null,
     onOpenSeries: (Long) -> Unit,
     onOpenMangaSeries: (Long) -> Unit,
@@ -127,7 +100,6 @@ fun UserRoute(
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    // 开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
     val followState by viewModel.followState.collectAsStateWithLifecycle()
     val isFollowed = followState.isOn
     val isFollowing = followState.inFlight
@@ -137,12 +109,11 @@ fun UserRoute(
     val section by viewModel.section.collectAsStateWithLifecycle()
     val seriesInfos by viewModel.seriesInfos.collectAsStateWithLifecycle()
 
-    // 平板 pane 选中态：作品 / 小说 / 系列互斥（关闭时全清）
+    // 三者互斥，关闭时全清
     var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedNovelId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedSeriesId by rememberSaveable { mutableStateOf<Long?>(null) }
-    // pane 间互跳返回栈（"N:小说"/"S:系列"/"I:作品"）：每次互跳压栈当前选中，
-    // 返回键逐级还原上一个 pane，栈空才关闭 pane（防互跳链被返回键一步清空）
+    // "N:小说"/"S:系列"/"I:作品" 编码：不压栈的话互跳链会被返回键一步清空
     var paneHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
     val closePane = {
         selectedIllustId = null
@@ -150,14 +121,13 @@ fun UserRoute(
         selectedSeriesId = null
         paneHistory = emptyList()
     }
-    // 互跳前压栈当前选中（调用方先 push 再切换目标）
+    // 调用方必须先压栈再切换目标
     val pushPaneHistory = {
         val current = selectedNovelId?.let { "N:$it" }
             ?: selectedIllustId?.let { "I:$it" }
             ?: selectedSeriesId?.let { "S:$it" }
         if (current != null) paneHistory = paneHistory + current
     }
-    // 返回键：栈非空逐级还原上一个选中（pane 间回退），栈空关闭 pane
     val popPaneOrClose = {
         val last = paneHistory.lastOrNull()
         if (last == null) {
@@ -174,11 +144,11 @@ fun UserRoute(
             }
         }
     }
-    // 用户页为全屏路由（无 NavigationRail），启用判定不减 rail 宽（排行页同款）
+    // 用户页为全屏路由（无 NavigationRail），故不减 rail 宽（排行页同款）
     val detailPaneEnabled = isDetailPaneEnabled(subtractRail = false)
 
     val sections = UserSection.entries
-    // Pager 状态外提持有：统计格点击（onScrollToSection）直接滚动分区；SegmentedPager 复用同一状态
+    // Pager 状态外提：统计格点击直接滚分区，SegmentedPager 复用同一状态
     val pagerState = rememberPagerState(
         initialPage = sections.indexOf(section).coerceAtLeast(0),
         pageCount = { sections.size },
@@ -231,18 +201,16 @@ fun UserRoute(
             )
         },
         snackbarHost = {
-            // 沉浸式底部：通知条自行避让系统导航栏（Scaffold 已不垫内容，无双重避让）
+            // 沉浸式底部：Scaffold 已不垫内容，通知条需自行避开系统导航栏（不会双重避让）
             NotificationHost(notificationHostState, modifier = Modifier.navigationBarsPadding())
         },
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：不再由 Scaffold 垫高内容（系统导航栏区域留给列表/详情直通，
-        // 列表尾部 contentPadding 与 pane 内部 inset 自行避让，与小说/漫画 Tab 同款）
+        // 沉浸式底部：系统导航栏区域留给列表/详情直通，由列表尾部 contentPadding 与 pane 内部 inset 自行避让
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         ListDetailOverlay(
             selected = selectedIllustId ?: selectedNovelId ?: selectedSeriesId,
             onClose = closePane,
-            // 返回键沿 pane 互跳链逐级回退，栈空才关闭
             onBack = popPaneOrClose,
             // 消费已应用的 padding，pane 内 navigationBarsPadding 按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
@@ -257,11 +225,9 @@ fun UserRoute(
                         else -> Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                // 头部折叠的嵌套滚动接管：Pager 内列表上滑先收头部，到顶下滑先展头部
                                 .nestedScroll(headerNestedScroll),
                         ) {
                             val detail = checkNotNull(user)
-                            // 第一行（头像/名称/关注·拉黑）常驻不折叠
                             UserHeaderProfileRow(
                                 user = detail,
                                 isFollowed = isFollowed,
@@ -273,8 +239,7 @@ fun UserRoute(
                                 onToggleBlock = viewModel::toggleBlock,
                                 onOpenAvatar = onOpenCover,
                             )
-                            // 折叠区：简介 + 统计行。显示高度 = 总高 - 已折叠，
-                            // 内容整体上移并裁剪（简介先收，统计行最后消失，全收后 Tab 紧贴头像行）
+                            // 显示高度 = 总高 - 已折叠，内容整体上移并裁剪（简介先收，统计行最后消失）
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -310,9 +275,7 @@ fun UserRoute(
                                     )
                                 }
                             }
-                            // 分区分段（插画 / 漫画 / 小说 / 系列）+ 分区内容：SegmentedPager 双向同步
-                            // （选中态跟 Pager 落页，点击反向滚页；滑动落页同步分区，未加载则加载该段；
-                            //   Pager 每页只 collect 自己段的状态）
+                            // 选中态跟 Pager 落页，点击反向滚页，落页同步分区（未加载则加载该段）
                             SegmentedPager(
                                 tabs = sections,
                                 state = pagerState,
@@ -323,7 +286,7 @@ fun UserRoute(
                                     when (tab) {
                                         UserSection.ILLUST -> SectionIllust(
                                             paged = viewModel.illustPaged,
-                                            // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                                            // 平板（pane 启用）→ 右栏详情；手机 → 全屏路由
                                             onOpenIllust = { id ->
                                                 if (detailPaneEnabled) selectedIllustId = id else onOpenIllust(id)
                                             },
@@ -348,7 +311,6 @@ fun UserRoute(
                                                 if (detailPaneEnabled) selectedNovelId = id else onOpenNovel(id)
                                             },
                                             onOpenUser = onOpenUser,
-                                            // 系列 pane 启用 → 进右栏；否则全屏路由
                                             onOpenSeries = { id ->
                                                 if (detailPaneEnabled) selectedSeriesId = id else onOpenSeries(id)
                                             },
@@ -378,7 +340,7 @@ fun UserRoute(
                 }
             },
             detailPane = {
-                // pane 作用域 ViewModel（本 backstack entry 级，与首页/关注页 pane 同款模式）
+                // pane 作用域 ViewModel（本 backstack entry 级，与首页/关注页 pane 同款）
                 val illustDetailVm: IllustViewModel = hiltViewModel()
                 val novelDetailVm: NovelViewModel = hiltViewModel()
                 val commentVm: CommentListViewModel = hiltViewModel()
@@ -387,7 +349,6 @@ fun UserRoute(
                         selectedNovelId,
                         novelDetailVm,
                         commentVm,
-                        // 「查看完整系列」：pane 启用 → 压栈当前选中、切换到系列 pane；否则全屏路由
                         { id ->
                             if (detailPaneEnabled) {
                                 pushPaneHistory()
@@ -400,7 +361,6 @@ fun UserRoute(
                     )
                     selectedSeriesId != null -> seriesDetailPane(
                         selectedSeriesId,
-                        // 分册点击：pane 启用 → 压栈当前选中、切换到小说详情 pane；否则全屏路由
                         { id ->
                             if (detailPaneEnabled) {
                                 pushPaneHistory()
@@ -410,7 +370,6 @@ fun UserRoute(
                                 onOpenNovel(id)
                             }
                         },
-                        // 分册卡系列标题：压栈当前选中、原地切换系列（返回键可回退）
                         { id ->
                             pushPaneHistory()
                             selectedSeriesId = id

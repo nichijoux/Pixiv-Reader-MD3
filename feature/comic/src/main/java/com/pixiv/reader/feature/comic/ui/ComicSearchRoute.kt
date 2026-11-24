@@ -49,15 +49,6 @@ import com.pixiv.reader.feature.comic.state.ComicSearchViewModel
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-/**
- * COMIC 搜索路由：顶栏内嵌搜索框（进入自动聚焦键盘），结果为作品网格 +
- * 触底翻页（服务端页号分页，由 VM 适配 PagedState）。
- *
- * @param onBack 返回回调（上层 safeBack）
- * @param onOpenWork 进作品详情（作品 id）
- * @param viewModel Hilt 注入的搜索 VM
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComicSearchRoute(
@@ -74,7 +65,7 @@ fun ComicSearchRoute(
     val notificationHost = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHost)
 
-    // 输入框本地状态：回车 / 提交才真正发搜索
+    // 输入框本地状态：回车/提交才真正发搜索。
     var input by rememberSaveable { mutableStateOf("") }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -179,11 +170,9 @@ fun ComicSearchRoute(
         }
     }
 
-    // 首次组合即聚焦输入框弹键盘
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 }
 
-/** 搜索网格列数。 */
 private const val SEARCH_GRID_COLUMNS = 3

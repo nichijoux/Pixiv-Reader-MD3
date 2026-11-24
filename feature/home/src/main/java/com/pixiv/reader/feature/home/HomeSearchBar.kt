@@ -21,12 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 /**
- * 首页搜索框：全圆药丸搜索条外观（icon + 占位文案；M3 搜索栏全圆口径）。
- * 独立组件供两处复用：首页内容区入口 + MainShell 的 hero 过渡覆盖层
- * （点击后从搜索框位置/尺寸放大到搜索页搜索栏，实现连续过渡动画）。
- *
- * @param onClick 点击回调（跳发现页）
- * @param modifier 外部修饰（首页上报 bounds 用 onGloballyPositioned 由调用方叠加）
+ * 全圆药丸搜索条。独立组件供两处复用：首页内容区入口 + MainShell 的 hero 过渡覆盖层，
+ * 两者尺寸/外观必须一致，否则 sharedBounds 过渡会跳变。
  */
 @Composable
 fun HomeSearchBar(

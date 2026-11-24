@@ -52,16 +52,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 private const val TAG = "Notification"
 
 /**
- * 通知中心：收藏 / 关注 / 评论等消息流（/v1/notification/list）。
- *
- * 整行 / 头像 / 缩略图统一按 `target_url` 解析结果跳转（数据层无独立 userId/workId 字段）；
- * `view_more != null` 的行是分组头，点击进子列表页。
- *
- * @param onBack 返回
- * @param onOpenUser 打开用户主页（target_url = pixiv://user[s]/{id}）
- * @param onOpenIllust 打开插画详情（pixiv://illust[s]/{id}）
- * @param onOpenNovel 打开小说详情（pixiv://novel[s]/{id}）
- * @param onOpenGroup 打开分组子列表（组头 id + 组名）
+ * 通知中心（/v1/notification/list）。`view_more != null` 的行是分组头，点击进子列表页。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +77,7 @@ fun NotificationRoute(
                 onRetry = viewModel::load,
             ) { state ->
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    // 顶部快捷入口：私信（跳系统浏览器消息页，与 Me 页生态分区一致）
+                    // 私信无原生页，跳系统浏览器；无可用浏览器时静默
                     item(key = "talk_entry") {
                         val context = LocalContext.current
                         RankingBanner(
@@ -94,7 +85,6 @@ fun NotificationRoute(
                             desc = stringResource(R.string.notification_talk_desc),
                             icon = Icons.Filled.Email,
                             onClick = {
-                                // 私信跳系统浏览器消息页（无可用浏览器时静默）
                                 runCatching {
                                     context.startActivity(
                                         Intent(
@@ -146,7 +136,7 @@ internal fun openNotificationTarget(
     onOpenNovel: (Long) -> Unit,
 ) {
     val target = parseNotificationTarget(item.target_url)
-    // 真机收集真实 target_url 形态：每条都打，Unknown 另起 W 级便于过滤
+    // 真机上每条都打，便于收集真实 target_url 形态；Unknown 另起 W 级便于过滤
     Log.d(TAG, "通知跳转: ${item.target_url} -> $target")
     when (target) {
         is NotificationTarget.User -> onOpenUser(target.userId)
@@ -156,7 +146,7 @@ internal fun openNotificationTarget(
     }
 }
 
-/** 普通通知行：头像 + 文本 + 相对时间（未读蓝点）+ 右侧作品缩略图。 */
+/** 头像 + 文本 + 相对时间（未读蓝点）+ 右侧作品缩略图。 */
 @Composable
 internal fun NotificationRow(item: NotificationItem, onClick: () -> Unit) {
     val content = item.content
@@ -220,7 +210,7 @@ internal fun NotificationRow(item: NotificationItem, onClick: () -> Unit) {
     }
 }
 
-/** 分组头卡片（`view_more != null`）：primaryContainer 色块，点击进子列表页。 */
+/** 分组头卡片：`view_more != null` 时才由调用方渲染。 */
 @Composable
 internal fun NotificationGroupCard(item: NotificationItem, onClick: () -> Unit) {
     val more = item.view_more ?: return

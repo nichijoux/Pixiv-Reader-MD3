@@ -14,26 +14,9 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 /**
- * 泛型分页签容器：胶囊分段页签（[PillSegmentedRow]，全 App 统一口径）+ HorizontalPager 内容，
- * 双向同步（点击页签滚动 Pager / 滑动落页回调 [onSelect]）。本组件不引入额外容器——页签行、
- * [between] 槽与 Pager 直接按序发射到调用方的 Column 中（与各页面原布局树一致）；Pager 的 weight 等
- * 尺寸约束须经 [pagerModifier] 从调用方的 ColumnScope 传入。
- *
- * 同步策略（与历史/下载/稍后再看/用户/收藏五页原写法一致的多数派）：
- * [LaunchedEffect] 以 `state.currentPage` 为 key，落页（含初次组合）时回调 [onSelect]；
- * 页签选中态始终读取 `state.currentPage`，调用方的选中状态仅用于推导 [PagerState] 初始页。
- *
- * @param T 页签数据类型（枚举 / 筛选值等）
- * @param tabs 页签列表（与 Pager 页一一对应；数量须与 [state] 的 pageCount 一致）
- * @param onSelect 滑动落页回调（参数为落页对应的页签；初次组合也会回调一次）
- * @param tabLabel 页签文案资源
- * @param modifier 页签行 Modifier（默认追加 fillMaxWidth + 水平 lg / 垂直 sm 内边距，与各页原样式一致）
- * @param state Pager 状态；默认按 tabs 数量创建（初始第 0 页）。需要外部持有（如统计格点击滚页）
- *   或非 0 初始页时，由调用方 `rememberPagerState` 传入
- * @param pagerModifier Pager 的 Modifier（如 `Modifier.weight(1f)`）
- * @param between 页签行与 Pager 之间的附加内容槽（如收藏页的标签筛选行）
- * @param pageContent 页内容（参数为页码与对应页签）
- * @return 无返回值
+ * 胶囊分段页签（[PillSegmentedRow]）+ [HorizontalPager] 双向同步容器。
+ * 不包裹外层 Column，页签、[between] 与 Pager 直接按序发射到调用方 Column（[pagerModifier] 传 weight）；
+ * [onSelect] 随 `state.currentPage` 触发（含初次组合），[tabs] 数量须与 [state] 一致。
  */
 @Composable
 fun <T> SegmentedPager(
@@ -47,14 +30,12 @@ fun <T> SegmentedPager(
     pageContent: @Composable (page: Int, tab: T) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    // 滑动落页 → 回调选中项（LaunchedEffect 初次组合也执行一次，与各页原同步时序一致）
     LaunchedEffect(state.currentPage) {
         val page = state.currentPage
         if (page in tabs.indices) {
             onSelect(tabs[page])
         }
     }
-    // 页签行：以页码为值（PillSegmentedRow 回调只给值不给 index），点击反向滚页
     PillSegmentedRow(
         options = tabs.mapIndexed { index, tab -> index to tabLabel(tab) },
         selected = state.currentPage,

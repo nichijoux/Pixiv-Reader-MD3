@@ -13,20 +13,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * 卡片本地动作实现（进程单例，app 层组装）：
- * 稍后再看走 Room（read_later 表）、就地屏蔽走 DataStore（blocked_targets 键）。
- *
- * 集合状态为**单一数据源**：由 Room / DataStore 的数据流回灌驱动（本地写毫秒级，无可感知延迟），
- * 写操作只负责落库，不做内存乐观更新——消除乐观值与回灌值双源互踩。
- */
+/** 集合状态完全由 Room/DataStore 回灌驱动，写操作不做内存乐观更新以避免双源互踩。 */
 @Singleton
 class AppCardActions @Inject constructor(
     private val readLaterDao: ReadLaterDao,
     private val userPreferences: UserPreferences,
 ) : CardActions {
 
-    /** 宿主提供的进程级协程作用域（[start] 注入；写操作用它落库）。 */
     private lateinit var appScope: CoroutineScope
 
     private val _readLaterIds = MutableStateFlow<Set<String>>(emptySet())
@@ -38,25 +31,18 @@ class AppCardActions @Inject constructor(
     private val _mutedTags = MutableStateFlow<Set<String>>(emptySet())
     override val mutedTags: StateFlow<Set<String>> = _mutedTags.asStateFlow()
 
-    /**
-     * 启动数据流同步（应用创建时调用一次）。
-     *
-     * @param scope 进程级作用域（Application 生命周期，不随页面销毁）
-     * @return 无返回值；订阅持续到进程结束
-     */
     fun start(scope: CoroutineScope) {
         appScope = scope
-        // Room 稍后再看 → StateFlow（"illust:1" 形式键）；只订阅目标键投影，避开 payloadJson 大列
+        // 仅订阅目标键投影，避开 payloadJson 大列
         scope.launch {
             readLaterDao.observeAllTargets().collect { list ->
                 _readLaterIds.value = list.map { "${it.targetType}:${it.targetId}" }.toSet()
             }
         }
-        // DataStore 本地屏蔽 → StateFlow
         scope.launch {
             userPreferences.blockedTargets.collect { _blockedIds.value = it }
         }
-        // DataStore 屏蔽标签 → 统一小写非空集合，避免卡片高频渲染期重复规范化。
+        // 预先规范化为小写集合，避免卡片高频渲染期重复处理
         scope.launch {
             userPreferences.mutedTags.collect { tags ->
                 _mutedTags.value = tags
@@ -68,10 +54,6 @@ class AppCardActions @Inject constructor(
         }
     }
 
-    /**
-     * 加入 / 移出稍后再看：按数据流回灌的当前状态取反，仅落库（幂等）。
-     * 加入时在单事务内原子删旧再插（target 唯一），payloadJson 快照随行落库供离线还原卡片。
-     */
     override fun toggleReadLater(target: CardActionTarget) {
         val key = keyOf(target)
         appScope.launch {
@@ -90,7 +72,6 @@ class AppCardActions @Inject constructor(
         }
     }
 
-    /** 屏蔽 / 取消屏蔽：按数据流回灌的当前状态取反，仅落 DataStore（幂等）。 */
     override fun toggleBlock(targetType: String, targetId: Long) {
         val key = "$targetType:$targetId"
         appScope.launch {
@@ -102,6 +83,5 @@ class AppCardActions @Inject constructor(
         }
     }
 
-    /** 目标键（`"illust:1"` 形式，与集合成员一致）。 */
     private fun keyOf(target: CardActionTarget): String = "${target.targetType}:${target.targetId}"
 }

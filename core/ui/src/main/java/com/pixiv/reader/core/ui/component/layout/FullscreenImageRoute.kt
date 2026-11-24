@@ -26,10 +26,7 @@ import com.pixiv.reader.core.ui.component.image.ZoomableImage
 import com.pixiv.reader.core.ui.theme.ViewerScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 全屏图片查看（URL 直入）：黑底 + 捏合缩放 + 顶部渐变返回栏。
- * 供小说封面等单图全屏查看；不同于 [ViewerRoute]（按 illustId 拉插画多页），本组件零依赖直接传 URL。
- */
+/** URL 直入的单图全屏查看（供小说封面等非 illustId 场景）。 */
 @Composable
 fun FullscreenImageRoute(
     url: String?,
@@ -51,7 +48,6 @@ fun FullscreenImageRoute(
             )
         }
 
-        // 顶部返回栏：黑渐变 + 返回按钮 + 标题
         Row(
             modifier = Modifier
                 .fillMaxWidth()

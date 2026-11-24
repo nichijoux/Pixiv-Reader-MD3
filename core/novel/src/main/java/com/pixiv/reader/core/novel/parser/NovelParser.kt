@@ -11,21 +11,15 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 
 /**
- * 小说正文 HTML 解析器（Jsoup）。
- *
- * Pixiv `/webview/v2/novel?id=` 返回整页 HTML，正文结构随端版本变化，
- * 因此采用「多选择器回退 + 文本兜底」策略：
- * 1. 优先在 `div.novel-body` / `.novel-view` / `.novel-content` 内收集 `<p>`、`<h*>`、
- *    `<figure>`/`<img>`、`<hr>`、`<blockquote>`；
- * 2. 结构不足时退化为「直接子元素文本」收集；
- * 3. 仍无内容则用 [extractAllText] 保留换行的全文提取兜底（兼容 div 结构段落）。
+ * Pixiv `/webview/v2/novel?id=` 返回整页 HTML，正文结构随端版本变化，因此「多选择器回退 + 文本兜底」：
+ * 候选容器内收集 `<p>`/`<h*>`/`<figure>`/`<hr>`/`<blockquote>` → 整页正文兜底 → `<script>` 内嵌 JSON 兜底。
  */
 object NovelParser {
 
-    /** 段落首行缩进（两个全角空格，与中文排版习惯一致） */
+    /** 两个全角空格（与中文排版习惯一致） */
     const val PARAGRAPH_INDENT = "\u3000\u3000"
 
-    /** 单段最大字符数（防止异常解析出超大文本块拖垮渲染） */
+    /** 防止异常解析出超大文本块拖垮渲染 */
     const val MAX_PARAGRAPH_CHARS = 3000
 
     private val ROOT_SELECTORS = listOf(
@@ -39,31 +33,23 @@ object NovelParser {
     )
 
     /**
-     * 解析小说正文 HTML 为 [NovelDocument]。
-     *
-     * 解析策略（按优先级）：候选容器选择器逐个尝试 → 整页正文兜底 → `<script>` 内嵌 JSON 兜底。
-     *
-     * @param html `/webview/v2/novel` 返回的整页 HTML
-     * @param imageUrls 正文嵌入图片映射：key 为 `uploadedimage:file` 标记，value 为图片 URL
-     *   （来自 `webApi.getNovelWeb().textEmbeddedImages`）；用于把正文标记解析为 [NovelBlock.Image]
-     * @return 结构化文档；解析失败/无内容返回 [NovelDocument.EMPTY]
+     * 解析策略按优先级：候选容器 → 整页正文兜底 → `<script>` 内嵌 JSON 兜底，均无内容时返回 [NovelDocument.EMPTY]。
+     * [imageUrls] 的 key 为 `uploadedimage:file` 标记，用于把正文标记解成 [NovelBlock.Image]。
      */
     fun parse(html: String, imageUrls: Map<String, String> = emptyMap()): NovelDocument {
         if (html.isBlank()) return NovelDocument.EMPTY
         val doc = Jsoup.parse(html)
 
-        // 1) 逐个候选容器尝试，第一个能提取到内容者胜出
+        // 1) 第一个能提取到内容的候选容器胜出
         for (selector in ROOT_SELECTORS) {
             val root = doc.selectFirst(selector) ?: continue
             val blocks = tryExtract(root, imageUrls)
             if (blocks.isNotEmpty()) return buildDocument(blocks)
         }
 
-        // 2) 整页正文兜底（任意 DOM 结构，跳过 script/style）
         val bodyBlocks = tryExtract(doc.body(), imageUrls)
         if (bodyBlocks.isNotEmpty()) return buildDocument(bodyBlocks)
 
-        // 3) React 页面内嵌 JSON 兜底（正文在 <script> 里）
         val scriptBlocks = extractFromScripts(doc, imageUrls)
         if (scriptBlocks.isNotEmpty()) return buildDocument(scriptBlocks)
 
@@ -71,7 +57,6 @@ object NovelParser {
     }
 
     private fun buildDocument(blocks: List<NovelBlock>): NovelDocument {
-        // 超长段落切分，避免单个 Text 渲染过大文本
         val safe = blocks.flatMap { block ->
             if (block is NovelBlock.Paragraph && block.text.length > MAX_PARAGRAPH_CHARS) {
                 splitLongParagraph(block.text, MAX_PARAGRAPH_CHARS).map { NovelBlock.Paragraph(it) }
@@ -111,7 +96,7 @@ object NovelParser {
     private fun extractBlocks(root: Element): List<NovelBlock> {
         val blocks = mutableListOf<NovelBlock>()
 
-        // 直接子元素逐个识别；若直接子元素无 `<p>`，再尝试整个容器内的结构标签（多嵌套兜底）
+        // 直接子元素无 <p> 时再退到容器内所有结构标签（多嵌套兜底）
         val children = root.children()
         val directParagraphs = children.count { it.tagName() == "p" }
         val targets = if (directParagraphs > 0) {
@@ -143,7 +128,7 @@ object NovelParser {
                 parseFigure(el)
 
             else -> {
-                // 无结构标签的 div：仅当含有有意义的自有文本时兜底为段落
+                // 无结构标签的 div：仅有可见自有文本时兜底为段落
                 val text = cleanText(el.text())
                 if (text.isBlank() || !hasVisibleText(el)) null else NovelBlock.Paragraph(text)
             }
@@ -151,14 +136,11 @@ object NovelParser {
     }
 
     private fun parseParagraph(el: Element): NovelBlock? {
-        // `<br>` 在段落内表示换行（同一段内的软换行）
         val text = el.html()
             .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
             .let { Jsoup.parse(it).text() }
         val cleaned = cleanText(text)
         if (cleaned.isBlank()) return null
-        // 不再硬编码全角缩进前缀：cleanText 已剔除段首/段尾空白（含全角空格），
-        // 段首缩进完全由阅读器「缩进」设置控制（textIndent）
         return NovelBlock.Paragraph(cleaned)
     }
 
@@ -185,7 +167,6 @@ object NovelParser {
         return NovelBlock.Image(url, caption.takeIf { it.isNotBlank() })
     }
 
-    /** 全文文本兜底：保留换行的结构提取，按空行切段，再切分嵌入图片标记。 */
     private fun textFallback(root: Element, imageUrls: Map<String, String>): List<NovelBlock> {
         val paragraphs = extractAllText(root)
             .map { cleanText(it) }
@@ -195,14 +176,10 @@ object NovelParser {
     }
 
     /**
-     * React 渲染页面兜底：正文以 JSON 字符串内嵌在 `<script>` 中。
-     * 如 `window.pixiv.novel.text`（pixiv isV2 页面，正文 `\uXXXX` 转义、含 `\n` 换行）。
-     * 用「indexOf 定位键 + 逐字符解析 JSON 字符串」而非正则匹配：
-     * 正文字符串可长达几十万字符，正则回溯会触发 StackOverflowError。
-     *
-     * 正文中的插图以标记内嵌（`[pixivimage:ID]` 引用画作 / `[uploadedimage:file]` 上传图），
-     * 由 [splitEmbeddedImages] 切分为图片块；[imageUrls] 提供标记内容 → 图片 URL 的映射
-     * （来自 `ajax/novel/{id}` 的 textEmbeddedImages），缺失时保留标记协议串供上层异步解析。
+     * React 渲染页面兜底：正文以 JSON 字符串内嵌在 `<script>` 中（如 `window.pixiv.novel.text`）。
+     * 用「indexOf 定位键 + 逐字符解析」而非正则：正文可长达几十万字符，正则回溯会触发 StackOverflowError。
+     * 插图标记（`[pixivimage:ID]` / `[uploadedimage:file]`）由 [splitEmbeddedImages] 切块；[imageUrls] 缺失时
+     * 保留标记协议串供上层异步解析。
      */
     private fun extractFromScripts(
         doc: Document,
@@ -219,8 +196,7 @@ object NovelParser {
                     if (key < 0) break
                     searchFrom = key + 1
                     val value = readJsonStringValue(raw, key + field.length + 2) ?: continue
-                    // 只收包含较多中/日/韩字符的长文本，过滤掉脚本噪音
-                    // （正文含大量插图标记时 CJK 占比会下降，故放宽为「至少 10 个 CJK 或占比 1/3」）
+                    // 正文含大量插图标记时 CJK 占比会下降，故放宽为「至少 10 个 CJK 或占比 1/3」
                     val cjkCount = value.count { isCjk(it) }
                     if (value.length >= 20 && (cjkCount >= 10 || cjkCount >= value.length / 3)) {
                         candidates.add(value)
@@ -240,13 +216,10 @@ object NovelParser {
         return blocks
     }
 
-    /** 正文插图标记：`[pixivimage:ID]`（画作引用）/ `[uploadedimage:file]`（上传图）。 */
     private val EMBEDDED_IMAGE_RE = Regex("\\[pixivimage:\\d+]|\\[uploadedimage:[^]]+]")
 
     /**
-     * 把一段正文按嵌入图片标记切分为「段落 / 图片」块序列。
-     * [imageUrls] 键为标记内容（`uploadedimage:file`），值为图片 URL；
-     * 映射缺失时图片 URL 保留标记协议串（如 `pixivimage:123456`），由上层异步解析真实 URL。
+     * [imageUrls] 的键为标记内容（`uploadedimage:file`）；映射缺失时图片 URL 保留标记协议串，由上层异步解析真实 URL。
      */
     private fun splitEmbeddedImages(
         paragraph: String,
@@ -275,12 +248,7 @@ object NovelParser {
         return content
     }
 
-    /**
-     * 从脚本文本指定位置开始，读取一个 JSON 字符串字面量的值（自动解码 `\uXXXX`/`\n` 等转义）。
-     * 不依赖正则回溯，长文本（几十万字符）下安全。
-     *
-     * @param keyEnd 键名结束位置（键名最后一个字符的下标 + 1），函数会跳过空白与冒号定位值。
-     */
+    /** 不依赖正则回溯，长文本（几十万字符）下安全。 */
     private fun readJsonStringValue(raw: String, keyEnd: Int): String? {
         var i = keyEnd
         // 跳过空白与冒号，定位值起始引号
@@ -382,15 +350,14 @@ object NovelParser {
     }
 
     private fun cleanText(raw: String): String =
-    // trim() 依据 Character.isWhitespace，含全角空格（U+3000）——
-        // 段首/段尾的空格与全角缩进一律剔除，缩进交给阅读器设置
+        // trim() 依据 Character.isWhitespace，含全角空格（U+3000）：段首尾空白与全角缩进一律剔除，缩进交给阅读器设置
         raw.replace(Regex("\\s+"), " ").trim()
 
     // ── 保留换行的全文提取（任意结构兜底） ───────────────────────────────────
 
     private fun extractAllText(root: Element): List<String> {
         val sb = StringBuilder()
-        // 递归文本提取复用 util 共享实现（与 htmlToPlainText 同一份换行边界规则）
+        // 复用 util 共享实现，保持与 htmlToPlainText 同一份换行边界规则
         appendStructuredText(root, sb)
         return sb.toString()
             .split(Regex("\\n{2,}"))

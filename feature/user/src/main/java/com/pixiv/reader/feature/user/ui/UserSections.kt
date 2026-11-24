@@ -39,7 +39,6 @@ import com.pixiv.reader.core.ui.component.input.PillSegmentedRow
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.user.R
 
-/** 插画 / 漫画分区内容：三态 + 瀑布流（漫画复用同一组件）。 */
 @Composable
 internal fun SectionIllust(
     paged: PagedState<Illust>,
@@ -61,7 +60,7 @@ internal fun SectionIllust(
             hasMore = state.hasMore,
             isLoadingMore = state.isLoadingMore,
             error = state.error,
-            // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
+            // Scaffold 已不垫内容，尾部需自行避开系统导航栏
             contentPadding = PaddingValues(
                 start = Spacing.md,
                 end = Spacing.md,
@@ -74,7 +73,6 @@ internal fun SectionIllust(
     }
 }
 
-/** 小说分区内容：三态 + NovelCard 列表（触底加载）。 */
 @Composable
 internal fun SectionNovel(
     paged: PagedState<Novel>,
@@ -95,7 +93,7 @@ internal fun SectionNovel(
     ) { state ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
+            // Scaffold 已不垫内容，尾部需自行避开系统导航栏
             contentPadding = PaddingValues(
                 start = Spacing.lg,
                 end = Spacing.lg,
@@ -112,7 +110,6 @@ internal fun SectionNovel(
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                    // 进场淡入 + 翻页追加时位置平滑过渡
                     modifier = Modifier.animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -129,11 +126,6 @@ internal fun SectionNovel(
     }
 }
 
-/**
- * 系列分区内容：小说系列 / 漫画系列 二段切换 + SeriesCard 列表（触底加载）。
- * 小说段为既有行为（SeriesDetailInfo 补封面/更新时间）；漫画段复用 SeriesCard，
- * 封面直接取列表项 `cover_image_urls`；段切换为本分区内部状态（rememberSaveable）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SectionSeries(
@@ -147,7 +139,6 @@ internal fun SectionSeries(
     onRetryManga: () -> Unit,
     onLoadMoreManga: () -> Unit,
 ) {
-    // 二段切换（true = 漫画系列）
     var mangaTab by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
         PillSegmentedRow(
@@ -180,7 +171,6 @@ internal fun SectionSeries(
     }
 }
 
-/** 小说系列列表（原系列分区内容：三态 + SeriesCard + 触底加载）。 */
 @Composable
 private fun NovelSeriesList(
     paged: PagedState<NovelSeriesItem>,
@@ -198,7 +188,7 @@ private fun NovelSeriesList(
     ) { state ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            // 沉浸式底部：尾部避开系统导航栏（Scaffold 已不垫内容）
+            // Scaffold 已不垫内容，尾部需自行避开系统导航栏
             contentPadding = PaddingValues(
                 start = Spacing.lg,
                 end = Spacing.lg,
@@ -217,13 +207,12 @@ private fun NovelSeriesList(
                         partsCount = series.content_count,
                         totalChars = series.total_character_count,
                         isConcluded = series.is_concluded,
-                        // 与追更页一致：作者行显示最近更新时间（最新册发布日期），不显示已追更徽章
+                        // 与追更页一致：作者行显示最近更新时间，不显示已追更徽章
                         updatedAt = info?.updatedAt?.take(10),
                         authorName = series.user?.name,
                         authorAvatarUrl = series.user?.profile_image_urls?.best(),
                     ),
                     onClick = { onOpenSeries(series.id) },
-                    // 进场淡入 + 翻页追加时位置平滑过渡
                     modifier = Modifier.animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -240,7 +229,6 @@ private fun NovelSeriesList(
     }
 }
 
-/** 漫画系列列表（三态 + SeriesCard 复用：封面取列表项 cover_image_urls，触底加载）。 */
 @Composable
 private fun MangaSeriesList(
     paged: PagedState<MangaSeriesItem>,
@@ -277,14 +265,13 @@ private fun MangaSeriesList(
                         authorAvatarUrl = series.user?.profile_image_urls?.best(),
                     ),
                     onClick = { onOpenMangaSeries(series.id) },
-                    // 进场淡入 + 翻页追加时位置平滑过渡
                     modifier = Modifier.animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
                     ),
                 )
             }
-            // 保留独立 key「load_more_manga」（与同文件小说系列列表 footer 区分，历史行为不变）
+            // 独立 key 与小说系列列表的 footer 区分（历史行为）
             if (state.hasMore) {
                 item(key = "load_more_manga") {
                     LoadMoreItem(

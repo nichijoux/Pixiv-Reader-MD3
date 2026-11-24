@@ -6,23 +6,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * NovelDocument 编解码（JSON）。
- *
- * 用于离线缓存：下载时把解析后的文档序列化到本地文件，
- * 离线阅读时直接反序列化重建 [NovelDocument]，无需网络与重新解析。
- *
- * 说明：使用 Android 内置 org.json（零额外依赖）；图片块保留最终 URL
- * （离线时正文插图若未缓存文件，渲染层加载失败显示占位，文本完整）。
+ * NovelDocument 编解码（JSON）。导出小说时把解析后的文档序列化进下载条目的 payloadJson，重试/恢复时直接反序列化重建，
+ * 无需重新拉取解析。用 Android 内置 org.json（零额外依赖）；图片块只存最终 URL，图片文件未缓存时渲染层显示占位。
  */
 object NovelDocumentCodec {
 
-    /**
-     * 序列化 [NovelDocument] 为 JSON 字符串。
-     * 块类型编码：`p` 段落 / `h` 标题(带 level) / `q` 引用 / `i` 图片(带 url/caption) / `s` 分隔线。
-     *
-     * @param document 待序列化文档
-     * @return JSON 字符串
-     */
+    /** 块类型编码：`p` 段落 / `h` 标题(带 level) / `q` 引用 / `i` 图片(带 url/caption) / `s` 分隔线。 */
     fun encode(document: NovelDocument): String {
         val root = JSONObject()
         root.put("textLength", document.textLength)

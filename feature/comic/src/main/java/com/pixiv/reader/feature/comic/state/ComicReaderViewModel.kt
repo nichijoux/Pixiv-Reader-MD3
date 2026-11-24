@@ -19,20 +19,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** 阅读器单页状态：占位（数据已知宽高）→ 就绪（还原页文件）→ 失败（可单页重试）。 */
+/** 占位（按元数据宽高）→ 就绪（去扰还原后的本地文件）→ 失败（可单页重试）。 */
 sealed interface ComicPageUi {
 
-    /** 加载中（下载 + 去扰中），按元数据宽高占位避免滚动跳动。 */
     data object Loading : ComicPageUi
 
-    /** 就绪：还原后的本地缓存文件，可直接交给 Coil 展示。 */
     data class Ready(val file: File, val width: Int, val height: Int) : ComicPageUi
 
-    /** 本页失败（网络 / 解码），保留重试入口。 */
     data object Failed : ComicPageUi
 }
 
-/** 阅读器整页状态。 */
 data class ComicReaderUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -41,8 +37,8 @@ data class ComicReaderUiState(
 )
 
 /**
- * COMIC 阅读器 ViewModel：fetchReadEpisode 两步签名流取页数据后，逐页调
- * [ComicPageLoader.loadPage]（内部信号量限并发）下载去扰落盘；失败支持单页重试。
+ * fetchReadEpisode 两步签名流取页数据后逐页下载去扰落盘（[ComicPageLoader.loadPage]
+ * 内部信号量限并发），失败可单页重试。
  */
 @HiltViewModel
 class ComicReaderViewModel @Inject constructor(
@@ -51,7 +47,6 @@ class ComicReaderViewModel @Inject constructor(
     private val pageLoader: ComicPageLoader,
 ) : MessageViewModel() {
 
-    /** 章节 id（路由参数；缺省 0 时加载必然失败，走错误态）。 */
     private val episodeId: Long = savedStateHandle["episodeId"] ?: 0L
 
     private val _state = MutableStateFlow(ComicReaderUiState())
@@ -64,7 +59,6 @@ class ComicReaderViewModel @Inject constructor(
         load()
     }
 
-    /** 首次 / 整页重试：重取阅读数据并重新排产全部页加载（已还原页命中缓存零开销）。 */
     fun load() {
         val gen = ++loadGeneration
         _state.value = ComicReaderUiState(isLoading = true)
@@ -90,11 +84,6 @@ class ComicReaderViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 单页重试（该页此前 Failed 时有效）。
-     *
-     * @param index 页序号（0 起）
-     */
     fun retryPage(index: Int) {
         val page = _state.value.episode?.pages?.getOrNull(index) ?: return
         if (_state.value.pages.getOrNull(index) is ComicPageUi.Ready) return
@@ -102,13 +91,6 @@ class ComicReaderViewModel @Inject constructor(
         launchPageLoad(loadGeneration, index, page)
     }
 
-    /**
-     * 排产单页加载（下载 → 去扰 → 落盘），结果按代次防过期写入页状态。
-     *
-     * @param gen 加载代次
-     * @param index 页序号
-     * @param page 页元数据（url / key / gridsize / 宽高）
-     */
     private fun launchPageLoad(gen: Int, index: Int, page: ComicPage) {
         viewModelScope.launch {
             try {
@@ -124,7 +106,6 @@ class ComicReaderViewModel @Inject constructor(
         }
     }
 
-    /** 不可变写入：拷贝页列表后按序号替换。 */
     private fun updatePage(index: Int, ui: ComicPageUi) {
         val pages = _state.value.pages.toMutableList()
         if (index >= pages.size) return

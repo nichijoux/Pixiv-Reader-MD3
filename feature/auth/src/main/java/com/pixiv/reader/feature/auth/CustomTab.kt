@@ -8,12 +8,8 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.net.toUri
 
 /**
- * 使用 Chrome Custom Tab 打开登录页（回调 scheme `pixiv://account/login`）；
- * 若设备未提供 Custom Tabs 服务，则降级使用系统浏览器 `ACTION_VIEW` 打开。
- *
- * @param context 调用上下文
- * @param url 待打开的授权登录地址
- * @return 无返回值
+ * 用 Chrome Custom Tab 打开登录页（回调 scheme `pixiv://account/login`）；
+ * 无 Custom Tabs 服务时降级为系统浏览器跳转。
  */
 fun openLoginCustomTab(context: Context, url: String) {
     val uri = url.toUri()

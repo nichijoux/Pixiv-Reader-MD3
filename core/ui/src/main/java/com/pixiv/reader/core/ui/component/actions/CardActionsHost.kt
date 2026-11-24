@@ -40,14 +40,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.flow.StateFlow
 
-/**
- * 卡片长按动作目标：哪个作品的本地动作菜单（稍后再看 / 屏蔽）。
- *
- * @param targetType 目标类型："illust" / "novel"
- * @param targetId 目标 id
- * @param title 卡片标题（菜单副标题展示；可空）
- * @param payloadJson 完整卡片快照 JSON（加入稍后再看时落库，离线还原卡片；可空）
- */
+/** payloadJson 是完整卡片快照，加入稍后再看时落库，用于离线还原卡片。 */
 data class CardActionTarget(
     val targetType: String,
     val targetId: Long,
@@ -56,93 +49,53 @@ data class CardActionTarget(
 )
 
 /**
- * 卡片本地动作实现（app 层注入：稍后再看走 Room、屏蔽走 DataStore；
- * 两组集合以进程级 StateFlow 暴露，卡片收集 [blockedIds] 做封面模糊）。
+ * 集合以进程级 StateFlow 暴露，键为 `"illust:1"` 形式；卡片收集 [blockedIds] 做封面模糊。
+ * mutedTags 已转小写并去首尾空白，便于与作品标签实时匹配。
  */
 interface CardActions {
-    /** 已加入稍后再看的目标集合（`"illust:1"` 形式键）。 */
     val readLaterIds: StateFlow<Set<String>>
 
-    /** 本地屏蔽目标集合（`"illust:1"` 形式键）。 */
     val blockedIds: StateFlow<Set<String>>
 
-    /** 本地屏蔽标签集合（已转为小写并去首尾空白），供卡片实时匹配遮罩。 */
     val mutedTags: StateFlow<Set<String>>
 
-    /**
-     * 加入 / 移出稍后再看（按目标当前状态取反）。
-     * @param target 动作目标（payloadJson 用于加入时落快照）
-     */
     fun toggleReadLater(target: CardActionTarget)
 
-    /**
-     * 屏蔽 / 取消屏蔽（按目标当前状态取反）。
-     *
-     * @param targetType 目标类型
-     * @param targetId 目标 id
-     */
     fun toggleBlock(targetType: String, targetId: Long)
 }
 
-/**
- * 卡片长按动作控制器（[CardActionsHost] 经 CompositionLocal 下发；卡片侧唯一入口）。
- * [show] 打开全局唯一长按菜单；`readLaterIds` / `blockedIds` 供菜单动态文案与卡片模糊收集；
- * [showMessage] 弹卡片侧轻提示（走同一通知宿主）。
- *
- * @param impl 本地动作实现
- * @param openMenu 打开长按菜单回调（宿主置 menuTarget 状态）
- * @param showNotice 轻提示回调（宿主转发到通知宿主；默认空操作，预览/测试环境安全）
- */
+/** [CardActionsHost] 经 CompositionLocal 下发，卡片侧唯一入口；showNotice 默认空操作，预览/测试环境安全。 */
 class CardActionsController internal constructor(
     private val impl: CardActions,
     private val openMenu: (CardActionTarget) -> Unit,
     private val showNotice: (String) -> Unit = {},
 ) {
-    /** 已加入稍后再看的目标集合。 */
     val readLaterIds: StateFlow<Set<String>> get() = impl.readLaterIds
 
-    /** 本地屏蔽目标集合。 */
     val blockedIds: StateFlow<Set<String>> get() = impl.blockedIds
 
-    /** 本地屏蔽标签集合（小写）。 */
     val mutedTags: StateFlow<Set<String>> get() = impl.mutedTags
 
-    /** 打开长按动作菜单（卡片 onLongClick 调用）。 */
     fun show(target: CardActionTarget) = openMenu(target)
 
-    /** 加入 / 移出稍后再看（菜单行调用）。 */
     fun toggleReadLater(target: CardActionTarget) = impl.toggleReadLater(target)
 
-    /** 屏蔽 / 取消屏蔽（菜单行调用）。 */
     fun toggleBlock(targetType: String, targetId: Long) = impl.toggleBlock(targetType, targetId)
 
-    /**
-     * 弹卡片侧轻提示（如临时显示态点击「已屏蔽，无法查看详情」）。
-     *
-     * @param text 已解析的本地化提示文案
-     * @return 无返回值
-     */
     fun showMessage(text: String) = showNotice(text)
 
-    /** 目标键（`"illust:1"` 形式）。 */
     fun keyOf(type: String, id: Long): String = "$type:$id"
 }
 
-/** 长按动作宿主 CompositionLocal（app 根 [CardActionsHost] 提供；无宿主环境为 null，卡片长按静默）。 */
+/** app 根 [CardActionsHost] 提供；无宿主环境为 null，卡片长按静默。 */
 val LocalCardActionsHost = staticCompositionLocalOf<CardActionsController?> { null }
 
-/** 全局收藏/关注动作状态宿主 CompositionLocal（供卡片按 ID 实时订阅最新收藏与关注覆盖状态）。 */
+/** 供卡片按 ID 实时订阅最新收藏与关注覆盖状态。 */
 val LocalFavoriteActions = staticCompositionLocalOf<FavoriteActions?> { null }
 
 /**
- * 卡片长按动作全局宿主：组合本地化下发 [CardActionsController] + 全局唯一长按菜单弹层。
- * app 根部包一层（`CardActionsHost(actions) { NavHost() }`），所有列表卡片自动获得长按能力，
- * 无需逐页透传回调；[actions] 为 null 时仅下发 null（长按无响应，预览/测试环境安全）。
- *
- * @param actions 本地动作实现（app 层注入；null = 无动作环境）
- * @param modifier 外层 Modifier（默认撑满）
- * @param content 宿主内容（通常为 NavHost）
- * @return 无返回值
+ * app 根部包一层（`CardActionsHost(actions) { NavHost() }`），所有列表卡片自动获得长按能力，无需逐页透传回调。
+ * actions 为 null 时仅下发 null（长按无响应，预览/测试环境安全）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,9 +104,8 @@ fun CardActionsHost(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    // 当前菜单目标（全局唯一：长按另一卡片时顶替前序菜单）
+    // 全局唯一：长按另一卡片时顶替前序菜单
     var menuTarget by remember { mutableStateOf<CardActionTarget?>(null) }
-    // 动作成功提示（稍后再看/屏蔽 的加入与移除均有反馈）
     val notificationHostState = rememberNotificationHostState()
     val context = LocalContext.current
     val controller = remember(actions) {
@@ -161,7 +113,6 @@ fun CardActionsHost(
             CardActionsController(
                 impl = it,
                 openMenu = { menuTarget = it },
-                // 卡片侧轻提示（临时显示态点击等）转发到同一通知宿主
                 showNotice = { text ->
                     notificationHostState.show(text, type = NotificationType.Info)
                 },
@@ -172,10 +123,8 @@ fun CardActionsHost(
     CompositionLocalProvider(LocalCardActionsHost provides controller) {
         Box(modifier = modifier) {
             content()
-            // 长按动作菜单：稍后再看 / 屏蔽（按当前状态动态文案）
             val target = menuTarget
             if (target != null) {
-                // controller 非空 ⇔ actions 非空（controller 由 actions 构造），取局部非空引用
                 val c = controller ?: return@Box
                 val impl = actions ?: return@Box
                 val readLaterIds by impl.readLaterIds.collectAsStateWithLifecycle()
@@ -194,7 +143,6 @@ fun CardActionsHost(
                                     .padding(bottom = Spacing.sm),
                             )
                         }
-                        // 稍后再看：加入（时钟）/ 移出（取消圆）
                         MenuActionRow(
                             icon = if (inReadLater) Icons.Filled.Cancel else Icons.Filled.Schedule,
                             label = stringResource(
@@ -202,7 +150,6 @@ fun CardActionsHost(
                             ),
                             onClick = {
                                 c.toggleReadLater(target)
-                                // 成功提示（菜单关闭后浮出）
                                 notificationHostState.show(
                                     context.getString(
                                         if (inReadLater) R.string.card_msg_read_later_removed
@@ -213,7 +160,6 @@ fun CardActionsHost(
                                 menuTarget = null
                             },
                         )
-                        // 屏蔽：就地模糊（屏蔽用禁止图标，取消屏蔽用可见图标）
                         MenuActionRow(
                             icon = if (isBlocked) Icons.Filled.Visibility else Icons.Filled.Block,
                             label = stringResource(
@@ -234,7 +180,6 @@ fun CardActionsHost(
                     }
                 }
             }
-            // 动作结果通知：浮在宿主内容之上（底部滑入）
             NotificationHost(
                 state = notificationHostState,
                 modifier = Modifier
@@ -246,7 +191,6 @@ fun CardActionsHost(
     }
 }
 
-/** 菜单动作行（图标 + 文案，整行点击）。 */
 @Composable
 private fun MenuActionRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

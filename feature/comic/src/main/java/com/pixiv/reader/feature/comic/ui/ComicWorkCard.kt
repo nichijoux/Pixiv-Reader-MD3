@@ -15,18 +15,7 @@ import com.pixiv.reader.core.ui.component.image.PixivImage
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.comic.R
 
-/**
- * COMIC 作品卡（首页 / 排行 / 搜索共用的最小网格卡）：竖版封面 + 标题 +
- * 作者 + 话数。
- *
- * @param title 作品名（最多两行）
- * @param author 作者（最多一行）
- * @param coverUrl 封面 URL（可空，渲染占位色块）
- * @param storiesCount 章节总数
- * @param onClick 点击回调（进详情）
- * @param modifier 外部传入的 Modifier
- * @return 无返回值
- */
+/** 首页 / 排行 / 搜索共用的最小网格卡。 */
 @Composable
 internal fun ComicWorkCard(
     title: String,
@@ -72,5 +61,5 @@ internal fun ComicWorkCard(
     }
 }
 
-/** 卡片封面固定宽高比（COMIC 缩略为竖版书页，实测约 1:1.4）。 */
+/** COMIC 缩略为竖版书页，实测约 1:1.4（骨架屏也引用此值）。 */
 private const val CARD_COVER_RATIO = 0.71f

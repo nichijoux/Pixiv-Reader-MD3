@@ -27,17 +27,15 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
-/** 下载管理分类（作品 / 小说；作品段涵盖插画/漫画/动图）。 */
+/** 作品段涵盖插画/漫画/动图，小说段含 txt/epub/md/pdf/docx。 */
 enum class DownloadFilter(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.downloads_filter_illust),
     NOVEL(R.string.downloads_filter_novel),
 }
 
 /**
- * 下载管理 ViewModel：观察下载索引（Room），支持按类型分类与删除。
- * - illust：图片文件导出，删除时删本地文件 + 索引
- * - novel（txt/epub/md）：解析本地文件 → LocalReaderStore 供本地阅读
- * - novel（pdf/docx）：系统应用打开（见 DownloadsRoute）
+ * 下载管理实现在本模块（历史 feature/download 已删除）：txt/epub/md 解析后进 LocalReaderStore 本地阅读，
+ * pdf/docx 交系统应用打开（见 DownloadsRoute）。
  */
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
@@ -49,23 +47,16 @@ class DownloadsViewModel @Inject constructor(
         downloadEntryDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** 类型筛选：由页面 Pager 落页经 [selectFilter] 回写；选中态由 UI 侧 Pager 状态持有，不对外暴露。 */
+    /** 选中态由 UI 侧 Pager 状态持有，此处仅用于分流，不对外暴露。 */
     private val filter = MutableStateFlow(DownloadFilter.ILLUST)
 
     fun selectFilter(f: DownloadFilter) {
         if (filter.value != f) filter.value = f
     }
 
-    /**
-     * 删除索引，并清理对应本地文件（私有文件路径 / SAF / MediaStore content uri）。
-     * 未完成条目同时取消后台任务（防删除后联网 Worker 复活重建条目）。
-     *
-     * @param entry 待删除的下载索引条目
-     * @return 无返回值
-     */
+    /** 未完成条目需同时取消后台任务，否则删除后联网 Worker 会复活重建条目。 */
     fun delete(entry: DownloadEntryEntity) {
         viewModelScope.launch {
-            // 取消在途后台任务（待同步/下载中；done 无任务在跑，跳过）
             if (entry.status != DownloadEntryEntity.STATUS_DONE) {
                 runCatching {
                     WorkManager.getInstance(context).cancelAllWorkByTag(
@@ -73,17 +64,15 @@ class DownloadsViewModel @Inject constructor(
                     )
                 }
             }
-            // 文件与 ContentResolver 删除放到 IO 线程，避免阻塞主线程。
             withContext(Dispatchers.IO) {
                 entry.localPath?.let { path ->
                     runCatching {
                         if (path.startsWith("content://")) {
-                            // SAF 与 MediaStore uri 统一经 ContentResolver 删除
                             context.contentResolver.delete(path.toUri(), null, null)
                         } else {
                             val file = File(path)
                             if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
-                                // 多页插画下载存目录（Downloads/pixiv_{id}/），递归删除
+                                // 多页插画下载存的是目录（Downloads/pixiv_{id}/）
                                 if (file.isDirectory) file.deleteRecursively() else file.delete()
                             }
                         }
@@ -94,15 +83,7 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 解析 txt/epub/md 本地文件并写入 [LocalReaderStore]，成功后回调 [onReady]，失败回调 [onFailed]。
-     * 支持应用私有路径与 content uri（SAF/MediaStore）。
-     *
-     * @param entry 下载索引条目
-     * @param onReady 解析成功准备就绪后的回调
-     * @param onFailed 文件缺失、权限失效或解析失败时的回调
-     * @return 无返回值
-     */
+    /** 解析结果写入 LocalReaderStore（内存单槽，consume 即清空），由调用方接着导航。 */
     fun openLocal(
         entry: DownloadEntryEntity,
         onReady: () -> Unit,
@@ -111,7 +92,7 @@ class DownloadsViewModel @Inject constructor(
         viewModelScope.launch {
             val doc = withContext(Dispatchers.IO) {
                 val path = entry.localPath ?: return@withContext null
-                // MediaStore uri（content://media/...）不含文件名，类型用索引 format 字段判断
+                // content://media/... 不含文件名，类型只能靠索引 format 字段判断
                 val ext = when (entry.format) {
                     DownloadEntryEntity.FORMAT_MARKDOWN -> "md"
                     DownloadEntryEntity.FORMAT_EPUB -> "epub"
@@ -119,14 +100,13 @@ class DownloadsViewModel @Inject constructor(
                 }
                 try {
                     if (path.startsWith("content://")) {
-                        // SAF/MediaStore 目录导出：经 ContentResolver 读取
                         val bytes = context.contentResolver.openInputStream(path.toUri())
                             ?.use { it.readBytes() } ?: return@withContext null
                         when (ext) {
                             "txt" -> TxtNovelParser.parse(bytes.toString(Charsets.UTF_8))
                             "md" -> MarkdownNovelParser.parse(bytes.toString(Charsets.UTF_8))
                             "epub" -> {
-                                // epub 解析需要 File：写入私有缓存临时文件，解析结束后立即清理。
+                                // epub 解析需要 File：写临时文件，解析结束后立即清理
                                 val tmp = File(context.cacheDir, "open_local_${entry.targetId}.epub")
                                 try {
                                     tmp.writeBytes(bytes)

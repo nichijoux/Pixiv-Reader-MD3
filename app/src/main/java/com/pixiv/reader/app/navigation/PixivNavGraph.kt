@@ -75,143 +75,55 @@ import com.pixiv.reader.feature.watchlist.WatchlistRoute
 import com.pixiv.reader.feature.watchlist.WatchlistSegment
 import kotlinx.coroutines.launch
 
-/** 登录页（未登录时的导航起点）。 */
 const val ROUTE_AUTH = "auth"
-
-/** 首次启动引导页（onboardingComplete=false 时的导航起点；完成后跳 auth/main）。 */
 const val ROUTE_ONBOARDING = "onboarding"
-
-/**
- * 主壳（底部导航五 Tab）。
- * 可通过 `main?search={search}` 携带搜索词跨 Tab 直达发现页搜索。
- */
 const val ROUTE_MAIN = "main"
 
+// search 为跨 Tab 搜索词，sn=1 表示小说标签
 private const val MAIN_ROUTE_PATTERN = "main?search={search}&sn={sn}"
 
-/** 插画详情（全屏路由，隐藏底部导航）。 */
 const val ROUTE_ILLUST = "illust/{illustId}"
-
-/** 全屏查看器（多图翻页），可选 page 参数指定起始页。 */
 const val ROUTE_VIEWER = "viewer/{illustId}?page={page}"
-
-/** 小说详情（沉浸式 banner + 系列目录 + 操作）。评论走通用页 ROUTE_COMMENTS。 */
 const val ROUTE_NOVEL = "novel/{novelId}"
-
-/** 通用评论列表页（novel / illust 共用）：comments/{type}/{targetId}，type ∈ novel|illust。 */
 const val ROUTE_COMMENTS = "comments/{type}/{targetId}"
 
-/** 小说阅读器。toEnd=true 时定位到文档末尾（系列上一章尾页进入）。 */
+/** toEnd=true 时定位到文档末尾（系列上一章尾页翻入）。 */
 const val ROUTE_READER = "reader/{novelId}?toEnd={toEnd}"
 
-/** 用户主页（插画 / 小说 / 收藏 Tab）。 */
 const val ROUTE_USER = "user/{userId}"
-
-/** 用户公开收藏（该用户公开收藏的插画，从用户主页统计格进入）。 */
 const val ROUTE_USER_BOOKMARKS = "user_bookmarks/{userId}"
-
-/** 用户关注列表（该用户关注的作者，从用户主页统计格进入）。 */
 const val ROUTE_USER_FOLLOWING = "user_following/{userId}"
-
-/** 小说系列详情（系列信息 + 分册列表）。 */
 const val ROUTE_NOVEL_SERIES = "novel_series/{seriesId}"
-
-/** 漫画系列详情（v1/illust/series）。 */
 const val ROUTE_MANGA_SERIES = "illust_series/{seriesId}"
-
-/** pixivision 特辑列表。 */
 const val ROUTE_PIXIVISION = "pixivision"
-
-/** 画师榜（官方推荐创作者）。 */
 const val ROUTE_USER_RANKING = "user_ranking"
-
-/** AI 榜（排行数据过滤 AI 作品）。 */
 const val ROUTE_AI_RANKING = "ai_ranking"
-
-/** 年代榜（历史某天榜单 + 年代快捷入口）。 */
 const val ROUTE_ERA_RANKING = "era_ranking"
-
-/** 壁纸榜（排行数据过滤横屏高分辨率）。 */
 const val ROUTE_WALLPAPER_RANKING = "wallpaper_ranking"
-
-/** 浏览历史（三类：插画 / 小说 / 作者）。 */
 const val ROUTE_HISTORY = "history"
-
-/** 收藏列表（插画 / 小说），可带 type + tag 过滤。 */
 const val ROUTE_BOOKMARKS = "bookmarks"
-
-/** 追更列表（小说 / 漫画分段；type 可选参数，导航用基路由即可）。 */
 const val ROUTE_WATCHLIST = "watchlist"
-
-/** 稍后再看（本地暂存，卡片长按加入）。 */
 const val ROUTE_READ_LATER = "read_later"
-
-/** 通知中心（收藏 / 关注 / 评论等消息流）。 */
 const val ROUTE_NOTIFICATION = "notifications"
-
-/** 通知分组子列表（view-more 拉取的组内通知），title 为可选组名。 */
 const val ROUTE_NOTIFICATION_GROUP = "notification_group/{groupId}?title={title}"
-
-/** 屏蔽名单（屏蔽标签按卡片分组展示）。 */
 const val ROUTE_BLOCKED = "blocked"
-
-/** 下载管理（图片 / 小说 / 本地文件三类，支持删除；含待同步分段）。 */
 const val ROUTE_DOWNLOADS = "downloads"
-
-/** 漫画排行榜（全屏页，从漫画 Tab 顶部入口进入）。 */
 const val ROUTE_MANGA_RANKING = "manga_ranking"
-
-/** 插画排行榜（全屏页，从漫画 Tab 插画类型顶部入口进入）。 */
 const val ROUTE_ILLUST_RANKING = "illust_ranking"
-
-/** 小说排行榜（全屏页，从小说 Tab 推荐页顶部入口进入）。 */
 const val ROUTE_NOVEL_RANKING = "novel_ranking"
-
-/** 全屏图片查看（URL 直入，如小说封面大图），全屏路由隐藏底部导航。 */
 const val ROUTE_IMAGE_PREVIEW = "image_preview?url={url}&title={title}"
-
-/**
- * 本地文件阅读（TXT / EPUB 解析后直接渲染，跳过网络）。
- * novelId 是路由参数，正文由该返回栈条目从 LocalReaderStore 的单槽中取走。
- */
 const val ROUTE_LOCAL_READER = "local_reader/{novelId}"
-
-/** FANBOX 原生首页（投稿流 + 推荐创作者；会话过期经可见 WebView 重登）。 */
 const val ROUTE_FANBOX_HOME = "fanbox_home"
-
-/** FANBOX 帖子详情（正文经无屏 WebView post.info，失败退 post.get 仅元数据）。 */
 const val ROUTE_FANBOX_POST = "fanbox_post/{postId}"
-
-/** FANBOX 内置网页（登录 / 创作者主页 / 方案页；仅放行 *.fanbox.cc，站外转系统浏览器）。 */
 const val ROUTE_FANBOX_WEB = "fanbox_web?url={url}&title={title}"
-
-/** pixiv COMIC 原生首页（更新 banner + 最近更新 / 排行榜双页签；免费内容无需登录）。 */
 const val ROUTE_COMIC_HOME = "comic_home"
-
-/** pixiv COMIC 作品详情（作品信息 + 章节列表，免费章节直达阅读器）。 */
 const val ROUTE_COMIC_WORK = "comic_work/{workId}"
-
-/** pixiv COMIC 阅读器（read_v4 + gridshuffle 去扰原生渲染）。 */
 const val ROUTE_COMIC_READER = "comic_reader/{episodeId}"
-
-/** pixiv COMIC 搜索（关键词页号分页）。 */
 const val ROUTE_COMIC_SEARCH = "comic_search"
 
 /**
- * 应用根导航。
- * 未完成引导 → onboarding（首次启动引导页）；未登录 → auth（登录页）；已登录 → main（底部导航主壳）。
- * illust/viewer 为全屏路由（隐藏底部导航）；其余为全屏页路由。
- * 深链 scheme: `pixiv://`（illust/novel/reader/user 支持，OAuth 回调走 `pixiv://account/login`）。
- * 导航约定：顶层路由回调统一在此接线；内层 Tab 无法直达顶层路由，必须经 MainShell 回调上抛。
- *
- * @param isLoggedIn 当前 Pixiv 会话是否已登录
- * @param onboardingComplete 首次引导是否已完成（启动时同步读取，完成后经 [onCompleteOnboarding] 写回）
- * @param onCompleteOnboarding 完成或跳过引导时更新完成标记
- * @param onLogout 清理会话并更新登录态
- * @param navController 应用根导航控制器
- * @param pendingDeepLink 等待引导和会话就绪的内容深链
- * @param onDeepLinkHandled 内容深链处理完成后清理该事件
- * @return 无返回值
+ * 应用根导航：除 main 外全部全屏隐藏底栏；内层 Tab 须经 MainShell 回调上抛至顶层路由。
+ * 深链 scheme 为 `pixiv://`（illust/novel/reader/user/downloads）；OAuth 回调 `pixiv://account/login` 由 MainActivity 拦截。
  */
 @Composable
 fun PixivNavGraph(
@@ -223,7 +135,7 @@ fun PixivNavGraph(
     pendingDeepLink: Intent? = null,
     onDeepLinkHandled: (Intent) -> Unit = {},
 ) {
-    // 图的起点只由首次装配决定；后续状态变化只替换返回栈，保留已安装的图。
+    // startDestination 只在首次装配确定，后续状态变化通过替换返回栈切换
     val rootRoute = when {
         !onboardingComplete -> ROUTE_ONBOARDING
         isLoggedIn -> ROUTE_MAIN
@@ -232,7 +144,7 @@ fun PixivNavGraph(
     val startDestination = rememberSaveable { rootRoute }
     val rootRoutePattern = if (rootRoute == ROUTE_MAIN) MAIN_ROUTE_PATTERN else rootRoute
 
-    // 内层 Tab 栈让位时，只有外层确实位于栈底才退出；叠加的搜索主壳仍可正常返回。
+    // 仅外层确实位于栈底时退出 Activity，避免拦截叠加的搜索主壳返回
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val activity = LocalContext.current as? Activity
@@ -240,14 +152,12 @@ fun PixivNavGraph(
         activity?.finish()
     }
 
-    // 过渡 lambda 非组合上下文：动效方案在组合期先取好，供各 transition lambda 闭包捕获
+    // transition lambda 非组合上下文，须在组合期提前捕获 motionScheme
     val motionScheme = MaterialTheme.motionScheme
 
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        // 全局默认过渡：轻量水平位移 + 淡入（Expressive spring 规格，见 core:ui theme/Motion.kt）。
-        // composable 级自定义过渡（如阅读器 220ms 方向 slide）自动覆盖这里的默认值。
         enterTransition = { pixivNavEnter(motionScheme) },
         exitTransition = { pixivNavExit(motionScheme) },
         popEnterTransition = { pixivNavPopEnter(motionScheme) },
@@ -257,10 +167,9 @@ fun PixivNavGraph(
             OnboardingRoute(onFinished = onCompleteOnboarding)
         }
         composable(ROUTE_AUTH) {
-            // 登录成功统一由下方会话状态 effect 处理，避免事件和登录态各自导航。
+            // 登录成功统一由底部 LaunchedEffect 按登录态替换栈，避免双路导航
             AuthRoute(onLoginSuccess = {})
         }
-        // 主壳：携带 search 参数跨 Tab 搜索（发现页初始查询词；sn=1 表示小说标签）
         composable(
             route = MAIN_ROUTE_PATTERN,
             arguments = listOf(
@@ -274,8 +183,7 @@ fun PixivNavGraph(
         ) { backStackEntry ->
             val initialSearch = backStackEntry.arguments?.getString("search")
             val initialTagType = if (backStackEntry.arguments?.getString("sn") == "1") TagType.NOVEL else TagType.ILLUST
-            // 主壳也下发可见性作用域：Tab 内卡片是 hero 的「发出方」（本条目退出 = outgoing），
-            // 与详情路由（incoming）在同一 SharedTransitionScope 内按 key 匹配
+            // 下发可见性作用域，使内层卡片与顶层详情跨 NavHost 匹配 hero 共享元素
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 MainShell(
                     onLogout = onLogout,
@@ -298,7 +206,6 @@ fun PixivNavGraph(
                         navController.navigate(ROUTE_BOOKMARKS)
                     },
                     onOpenWatchlist = { segment ->
-                        // 小说 Tab / Me 页 → 小说分段；作品 Tab 顶栏 → 直达漫画分段
                         navController.navigate("watchlist?type=${segment.routeValue}")
                     },
                     onOpenReadLater = {
@@ -338,31 +245,24 @@ fun PixivNavGraph(
                         navController.navigate(ROUTE_NOVEL_RANKING)
                     },
                     onOpenFanbox = {
-                        // 我的页 FANBOX 入口（已登录 FANBOX 进原生首页）
                         navController.navigate(ROUTE_FANBOX_HOME)
                     },
                     onOpenFanboxWeb = { url, title ->
-                        // FANBOX 内置网页（登录引导 / 创作者主页等）
                         navController.navigate("fanbox_web?url=${Uri.encode(url)}&title=${Uri.encode(title)}")
                     },
                     onOpenComic = {
-                        // 我的页 COMIC 入口（免费内容无需登录，直达原生首页）
                         navController.navigate(ROUTE_COMIC_HOME)
                     },
                     onOpenViewer = { id, page ->
-                        // 全屏查看器：Tab 内详情 pane 图片点击（定位到指定页）
                         navController.navigate("viewer/$id?page=$page")
                     },
                     onOpenReader = { id ->
-                        // 小说阅读器：小说 pane「开始阅读」入口
                         navController.navigate("reader/$id")
                     },
                     onOpenCover = { url ->
-                        // 封面/头像全屏大图（系列 pane 封面点击）
                         navController.navigate("image_preview?url=${Uri.encode(url)}")
                     },
                     onExitSearchSession = {
-                        // 栈底时 safeBack 静默忽略，避免误退 app
                         navController.safeBack()
                     },
                     initialSearch = initialSearch,
@@ -370,40 +270,32 @@ fun PixivNavGraph(
                 )
             }
         }
-        // 插画详情：全屏路由（隐藏底部导航），支持 pixiv://illust/{id} 深链
         composable(
             route = ROUTE_ILLUST,
             arguments = listOf(navArgument("illustId") { type = NavType.LongType }),
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://illust/{illustId}" }),
         ) { _ ->
-            // 详情路由向 core:ui 下发可见性作用域（this = 该条目的 AnimatedContentScope）：
-            // 卡片封面与详情大图跨 NavHost 层级共享元素，详情侧需据此判定进入 / 退出
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 IllustDetailRoute(
                     onBack = { navController.safeBack() },
                     onOpenIllust = { id ->
-                        // 相关作品等：跳对应作品详情（叠栈，返回回到当前详情）
                         navController.navigate("illust/$id")
                     },
                     onOpenViewer = { id, page ->
-                        // 打开全屏查看器并定位到指定页
                         navController.navigate("viewer/$id?page=$page")
                     },
                     onOpenUser = { userId ->
                         navController.navigate("user/$userId")
                     },
                     onOpenComments = { id ->
-                        // 评论独立页（通用）：illust 类型
                         navController.navigate("comments/illust/$id")
                     },
                     onSearchTag = { tag ->
-                        // 标签搜索：与排行页共用通道（压栈搜索会话，返回回到本详情页）
                         navController.navigateTagSearch(tag)
                     },
                 )
             }
         }
-        // 全屏查看器：page 可选，缺省从第 0 页开始
         composable(
             route = ROUTE_VIEWER,
             arguments = listOf(
@@ -413,7 +305,6 @@ fun PixivNavGraph(
         ) {
             ViewerRoute(onBack = { navController.safeBack() })
         }
-        // 全屏图片查看（URL 直入）：小说封面等单图全屏，title 可选
         composable(
             route = ROUTE_IMAGE_PREVIEW,
             arguments = listOf(
@@ -431,21 +322,17 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
             )
         }
-        // 小说详情：支持 pixiv://novel/{id} 深链；系列分册点击打开对应详情
         composable(
             route = ROUTE_NOVEL,
             arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://novel/{novelId}" }),
         ) { backStackEntry ->
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
-            // 详情路由向 core:ui 下发可见性作用域（this = 该条目的 AnimatedContentScope）：
-            // 小说卡片封面 ↔ 详情 banner 共享元素跨 NavHost 层级匹配
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 NovelDetailRoute(
                     novelId = novelId,
                     onBack = { navController.safeBack() },
                     onOpenNovel = { id ->
-                        // 系列目录：点击打开该分册的小说详情
                         navController.navigate("novel/$id")
                     },
                     onOpenReader = { id ->
@@ -455,21 +342,17 @@ fun PixivNavGraph(
                         navController.navigate("user/$userId")
                     },
                     onOpenSeries = { seriesId ->
-                        // 系列目录底部：查看完整系列页
                         navController.navigate("novel_series/$seriesId")
                     },
                     onOpenComments = { id ->
-                        // 评论独立页（通用）：novel 类型
                         navController.navigate("comments/novel/$id")
                     },
                     onSearchTag = { tag ->
-                        // 小说标签 → 发现页搜小说（返回回到本详情页）
                         navController.navigateTagSearch(tag, TagType.NOVEL)
                     },
                 )
             }
         }
-        // 通用评论列表页：novel / illust 共用，PagedState 分页 + 回复
         composable(
             route = ROUTE_COMMENTS,
             arguments = listOf(
@@ -486,10 +369,7 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 小说阅读器：支持 pixiv://reader/{id} 深链；系列目录点击其他分册直接换读；
-        // toEnd=true（系列上一章尾页进入）时阅读器定位到文档末尾。
-        // 显式方向过渡（replace 章节切换时旧页不播退出动画，仅新页 enter 动画）：
-        // enter = 从右滑入 + 淡入（阅读方向），pop 返回 = 向右滑出
+        // 显式方向过渡，覆盖全局默认以适配章节 replace 切换方向
         composable(
             route = ROUTE_READER,
             arguments = listOf(
@@ -517,33 +397,27 @@ fun PixivNavGraph(
                 toEnd = toEnd,
                 onBack = { navController.safeBack() },
                 onOpenNovel = { id ->
-                    // 系列章节切换：replace 当前阅读器（不压栈），返回键直接退出阅读器而非退回上一章
+                    // 章节切换用 popUpTo(inclusive=true) 替换栈，使返回键直接退出阅读器
                     navController.navigate("reader/$id") {
                         popUpTo(ROUTE_READER) { inclusive = true }
                     }
                 },
                 onOpenNovelToEnd = { id ->
-                    // 首页向前翻页：replace 打开系列上一本并定位到尾页
                     navController.navigate("reader/$id?toEnd=true") {
                         popUpTo(ROUTE_READER) { inclusive = true }
                     }
                 },
                 onOpenImage = { url ->
-                    // 正文插图全屏查看
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
             )
         }
-        // 用户主页：支持 pixiv://user/{id} 深链；标签点击跳 main 搜索
         composable(
             route = ROUTE_USER,
             arguments = listOf(navArgument("userId") { type = NavType.LongType }),
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://user/{userId}" }),
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
-            // 用户页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard / NovelCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → illust / novel 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 UserRoute(
                     onBack = { navController.safeBack() },
@@ -554,7 +428,6 @@ fun PixivNavGraph(
                         navController.navigate("novel/$novelId")
                     },
                     onOpenViewer = { id, page ->
-                        // 全屏查看器：pane 内图片点击（定位到指定页）
                         navController.navigate("viewer/$id?page=$page")
                     },
                     onOpenCover = { url ->
@@ -577,9 +450,6 @@ fun PixivNavGraph(
                     onOpenUserFollowing = {
                         navController.navigate("user_following/$userId")
                     },
-                    // 平板 pane：小说卡点击 → 注入 feature:novel 的小说详情 pane
-                    // （feature 间禁止依赖，用户页经此槽位复用，与关注页 MainShell 注入同款；
-                    //   VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
                     novelDetailPane = { selectedId, novelVm, commentVm, onOpenSeries ->
                         NovelDetailPaneSlot(
                             selectedId = selectedId,
@@ -592,12 +462,9 @@ fun PixivNavGraph(
                             onOpenUser = { target ->
                                 navController.navigate("user/$target")
                             },
-                            // 小说标签 → 发现页搜小说
                             onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
                         )
                     },
-                    // 平板 pane：系列卡点击 → 注入 feature:novel 的小说系列 pane
-                    //（VM 创建 + pane 组装由共享槽位承担，导航出口由本处直连路由）
                     seriesDetailPane = { selectedId, onOpenNovel, onOpenSeries ->
                         NovelSeriesPaneSlot(
                             selectedId = selectedId,
@@ -609,14 +476,12 @@ fun PixivNavGraph(
                             onOpenCover = { url ->
                                 navController.navigate("image_preview?url=${Uri.encode(url)}")
                             },
-                            // 系列页签内的小说标签 → 搜小说
                             onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
                         )
                     },
                 )
             }
         }
-        // 用户公开收藏：该用户公开收藏的插画（瀑布流），从用户主页统计格进入
         composable(
             route = ROUTE_USER_BOOKMARKS,
             arguments = listOf(navArgument("userId") { type = NavType.LongType }),
@@ -631,7 +496,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 用户关注列表：该用户关注的作者，从用户主页统计格进入
         composable(
             route = ROUTE_USER_FOLLOWING,
             arguments = listOf(navArgument("userId") { type = NavType.LongType }),
@@ -643,7 +507,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 小说系列详情：系列信息 + 分册列表
         composable(
             route = ROUTE_NOVEL_SERIES,
             arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
@@ -664,7 +527,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 漫画系列详情：系列头部（追更）+ 系列内作品瀑布流
         composable(
             route = ROUTE_MANGA_SERIES,
             arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
@@ -679,7 +541,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 浏览历史：三类（插画/小说/作者），点击对应卡片跳详情
         composable(ROUTE_HISTORY) {
             HistoryRoute(
                 onBack = { navController.safeBack() },
@@ -697,7 +558,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 收藏列表：type（插画/小说）+ tag 可选过滤；标签点击跳 main 搜索
         composable(
             route = "bookmarks?type={type}&tag={tag}",
             arguments = listOf(
@@ -727,7 +587,6 @@ fun PixivNavGraph(
                 onNovelSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
             )
         }
-        // 追更列表（小说 / 漫画分段；小说卡开系列详情页，漫画卡开最新一话）
         composable(
             route = "watchlist?type={type}",
             arguments = listOf(
@@ -737,7 +596,6 @@ fun PixivNavGraph(
             ),
         ) { backStackEntry ->
             WatchlistRoute(
-                // VM 侧对非法值回退 novel，这里经枚举解析透传
                 initialType = WatchlistSegment.parse(backStackEntry.arguments?.getString("type")),
                 onBack = { navController.safeBack() },
                 onOpenSeries = { seriesId ->
@@ -748,7 +606,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 稍后再看（本地暂存）：插画/小说二段，卡片点击跳详情
         composable(ROUTE_READ_LATER) {
             ReadLaterRoute(
                 onBack = { navController.safeBack() },
@@ -763,7 +620,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 通知中心
         composable(ROUTE_NOTIFICATION) {
             NotificationRoute(
                 onBack = { navController.safeBack() },
@@ -783,7 +639,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 通知分组子列表
         composable(
             route = ROUTE_NOTIFICATION_GROUP,
             arguments = listOf(
@@ -806,13 +661,11 @@ fun PixivNavGraph(
                 },
             )
         }
-        // 屏蔽名单
         composable(ROUTE_BLOCKED) {
             BlockedRoute(
                 onBack = { navController.safeBack() },
             )
         }
-        // 下载管理：插画/小说；本地文件走 local_reader 路由；支持通知栏点击 `pixiv://downloads` 直达
         composable(
             route = ROUTE_DOWNLOADS,
             deepLinks = listOf(navDeepLink { uriPattern = "pixiv://downloads" }),
@@ -830,11 +683,10 @@ fun PixivNavGraph(
                 onOpenLocalReader = { novelId ->
                     navController.navigate("local_reader/$novelId")
                 },
-                // 重试：复位条目为待同步并重建后台任务（挂起写库，经协程调度）
                 onRetry = { entry -> retryScope.launch { retryDownload(context, entry) } },
             )
         }
-        // 本地文档跟随返回栈条目，打开正文插图或重建 Activity 后仍可继续显示。
+        // 正文绑定到 backStackEntry 的 ViewModel，跳全屏插图或重建 Activity 时保留
         composable(
             route = ROUTE_LOCAL_READER,
             arguments = listOf(navArgument("novelId") { type = NavType.LongType }),
@@ -845,7 +697,7 @@ fun PixivNavGraph(
             }
             val local = localEntry.documentAndTitle
             if (local == null) {
-                // 进程重建后内存正文不可恢复，返回入口以便重新打开本地文件。
+                // 进程重建后内存正文丢失，自动返回入口页
                 LaunchedEffect(backStackEntry) {
                     if (navController.currentBackStackEntry == backStackEntry) navController.safeBack()
                 }
@@ -858,20 +710,17 @@ fun PixivNavGraph(
                     navController.navigate("reader/$id")
                 },
                 onOpenImage = { url ->
-                    // 本地书正文插图全屏查看
                     navController.navigate("image_preview?url=${Uri.encode(url)}")
                 },
                 localDocument = local.first,
                 localTitle = local.second,
             )
         }
-        // pixivision 特辑列表：点击文章跳系统浏览器打开原文
         composable(ROUTE_PIXIVISION) {
             PixivisionRoute(
                 onBack = { navController.safeBack() },
             )
         }
-        // 画师榜：官方推荐创作者列表
         composable(ROUTE_USER_RANKING) {
             UserRankingRoute(
                 onBack = { navController.safeBack() },
@@ -880,11 +729,7 @@ fun PixivNavGraph(
                 },
             )
         }
-        // AI 榜：排行数据过滤 AI 生成作品
         composable(ROUTE_AI_RANKING) {
-            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 AiRankingRoute(
                     onBack = { navController.safeBack() },
@@ -901,11 +746,7 @@ fun PixivNavGraph(
                 )
             }
         }
-        // 年代榜：历史某天榜单 + 年代快捷入口
         composable(ROUTE_ERA_RANKING) {
-            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 EraRankingRoute(
                     onBack = { navController.safeBack() },
@@ -922,11 +763,7 @@ fun PixivNavGraph(
                 )
             }
         }
-        // 壁纸榜：排行数据过滤横屏高分辨率作品
         composable(ROUTE_WALLPAPER_RANKING) {
-            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 WallpaperRankingRoute(
                     onBack = { navController.safeBack() },
@@ -943,11 +780,7 @@ fun PixivNavGraph(
                 )
             }
         }
-        // 漫画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
         composable(ROUTE_MANGA_RANKING) {
-            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 MangaRankingRoute(
                     onBack = { navController.safeBack() },
@@ -964,11 +797,7 @@ fun PixivNavGraph(
                 )
             }
         }
-        // 插画排行榜（全屏页）：点击排名行打开插画/漫画详情，点作者行打开用户主页，标签跳搜索
         composable(ROUTE_ILLUST_RANKING) {
-            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 IllustCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → illust 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 IllustRankingRoute(
                     onBack = { navController.safeBack() },
@@ -985,11 +814,7 @@ fun PixivNavGraph(
                 )
             }
         }
-        // 小说排行榜（全屏页）：条目用 NovelCard（整卡→详情、作者→主页、收藏、标签）
         composable(ROUTE_NOVEL_RANKING) {
-            // 排行页卡片是 hero 的「发出方」：下发可见性作用域后 NovelCard 内部
-            // heroBoundsModifier 自动激活，单栏点卡 → novel 详情路由按 key 匹配 morph
-            //（平板 pane 分支不受影响，pane 侧仍显式置 null）
             CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
                 NovelRankingRoute(
                     onBack = { navController.safeBack() },
@@ -999,7 +824,6 @@ fun PixivNavGraph(
                     onOpenUser = { userId ->
                         navController.navigate("user/$userId")
                     },
-                    // 与插画/漫画榜同款：经 main?search= 通道切到发现页搜索（MainShell 消费）
                     onSearchTag = { tag -> navController.navigateTagSearch(tag, TagType.NOVEL) },
                     onOpenSeries = { seriesId ->
                         navController.navigate("novel_series/$seriesId")
@@ -1010,7 +834,6 @@ fun PixivNavGraph(
                 )
             }
         }
-        // FANBOX 原生首页：投稿流 + 推荐创作者（会话过期引导进网页登录）
         composable(ROUTE_FANBOX_HOME) {
             FanboxHomeRoute(
                 onBack = { navController.safeBack() },
@@ -1025,7 +848,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // FANBOX 帖子详情：正文（post.info → post.get 兜底）+ 赞助方案 + 评论
         composable(
             route = ROUTE_FANBOX_POST,
             arguments = listOf(navArgument("postId") { type = NavType.StringType }),
@@ -1040,7 +862,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // FANBOX 内置网页：登录 / 创作者主页 / 方案页（url/title 可选参数）
         composable(
             route = ROUTE_FANBOX_WEB,
             arguments = listOf(
@@ -1058,7 +879,6 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
             )
         }
-        // pixiv COMIC 首页：更新（banner + 最近更新）/ 排行榜双页签（免费无需登录）
         composable(ROUTE_COMIC_HOME) {
             ComicHomeRoute(
                 onBack = { navController.safeBack() },
@@ -1068,7 +888,6 @@ fun PixivNavGraph(
                 onOpenSearch = { navController.navigate(ROUTE_COMIC_SEARCH) },
             )
         }
-        // pixiv COMIC 作品详情：作品信息 + 章节列表（免费章节点进阅读器）
         composable(
             route = ROUTE_COMIC_WORK,
             arguments = listOf(navArgument("workId") { type = NavType.LongType }),
@@ -1080,7 +899,7 @@ fun PixivNavGraph(
                 },
             )
         }
-        // pixiv COMIC 阅读器：read_v4 原生渲染；下一话替换当前栈（避免阅读器无限压栈）
+        // 下一话用 popUpTo 替换栈，避免阅读器无限压栈
         composable(
             route = ROUTE_COMIC_READER,
             arguments = listOf(navArgument("episodeId") { type = NavType.LongType }),
@@ -1094,7 +913,6 @@ fun PixivNavGraph(
                 },
             )
         }
-        // pixiv COMIC 搜索：关键词页号分页
         composable(ROUTE_COMIC_SEARCH) {
             ComicSearchRoute(
                 onBack = { navController.safeBack() },
@@ -1106,7 +924,7 @@ fun PixivNavGraph(
     }
 
     LaunchedEffect(navController, rootRoute, pendingDeepLink) {
-        // NavHost 已安装图。引导完成、登录及登出时替换整栈；已登录的内容页保留当前栈。
+        // 引导完成/登录/登出时替换整栈；已登录的内容页保留当前栈
         val route = navController.currentDestination?.route
         val replaceRoot = when (rootRoute) {
             ROUTE_MAIN -> route == ROUTE_ONBOARDING || route == ROUTE_AUTH
@@ -1119,9 +937,9 @@ fun PixivNavGraph(
             }
         }
 
-        // 内容深链等会话就绪后再交给 Navigation；OAuth 回调已在 Activity 分流。
+        // 内容深链等会话就绪后再交由 Navigation 处理
         if (rootRoute == ROUTE_MAIN && pendingDeepLink != null) {
-            // 已在下载管理页时直接消费，避免点击通知重复叠压相同页面
+            // 已在下载管理页时直接消费，避免点击通知重复叠栈
             val alreadyAtDownloads = pendingDeepLink.data?.host == "downloads" &&
                 navController.currentDestination?.route == ROUTE_DOWNLOADS
             if (!alreadyAtDownloads) {
@@ -1132,28 +950,19 @@ fun PixivNavGraph(
     }
 }
 
-/**
- * 每个本地阅读返回栈条目只消费一次正文；条目出栈时由 ViewModelStore 释放引用。
- */
+/** 每个返回栈条目只从单槽消费一次正文，出栈时由 ViewModelStore 释放。 */
 private class LocalReaderEntry : ViewModel() {
     val documentAndTitle = LocalReaderStore.consume()
 }
 
 /**
- * 安全返回：普通导航到栈底后静默忽略；外部深链直达的内容页可返回首页。
- *
- * BackHandler 只拦截系统返回键，拦不住页面按钮的 onBack → navigateUp。快速操作场景
- * （如 pop 过渡动画中，上层不可点击区域穿透命中下层仍在退出的返回按钮）会触发第二次
- * navigateUp，此时外层栈已只剩 startDestination（main），若照常 pop 会清空 start 导致
- * 空栈及过渡竞态（表现为页面重新进入刷新或返回桌面）。
- *
- * @return 无返回值
+ * 栈底静默忽略，防 pop 过渡中穿透连点再次触发 navigateUp 弹出 startDestination 导致空栈竞态；
+ * 外部深链单页栈则显式回到 main。
  */
 private fun NavHostController.safeBack() {
     if (previousBackStackEntry != null) {
         navigateUp()
     } else if (currentDestination?.route in setOf(ROUTE_ILLUST, ROUTE_NOVEL, ROUTE_READER, ROUTE_USER, ROUTE_DOWNLOADS)) {
-        // 单页深链栈没有可弹出的上一页，显式回到已登录主壳。
         navigate(ROUTE_MAIN) {
             popUpTo(graph.id) { inclusive = true }
             launchSingleTop = true
@@ -1163,16 +972,7 @@ private fun NavHostController.safeBack() {
     }
 }
 
-/**
- * 标签搜索导航（排行页 / 详情页标签点击共用通道）：携带搜索词压栈新 main 搜索会话。
- * 不清栈——popUpTo(main){inclusive} 会把来源页（排行榜/用户页等全屏路由）一并弹掉，
- * 返回链断裂后只能落在重建 main 的首页 Tab（历史 bug）。现压栈于来源页之上，
- * 搜索会话内返回即回到来源页；launchSingleTop 防栈顶恰为 main 时重复叠实例。
- *
- * @param tag 搜索标签词（内部 Uri 编码）
- * @param tagType 标签内容类型（NOVEL → 深链带 sn=1，发现页预选小说分类）
- * @return 无返回值
- */
+/** 压栈新 main 搜索会话而非清栈：popUpTo(main) 会弹掉排行/详情来源页导致返回链断裂。 */
 private fun NavHostController.navigateTagSearch(tag: String, tagType: TagType = TagType.ILLUST) {
     val sn = if (tagType == TagType.NOVEL) "&sn=1" else ""
     navigate("main?search=${Uri.encode(tag)}$sn") {

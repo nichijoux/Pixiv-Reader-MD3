@@ -23,10 +23,6 @@ import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderTocItem
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 阅读器目录面板（底部弹层）。
- * 目录项：当前小说（novelId=-1）点按页内跳转；系列内其他小说点按打开对应阅读器。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ReaderTocSheet(

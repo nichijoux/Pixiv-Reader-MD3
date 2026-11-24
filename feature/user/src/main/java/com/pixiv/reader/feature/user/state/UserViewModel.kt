@@ -36,7 +36,6 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "UserSeries"
 
-/** 用户主页作品分区。 */
 enum class UserSection(@param:StringRes val labelRes: Int) {
     ILLUST(R.string.user_section_illust),
     MANGA(R.string.user_section_manga),
@@ -44,9 +43,6 @@ enum class UserSection(@param:StringRes val labelRes: Int) {
     SERIES(R.string.user_section_series),
 }
 
-/**
- * 用户主页 ViewModel：用户详情（统计 / 关注态）+ 分区作品列表（插画 / 漫画 / 小说）+ 关注 / 取关。
- */
 @HiltViewModel
 class UserViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -70,14 +66,12 @@ class UserViewModel @Inject constructor(
     private val _error = MutableStateFlow<UiMessage?>(null)
     val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
-    /** 关注状态机（getUserDetail 内嵌 is_followed 初始化；[toggleFollow] 驱动转移）。 */
     private val _followState = MutableStateFlow(ToggleUiState.OFF)
     val followState: StateFlow<ToggleUiState> = _followState.asStateFlow()
 
     private val _section = MutableStateFlow(UserSection.ILLUST)
     val section: StateFlow<UserSection> = _section.asStateFlow()
 
-    /** 拉黑状态机（网页版用户详情 isBlocking 初始化；[toggleBlock] 驱动转移）。 */
     private val _blockState = MutableStateFlow(ToggleUiState.OFF)
     val blockState: StateFlow<ToggleUiState> = _blockState.asStateFlow()
 
@@ -86,15 +80,14 @@ class UserViewModel @Inject constructor(
     val novelPaged = PagedState<Novel>(keySelector = { it.id })
     val seriesPaged = PagedState<NovelSeriesItem>(keySelector = { it.id })
 
-    /** 漫画系列列表（系列分区漫画段用；随系列分区首载一起拉取，单页 + 翻页）。 */
     val mangaSeriesPaged = PagedState<MangaSeriesItem>(keySelector = { it.id })
 
-    /** 系列详情（seriesId → 封面/简介/连载状态/字数/更新时间）；列表项无这些字段，经 SeriesDetailLoader 批量补齐。 */
+    /** 列表项无封面/简介等字段，经 SeriesDetailLoader 批量补齐。 */
     private val _seriesInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
     val seriesInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _seriesInfos.asStateFlow()
 
     init {
-        // 同步跨页面作者关注覆盖流，列表卡片或详情页切换关注后用户主页即时响应。
+        // 跨页面关注覆盖流：列表卡片/详情页切换关注后，本页即时响应。
         viewModelScope.launch {
             favoriteActions.followedUsers
                 .map { it[userId] }
@@ -131,12 +124,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 打开用户主页时通过事务原子写入浏览历史，避免并发写入产生重复用户条目。
-     *
-     * @param user 用户详情对象
-     * @return 无返回值
-     */
+    /** replaceTop 事务原子写入，避免并发写入产生重复用户条目。 */
     private fun recordHistory(user: User?) {
         if (user == null) return
         viewModelScope.launch {
@@ -153,7 +141,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /** 网页版用户详情含 isBlocking（我是否拉黑了对方），初始化拉黑态。 */
+    /** app API 不含拉黑态，只能走网页版详情的 isBlocking。 */
     private fun loadBlockState() {
         viewModelScope.launch {
             runCatching {
@@ -207,7 +195,6 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /** 漫画系列首载（幂等：已加载/加载中跳过；单页 + next_url 翻页）。 */
     private fun loadMangaSeries() {
         if (mangaSeriesPaged.items.value.isNotEmpty() || mangaSeriesPaged.isLoading.value) return
         viewModelScope.launch {
@@ -218,7 +205,6 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /** 漫画系列失败重试（重置分页状态后重拉）。 */
     fun retryMangaSeries() {
         viewModelScope.launch {
             mangaSeriesPaged.reset()
@@ -229,7 +215,6 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /** 漫画系列触底加载更多。 */
     fun loadMoreMangaSeries() {
         viewModelScope.launch { mangaSeriesPaged.loadMore() }
     }
@@ -249,11 +234,8 @@ class UserViewModel @Inject constructor(
     }
 
     /**
-     * 为系列列表批量取详情（[SeriesDetailLoader] 批量管线：SeriesDetailCache 内存缓存 +
-     * in-flight 去重，封面/简介/连载状态/字数/更新时间同源自一次 getNovelSeries）。
-     * 列表项无这些字段；并发限 6，避免首屏一批详情请求打满连接池。
-     * 已缓存条目先同步回填 [_seriesInfos]——VM 随页面销毁重建后其本地流为空，缓存命中
-     * 路径也必须把数据送进 UI 流（否则返回后二次进入封面/简介全空白），仅真正缺失的走网络。
+     * 并发限 6，避免首屏一批详情请求打满连接池。
+     * 缓存命中项必须同步回填 [_seriesInfos]：VM 重建后本地流为空（否则二次进入封面/简介全空白），仅真缺失的走网络。
      */
     private fun loadSeriesInfos(seriesIds: List<Long>) {
         viewModelScope.launch {
@@ -279,16 +261,11 @@ class UserViewModel @Inject constructor(
     }
 
     /**
-     * 关注 / 取关（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚）。
-     * 私密关注成功时单独提示（让用户确认生效路径）。
-     *
-     * @param restrict 关注可见性：public（默认公开）/ private（私密关注，仅自己可见）
-     * @return 无返回值（操作完成后结束的协程）
+     * [ToggleUiState] 进行中保留旧文案、禁用防连点，失败回滚；私密关注成功时单独提示，让用户确认生效路径。
      */
     fun toggleFollow(restrict: String = PixivConstants.RESTRICT_PUBLIC) {
         runToggle(
             _followState,
-            // 置位成功文案按可见性分流：私密关注单独提示
             if (restrict == PixivConstants.RESTRICT_PRIVATE) {
                 CoreR.string.core_msg_followed_private
             } else {
@@ -299,10 +276,7 @@ class UserViewModel @Inject constructor(
     }
 
     /**
-     * 拉黑 / 取消拉黑（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
-     * 网页接口 saveBlock 需要 CSRF token，不可用时发专用提示且不发网络请求）。
-     *
-     * @return 无返回值（操作完成后结束的协程）
+     * 网页接口 saveBlock 需 CSRF token：不可用时直接发专用提示、不发网络请求。
      */
     fun toggleBlock() {
         runToggle(
@@ -317,7 +291,6 @@ class UserViewModel @Inject constructor(
                 }
             },
         ) { target ->
-            // CSRF token 预检：不可用直接失败（专用文案），不发网络请求
             val token = pixivRepository.csrfToken()
             if (token.isNullOrBlank()) {
                 return@runToggle Result.failure(CsrfUnavailableException())
@@ -339,14 +312,11 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 
-    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
 
-    /** CSRF token 不可用标记异常（[toggleBlock] 失败提示分流：专用文案而非通用 action_failed）。 */
     private class CsrfUnavailableException : IllegalStateException("csrf token unavailable")
 }

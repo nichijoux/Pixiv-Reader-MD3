@@ -58,13 +58,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/**
- * 屏蔽管理：卡片分组 + pill 标签——
- * 1. 本地过滤标签（推荐/搜索过滤，可增删/清空）
- * 2. 服务端屏蔽（标签展示 / 用户可取消）
- *
- * @param onBack 返回
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun BlockedRoute(
@@ -77,7 +70,6 @@ fun BlockedRoute(
     val localBlockedWorks by viewModel.localBlockedWorks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf("") }
-    // 本地过滤标签清空 / 单条删除确认
     var confirmClear by remember { mutableStateOf(false) }
     var pendingDeleteTag by remember { mutableStateOf<String?>(null) }
 
@@ -88,7 +80,6 @@ fun BlockedRoute(
         topBar = {
             BackTopAppBar(title = stringResource(R.string.blocked_title), onBack = onBack) {
                 if (localTags.isNotEmpty()) {
-                    // 清空本地过滤标签：点击弹确认框
                     TextButton(onClick = { confirmClear = true }) {
                         Text(stringResource(R.string.blocked_clear), color = MaterialTheme.colorScheme.error)
                     }
@@ -126,7 +117,6 @@ fun BlockedRoute(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = Spacing.xxs),
                                 )
-                                // 添加输入
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -151,7 +141,6 @@ fun BlockedRoute(
                                         Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cd_add))
                                     }
                                 }
-                                // 标签列表
                                 Spacer(Modifier.height(12.dp))
                                 if (localTags.isEmpty()) {
                                     Text(
@@ -202,7 +191,7 @@ fun BlockedRoute(
                                     )
                                 } else {
                                     Spacer(Modifier.height(12.dp))
-                                    // 键格式 "illust:123" / "novel:456"：类型徽标 + id + 解除按钮
+                                    // 键格式 "illust:123" / "novel:456"
                                     localBlockedWorks.sorted().forEach { key ->
                                         val parts = key.split(':')
                                         val type = parts.getOrNull(0).orEmpty()
@@ -268,7 +257,6 @@ fun BlockedRoute(
                                         modifier = Modifier.padding(top = Spacing.md),
                                     )
                                 } else {
-                                    // 服务端标签
                                     if (mutedTags.isNotEmpty()) {
                                         Spacer(Modifier.height(12.dp))
                                         FlowRow(
@@ -283,7 +271,6 @@ fun BlockedRoute(
                                             }
                                         }
                                     }
-                                    // 服务端用户
                                     if (mutedUsers.isNotEmpty()) {
                                         Spacer(Modifier.height(12.dp))
                                         mutedUsers.forEach { muted ->
@@ -326,7 +313,6 @@ fun BlockedRoute(
         }
     }
 
-    // 清空本地过滤标签确认
     if (confirmClear) {
         ConfirmDialog(
             title = stringResource(R.string.blocked_clear_title),
@@ -339,7 +325,6 @@ fun BlockedRoute(
             onDismiss = { confirmClear = false },
         )
     }
-    // 单条本地过滤标签删除确认
     pendingDeleteTag?.let { tag ->
         ConfirmDialog(
             title = stringResource(R.string.blocked_delete_title),
@@ -354,7 +339,6 @@ fun BlockedRoute(
     }
 }
 
-/** 标签 pill（可删除时带 ✕，点击删除）。 */
 @Composable
 private fun TagPill(
     text: String,

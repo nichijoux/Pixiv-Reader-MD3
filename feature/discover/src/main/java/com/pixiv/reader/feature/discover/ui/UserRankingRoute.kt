@@ -25,14 +25,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.UserRankingViewModel
 
-/**
- * 画师榜（路由 `user_ranking`）：官方推荐创作者列表（CreatorProfileCard：三封面 + 头像/名/关注）。
- *
- * @param onBack 返回
- * @param onOpenUser 点击卡片 / 作者行打开用户主页
- * @param viewModel 画师榜数据与分页操作
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserRankingRoute(

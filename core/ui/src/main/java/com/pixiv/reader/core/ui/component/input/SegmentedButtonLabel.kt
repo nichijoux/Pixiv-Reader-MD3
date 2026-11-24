@@ -11,19 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 
-/**
- * 分段控件单行自适应标签：宽度不足时按步长缩小字号（14sp → 最低 9sp）而不是换行。
- * 用于分段选择等宽场景，防止长文案（如英文 "Seamless vertical"）换行把所在分段撑成两行高、
- * 整条分段选择器高低错位。仍放不下时省略号兜底。
- *
- * 供 [PillSegmentedRow]（全 App 分段控件统一实现）使用：颜色/字重按选中态显式注入。
- *
- * @param text 标签文案
- * @param modifier 外部传入的 Modifier
- * @param color 文字颜色；[Color.Unspecified] 时沿用 [LocalContentColor]（宿主未指定选中态时）
- * @param fontWeight 文字字重；null 时沿用主题 `labelLarge` 字重
- * @return 无返回值
- */
+/** 分段控件单行自适应标签：窄宽时逐级缩字（14sp → 9sp）防换行撑高轨道，[color] 未指定时沿用 [LocalContentColor]。 */
 @Composable
 fun SegmentedButtonLabel(
     text: String,
@@ -34,7 +22,7 @@ fun SegmentedButtonLabel(
     BasicText(
         text = text,
         modifier = modifier,
-        // BasicText 不自动取 LocalContentColor，需随样式显式带上（选中/未选中态色由宿主注入）
+        // BasicText 不自动读取 LocalContentColor，须显式写入 style
         style = MaterialTheme.typography.labelLarge.copy(
             color = if (color == Color.Unspecified) LocalContentColor.current else color,
             fontWeight = fontWeight ?: MaterialTheme.typography.labelLarge.fontWeight,

@@ -5,9 +5,7 @@ import com.pixiv.reader.core.novel.model.NovelDocument
 import com.pixiv.reader.core.novel.model.assignCharRanges
 import com.pixiv.reader.core.novel.model.buildFullText
 
-/**
- * TXT 小说解析：按换行分段 → [NovelDocument]（本地导出文件直接阅读用）。
- */
+/** 下载管理页导出文件的应用内直接阅读入口。 */
 object TxtNovelParser {
 
     fun parse(text: String): NovelDocument {

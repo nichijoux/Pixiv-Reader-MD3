@@ -56,24 +56,6 @@ import com.pixiv.reader.feature.discover.state.FilteredRankingViewModel
 import com.pixiv.reader.feature.discover.state.PeriodRankingViewModel
 
 
-/**
- * 「排行数据 + 客户端过滤」榜单页共用骨架（AI 榜 / 壁纸榜 / 年代榜）：
- * RankingList（日/周/月分段 + 日期回看）+ 调用方过滤谓词（保留真实名次）。
- * 平板 Master-Detail 与单栏分流同常规排行榜页。
- *
- * @param title 顶栏标题
- * @param filter 客户端过滤谓词（true 保留）
- * @param filterKey 过滤结果缓存键（榜单页过滤行为固定时传页面常量，如 "ai"/"wallpaper"/"era"）
- * @param filteredEmptyText 过滤后为空时的空态文案
- * @param eraChips 是否显示年代快捷 chips（年代榜专用：点击跳到该年代末的历史榜）
- * @param viewModel 共用排行 ViewModel（AI 榜用 day_ai 段、壁纸/年代榜用日/周/月段，
- *        按 backstack entry 各自实例化）
- * @param onBack 返回
- * @param onOpenIllust 点击排名行打开作品详情（小屏单栏路径）
- * @param onOpenUser 点击作者打开用户主页
- * @param onOpenViewer 点击图片打开全屏查看器
- * @param onSearchTag 标签点击跳标签搜索
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilteredRankingScreen(
@@ -148,7 +130,7 @@ private fun FilteredRankingScreen(
                             modes = viewModel.modes,
                             onModeSelect = viewModel::onPageSelected,
                             stateFor = viewModel::stateFor,
-                            // 日期维度变更时按新复合键取新 PagedState 并重新加载（与漫画/插画/小说排行页同款）
+                            // 日期变更时换复合键，让 RankingList 绑定对应日期的 PagedState
                             stateKey = selectedDate.orEmpty(),
                             onRetry = viewModel::retry,
                             onLoadMore = viewModel::loadMore,
@@ -164,7 +146,6 @@ private fun FilteredRankingScreen(
                                 rank = rank,
                                 coverHeight = 220.dp,
                                 illust = item,
-                                // 双栏 pane 内点击仅选中右侧详情（paneEnabled 恒真分支）
                                 onClick = { selected = item },
                                 onToggleFavorite = { fav -> viewModel.toggleIllustFavorite(item.id, fav) },
                                 onOpenAuthor = { item.user?.id?.let(onOpenUser) },
@@ -198,7 +179,6 @@ private fun FilteredRankingScreen(
                 modes = viewModel.modes,
                 onModeSelect = viewModel::onPageSelected,
                 stateFor = viewModel::stateFor,
-                // 日期维度变更时按新复合键取新 PagedState 并重新加载（与漫画/插画/小说排行页同款）
                 stateKey = selectedDate.orEmpty(),
                 onRetry = viewModel::retry,
                 onLoadMore = viewModel::loadMore,
@@ -225,22 +205,12 @@ private fun FilteredRankingScreen(
     }
 }
 
-/**
- * 列表头部：年代快捷 chips（年代榜）+ 当前选中日期 chip 行。
- * 年代 chips 点击 = selectDate 到该年代末的历史榜（如 2010 → 2010-12-31）。
- *
- * @param selectedDate 当前选中的历史日期（yyyy-MM-dd），null = 最新榜
- * @param eraChips 是否显示年代快捷 chips（年代榜专用）
- * @param viewModel 共用排行 ViewModel（读选中日期 + 切换日期）
- * @return 无返回值
- */
 @Composable
 private fun EraHeader(
     selectedDate: String?,
     eraChips: Boolean,
     viewModel: FilteredRankingViewModel,
 ) {
-    // 年代快捷项与已选日期独立显示，所有榜单都可以清除日期。
     if (eraChips) {
         Row(
             modifier = Modifier
@@ -286,11 +256,6 @@ private fun EraHeader(
     }
 }
 
-/**
- * AI 榜：pixiv 官方 AI 生成日榜（服务端 `mode=day_ai` 已过滤出 AI 作品，保留真实名次）。
- * 常规日/周/月榜不收录 AI 作品（illust_ai_type 恒为 1），此前客户端 isAi 过滤恒为空，
- * 故必须走专用 mode；过滤谓词放行为真，空态文案仅服务端榜单为空时出现。
- */
 @Composable
 fun AiRankingRoute(
     onBack: () -> Unit,
@@ -302,8 +267,8 @@ fun AiRankingRoute(
 ) {
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_ai_title),
+        // 服务端 mode=day_ai 已完成 AI 过滤，常规榜不含 AI 作品，客户端无需再滤
         filter = { true },
-        // 服务端已按 day_ai 过滤，客户端谓词行为固定 → 常量键即可缓存过滤结果
         filterKey = "ai",
         filteredEmptyText = stringResource(R.string.ranking_ai_empty),
         eraChips = false,
@@ -316,7 +281,6 @@ fun AiRankingRoute(
     )
 }
 
-/** 壁纸榜：常规排行数据中过滤横屏高分辨率作品（width > height 且 ≥1920px）。 */
 @Composable
 fun WallpaperRankingRoute(
     onBack: () -> Unit,
@@ -329,7 +293,6 @@ fun WallpaperRankingRoute(
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_wallpaper_title),
         filter = { it.width > it.height && it.width >= 1920 },
-        // 壁纸判定条件固定 → 常量键即可缓存过滤结果
         filterKey = "wallpaper",
         filteredEmptyText = stringResource(R.string.ranking_wallpaper_empty),
         eraChips = false,
@@ -342,7 +305,6 @@ fun WallpaperRankingRoute(
     )
 }
 
-/** 年代榜：带年代快捷 chips 的历史榜单（回到当年某天看榜单）。 */
 @Composable
 fun EraRankingRoute(
     onBack: () -> Unit,
@@ -355,7 +317,6 @@ fun EraRankingRoute(
     FilteredRankingScreen(
         title = stringResource(R.string.ranking_era_title),
         filter = { true },
-        // 年代榜不过滤（历史日期只换 data 维度）→ 常量键即可缓存过滤结果
         filterKey = "era",
         filteredEmptyText = stringResource(R.string.ranking_era_empty),
         eraChips = true,

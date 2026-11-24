@@ -12,35 +12,25 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SearchHistoryDao {
 
-    /** 观察最近搜索记录（按时间倒序，最多 [limit] 条）。 */
     @Query("SELECT * FROM search_history ORDER BY searchedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int = 20): Flow<List<SearchHistoryEntity>>
 
-    /** 删除同关键词旧记录（先删旧再插入，保证同词只保留最新一条并置顶）。 */
     @Query("DELETE FROM search_history WHERE keyword = :keyword")
     suspend fun deleteByKeyword(keyword: String)
 
-    /** 插入/覆盖记录（配合 [deleteByKeyword] 实现去重置顶）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: SearchHistoryEntity)
 
-    /**
-     * 原子删旧并置顶写入搜索关键词，防止并发写入出现短暂空白。
-     *
-     * @param entity 待写入的最新搜索历史实体
-     * @return 无返回值
-     */
+    /** 原子先删旧再插实现关键词去重置顶，防并发空窗。 */
     @Transaction
     suspend fun replaceTop(entity: SearchHistoryEntity) {
         deleteByKeyword(entity.keyword)
         upsert(entity)
     }
 
-    /** 删除单条记录。 */
     @Delete
     suspend fun delete(entity: SearchHistoryEntity)
 
-    /** 清空全部搜索历史。 */
     @Query("DELETE FROM search_history")
     suspend fun clearAll()
 }

@@ -31,7 +31,6 @@ import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 import com.pixiv.reader.feature.discover.state.SearchType
 import kotlinx.coroutines.launch
 
-/** 结果态：PrimaryScrollableTabRow + HorizontalPager（作品 / 小说 / 用户三段，按类型渲染 HOT / 普通结果）。 */
 @Composable
 internal fun SearchResultPager(
     viewModel: DiscoverViewModel,
@@ -40,8 +39,7 @@ internal fun SearchResultPager(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
 ) {
-    // 初始页跟随 VM 当前类型：小说标签深链 setType(NOVEL) 后直落小说栏，
-    // 否则 pager 首组合 page=0 的同步 effect 会把类型翻回插画并触发重复搜索
+    // 初始页跟随 VM 当前类型，否则深链 setType(NOVEL) 后首组合 page=0 会同步回插画并重复搜索
     val pagerState = rememberPagerState(
         initialPage = viewModel.type.value.ordinal,
         pageCount = { SearchType.entries.size },
@@ -49,7 +47,6 @@ internal fun SearchResultPager(
     val scope = rememberCoroutineScope()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
 
-    // 滑动切页 → 同步类型
     LaunchedEffect(pagerState.currentPage) {
         val page = pagerState.currentPage
         if (page in SearchType.entries.indices) {
@@ -58,7 +55,6 @@ internal fun SearchResultPager(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 类型页签：作品 / 小说 / 用户（PrimaryScrollableTabRow；选中态跟 Pager 落页，点击反向滚页）
         PrimaryScrollableTabRow(
             selectedTabIndex = pagerState.currentPage.coerceIn(0, SearchType.entries.size - 1),
             containerColor = MaterialTheme.colorScheme.surface,
@@ -97,14 +93,6 @@ internal fun SearchResultPager(
     }
 }
 
-/**
- * 热门模式：插画一次性完整列表（无分页）；请求在途且无数据时显示骨架屏。
- *
- * @param viewModel 发现页 ViewModel（提供热门插画列表与在途状态）
- * @param onOpenIllust 点击插画卡回调（插画 ID）
- * @param onOpenUser 点击作者头像回调（用户 ID）
- * @return 无返回值
- */
 @Composable
 private fun HotIllustGrid(
     viewModel: DiscoverViewModel,
@@ -113,7 +101,6 @@ private fun HotIllustGrid(
 ) {
     val popular by viewModel.popularIllusts.collectAsStateWithLifecycle()
     val loading by viewModel.popularIllustsLoading.collectAsStateWithLifecycle()
-    // 请求在途且尚无数据 → 骨架屏；仅在加载完成仍为空时才显示空态
     if (loading && popular.isEmpty()) {
         IllustWaterfallSkeleton()
         return
@@ -137,15 +124,6 @@ private fun HotIllustGrid(
     )
 }
 
-/**
- * 热门模式：小说一次性完整列表（无分页）；请求在途且无数据时显示骨架屏。
- *
- * @param viewModel 发现页 ViewModel（提供热门小说列表与在途状态）
- * @param onOpenNovel 点击小说卡回调（小说 ID）
- * @param onOpenUser 点击作者头像回调（用户 ID）
- * @param onOpenSeries 点击系列回调（系列 ID）
- * @return 无返回值
- */
 @Composable
 private fun HotNovelList(
     viewModel: DiscoverViewModel,
@@ -155,7 +133,6 @@ private fun HotNovelList(
 ) {
     val popular by viewModel.popularNovels.collectAsStateWithLifecycle()
     val loading by viewModel.popularNovelsLoading.collectAsStateWithLifecycle()
-    // 请求在途且尚无数据 → 骨架屏；仅在加载完成仍为空时才显示空态
     if (loading && popular.isEmpty()) {
         NovelSearchSkeleton()
         return
@@ -164,7 +141,7 @@ private fun HotNovelList(
         EmptyBox(stringResource(R.string.search_no_hot))
         return
     }
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    // item lambda 非组合上下文，需在外部提前读取 motionScheme
     val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -182,7 +159,6 @@ private fun HotNovelList(
                     viewModel.search()
                 },
                 onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                // 进场淡入 + 列表刷新时位置平滑过渡
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                     placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),

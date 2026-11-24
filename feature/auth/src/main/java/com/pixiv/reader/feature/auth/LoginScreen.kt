@@ -43,7 +43,6 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // 应用 Logo（对应 Launcher 图标：蓝底白字 P；底形用 Expressive 12 边软多边形）
         Box(
             modifier = Modifier
                 .size(96.dp)

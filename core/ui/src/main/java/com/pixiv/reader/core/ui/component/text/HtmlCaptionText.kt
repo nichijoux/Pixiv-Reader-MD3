@@ -22,25 +22,13 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 
-/** pixiv 深链：illusts / novels / users 三类；捕获组拼成 `illusts:123` 形式的链接标识。 */
+/** pixiv 深链三类：捕获组拼成 `illusts:123` 形式的链接标识。 */
 private val PIXIV_LINK_REGEX = Regex("pixiv://(illusts|novels|users)/(\\d+)")
 
 /**
- * Pixiv 简介富文本解析（Jsoup）→ Compose [AnnotatedString]。
- *
- * Pixiv 的 caption/intro 是 HTML 片段（如 `<strong><a href="pixiv://illusts/123">…</a></strong>
- * <br/><br/>正文…`），支持：
- * - `<br>` → 换行（连续两个 = 空行分段，超量压缩为最多两个）
- * - `<strong>/<b>` 加粗、`<em>/<i>` 斜体、`<u>` 下划线、`<s>/<del>` 删除线
- * - `<a href="pixiv://illusts|novels|users/{id}">` → 可点击链接（[linkColor] + 下划线），
- *   区间以 [LinkAnnotation.Clickable] 标记（tag 形如 `illusts:123`），点击经 [onLinkClick] 分发
- * - 块级标签（`p/div/li/…`）前后自动换行；`script/style/iframe/img` 等丢弃
- * - 其他未知行内标签只保留文本
- *
- * @param html 原始 HTML 片段
- * @param linkColor 链接文字颜色
- * @param onLinkClick 链接点击回调（参数为链接标识，形如 `illusts:123` / `novels:456` / `users:789`）
- * @return 带样式与可点击链接的 [AnnotatedString]
+ * 把 Pixiv caption 的 HTML 片段（Jsoup 解析）转成 [AnnotatedString]：`pixiv://illusts|novels|users/{id}`
+ * 渲染为可点击链接，块级标签前后自动换行且连续换行最多压到两个（否则长简介空白失控），
+ * 未知标签只保留文本。
  */
 fun parseCaptionHtml(html: String, linkColor: Color, onLinkClick: (String) -> Unit = {}): AnnotatedString {
     if (html.isBlank()) return AnnotatedString("")
@@ -48,7 +36,7 @@ fun parseCaptionHtml(html: String, linkColor: Color, onLinkClick: (String) -> Un
     var newlineCount = 0
     var hasContent = false
 
-    // 换行：已有一个换行时再追加一个（`<br><br>` 空行），最多保持两个连续换行
+    // 已有一个换行时再追加 = 空行，最多两个连续换行
     fun appendBreak() {
         if (!hasContent) return
         val target = if (newlineCount >= 1) 2 else 1
@@ -59,13 +47,12 @@ fun parseCaptionHtml(html: String, linkColor: Color, onLinkClick: (String) -> Un
     }
 
     fun appendText(text: String) {
-        // 压缩空白（保留单个空格）；换行完全由 <br>/块级标签控制
+        // 换行完全由 <br>/块级标签控制，文本内的空白只压成单个空格
         builder.append(text.replace(Regex("\\s+"), " "))
         hasContent = true
         newlineCount = 0
     }
 
-    // 递归遍历：样式标签 push/pop、链接 pushAnnotation/pop、块级前后换行
     fun visit(node: Node) {
         when (node) {
             is TextNode -> {
@@ -100,7 +87,6 @@ fun parseCaptionHtml(html: String, linkColor: Color, onLinkClick: (String) -> Un
                         val m = PIXIV_LINK_REGEX.find(node.attr("href"))
                         if (m != null) {
                             val (type, id) = m.destructured
-                            // 链接标识形如 illusts:123 / novels:456 / users:789，点击时回调 [onLinkClick] 分发
                             builder.pushLink(
                                 LinkAnnotation.Clickable(
                                     tag = "$type:$id",
@@ -116,7 +102,6 @@ fun parseCaptionHtml(html: String, linkColor: Color, onLinkClick: (String) -> Un
                             node.childNodes().forEach(::visit)
                             builder.pop()
                         } else {
-                            // 非 pixiv 链接：只保留文字，无样式
                             node.childNodes().forEach(::visit)
                         }
                     }
@@ -138,23 +123,8 @@ fun parseCaptionHtml(html: String, linkColor: Color, onLinkClick: (String) -> Un
 }
 
 /**
- * 渲染 Pixiv 简介富文本（HTML → 样式 + 可点击深链）。
- *
- * 透传 [Text] 的截断/布局参数（[maxLines] / [overflow] / [onTextLayout]），
- * 调用方既有「展开/收起 + 溢出检测」逻辑无需改动；首行缩进等文字样式经 [style] 传入。
- * 链接点击：[LinkAnnotation] 回调携带链接标识（`illusts:123` 等），分发到对应回调。
- *
- * @param html 原始 HTML 片段（Pixiv caption）
- * @param modifier 外部传入的 Modifier
- * @param style 基础文字样式（如 bodyMedium + 首行缩进）
- * @param color 默认文字颜色（span 样式覆盖之）
- * @param linkColor 链接文字颜色（默认主题 primary）
- * @param maxLines 最大行数（截断检测用；默认不限制）
- * @param overflow 超出截断方式
- * @param onTextLayout 布局结果回调（溢出检测 / 展开状态联动）
- * @param onOpenIllust 点击 `pixiv://illusts/{id}` 链接回调
- * @param onOpenNovel 点击 `pixiv://novels/{id}` 链接回调
- * @param onOpenUser 点击 `pixiv://users/{id}` 链接回调
+ * 透传 [Text] 的截断/布局参数（[maxLines] / [overflow] / [onTextLayout]），调用方既有「展开/收起 + 溢出检测」
+ * 逻辑无需改动；首行缩进等文字样式经 [style] 传入。
  */
 @Composable
 fun HtmlCaptionText(
@@ -170,12 +140,11 @@ fun HtmlCaptionText(
     onOpenNovel: (Long) -> Unit = {},
     onOpenUser: (Long) -> Unit = {},
 ) {
-    // remember 缓存的 AnnotatedString 内嵌了首帧的链接回调；经 rememberUpdatedState 间接读取，
-    // 调用方回调更新（重组重建 lambda）不会分发到过期闭包
+    // AnnotatedString 经 remember 缓存并内嵌首帧的链接回调，经 rememberUpdatedState 间接读取才能分发到新闭包
     val currentOnOpenIllust = rememberUpdatedState(onOpenIllust)
     val currentOnOpenNovel = rememberUpdatedState(onOpenNovel)
     val currentOnOpenUser = rememberUpdatedState(onOpenUser)
-    // 链接标识 → 按类型分发（类型与正则捕获一致，复数：illusts/novels/users）；id 非法时静默忽略
+    // 链接标识类型与正则捕获一致（复数 illusts/novels/users）；id 非法时静默忽略
     val onLinkClick = remember {
         { link: String ->
             val (type, id) = link.split(':', limit = 2)

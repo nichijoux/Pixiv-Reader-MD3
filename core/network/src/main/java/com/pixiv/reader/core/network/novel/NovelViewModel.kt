@@ -35,11 +35,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更。
- * 评论已独立（详情页不加载评论）。导出触发经 [exportRequest] 回调交 feature 层处理
- * （core 不依赖 feature 的 NovelExportWorker/Format）。
- *
- * 排行右栏复用：无路由参数时 init 不预载，等 [switchTo] 换作品加载。
+ * 小说详情 ViewModel：详情 / 系列章节 / 阅读进度 / 收藏 / 追更（评论已独立）。
+ * 导出经 [exportRequest] 回调交 feature 层（core 不依赖 feature 的 Worker/Format）。
  */
 @HiltViewModel
 class NovelViewModel @Inject constructor(
@@ -57,7 +54,6 @@ class NovelViewModel @Inject constructor(
     private val _novel = MutableStateFlow<Novel?>(null)
     val novel: StateFlow<Novel?> = _novel.asStateFlow()
 
-    /** 系列详情（含章节列表） */
     private val _seriesNovels = MutableStateFlow<List<Novel>>(emptyList())
     val seriesNovels: StateFlow<List<Novel>> = _seriesNovels.asStateFlow()
 
@@ -70,47 +66,32 @@ class NovelViewModel @Inject constructor(
     private val _progress = MutableStateFlow<ReadingProgressEntity?>(null)
     val progress: StateFlow<ReadingProgressEntity?> = _progress.asStateFlow()
 
-    /** 收藏状态机（一键收藏；详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移）。 */
     private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
     val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    /** 收藏编辑器保存进行中（防连点 + 弹层确认按钮禁用；一键收藏走 [_bookmarkState] 独立防连点）。 */
     private val _isEditorSaving = MutableStateFlow(false)
     val isEditorSaving: StateFlow<Boolean> = _isEditorSaving.asStateFlow()
 
-    /** 所属系列追更状态机（getNovelSeries 的 watchlist_added 初始化；详情页追更按钮）。 */
     private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
     val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
-    /** 作者关注状态机（详情页作者名旁关注按钮；user/detail 权威刷新）。 */
     private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
     val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
-    /** 下载/导出进行中 */
     private val _downloading = MutableStateFlow(false)
     val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
 
-    /** 下载/导出进度文案（如"正在下载第 3/12 章…"） */
     private val _downloadProgress = MutableStateFlow<String?>(null)
     val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
 
-    /**
-     * 导出请求挂起回调（feature 层接线：先落库 pending 再以唯一任务入队 WorkManager）。
-     * core 只转发触发参数并管理导出态与错误提示，不依赖 feature 导出实现。
-     */
+    /** feature 层接线（先落库 pending 再以唯一任务入队）；core 只转发触发参数并管理导出态。 */
     var exportRequest: (suspend (novelId: Long, seriesId: Long?, formatName: String) -> Unit)? = null
 
-    /**
-     * 写入「待同步」下载索引条目（挂起等待落库完成，保证 Worker 启动前索引已存在）。
-     *
-     * @param entry 待入队的索引条目（status 强制置 pending）
-     * @return 无返回值
-     */
+    /** 挂起等待落库完成，保证 Worker 启动前索引已存在。 */
     suspend fun markDownloadPending(entry: DownloadEntryEntity) {
         DownloadQueue.markPending(downloadEntryDao, entry)
     }
 
-    /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
     val bookmarkEditor = BookmarkEditor(
         scope = viewModelScope,
         api = pixivRepository.api,
@@ -149,10 +130,7 @@ class NovelViewModel @Inject constructor(
         if (novelId > 0L) load()
     }
 
-    /**
-     * 切换到另一小说（排行右栏选中项变化时调用）。
-     * 清空旧作品全部状态后重新加载；加载期间旧内容先清空避免错位。
-     */
+    /** 排行右栏切换选中项时调用；先清空旧状态避免加载期间错位。 */
     fun switchTo(id: Long) {
         // 与当前展示中的小说比较去重（内嵌场景 novelId=0，比较展示 id 而非路由参数）
         val currentShown = _novel.value?.id ?: novelId
@@ -172,7 +150,6 @@ class NovelViewModel @Inject constructor(
         load(id)
     }
 
-    /** 当前请求中的小说 id（响应竞态守卫：右栏快速切换后旧响应直接丢弃）。 */
     private var requestedId: Long = novelId
 
     fun load(id: Long = novelId) {
@@ -252,11 +229,7 @@ class NovelViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 收藏 / 取消收藏小说（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
-     * 经 FavoriteActions 统一收口，断网自动入队）。id 与 [bookmarkEditor] 同源取自当前展示小说
-     * （排行右栏内嵌场景路由 novelId=0）。
-     */
+    /** 收藏 id 取自当前展示小说（排行右栏路由 novelId=0）；断网由 [FavoriteActions] 入队。 */
     fun toggleBookmark() {
         val id = _novel.value?.id ?: novelId
         runToggle(
@@ -270,10 +243,6 @@ class NovelViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 期间以 [_isEditorSaving] 防连点（弹层确认按钮禁用同一标志）。
-     */
     fun saveBookmarkEditor() {
         runActionNotified(
             _isEditorSaving,
@@ -286,12 +255,7 @@ class NovelViewModel @Inject constructor(
         ) { bookmarkEditor.save() }
     }
 
-    /**
-     * 追更 / 取消追更系列（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
-     * 经 FavoriteActions 统一收口，断网自动入队）。
-     *
-     * @return 无返回值（操作完成后结束的协程）
-     */
+    /** [ToggleUiState] 状态机；断网由 [FavoriteActions] 入队。 */
     fun toggleWatchlist() {
         val seriesId = _novel.value?.series?.id ?: return
         runToggle(
@@ -303,7 +267,7 @@ class NovelViewModel @Inject constructor(
 
     // ── 关注作者 ─────────────────────────────────────────────────────────────
 
-    /** 用 user/detail 权威刷新作者关注态（best-effort，失败保留内嵌值，并校验目标未切换）。 */
+    /** best-effort：失败保留内嵌值，并校验目标未切换。 */
     private fun loadAuthorFollowState(userId: Long, expectedNovelId: Long) {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getUserDetail(userId) }
@@ -317,7 +281,6 @@ class NovelViewModel @Inject constructor(
         }
     }
 
-    /** 关注 / 取关作者（详情页作者名旁按钮，[ToggleUiState] 状态机防连点；经 FavoriteActions 统一收口）。 */
     fun toggleFollowAuthor() {
         val userId = _novel.value?.user?.id ?: return
         runToggle(
@@ -330,12 +293,8 @@ class NovelViewModel @Inject constructor(
     // ── 下载 / 导出 ──────────────────────────────────────────────────────────
 
     /**
-     * 导出小说（单本或整个系列）。先挂起等待 feature 层写好 pending 索引并入队唯一 Worker，
-     * 随后按精确主键观察单条下载状态，避免历史其他格式的完成记录提前结束等待。
-     *
-     * @param formatName NovelExportFormat.name（"TXT"/"EPUB"/"PDF"/"MARKDOWN"/"DOCX"）
-     * @param series true 表示导出所属整系列，false 表示仅导出当前单本
-     * @return 无返回值
+     * 先等 feature 层写好 pending 索引并入队，再按完整复合主键观察单条状态，
+     * 避免历史其他格式的完成记录提前结束等待。
      */
     fun export(formatName: String, series: Boolean = false) {
         val detail = _novel.value ?: return
@@ -362,14 +321,6 @@ class NovelViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 按完整复合主键精确等待导出结束（done / failed / 条目被删除），随后复位导出中状态。
-     *
-     * @param id 小说 ID
-     * @param format 导出格式名称
-     * @param scopeKey 下载作用域（""=单本 / "series"=整系列）
-     * @return 无返回值
-     */
     private suspend fun observeExportStateReset(id: Long, format: String, scopeKey: String) {
         try {
             downloadEntryDao.observeStatus("novel", id, format, scopeKey).first { status ->

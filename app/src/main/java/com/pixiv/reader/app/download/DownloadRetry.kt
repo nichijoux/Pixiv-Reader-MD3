@@ -20,22 +20,11 @@ import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 
 /**
- * 下载重试（app 层）：按 targetType 重建对应后台任务（下载管理页 failed 条目）。
- *
- * 按原范围重建任务后将索引条目复位为 pending，再入队等待网络连通。
- *
- * 断点续传：已下载部分（插画 `.part` 文件 / 小说导出章节缓存）由各 Worker 自动复用，只补缺失部分。
- *
- * 注：分发逻辑依赖 core:network 的 IllustDownloadWorker 与 feature:novel 的 NovelExportWorker，
- * 受「feature 之间禁止互相依赖」硬约束无法下沉 feature:user，故落在 app 层独立文件
- * （app 依赖全部 feature，引用合法），使导航文件不承载业务逻辑。
- *
- * @param context 任意 context（WorkManager / Hilt EntryPoint 取应用级依赖）
- * @param entry 待重试的下载索引条目
- * @return 无返回值
+ * 按 targetType 重建下载任务并复位为 pending；Worker 自动复用已有断点。
+ * 因 feature 间禁止互依，无法下沉至 feature:user，统一放在 app 层调度。
  */
 suspend fun retryDownload(context: Context, entry: DownloadEntryEntity) {
-    // 先校验能否按原主键重建任务；缺少分册选择的旧条目保持失败态。
+    // 缺少分册选择的旧条目保持失败态，避免改变原导出范围
     val request = when (entry.targetType) {
         "illust" -> OneTimeWorkRequestBuilder<IllustDownloadWorker>()
             .setInputData(workDataOf(IllustDownloadWorker.KEY_ILLUST_ID to entry.targetId))
@@ -59,7 +48,6 @@ suspend fun retryDownload(context: Context, entry: DownloadEntryEntity) {
                 .setInputData(workDataOf(*data.toTypedArray()))
         }
         "ugoira" ->
-            // 动图导出重试：按索引 format 重建导出任务（zip / 已解压帧断点复用）
             OneTimeWorkRequestBuilder<UgoiraExportWorker>()
                 .setInputData(
                     workDataOf(
@@ -67,7 +55,6 @@ suspend fun retryDownload(context: Context, entry: DownloadEntryEntity) {
                         UgoiraExportWorker.KEY_FORMAT to UgoiraExportFormat.from(entry.format).format,
                     )
                 )
-        // 其他类型（本地文件等）无重试通道
         else -> null
     } ?: return
     val workTag = DownloadQueue.workTag(entry.targetType, entry.targetId, entry.format, entry.scopeKey)
@@ -79,7 +66,7 @@ suspend fun retryDownload(context: Context, entry: DownloadEntryEntity) {
         val dao = EntryPointAccessors
             .fromApplication(context.applicationContext, DownloadWorkerEntryPoint::class.java)
             .downloadEntryDao()
-        // 保留原条目的复合主键、快照与断点，校验通过后以唯一队列入队防止重复并发任务。
+        // 以原 workTag 唯一入队（KEEP），防止重复并发任务
         DownloadQueue.markPending(dao, entry)
         WorkManager.getInstance(context)
             .enqueueUniqueWork(workTag, ExistingWorkPolicy.KEEP, work)
@@ -91,12 +78,6 @@ suspend fun retryDownload(context: Context, entry: DownloadEntryEntity) {
     }
 }
 
-/**
- * 从下载快照的 `chapterIds` 数组读取完整分册选择；缺失或损坏时保留原失败记录。
- *
- * @param payloadJson 下载条目的快照 JSON
- * @return 有效的分册 ID 数组；无法恢复选中范围时为空
- */
 private fun retryChapterIds(payloadJson: String?): LongArray? {
     val payload = payloadJson ?: return null
     val ids = runCatching { JSONObject(payload).optJSONArray(NovelExportWorker.KEY_CHAPTER_IDS) }

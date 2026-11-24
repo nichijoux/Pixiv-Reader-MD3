@@ -49,46 +49,14 @@ import com.pixiv.reader.feature.follow.data.FollowType
 import com.pixiv.reader.feature.follow.state.FollowViewModel
 import kotlinx.coroutines.launch
 
-/** 右列类型段（HorizontalPager 页 → 类型，顺序即页序）。 */
+/** 顺序即 HorizontalPager 页序。 */
 private val TYPE_TABS = listOf(FollowType.ALL, FollowType.NOVEL, FollowType.ILLUST)
 
 /**
- * 关注页：左列关注用户（固定侧栏）+ 右列混合动态流（全部 / 小说 / 插画三段 PrimaryTabRow 页签，均分占满）。
- *
- * ## 布局（手机 / 平板统一左右结构）
- * - 左列 [FollowUserColumn]：手机窄版 60dp（头像 + 小字名），平板宽版 168dp（头像 + 完整名），
- *   **固定在左侧、不随 pane 开合移动**
- * - 右列：`TabRow`（全部/小说/插画，均分占满）+ `HorizontalPager` 左右滑动切换；
- *   每页是独立类型流（数据驻留 VM，滑动切回不重复请求），手机上单列流、平板上瀑布流
- * - 左列点用户 → 加载该用户全部作品（插画/漫画/小说混合）；点「全部」恢复关注新作品流
- *
- * ## 平板 Master-Detail
- * 点动态卡片 → 动态流左移让位 + 右侧详情 pane 滑入（[ListDetailOverlay]，作用域为用户列
- * 右侧区域）：小说卡 → [novelDetailPane] 槽位、系列卡（小说卡系列标题）→ [seriesDetailPane]
- * 槽位（feature:novel 的小说详情 / 系列 pane 由 app 组合根注入，feature 间禁止依赖，
- * 故经槽位反转）；作品卡 → core:ui [IllustDetailPane]（直接复用）。
- * pane 可用性按「内容区 − 用户列宽」实算（[detailPaneWidth]，保底 240dp = 关注流单列下限），
- * 保证竖屏窄平板仍可启用；未启用时点击卡片回退全屏路由跳转。
- * 本页无 Scaffold/TopAppBar，状态栏 inset 由列表侧（TabRow）与 pane 侧（[detailPane]
- * 内层 [statusBarsPadding]）各自避让，与其它宿主「pane 从顶栏下方起步」对齐。
- *
- * 回调经 MainShell 上抛到顶层导航（详情 / 查看器 / 用户页等全屏路由）。
- *
- * @param reselectKey 再次选中关注页时的回顶信号
- * @param onOpenIllust 打开作品详情全屏路由（手机端点击作品卡）
- * @param onOpenNovel 打开小说详情全屏路由（手机端点击小说卡）
- * @param onOpenUser 打开用户主页全屏路由
- * @param onOpenSeries 打开系列页全屏路由
- * @param onOpenViewer 打开全屏查看器（pane 内图片点击；参数为作品 id + 页码）
- * @param onSearchTag 搜索小说卡标签
- * @param novelDetailPane 小说详情 pane 槽位（app 组合根注入；参数为选中小说 id、
- *   本页作用域的 [NovelViewModel] / [CommentListViewModel] 与「查看完整系列」回调
- *   （宿主分流 pane 内切换系列 pane / 全屏））
- * @param seriesDetailPane 小说系列 pane 槽位（app 组合根注入；参数为选中系列 id、
- *   分册点击回调（宿主分流 pane 内切换小说详情 / 全屏）与分册卡系列标题回调
- *   （宿主压栈后原地切换系列））
- * @param viewModel 关注页 ViewModel
- * @return 无返回值
+ * 手机/平板统一左右结构：左列用户侧栏固定，右列三段页签 + 详情 pane。
+ * 小说/系列 pane 由 app 组合根经槽位注入（feature 间禁止依赖，故反转）；pane 可用性按
+ * 「内容区 − 用户列宽」实算，列宽必须与 [FollowUserColumn] 实际列宽一致，否则点击分流与 pane 错位。
+ * 本页无 Scaffold/TopAppBar，pane 侧需自行 statusBarsPadding，才能与其它宿主「pane 从顶栏下方起步」对齐。
  */
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,7 +68,6 @@ fun FollowRoute(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onOpenViewer: (Long, Int) -> Unit,
-    // 小说卡标签点击 → 搜小说（主壳注入）
     onSearchTag: (String) -> Unit = {},
     novelDetailPane: @Composable (
         selectedId: Long?,
@@ -129,14 +96,6 @@ fun FollowRoute(
     // 返回键逐级还原上一个 pane，栈空才关闭 pane（防互跳链被返回键一步清空）
     var paneHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
 
-    /**
-     * 更新右栏唯一选中目标，三项均为空时关闭详情。
-     *
-     * @param novelId 选中的小说 ID
-     * @param illustId 选中的插画 ID
-     * @param seriesId 选中的系列 ID
-     * @return 无返回值
-     */
     fun selectPane(novelId: Long? = null, illustId: Long? = null, seriesId: Long? = null) {
         // 所有入口都同时清除其余类型，防止旧详情遮住新目标。
         selectedNovelId = novelId
@@ -155,7 +114,7 @@ fun FollowRoute(
             ?: selectedSeriesId?.let { "S:$it" }
         if (current != null) paneHistory = paneHistory + current
     }
-    // 返回键：栈非空逐级还原上一个选中（pane 间回退），栈空关闭 pane
+    // 返回键：栈非空还原上一个选中，栈空关闭
     val popPaneOrClose = {
         val last = paneHistory.lastOrNull()
         if (last == null) {
@@ -172,7 +131,7 @@ fun FollowRoute(
         }
     }
 
-    // 详情 pane 作用域 ViewModel（本 backstack entry 级，与小说 Tab / 作品 Tab pane 同款模式）
+    // backstack entry 级，与小说 / 作品 Tab 的 pane 同款模式
     val novelDetailVm: NovelViewModel = hiltViewModel()
     val illustDetailVm: IllustViewModel = hiltViewModel()
     val commentVm: CommentListViewModel = hiltViewModel()
@@ -186,7 +145,7 @@ fun FollowRoute(
     val feedTypesWithMore by viewModel.feedTypesWithMore.collectAsStateWithLifecycle()
     val feedError by viewModel.feedError.collectAsStateWithLifecycle()
 
-    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
+    // 下拉刷新手势起始触觉：仅在 false→true 时响
     val haptic = rememberHapticCue()
     var wasRefreshing by remember { mutableStateOf(isRefreshing) }
     LaunchedEffect(isRefreshing) {
@@ -208,14 +167,11 @@ fun FollowRoute(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val contentWidth = maxWidth
-        // pane 可用性按「内容区 − 用户列宽」实算（与 ListDetailOverlay 内部判定同公式），
-        // 列表保底放宽到 240dp（关注流瀑布流单列下限），竖屏窄平板仍可启用；
-        // 宽度必须与下方 FollowUserColumn 实际列宽一致，否则点击分流与 pane 实际可用性不一致
+        // 宽度必须与下方 FollowUserColumn 实际列宽一致，否则点击分流与 pane 可用性不一致
         val columnWidth = if (isCompact) 60.dp else 168.dp
         val detailPaneEnabled = detailPaneWidth((contentWidth - columnWidth).value, minListWidth = 240f) != null
 
         Row(modifier = Modifier.fillMaxSize()) {
-            // ── 左列：关注用户列表（固定侧栏，不随 pane 开合移动） ──
             FollowUserColumn(
                 users = users,
                 selectedUserId = selectedUserId,
@@ -225,7 +181,6 @@ fun FollowRoute(
                 onLoadMoreUsers = viewModel::loadMoreUsers,
             )
 
-            // ── 右列：动态流 + 详情 pane（Master-Detail 作用域为用户列右侧区域） ──
             Box(modifier = Modifier.weight(1f).fillMaxSize()) {
                 ListDetailOverlay(
                     selected = selectedNovelId ?: selectedIllustId ?: selectedSeriesId,
@@ -233,11 +188,10 @@ fun FollowRoute(
                     // 返回键沿 pane 互跳链逐级回退，栈空才关闭
                     onBack = popPaneOrClose,
                     modifier = Modifier.fillMaxSize(),
-                    // 保底 240dp：关注流瀑布流单列宽度下限，竖屏窄平板（内容区 ~716dp）仍可启用 pane
+                    // 保底 240dp = 瀑布流单列宽度下限，竖屏窄平板（内容区 ~716dp）仍可启用 pane
                     minListWidth = 240.dp,
                     listContent = { listMax ->
-                        // 限宽居中（ListDetailOverlay 左移量按「内容居中」推算，pane 打开后
-                        // 内容恰好贴本区域左缘、紧邻用户列）
+                        // ListDetailOverlay 左移量按「内容居中」推算，需限宽居中才能让 pane 打开后紧邻用户列
                         AdaptiveContentBox(maxWidth = listMax) {
                             val pagerState = rememberPagerState(pageCount = { TYPE_TABS.size })
                             val scope = rememberCoroutineScope()
@@ -246,11 +200,8 @@ fun FollowRoute(
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    // 沉浸式：背景 surface 延伸到状态栏后面（状态栏透明），色彩统一
                                     .background(MaterialTheme.colorScheme.surface),
                             ) {
-                                // 类型页签：全部 / 小说 / 作品（PrimaryTabRow 均分占满；仅内容
-                                // 让开状态栏文字区，沉浸式背景与 Column 同色无缝延伸）
                                 PrimaryTabRow(
                                     selectedTabIndex = selectedIndex,
                                     modifier = Modifier.statusBarsPadding(),
@@ -266,7 +217,6 @@ fun FollowRoute(
                                         )
                                     }
                                 }
-                                // 下拉刷新：指示器出现在右列信息流顶部（TabRow 下方），按当前模式重拉
                                 PullToRefreshBox(
                                     isRefreshing = isRefreshing,
                                     onRefresh = viewModel::pullRefresh,
@@ -324,17 +274,13 @@ fun FollowRoute(
                         }
                     },
                     detailPane = {
-                        // 状态栏避让：本页无 Scaffold/TopAppBar（列表侧由 TabRow 自行
-                        // statusBarsPadding），pane 侧在此统一避让顶部 inset，与其它
-                        // ListDetailOverlay 宿主（pane 从顶栏下方起步）行为对齐，
-                        // 避免悬浮关闭钮 / 顶部内容顶入状态栏
+                        // pane 侧在此统一避让顶部 inset，与其它宿主行为对齐（避免悬浮关闭钮顶入状态栏）
                         Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
                             when {
                                 selectedNovelId != null -> novelDetailPane(
                                     selectedNovelId,
                                     novelDetailVm,
                                     commentVm,
-                                    // 「查看完整系列」：pane 启用 → 压栈当前选中、切换到系列 pane；否则全屏路由
                                     { id ->
                                         if (detailPaneEnabled) {
                                             pushPaneHistory()
@@ -346,7 +292,6 @@ fun FollowRoute(
                                 )
                                 selectedSeriesId != null -> seriesDetailPane(
                                     selectedSeriesId,
-                                    // 分册点击：pane 启用 → 压栈当前选中、切换到小说详情 pane；否则全屏路由
                                     { id ->
                                         if (detailPaneEnabled) {
                                             pushPaneHistory()
@@ -355,7 +300,6 @@ fun FollowRoute(
                                             onOpenNovel(id)
                                         }
                                     },
-                                    // 分册卡系列标题：压栈当前选中、原地切换系列（返回键可回退）
                                     { id ->
                                         pushPaneHistory()
                                         selectPane(seriesId = id)
@@ -401,7 +345,6 @@ fun FollowRoute(
     }
 }
 
-/** 类型段 label 资源（全部 / 小说 / 插画）。 */
 @Composable
 private fun FollowType.labelRes(): Int = when (this) {
     FollowType.ALL -> R.string.follow_tab_all

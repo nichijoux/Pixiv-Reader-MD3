@@ -47,19 +47,9 @@ import com.pixiv.reader.core.ui.component.card.NovelCard
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/** 历史快照反序列化共享实例（Gson 线程安全；避免每个列表项组合各建一个实例）。 */
+/** Gson 线程安全但创建有开销，整个模块共享一个实例。 */
 private val PAYLOAD_GSON = Gson()
 
-/**
- * 阅读历史：TabRow（作品/小说/用户）+ HorizontalPager 滑动切换。
- * 三类内容各自使用通用组件：作品 `IllustCard`（瀑布流，含收藏；插画/漫画/动图共用）/ 小说 `NovelCard`（payloadJson 完整信息）/ 用户 `CreatorProfileCard`。
- *
- * @param onBack 返回
- * @param onOpenIllust 打开作品详情
- * @param onOpenNovel 打开小说详情
- * @param onOpenUser 打开用户主页
- * @param onOpenSeries 打开小说系列详情
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryRoute(
@@ -78,7 +68,6 @@ fun HistoryRoute(
         topBar = {
             BackTopAppBar(title = stringResource(R.string.history_title), onBack = onBack) {
                 if (history.isNotEmpty()) {
-                    // 清空历史：图标 + 文字（删除色），点击弹确认框
                     TextButton(onClick = { showClearConfirm = true }) {
                         Icon(
                             imageVector = Icons.Filled.DeleteOutline,
@@ -100,8 +89,7 @@ fun HistoryRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段（作品 / 小说 / 用户）+ 滑动内容：SegmentedPager 双向同步
-                // （选中态跟 Pager 落页，点击反向滚页；落页回调 VM 同步筛选）
+                // 选中态跟 Pager 落页，点击反向滚页，落页回调同步 VM 筛选
                 SegmentedPager(
                     tabs = HistoryFilter.entries,
                     onSelect = viewModel::selectFilter,
@@ -135,7 +123,6 @@ fun HistoryRoute(
         }
     }
 
-    // 清空浏览历史确认
     if (showClearConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.history_clear_title),
@@ -213,7 +200,6 @@ private fun NovelHistoryList(
                 onToggleFavorite = { fav -> viewModel.toggleNovelFavorite(entry.targetId, fav) },
                 onTagClick = {},
                 onSeriesClick = { card.seriesId?.let(onOpenSeries) },
-                // 进场淡入 + 删除条目时位置平滑重排
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                     placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -249,7 +235,6 @@ private fun UserHistoryList(
                 profile = entry.toCreatorProfile(context),
                 onToggleFollow = {},
                 onClick = { onOpenUser(entry.targetId) },
-                // 进场淡入 + 删除条目时位置平滑重排
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                     placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),

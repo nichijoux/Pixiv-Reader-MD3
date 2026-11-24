@@ -30,11 +30,8 @@ import com.pixiv.reader.core.comment.state.CommentListViewModel
 import com.pixiv.reader.core.comment.state.CommentSortOrder
 
 /**
- * 通用评论列表页（novel / illust 共用，路由 `comments/{type}/{targetId}`）。
- *
- * 全屏页 + TopAppBar；`PagedState<Comment>` 分页（触底加载更多）；
- * 支持回复（点回复后输入框预填 @昵称 渲染为胶囊，一次退格删除即取消；`parent_comment_id` 发子评论）；
- * 点作者行进入用户主页。TopAppBar 右侧图标切换顶层评论时间正序 / 倒序（客户端排序）。
+ * 全屏评论页（路由 `comments/{type}/{targetId}`）：回复后输入框预填 `@昵称 ` 胶囊（发 `parent_comment_id`），
+ * 胶囊被退格删除时联动取消回复态；排序切换为纯客户端排序。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,8 +52,7 @@ fun CommentListRoute(
     val draft by viewModel.commentDraft.collectAsStateWithLifecycle()
     val replyTarget by viewModel.replyTarget.collectAsStateWithLifecycle()
     val stamps by viewModel.stamps.collectAsStateWithLifecycle()
-    // 输入框内的回复胶囊被退格删除（草稿失去 @前缀）时联动取消回复态；
-    // 设置回复目标时 VM 预填的 "@昵称 " 前缀不会误触发
+    // 回复胶囊被退格删掉时（草稿失去 @前缀）联动取消回复态；VM 预填的前缀不会误触发
     LaunchedEffect(replyTarget, draft) {
         val name = replyTarget?.user?.name.orEmpty()
         // 空白昵称的回复目标无 @前缀，跳过联动避免误取消
@@ -68,7 +64,7 @@ fun CommentListRoute(
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    // 触底加载由 CommentListContent 内部的列表状态负责（本页不再重复触发，避免重复请求）
+    // 触底加载由 CommentListContent 内部的列表状态负责，本页不得重复触发（会双请求）
 
     Scaffold(
         topBar = {
@@ -79,7 +75,7 @@ fun CommentListRoute(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(UiR.string.core_cd_back))
                     }
                 },
-                // 排序切换：仅重排已加载评论，图标方向与当前排序一致
+                // 仅重排已加载评论，图标方向与当前排序一致
                 actions = {
                     IconButton(onClick = viewModel::toggleSortOrder) {
                         Icon(
@@ -102,7 +98,7 @@ fun CommentListRoute(
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        // 沉浸式：列表铺满到屏幕底部，输入条 + 回复目标条作为 overlay 浮在列表上方
+        // 沉浸式：列表铺满到屏幕底部，输入条作为 overlay 浮在列表上方
         CommentListContent(
             comments = comments,
             isLoading = isLoading,

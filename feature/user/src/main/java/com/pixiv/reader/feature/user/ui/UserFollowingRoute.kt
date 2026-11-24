@@ -31,14 +31,6 @@ import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.component.card.toCreatorProfile
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 用户关注列表页：CreatorProfileCard 用户卡片（头像 + 代表作 + 关注按钮）。
- *
- * @param onBack 返回
- * @param onOpenUser 打开用户主页
- * @param viewModel 关注列表数据与分页操作
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserFollowingRoute(
@@ -79,7 +71,7 @@ fun UserFollowingRoute(
                     contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
                     verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
                 ) {
-                    // 追加分页时位置不变，用户对象缺失或重复也不会产生相同键。
+                    // 用户对象可能缺失或重复，键需再拼上索引
                     itemsIndexed(
                         state.items,
                         key = { index, preview -> "user_${preview.user?.id}_$index" },

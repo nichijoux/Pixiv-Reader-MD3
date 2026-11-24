@@ -10,7 +10,6 @@ import com.pixiv.reader.core.network.session.PixivRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
-/** 通知中心（/v1/notification/list，next_url 翻页）。 */
 @HiltViewModel
 class NotificationViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -22,7 +21,6 @@ class NotificationViewModel @Inject constructor(
         load()
     }
 
-    /** 首次加载 / 错误重试。 */
     fun load() {
         viewModelScope.launch {
             paged.loadInitial(
@@ -37,7 +35,6 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    /** 触底加载下一页。 */
     fun loadMore() {
         viewModelScope.launch { paged.loadMore() }
     }

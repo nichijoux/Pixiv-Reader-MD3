@@ -62,14 +62,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
  * 首页：推荐瀑布流 + 热门标签 + 关注流。
- *
- * @param onOpenSearch 点击搜索框跳转发现页
- * @param onSearchTag 点击热门标签跳发现页搜索该标签（对齐小说页约定：传显示名）
- * @param modifier 搜索框共享元素修饰（MainShell 在 NavHost 过渡内构造，hero 过渡用；默认空）
- * @param onOpenIllust 点击作品卡片打开详情
- * @param onOpenUser 点击作者行打开用户主页
- * @param onOpenNotifications 打开通知中心（首页右上角铃铛）
- * @param onOpenViewer 打开全屏查看器（平板详情 pane 图片点击）
+ * [modifier] 是搜索框共享元素修饰（MainShell 在 NavHost 过渡内构造，用于 hero）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,14 +80,13 @@ fun HomeRoute(
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val trendingTags by viewModel.trendingTags.collectAsStateWithLifecycle()
-    // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    // 平板详情 pane 的选中 id；手机端不启用恒为 null
     var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    // 标题 + 搜索框同行（搜索框占中间剩余宽度，与右侧铃铛对齐）。
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = if (tab == HomeTab.RECOMMEND) {
@@ -125,23 +117,20 @@ fun HomeRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
-        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
+        // Scaffold 不垫高内容（平板导航栏区域留给列表/详情直通）；手机底部导航栏由壳层 bottomBar 承担
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
         ListDetailOverlay(
             selected = selectedIllustId,
             onClose = { selectedIllustId = null },
             // 消费已应用的 padding，pane 内 navigationBarsPadding/imePadding 按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             listContent = { listMax ->
-                // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
+                // 限宽跟随 pane 状态（未选中 760 / 选中让位）
                 AdaptiveContentBox(maxWidth = listMax) {
                     Column(
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        // 分区 + 热门标签
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                             contentPadding = PaddingValues(horizontal = Spacing.mdPlus, vertical = Spacing.xs),
@@ -188,7 +177,7 @@ fun HomeRoute(
                 }
             },
             detailPane = {
-                // 右侧详情 pane：内嵌 IllustViewModel + CommentListViewModel（同一 backstack entry 作用域）
+                // 同一 backstack entry 作用域
                 val detailVm: IllustViewModel = hiltViewModel()
                 val commentVm: CommentListViewModel = hiltViewModel()
                 IllustDetailPane(
@@ -228,17 +217,7 @@ fun HomeRoute(
 }
 
 /**
- * 首页信息流（推荐 / 关注两个 Tab 共用，原双胞胎实现合并）：
- * 下拉刷新 + 三态（骨架 / 错误重试 / 瀑布流）+ 触底加载。
- *
- * @param paged 当前 Tab 的分页状态（推荐流 [HomeViewModel.recommendPaged] 或关注流 followingPaged）
- * @param viewModel 首页 ViewModel（刷新/重试/触底/收藏按当前 Tab 内部分派）
- * @param onOpenIllust 点击作品卡打开详情（手机端全屏路由）
- * @param onOpenUser 点击作者行打开用户主页
- * @param onSelectIllust 平板详情 pane 选中作品
- * @param scrollToTopKey 主壳「再次点击当前 Tab」回顶信号（计数 key）
- * @param onSearchTag 点击作品标签跳发现页搜索
- * @return 无返回值（Composable 渲染 UI）
+ * 推荐 / 关注两 Tab 共用（原双胞胎实现合并）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -260,7 +239,7 @@ private fun HomeFeedContent(
     val error by paged.error.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
-    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响（刷新结束回落不响）
+    // 下拉刷新手势起始触觉：仅 false→true 时响（回落不响）
     val haptic = rememberHapticCue()
     var wasRefreshing by remember { mutableStateOf(isRefreshing) }
     LaunchedEffect(isRefreshing) {
@@ -276,14 +255,14 @@ private fun HomeFeedContent(
         modifier = Modifier.fillMaxSize(),
     ) {
         when {
-            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
+            // reset 后 items 清空也走骨架，替代全屏转圈
             (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton()
             error != null && items.isEmpty() -> ErrorBox(
                 message = error.orEmpty(),
                 onRetry = viewModel::retry,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
-            // 首载或刷新完成但列表为空时展示空态占位并保持可下拉刷新。
+            // 可滚动 → 空态也能触发下拉刷新
             items.isEmpty() -> EmptyBox(
                 text = stringResource(R.string.home_empty),
                 modifier = Modifier.verticalScroll(rememberScrollState()),

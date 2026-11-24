@@ -35,8 +35,7 @@ import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
- * 小说通用列表（推荐/关注页共用）：三态 + 下拉刷新 + 触底自动加载（LoadMoreItem 进入可视区自动续载下一页）。
- * 整页保持独立 LazyColumn，滚动位置各自独立；[header] 为列表首 item（随滚动，如排行榜 banner）。
+ * 推荐 / 关注页共用列表：三态 + 下拉刷新 + 触底自动加载；[header] 为随滚动的首 item（如排行榜 banner）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +61,7 @@ internal fun NovelPagedList(
     // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
     val motionScheme = MaterialTheme.motionScheme
     val listState = rememberLazyListState()
-    // 回顶信号：首组合只记录 key 不触发；key 变化（当前 tab 被再次点击）时滚回首项
+    // 回顶信号：首组合只记录 key 不触发，key 变化（当前 tab 被再次点击）才滚回首项
     var lastScrollKey by remember { mutableIntStateOf(scrollToTopKey) }
     LaunchedEffect(scrollToTopKey) {
         if (scrollToTopKey != lastScrollKey) {
@@ -81,7 +80,7 @@ internal fun NovelPagedList(
             hasItems = items.isNotEmpty(),
             hasError = error != null,
         )) {
-            // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
+            // 首载与下拉刷新（reset 会清空 items）共用骨架
             FeedPhase.LOADING -> NovelFeedSkeleton(showBannerHeader = header != null)
             FeedPhase.ERROR -> ErrorBox(
                 message = error,
@@ -112,7 +111,7 @@ internal fun NovelPagedList(
                         onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                         onTagClick = onSearchTag,
                         onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                        // 进场淡入 + 刷新/重新排序时位置平滑过渡
+                        // 进场淡入 + 刷新重排平滑过渡
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateItem(

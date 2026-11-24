@@ -21,12 +21,6 @@ import com.pixiv.reader.core.ui.theme.Durations
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/**
- * 骨架呼吸脉冲色：`surfaceVariant` + alpha 0.35↔0.75，单程 1s 缓慢呼吸（[Durations.SKELETON_PULSE_MS]），
- * 替代全屏转圈的加载占位。全项目骨架统一动画源（搜索/排行榜/用户主页/小说页/插画页/评论区共用）。
- *
- * @param label 动画 label（同一组合树内多个骨架用于区分，默认足够）
- */
 @Composable
 fun skeletonPulseColor(label: String = "skeleton"): Color {
     val transition = rememberInfiniteTransition(label = label)
@@ -42,12 +36,6 @@ fun skeletonPulseColor(label: String = "skeleton"): Color {
     return MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
 }
 
-/**
- * 圆角占位块（[Modifier.clip] 由调用方指定形状）。
- *
- * @param modifier 尺寸/形状/背景由调用方通过 clip + 尺寸链组合
- * @param color 填充色（通常来自 [skeletonPulseColor]）
- */
 @Composable
 fun SkeletonBlock(modifier: Modifier, color: Color) {
     Box(modifier = modifier.background(color))

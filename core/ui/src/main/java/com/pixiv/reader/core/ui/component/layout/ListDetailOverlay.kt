@@ -24,33 +24,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import com.pixiv.reader.core.ui.component.detail.LocalNavAnimatedVisibilityScope
 
-/** 主列表限宽上限（与 `MAX_CONTENT_WIDTH_DP` 一致；pane 不可用时列表按此值限宽）。 */
 private const val LIST_MAX_WIDTH_DP = 760
-
-/** 主列表与详情 pane 之间的固定间隙。 */
 private const val PANE_GAP_DP = 24
-
-/** 详情 pane 最小 / 最大宽度（过窄详情不可用，过宽浪费空间）。 */
 private const val PANE_MIN_DP = 280
 private const val PANE_MAX_DP = 460
-
-/** pane 模式主列表保底宽度（低于此值列表过窄不可用，不启用 pane）。 */
 private const val LIST_MIN_DP = 400
-
-/** pane 宽度占内容区的比例（pane 优先，列表吃剩余）。 */
 private const val PANE_WIDTH_FRACTION = 0.34f
 
-/**
- * 计算内容区宽度 [contentWidth]（dp，平板已减 NavigationRail）下的详情 pane 宽度；
- * 列表剩余空间不足 [minListWidth] 时返回 null（不启用 pane 模式）。
- * [ListDetailOverlay] 与 [isDetailPaneEnabled] 共用同一公式，保证判定一致；
- * 公开供调用方按自身实际可用宽度实算 pane 可用性（如关注页：内容区需先扣除固定用户列宽）。
- *
- * @param contentWidth 内容区宽度（dp）
- * @param minListWidth 列表保底宽度（dp），默认 [LIST_MIN_DP]；关注页等有固定前导列的页面
- *   传更小的值（与其列表单列宽度下限一致）
- * @return pane 宽度（dp）；空间不足返回 null
- */
+/** 按内容区宽（dp）算详情 pane 宽度，剩余不足 [minListWidth] 返回 null；与 [ListDetailOverlay]/[isDetailPaneEnabled] 共用。 */
 fun detailPaneWidth(contentWidth: Float, minListWidth: Float = LIST_MIN_DP.toFloat()): Float? {
     val pane = (contentWidth * PANE_WIDTH_FRACTION).coerceIn(PANE_MIN_DP.toFloat(), PANE_MAX_DP.toFloat())
     val list = contentWidth - pane - PANE_GAP_DP
@@ -58,44 +39,9 @@ fun detailPaneWidth(contentWidth: Float, minListWidth: Float = LIST_MIN_DP.toFlo
 }
 
 /**
- * 平板 Master-Detail 双栏壳：主列表左移让位 + 详情 pane 从右侧滑入。
- *
- * ## 布局原理
- * - **列表宽度按窗口尺寸固定**（与 pane 开合状态无关）：pane 可用时 = `内容区 − pane − 间隙`，
- *   不可用时 = min(760, 内容区)。窗口尺寸不变期间宽度恒定，瀑布流列数在开合动画中
- *   **零重排、零重组**——彻底消除「列数随开合突变」与「重排帧与动画帧争抢主线程掉帧」
- *   （瀑布流列数是宽度的阶梯函数，只能取整数，任何宽度过渡都无法让列数连续变化，
- *   唯一无突变的做法是让开合动画不改变宽度）。代价：空闲态列表即以让位宽度居中显示
- *   （两侧留白），不再 3 列满宽
- * - 选中后：整块列表左移 `(内容区−列表宽)/2` 从居中平移到贴左，pane 从右侧滑入
- *   `内容区×34%`（夹在 280~460dp）；平移动画走 Expressive spatial 弹簧，纯 GPU（graphicsLayer 内读
- *   progress，动画帧不重组）
- * - pane 滑入 / 滑出由 [AnimatedVisibility] 承担（与列表让位同规格 spatial 弹簧），并在其内容作用域
- *   内把 `AnimatedVisibilityScope` 下发为 [LocalNavAnimatedVisibilityScope]——pane 内 hero 元素
- *   借此可与左栏卡片按同 key 匹配 morph（平板 Master-Detail 的共享过渡基建）
- * - **组合语义**：pane 从「常驻组合、屏外平移」改为「选中时组合、关闭后离场」。pane 内 remember 状态
- *   （评论开关、滚动位置等）在关闭后随 Composition 销毁清零——已接受的设计取舍（重开回到初始态）
- * - 返回键 / [onClose] 反向恢复；快速连点开-关时动画中途反向，纯位移自然衔接
- *
- * ## 启用条件
- * 列表让位后剩余宽度 ≥ [LIST_MIN_DP]（≈ 内容区 ≥ 704dp，覆盖竖屏 800dp 平板 / 手机横屏）
- * 才启用 pane 模式；手机竖屏不启用——组件退化为主列表原样全宽显示。
- * 调用方点击分流用 [isDetailPaneEnabled] 保持同一判定。
- *
- * @param selected 当前选中项（null = 未选中，列表居中显示）
- * @param onClose 关闭 pane 回调（返回键与 pane 关闭按钮共用）
- * @param onBack 返回键回调（null = 默认 [onClose]）：pane 间互跳维护返回栈的宿主传
- *   「逐级 pop，栈空则 [onClose]」，让返回键沿 pane 跳转链逐级回退而非直接关闭。
- *   仅接管 overlay 自身的返回键；pane 内更深层 BackHandler（如评论区）注册更晚、优先级更高，不受影响
- * @param modifier 外部传入的 Modifier（通常带 padding；必须位于内容区**全宽**位置）
- * @param minListWidth 列表保底宽度（dp）：pane 启用判定的列表下限。默认 400dp（通用页面）；
- *   有固定前导列或列表可接受单列的页面（如关注页，瀑布流单列下限 240dp）传更小值，
- *   让较窄内容区（竖屏平板）仍可启用 pane。判定与 [detailPaneWidth] 同公式
- * @param listContent 主列表内容；接收当前限宽（按窗口尺寸固定的值，pane 可用时为
- *   内容区−pane−间隙，否则 min(760, 内容区)），内部用该值限宽居中
- *   （如 [AdaptiveContentBox]（maxWidth = 传入值））
- * @param detailPane 右侧详情内容（选中时组合、关闭后离场；内部三态自管）。
- *   内容作用域内已 provide [LocalNavAnimatedVisibilityScope]，pane 内 hero 元素可直接参与共享过渡
+ * 平板 Master-Detail 双栏壳：列表限宽按窗口尺寸固定（避免开合动画期瀑布流列数突变重排），
+ * 纯 GPU 平移让位并下发 [LocalNavAnimatedVisibilityScope] 供 pane 内 hero 跨栏过渡。
+ * pane 关闭后随组合销毁重建（不保留内部 remember 状态）；[onBack] 为 null 时默认 [onClose]。
  */
 @Composable
 fun ListDetailOverlay(
@@ -111,33 +57,24 @@ fun ListDetailOverlay(
         val contentWidth = maxWidth
         val paneWidth = detailPaneWidth(contentWidth.value, minListWidth.value)
         val enabled = paneWidth != null
-        // 列表限宽按窗口尺寸固定，与开合状态无关：窗口尺寸不变期间瀑布流永不重排
         val listWidth = if (enabled) contentWidth - paneWidth!!.dp - PANE_GAP_DP.dp
         else minOf(LIST_MAX_WIDTH_DP.dp, contentWidth)
         val progress by animateFloatAsState(
             targetValue = if (enabled && selected != null) 1f else 0f,
-            // Expressive spatial 弹簧：pane 开合带轻微弹性（MotionScheme 随主题动效方案）
             animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
             label = "listDetailProgress",
         )
-        // pane 滑入 / 滑出规格：与列表让位同一 spatial token，两条动画同时长收敛。
-        // AnimatedVisibility 的 enter/exit 在组合期构造，规格必须在此取好传入
+        // enter/exit 在组合期构造，与列表让位共用同一 spatial 规格
         val enterSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         val exitSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
 
-        // 左移量在绘制阶段逐帧计算（graphicsLayer 内读 progress State，动画帧不触发重组）：
-        // 未选中 0（内容居中）→ 选中 (内容区−列表宽)/2（内容贴左，右侧全给 pane）。
-        // 列表宽度恒定，平移终点恰好是「内容居中边距」，动画全程内容不会越过区域左缘
         val density = LocalDensity.current
         val listShiftBasePx = with(density) { ((contentWidth - listWidth) / 2).toPx() }
 
-        // 返回键：优先走宿主返回栈（pane 间互跳逐级回退），无栈时关闭 pane。
-        // 仅 pane 可见时拦截，不干扰列表自身返回行为；pane 内更深层 BackHandler（如评论区）
-        // 注册更晚、优先级更高，先于本回调触发
+        // pane 内更深层 BackHandler 注册更晚、优先级更高，不受此处拦截影响
         BackHandler(enabled = enabled && selected != null) { (onBack ?: onClose)() }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            // 主列表：整体平移（GPU 层属性动画；宽度恒定，动画中零重排）
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -145,11 +82,7 @@ fun ListDetailOverlay(
             ) {
                 listContent(listWidth)
             }
-            // 详情 pane：选中时从屏幕右侧滑入，停靠在列表让出的空间。
-            // 仅内容区 ≥ [LIST_MIN_DP]（[paneWidth] 非 null）时组合——空间不足（手机竖屏）
-            // 组件退化为主列表全宽，此时组合 pane 会因 `paneWidth!!` 空指针崩溃。
-            // enabled 转 false 时整棵子树直接卸载（无收尾动画需求：窄屏不允许 pane 存在）。
-            // AnimatedVisibility 的作用域下发给 pane，hero 元素据此与左栏卡片跨 scope 匹配
+            // 窄屏 enabled=false 时整棵子树直接卸载，同时避免 paneWidth!! 空指针
             if (enabled) {
                 AnimatedVisibility(
                     visible = selected != null,
@@ -172,18 +105,13 @@ fun ListDetailOverlay(
 }
 
 /**
- * 当前窗口是否启用 Master-Detail pane 模式（列表让位后仍有 ≥ [LIST_MIN_DP] 剩余）。
- * 与 [ListDetailOverlay] 内部判定一致（[ListDetailOverlay] 用真实可用宽计算，此处按窗口宽估算）。
- * 调用方在「点击列表项」分流时使用：启用 → 设置选中项进 pane；否则 → 全屏路由跳转。
- *
- * @param subtractRail 是否减去左侧 NavigationRail 宽（84dp）。壳内 Tab（MainShell）传默认
- *   true；全屏路由页（排行榜等，无 rail，TopAppBar 全宽）传 false，否则阈值偏严漏启 pane。
+ * 按窗口宽估算是否启用 Master-Detail pane（供列表点击分流）。
+ * 主壳内 Tab 传 `subtractRail = true`（扣除 84dp 侧栏）；无侧栏的全屏路由页须传 false，否则阈值偏严。
  */
 @Composable
 fun isDetailPaneEnabled(subtractRail: Boolean = true): Boolean {
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp
-    // 平板（≥600dp）内容区需减左侧 NavigationRail 宽（84dp）
     val contentWidth = if (subtractRail && screenWidth >= 600) screenWidth - 84 else screenWidth
     return detailPaneWidth(contentWidth.toFloat()) != null
 }

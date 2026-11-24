@@ -41,7 +41,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
-/** 系列目录行（HTML `.trow`）：序号徽标 + 标题 + 字数/收藏 + 当前章胶囊。 */
 @Composable
 internal fun ChapterRow(
     novel: Novel,
@@ -56,7 +55,6 @@ internal fun ChapterRow(
             .padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 序号徽标（HTML `.tidx`：28dp、chip 圆角、当前章主色）
         Box(
             modifier = Modifier
                 .size(Sizes.s28)
@@ -117,7 +115,6 @@ internal fun ChapterRow(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 系列目录标题（HTML `.sectitle`）：MenuBook 图标 + 15sp Bold 标题 + 数量胶囊 `.cnt`。 */
 @Composable
 internal fun TocTitle(count: Int, modifier: Modifier = Modifier) {
     Row(
@@ -135,7 +132,6 @@ internal fun TocTitle(count: Int, modifier: Modifier = Modifier) {
             style = novelTocTitleStyle(),
             modifier = Modifier.padding(start = 7.dp),
         )
-        // 数量胶囊（HTML `.sectitle .cnt`：primary-container 底 + primary 字 + 圆角胶囊）
         Box(
             modifier = Modifier
                 .padding(start = Spacing.sm)
@@ -153,18 +149,8 @@ internal fun TocTitle(count: Int, modifier: Modifier = Modifier) {
 }
 
 /**
- * 系列目录（手机 / 平板两种容器形态合一）：
- * [maxHeight] 非 null = 手机单列形态（标题 + 限高卡片列表，装饰在列表容器上，「查看完整系列」在卡片外）；
- * null = 平板左栏形态（整卡装饰 + 列表 weight 撑满，「查看完整系列」在卡片内）。
- *
- * @param seriesNovels 系列分册列表
- * @param currentId 当前打开的小说 id（高亮 + 自动滚动定位）
- * @param seriesId 系列 id（null 不显示「查看完整系列」）
- * @param onOpenNovel 分册点击
- * @param onOpenSeries 「查看完整系列」点击
- * @param maxHeight 列表最大高度（手机限高内部滚动）；null = 平板左栏 weight 填充
- * @param modifier 外部 Modifier
- * @return 无返回值（渲染 Composable）
+ * 系列目录，两种容器形态合一：[maxHeight] 非 null = 手机限高形态（标题与「查看完整系列」在卡片外）；
+ * null = 平板左栏（整卡装饰 + 列表 weight 撑满，「查看完整系列」在卡片内）。
  */
 @Composable
 internal fun NovelTocList(
@@ -177,13 +163,13 @@ internal fun NovelTocList(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    // 自动滚动定位到当前章节（首次加载 / 系列数据更新时），当前章不在列表中则不滚动
+    // 当前章不在列表时（如详情页未加载完）不滚
     LaunchedEffect(seriesNovels, currentId) {
         val index = seriesNovels.indexOfFirst { it.id == currentId }
         if (index >= 0) listState.scrollToItem(index)
     }
     if (maxHeight != null) {
-        // 手机端：标题在卡片外，列表自身限高 + 卡片装饰（不随分册数量增高）
+        // 手机端：标题在卡片外，仅列表自身卡片装饰
         Column(modifier = modifier) {
             TocTitle(
                 count = seriesNovels.size,
@@ -202,7 +188,7 @@ internal fun NovelTocList(
             SeriesMoreRow(seriesId, onOpenSeries)
         }
     } else {
-        // 平板左栏：整卡装饰（标题/查看完整系列都在卡片内），列表 weight 撑满内部滚动
+        // 平板左栏：整卡装饰，列表 weight 撑满内部滚动
         Column(
             modifier = modifier
                 .tocCardDecoration()
@@ -224,16 +210,6 @@ internal fun NovelTocList(
     }
 }
 
-/**
- * 目录分册行列表（两种容器形态共用的 LazyColumn 内容）。
- *
- * @param listState 调用方创建并驱动自动滚动的列表状态
- * @param seriesNovels 系列分册列表
- * @param currentId 当前打开的小说 id（高亮）
- * @param onOpenNovel 分册点击
- * @param modifier 列表 Modifier（限高装饰 / weight 由调用方传入）
- * @return 无返回值（渲染 Composable）
- */
 @Composable
 private fun TocRows(
     listState: LazyListState,
@@ -254,7 +230,7 @@ private fun TocRows(
     }
 }
 
-/** 目录卡片装饰：圆角 + 描边 + 浅底（手机列表容器 / 平板整卡共用）。 */
+/** 目录卡片装饰：圆角 + 描边 + 浅底（两种形态共用）。 */
 @Composable
 private fun Modifier.tocCardDecoration(): Modifier =
     this
@@ -262,7 +238,7 @@ private fun Modifier.tocCardDecoration(): Modifier =
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, AppShapes.card)
         .background(MaterialTheme.colorScheme.surfaceContainerLow)
 
-/** 「查看完整系列 ›」行（HTML `.tocmore`，无系列 id 时不渲染）。 */
+/** 「查看完整系列 ›」行（无系列 id 时不渲染）。 */
 @Composable
 internal fun SeriesMoreRow(
     seriesId: Long?,

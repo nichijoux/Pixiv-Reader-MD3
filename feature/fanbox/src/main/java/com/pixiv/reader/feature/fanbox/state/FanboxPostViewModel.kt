@@ -19,24 +19,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
-/** 帖子详情状态：正文取不到时退回元数据（bodyFallback），页面不塌。 */
+/** 正文取不到时退回元数据（[FanboxPostState.bodyFallback]），页面不塌。 */
 data class FanboxPostState(
     val post: FanboxPost? = null,
     val sections: List<FanboxSection> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    /** post.info 失败、已退回 post.get（仅元数据无正文）时为 true。 */
     val bodyFallback: Boolean = false,
 )
 
-/** 赞助方案段状态（仅受限帖加载）。 */
+/** 仅受限帖加载。 */
 data class FanboxPlansState(
     val items: List<FanboxPlan> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
 )
 
-/** 评论段状态：locked 为赞助门槛拦截（PLEDGE_INSUFFICIENT），按锁定展示而非报错。 */
+/** [locked] = 赞助门槛拦截（PLEDGE_INSUFFICIENT），按锁定展示而非报错。 */
 data class FanboxCommentsState(
     val items: List<FanboxComment> = emptyList(),
     val isLoading: Boolean = true,
@@ -44,17 +43,13 @@ data class FanboxCommentsState(
     val locked: Boolean = false,
 )
 
-/**
- * FANBOX 帖子详情 ViewModel：正文（post.info → post.get 兜底）、赞助方案（受限帖）、
- * 评论三路独立加载，各自失败不塌整页。
- */
 @HiltViewModel
 class FanboxPostViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val fanboxRepository: FanboxRepository,
 ) : MessageViewModel() {
 
-    /** 路由参数 postId（全屏路由初始化；平板 pane 经 [loadPost] 动态切换）。 */
+    /** 全屏路由经 SavedStateHandle 初始化；平板 pane 经 [loadPost] 动态切换。 */
     var postId: String = savedStateHandle["postId"] ?: ""
         private set
 
@@ -77,12 +72,6 @@ class FanboxPostViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 取消前一帖子的在途请求，重置状态并发起当前 [targetId] 的详情与评论加载。
-     *
-     * @param targetId 目标帖子 ID
-     * @return 无返回值
-     */
     private fun startLoadJobs(targetId: String) {
         postJob?.cancel()
         plansJob?.cancel()
@@ -94,22 +83,15 @@ class FanboxPostViewModel @Inject constructor(
         commentsJob = viewModelScope.launch { loadCommentsInternal(targetId) }
     }
 
-    /**
-     * 加载帖子详情：优先无屏 WebView 取 post.info（含正文），失败退回 post.get（仅元数据）。
-     * 成功后受限帖再触发赞助方案加载；请求期间若切换帖子则丢弃陈旧响应。
-     *
-     * @param targetId 请求发起时的帖子 ID
-     * @return 无返回值
-     */
+    /** 优先无屏 WebView 取 post.info（唯一带正文），失败退回 post.get（仅元数据）。 */
     private suspend fun loadPostInternal(targetId: String) {
-        // 阶段 1：post.info（唯一带正文；CF 拦截 / 超时 / 解析失败返回 null）
+        // post.info：CF 拦截 / 超时 / 解析失败均返回 null
         val info = fanboxRepository.fetchPostInfo(targetId)
         if (targetId != postId) return
         if (info != null) {
             applyPost(targetId, info, bodyFallback = false)
             return
         }
-        // 阶段 2：post.get 元数据兜底
         try {
             val meta = fanboxRepository.api.postGet(targetId).body?.post
             if (targetId != postId) return
@@ -125,14 +107,6 @@ class FanboxPostViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 应用帖子数据并按需触发方案加载。
-     *
-     * @param targetId 当前响应归属的帖子 ID
-     * @param post 帖子对象（post.info 或 post.get 来源）
-     * @param bodyFallback 是否为元数据兜底（无正文）
-     * @return 无返回值
-     */
     private fun applyPost(targetId: String, post: FanboxPost, bodyFallback: Boolean) {
         if (targetId != postId) return
         _post.value = FanboxPostState(
@@ -148,13 +122,6 @@ class FanboxPostViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 加载创作者赞助方案（受限帖专用，失败仅置错误不塌页）。
-     *
-     * @param targetId 当前帖子 ID（切换帖子后忽略陈旧结果）
-     * @param creatorId 创作者 id
-     * @return 无返回值
-     */
     private fun loadPlans(targetId: String, creatorId: String) {
         plansJob?.cancel()
         _plans.value = FanboxPlansState(isLoading = true)
@@ -173,13 +140,7 @@ class FanboxPostViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 加载评论（单次一页，楼中楼服务端已内嵌）。赞助门槛（403 /
-     * PLEDGE_INSUFFICIENT）按锁定态展示而非错误。
-     *
-     * @param targetId 请求发起时的帖子 ID
-     * @return 无返回值，请求结果通过 [comments] 暴露
-     */
+    /** 单次一页，楼中楼服务端已内嵌；403 / PLEDGE_INSUFFICIENT 按锁定态而非错误展示。 */
     private suspend fun loadCommentsInternal(targetId: String) {
         try {
             val items = fanboxRepository.api.postGetComments(targetId).body?.commentList?.items.orEmpty()
@@ -199,12 +160,6 @@ class FanboxPostViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 判定异常是否为赞助门槛拦截。
-     *
-     * @param e 评论请求异常
-     * @return 需赞助解锁为 true
-     */
     private fun isPledgeRequired(e: Exception): Boolean {
         if (e !is HttpException) return false
         if (e.code() == 403) return true
@@ -213,23 +168,12 @@ class FanboxPostViewModel @Inject constructor(
         return body?.contains("PLEDGE", ignoreCase = true) == true
     }
 
-    /**
-     * 重试整页（取消在途任务并重载详情、方案与评论）。
-     *
-     * @return 无返回值
-     */
     fun retry() {
         if (postId.isBlank()) return
         startLoadJobs(postId)
     }
 
-    /**
-     * pane 模式加载指定帖子（全屏路由经 SavedStateHandle 初始化，平板 pane 由首页驱动切换）。
-     * 切换目标时取消旧任务、重置三路状态并重新拉取。
-     *
-     * @param newPostId 目标帖子 id
-     * @return 无返回值
-     */
+    /** 全屏路由经 SavedStateHandle 初始化，平板 pane 由首页驱动切换。 */
     fun loadPost(newPostId: String) {
         if (newPostId.isBlank() || (newPostId == postId && _post.value.post != null)) return
         postId = newPostId

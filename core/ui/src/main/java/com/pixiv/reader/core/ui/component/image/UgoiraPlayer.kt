@@ -29,19 +29,8 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * ugoira 动图播放：**双缓冲预解码**——显示当前帧的同时后台预解码下一帧，帧延迟到点直接交换。
- *
- * 流畅性：帧周期 = max(解码耗时, 帧延迟)，而非旧的串行「解码 + 延迟」；
- * 只要解码 < 帧延迟即完全按 delay 帧率播放（解码超过延迟时退化为解码速度，不会更差）。
- * 内存峰值 = 2 帧 Bitmap（首帧先解码，之后始终持有当前帧 + 预解码帧）。
- *
- * 逐帧解码（非全量载入）控制内存；[maxDecodeSize] 限定采样解码最长边（px），
- * 瀑布流卡片传封面宽度避免解码原图尺寸（查看器传 null 用原图）。
- *
- * @param frames 帧列表（[UgoiraLoader.prepare] 产出；空列表不渲染）
- * @param maxDecodeSize 采样解码最长边上限（px）；null = 原尺寸解码
- * @param contentScale 帧渲染缩放方式（查看器 Fit 完整显示；卡片 Crop 填满封面）
- * @param loadingContent 帧就绪前的占位内容；null 则不渲染（露出下层封面）
+ * ugoira 双缓冲逐帧播放（后台预解码下一帧，内存峰值 2 帧 Bitmap）；
+ * 仅在前台 `STARTED` 生命周期内推进帧循环，[maxDecodeSize] 为 null 时原尺寸解码。
  */
 @Composable
 fun UgoiraPlayer(
@@ -59,14 +48,12 @@ fun UgoiraPlayer(
             bitmap = null
             return@LaunchedEffect
         }
-        // 首帧先解码，页面处于前台（STARTED）期间才持续运行双缓冲帧调度循环。
         bitmap = withContext(Dispatchers.IO) { decodeSampled(frames[0].file, maxDecodeSize) }
         if (frames.size <= 1) return@LaunchedEffect
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             var index = 0
             while (true) {
                 val nextIndex = (index + 1) % frames.size
-                // 后台预解码下一帧，与当前帧停留时间并行。
                 val next = async(Dispatchers.IO) { decodeSampled(frames[nextIndex].file, maxDecodeSize) }
                 val delayMs = frames[index].delayMs.coerceAtLeast(16).toLong()
                 delay(delayMs.milliseconds)
@@ -94,7 +81,6 @@ fun UgoiraPlayer(
     }
 }
 
-/** 采样解码：最长边不超过 [maxSize]（px）；null 或非正数原尺寸解码。 */
 private fun decodeSampled(file: File, maxSize: Int?): Bitmap? {
     if (maxSize == null || maxSize <= 0) return BitmapFactory.decodeFile(file.absolutePath)
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

@@ -25,44 +25,24 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "CommentList"
 
-/**
- * 评论目标类型（novel / illust 两套 API 路径与响应结构）。
- *
- * @property apiValue app-api 评论接口的 type 路径参数值（全小写）
- */
+/** novel / illust 两套评论 API 路径与响应结构；[apiValue] 即接口 type 路径参数（全小写）。 */
 enum class CommentTarget(val apiValue: String) {
     ILLUST("illust"),
     NOVEL("novel");
 
     companion object {
-        /**
-         * 从路由/存储的原始字符串解析。
-         *
-         * @param raw 原始值（"illust" / "novel"；null 或未知值回退 [NOVEL]）
-         * @return 解析结果（永不失败）
-         */
+        /** null 或未知值回退 [NOVEL]。 */
         fun from(raw: String?): CommentTarget =
             if (raw == ILLUST.apiValue) ILLUST else NOVEL
     }
 }
 
-/**
- * 顶层评论排序方向（客户端排序，子回复不参与）。
- *
- * @property NEWEST_FIRST 最新在前（与 pixiv 官方 API 返回顺序一致）
- * @property OLDEST_FIRST 最早在前
- */
+/** 客户端排序，子回复不参与；NEWEST_FIRST 与 pixiv 官方 API 返回顺序一致。 */
 enum class CommentSortOrder { NEWEST_FIRST, OLDEST_FIRST }
 
 /**
- * 按排序方向整理顶层评论列表（纯函数，客户端排序零网络请求）。
- *
- * [Comment.date] 为 ISO 8601 字符串，字典序即时间序；缺失日期用空串兜底
- * （降序排最后、升序排最前），与 FollowUserSorter 对 create_date 的处理一致。
- *
- * @param list 待排序的顶层评论列表（通常为分页累积结果）
- * @param order 目标排序方向
- * @return 排序后的新列表（不修改入参）
+ * [Comment.date] 为 ISO 8601 字符串，字典序即时间序；缺失日期用空串兜底（降序排最后、升序排最前），
+ * 与 FollowUserSorter 对 create_date 的处理一致。
  */
 internal fun sortCommentsForDisplay(
     list: List<Comment>,
@@ -74,8 +54,8 @@ internal fun sortCommentsForDisplay(
     }
 
 /**
- * 通用评论列表 ViewModel（novel / illust 共用，供评论页与排行右栏评论区共用）。
- * `type`/`targetId` 取自 SavedStateHandle；内嵌 pane 无路由参数（targetId=0）时不预载，由 [switchTo] 驱动。
+ * novel / illust 共用（评论页与排行右栏）。`type`/`targetId` 取自 SavedStateHandle；内嵌 pane 无路由参数
+ * （targetId=0）时不预载，由 [switchTo] 驱动。
  */
 @HiltViewModel
 class CommentListViewModel @Inject constructor(
@@ -87,57 +67,48 @@ class CommentListViewModel @Inject constructor(
     private val target: CommentTarget = CommentTarget.from(savedStateHandle.get<String>("type"))
     private val targetId: Long = savedStateHandle.get<Long>("targetId") ?: 0L
 
-    /** 当前评论目标类型（pane 场景经 [switchTo] 切换）。 */
+    /** pane 场景经 [switchTo] 切换。 */
     val commentTarget: CommentTarget get() = _type.value
 
     /** 当前登录用户 id（未登录为 0），用于判定「自己的评论」以暴露删除入口。 */
     val ownUid: Long get() = sessionRepository.session.loggedInUid
 
-    /** 当前评论目标（可变：排行右栏随选中项切换；无路由参数时初始为 novel/0 待 [switchTo]）。 */
     private val _type = MutableStateFlow(target)
     private val _targetId = MutableStateFlow(targetId)
     private var targetGeneration = 0
     private val posting = AtomicBoolean(false)
 
-    /** 分页评论列表（数据驻留 VM，触底加载更多）。 */
     val commentsPaged = PagedState<Comment>(keySelector = { it.id.takeIf { id -> id > 0L } })
 
-    /** 顶层评论排序方向（默认最新在前，与 pixiv 官方列表一致）。 */
     private val _sortOrder = MutableStateFlow(CommentSortOrder.NEWEST_FIRST)
 
-    /**
-     * 当前顶层评论排序方向（VM 会话态，不持久化；切换只重排已加载数据，不发网络请求）。
-     */
+    /** VM 会话态不持久化；切换只重排已加载数据，不发网络请求。 */
     val sortOrder: StateFlow<CommentSortOrder> = _sortOrder.asStateFlow()
 
-    /** 按 [sortOrder] 整理后的顶层评论列表（分页追加或切换方向后自动重排）。 */
     val sortedComments: StateFlow<List<Comment>> =
         combine(commentsPaged.items, _sortOrder) { list, order -> sortCommentsForDisplay(list, order) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** 子回复缓存：父评论 id → 子回复列表（v3 列表只给 has_replies 标志，子回复按需拉取）。 */
+    /** v3 列表只给 has_replies 标志，子回复按需拉取。 */
     private val _replies = MutableStateFlow<Map<Long, List<Comment>>>(emptyMap())
     val replies: StateFlow<Map<Long, List<Comment>>> = _replies.asStateFlow()
 
-    /** 正在加载子回复的父评论 id 集合。 */
     private val _repliesLoading = MutableStateFlow<Set<Long>>(emptySet())
     val repliesLoading: StateFlow<Set<Long>> = _repliesLoading.asStateFlow()
 
-    /** 已展开子回复（超过 3 条后点「查看全部」）的父评论 id 集合。 */
     private val _expandedReplies = MutableStateFlow<Set<Long>>(emptySet())
     val expandedReplies: StateFlow<Set<Long>> = _expandedReplies.asStateFlow()
 
     private val _commentDraft = MutableStateFlow("")
     val commentDraft: StateFlow<String> = _commentDraft.asStateFlow()
 
-    /** 当前回复目标评论（非 null 时输入框预填 @昵称，渲染为胶囊，退格删除即取消）。 */
     private val _replyTarget = MutableStateFlow<Comment?>(null)
     val replyTarget: StateFlow<Comment?> = _replyTarget.asStateFlow()
 
-    /** 回复目标所属顶层评论 id（顶层评论回复时 = 自身 id；子评论回复时 = 外层顶层 id）。 */
+    /** 顶层评论回复时 = 自身 id；子评论回复时 = 外层顶层 id。 */
     private val _replyTargetTopId = MutableStateFlow<Long?>(null)
 
-    /** pixiv 贴纸目录（表情面板展示；加载失败则面板只显示文本表情）。 */
+    /** 加载失败则面板只显示文本表情。 */
     private val _stamps = MutableStateFlow<List<Stamp>>(emptyList())
     val stamps: StateFlow<List<Stamp>> = _stamps.asStateFlow()
     private var stampsRequested = false
@@ -152,12 +123,7 @@ class CommentListViewModel @Inject constructor(
     }
 
     /**
-     * 切换到另一作品的评论区（排行右栏选中项变化时调用）。
-     * 清空旧评论状态后重新加载；排序方向属用户偏好，不在切换时重置。
-     *
-     * @param newTarget 新评论目标类型（插画 / 小说）
-     * @param newTargetId 新作品 id（非正数或类型和 id 均未改变时忽略）
-     * @return 无返回值
+     * 排行右栏选中项变化时调用：清空旧评论状态后重新加载；排序方向属用户偏好，不在切换时重置。
      */
     fun switchTo(newTarget: CommentTarget, newTargetId: Long) {
         if (newTargetId <= 0L || (newTarget == _type.value && newTargetId == _targetId.value)) return
@@ -177,12 +143,7 @@ class CommentListViewModel @Inject constructor(
     }
 
     /**
-     * 翻转顶层评论排序方向（最新在前 ↔ 最早在前）。
-     *
-     * 仅重排已加载数据，不触发网络请求；[switchTo] 切换作品时不重置排序，
-     * 以便在右栏连续浏览多个作品时保持用户选择。
-     *
-     * @return 无返回值
+     * 仅重排已加载数据，不触发网络请求；[switchTo] 切换作品时不重置排序，以便右栏连续浏览多个作品时保持用户选择。
      */
     fun toggleSortOrder() {
         _sortOrder.value = when (_sortOrder.value) {
@@ -192,9 +153,7 @@ class CommentListViewModel @Inject constructor(
     }
 
     /**
-     * 为全屏评论页和 pane 加载同一份贴纸目录，每个 ViewModel 只请求一次。
-     *
-     * @return 无返回值，请求结果通过 [stamps] 暴露
+     * 全屏评论页与 pane 各持一个 VM，贴纸目录每 VM 只请求一次。
      */
     private fun loadStamps() {
         // 贴纸目录与作品无关，切换作品时沿用成功结果；失败时允许下次重试。
@@ -210,7 +169,6 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /** 首次加载 / 重新加载评论（按 type 分流）。 */
     fun loadComments() {
         viewModelScope.launch {
             Log.d(TAG, "加载评论 type=${_type.value} targetId=${_targetId.value}")
@@ -232,7 +190,6 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /** 触底加载更多评论。 */
     fun loadMoreComments() {
         viewModelScope.launch {
             Log.d(
@@ -243,12 +200,7 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 按需加载父评论下的子回复，仅向发起请求时的评论区回填结果。
-     *
-     * @param parentId 父评论 id
-     * @return 无返回值，请求结果和加载状态通过状态流暴露
-     */
+    /** 结果仅回填到发起请求时的评论区（代次不符则丢弃）。 */
     fun loadReplies(parentId: Long) {
         if (_replies.value.containsKey(parentId) || _repliesLoading.value.contains(parentId)) return
         val generation = targetGeneration
@@ -270,7 +222,6 @@ class CommentListViewModel @Inject constructor(
         }
     }
 
-    /** 展开 / 收起某父评论的子回复（超过 3 条时）。 */
     fun toggleRepliesExpanded(parentId: Long) {
         val current = _expandedReplies.value
         _expandedReplies.value = if (parentId in current) current - parentId else current + parentId
@@ -280,7 +231,7 @@ class CommentListViewModel @Inject constructor(
         _commentDraft.value = value
     }
 
-    /** 设置 / 取消回复目标（顶层或子评论均可）；设置时输入框预填 `@昵称 `（渲染为回复胶囊）。 */
+    /** 设置时输入框预填 `@昵称 `（渲染为回复胶囊）。 */
     fun setReplyTarget(comment: Comment?, topLevelId: Long?) {
         _replyTarget.value = comment
         _replyTargetTopId.value = topLevelId
@@ -290,10 +241,7 @@ class CommentListViewModel @Inject constructor(
     }
 
     /**
-     * 发布评论 / 贴纸（按 type 分流，成功后清空草稿/回复目标并刷新列表）。
-     *
-     * @param stampId 贴纸 id，非空时按 Pixiv API 规则发送纯贴纸，否则发送文本
-     * @return 无返回值，操作结果通过消息通道提示
+     * 按 type 分流，成功后清空草稿/回复目标并刷新列表；stampId 非空时按 Pixiv API 规则发纯贴纸。
      */
     fun postComment(stampId: Long? = null) {
         val draft = _commentDraft.value
@@ -358,11 +306,7 @@ class CommentListViewModel @Inject constructor(
     }
 
     /**
-     * 删除自己的评论（长按评论确认后调用；按 type 分流走 v1/{type}/comment/delete）。
-     * 成功后清空子回复缓存并刷新评论列表；切换作品代次变化时丢弃旧操作回写。
-     *
-     * @param commentId 待删除的评论 id（顶层评论或子回复均可）
-     * @return 无返回值；结果经消息通道提示
+     * 长按确认后调用，走 `v1/{type}/comment/delete`；成功后清空子回复缓存并刷新列表，代次变化时丢弃旧回写。
      */
     fun deleteComment(commentId: Long) {
         val generation = targetGeneration
@@ -372,7 +316,7 @@ class CommentListViewModel @Inject constructor(
                 .onSuccess {
                     if (generation != targetGeneration) return@onSuccess
                     sendMessage(UiMessage(CoreR.string.core_comment_deleted))
-                    // 清空子回复缓存，避免删除子回复后展开区仍保留旧缓存。
+                    // 删除子回复后展开区不得再用旧缓存
                     _replies.value = emptyMap()
                     loadComments()
                 }

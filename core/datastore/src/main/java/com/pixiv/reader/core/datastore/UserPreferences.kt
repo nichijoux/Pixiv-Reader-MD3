@@ -40,139 +40,99 @@ internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
 internal val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
 internal val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
 
-/**
- * 同步读取应用语言设置（供 MainActivity.attachBaseContext 在 Hilt 装配前调用）。
- *
- * DataStore 文件极小，runBlocking 首次读取为毫秒级；仅在 attachBaseContext 调用一次。
- */
+/** 供 MainActivity.attachBaseContext 在 Hilt 装配前调用；偏好文件极小，冷启动仅同步读一次。 */
 fun readAppLanguageSync(context: Context): String =
     runBlocking { context.dataStore.data.first()[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
 
-/**
- * 同步读取引导页完成标记（供 MainActivity 启动时决定导航起点）。
- * 与 [readAppLanguageSync] 同模式：DataStore 文件极小，冷启动一次性读取为毫秒级。
- */
+/** 供 MainActivity 冷启动决定导航起点，同 [readAppLanguageSync] 一次性同步读。 */
 fun readOnboardingCompleteSync(context: Context): Boolean =
     runBlocking { context.dataStore.data.first()[KEY_ONBOARDING_COMPLETE] ?: false }
 
-/**
- * 应用偏好（DataStore Preferences）。
- * 阅读偏好由阅读器使用；图片质量/主题由设置页使用。
- */
 @Singleton
 class UserPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
-    // ── 阅读器 ──
     val readerFontSize: Flow<Float> = context.dataStore.data.map { it[KEY_FONT_SIZE] ?: 17f }
-    /** 行距增量（em，-1.0..1.0）：实际行高倍数 = 1.6 + 增量（默认 2.05 倍 → 0.45） */
+    /** 行距增量（em，-1.0..1.0），实际行高倍数 = 1.6 + 增量。 */
     val readerLineSpacing: Flow<Float> = context.dataStore.data.map {
         val raw = it[KEY_LINE_HEIGHT] ?: 0.45f
-        // 兼容旧版直接倍数（1.4~2.6）：新值恒在 -1..1，旧倍数 >1 转增量
+        // 兼容旧版直接存倍数（1.4~2.6）：>1 视为旧值转增量
         if (raw > 1f) raw - 1.6f else raw
     }
     val readerFontFamily: Flow<String> = context.dataStore.data.map { it[KEY_FONT_FAMILY] ?: "serif" }
     val readerTheme: Flow<ReaderThemeMode> = context.dataStore.data.map { ReaderThemeMode.from(it[KEY_READER_THEME] ?: ReaderThemeMode.PAPER.value) }
     val readerPageMode: Flow<ReaderPageMode> = context.dataStore.data.map { ReaderPageMode.from(it[KEY_PAGE_MODE] ?: ReaderPageMode.SCROLL.value) }
-    /** 阅读器双页显示：0 关闭 / 1 强制开启 / 2 仅横屏 / 3 横屏或平板（默认，仅翻页与仿真模式生效） */
     val readerDualPageMode: Flow<ReaderDualPageMode> =
         context.dataStore.data.map {
             ReaderDualPageMode.from(it[KEY_DUAL_PAGE] ?: ReaderDualPageMode.LANDSCAPE_OR_TABLET.value)
         }
     val readerBrightness: Flow<Float> = context.dataStore.data.map { it[KEY_BRIGHTNESS] ?: 1f }
-    /** 阅读器主题是否跟随系统深色模式 */
     val readerFollowSystem: Flow<Boolean> = context.dataStore.data.map { it[KEY_FOLLOW_SYSTEM] ?: false }
-    /** 自定义阅读字体文件绝对路径（空表示未设置） */
     val readerCustomFontPath: Flow<String> = context.dataStore.data.map { it[KEY_CUSTOM_FONT_PATH] ?: "" }
-    /** 正文字重：300 细体 / 400 常规 / 700 粗体 / 100..900 自定义可变字重 */
     val readerFontWeight: Flow<Int> = context.dataStore.data.map { it[KEY_FONT_WEIGHT] ?: 400 }
-    /** 简繁转换：0 关闭 / 1 简体→繁体 / 2 繁体→简体（仅应用语言为中文时在设置面板显示） */
+    /** 0 关闭 / 1 简→繁 / 2 繁→简（仅中文界面展示）。 */
     val readerChineseConvert: Flow<Int> =
         context.dataStore.data.map { it[KEY_CHINESE_CONVERT] ?: 0 }
-    /** 段首全角空格缩进数量（0..4） */
+    /** 段首全角空格缩进数（0..4）。 */
     val readerParagraphIndent: Flow<Int> = context.dataStore.data.map { it[KEY_PARAGRAPH_INDENT] ?: 2 }
-    /** 段距（em，0..2.0）：段落间空白高度 = 段距 × 字号 */
+    /** 段距（em，0..2.0），实际空白高度 = 值 × 字号。 */
     val readerParagraphSpacing: Flow<Float> = context.dataStore.data.map { it[KEY_PARAGRAPH_SPACING] ?: 0.6f }
-    /** 字距（em，-0.5..0.5）：字符间距 = 字距 × 字号 */
+    /** 字距（em，-0.5..0.5），实际间距 = 值 × 字号。 */
     val readerLetterSpacing: Flow<Float> = context.dataStore.data.map { it[KEY_LETTER_SPACING] ?: 0f }
 
-    // ── 图片 / 外观 ──
     val dynamicColor: Flow<Boolean> = context.dataStore.data.map { it[KEY_DYNAMIC_COLOR] ?: true }
-    /** 彩色点缀风格（false = 纯 M3 单色，默认关闭） */
     val colorStyleEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_COLOR_STYLE] ?: false }
-    /** 手机端底部导航栏样式：贴边短栏 / 悬浮胶囊 */
     val bottomNavBarStyle: Flow<BottomNavBarStyle> =
         context.dataStore.data.map {
             BottomNavBarStyle.from(it[KEY_BOTTOM_NAV_BAR_STYLE] ?: BottomNavBarStyle.DOCKED.value)
         }
-    /** 应用主题模式：跟随系统 / 浅色 / 深色 */
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.from(it[KEY_THEME_MODE] ?: ThemeMode.FOLLOW_SYSTEM.value) }
-    /** 应用字号缩放（0.8~1.3，默认 1.0 = 系统「标准」档；MainActivity 覆盖 fontScale 即时生效） */
     val appFontScale: Flow<Float> = context.dataStore.data.map { it[KEY_APP_FONT_SCALE] ?: 1f }
 
-    // ── 通用 ──
-    /** 应用语言：system 跟随系统 / zh 简体中文 / en 英语 */
     val appLanguage: Flow<String> = context.dataStore.data.map { it[KEY_APP_LANGUAGE] ?: AppLanguage.SYSTEM }
-    /** 首次启动引导页是否已完成（false = 下次启动先展示引导页） */
     val onboardingComplete: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_ONBOARDING_COMPLETE] ?: false }
-    /** 剪贴板 pixiv 链接识别提示（打开 App / 回前台时检测并提示跳转） */
     val clipboardLinkPrompt: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_CLIPBOARD_LINK_PROMPT] ?: true }
-    /** 是否自动更新（设置开关，实际更新逻辑后续接入） */
     val autoUpdate: Flow<Boolean> = context.dataStore.data.map { it[KEY_AUTO_UPDATE] ?: true }
-    /** 小说 Tab 默认页：推荐 / 关注（我的页-浏览设置可改） */
     val novelDefaultTab: Flow<NovelDefaultTab> = context.dataStore.data.map { NovelDefaultTab.from(it[KEY_NOVEL_DEFAULT_TAB] ?: NovelDefaultTab.RECOMMEND.value) }
-    /** 插画查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向（我的页-浏览设置可改） */
     val viewerOrientation: Flow<ViewerOrientation> = context.dataStore.data.map { ViewerOrientation.from(it[KEY_VIEWER_ORIENTATION] ?: ViewerOrientation.HORIZONTAL.value) }
-    /** 关注页左列用户排序：关注时间 / 名称升序 / 名称降序 / 代表作最新（我的页-浏览设置可改） */
     val followSortMode: Flow<FollowSortMode> = context.dataStore.data.map { FollowSortMode.from(it[KEY_FOLLOW_SORT_MODE] ?: FollowSortMode.FOLLOW_TIME.value) }
-    /** 热门搜索缓存（展示名列表，\n 分隔；配合 updatedAt 控制刷新） */
     val hotTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
         prefs[KEY_HOT_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
-    /** 热门搜索缓存更新时间戳（epoch ms，0 表示从未缓存） */
     val hotTagsUpdatedAt: Flow<Long> = context.dataStore.data.map { it[KEY_HOT_TAGS_AT] ?: 0L }
     val mutedTags: Flow<List<String>> = context.dataStore.data.map { prefs ->
         prefs[KEY_MUTED_TAGS]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
     }
 
-    // ── 就地屏蔽（单作品，纯本地不上报；卡片封面模糊 + 点击临时显示）──
-    /** 本地屏蔽作品集合，条目格式 `illust:123` / `novel:456`。 */
+    /** 纯本地就地屏蔽集合，条目格式 `illust:123` / `novel:456`，不上报服务端。 */
     val blockedTargets: Flow<Set<String>> =
         context.dataStore.data.map { prefs -> prefs[KEY_BLOCKED_TARGETS] ?: emptySet() }
 
-    // ── 发现页搜索筛选（记住上次应用的条件，对齐 Pixiv-Shaft 全局默认语义）──
-    /** 搜索排序（date_desc / date_asc / popular_desc；默认按热度） */
     val searchFilterSort: Flow<String> =
         context.dataStore.data.map { it[KEY_SEARCH_SORT] ?: "popular_desc" }
-    /** 搜索匹配方式（partial_match_for_tags / exact_match_for_tags / title_and_caption） */
     val searchFilterTarget: Flow<String> =
         context.dataStore.data.map { it[KEY_SEARCH_TARGET] ?: "partial_match_for_tags" }
-    /** 收藏数下限（官方 bookmark_num_min 参数；0=不限） */
     val searchFilterBookmarkMin: Flow<Int> =
         context.dataStore.data.map { it[KEY_SEARCH_BOOKMARK_MIN] ?: 0 }
-    /** Xusers入り 关键字后缀档（0=不限） */
+    /** `Xusers入り` 关键字后缀档（0 = 不限）。 */
     val searchFilterKeywordUsers: Flow<Int> =
         context.dataStore.data.map { it[KEY_SEARCH_KEYWORD_USERS] ?: 0 }
-    /** AI 筛选（0 全部 / 1 仅人绘 / 2 仅 AI） */
+    /** 0 全部 / 1 仅人绘 / 2 仅 AI。 */
     val searchFilterAiType: Flow<Int> =
         context.dataStore.data.map { it[KEY_SEARCH_AI_TYPE] ?: 0 }
 
-    // ── 下载 ──
-    /** 小说导出目录（SAF tree uri；空 = 应用私有目录 filesDir/Downloads/novels）。 */
+    /** SAF tree URI；空串表示回退应用私有目录 `filesDir/Downloads/novels`。 */
     val novelExportDir: Flow<String> = context.dataStore.data.map { it[KEY_NOVEL_EXPORT_DIR] ?: "" }
-    /** 小说导出文件名模板-单本下载（默认 {title}_{id}；缺失占位符渲染为空）。 */
     val novelFileNameTemplate: Flow<String> =
         context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE] ?: NovelFileNameTemplate.DEFAULT_SINGLE }
 
-    /** 小说导出文件名模板-系列导出（整系列/部分分册；默认 {series}_{id}）。 */
     val novelFileNameTemplateSeries: Flow<String> =
         context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES] ?: NovelFileNameTemplate.DEFAULT_SERIES }
 
-    /** 是否已向用户请求过 Android 13+ 系统通知权限（仅在首次触发下载时提示一次，避免反复弹窗打扰）。 */
     val notificationPermissionPrompted: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_NOTIFICATION_PERMISSION_PROMPTED] ?: false }
 
@@ -193,15 +153,8 @@ class UserPreferences @Inject constructor(
     suspend fun setReaderParagraphSpacing(value: Float) = context.dataStore.edit { it[KEY_PARAGRAPH_SPACING] = value }
     suspend fun setReaderLetterSpacing(value: Float) = context.dataStore.edit { it[KEY_LETTER_SPACING] = value }
     suspend fun setDynamicColor(value: Boolean) = context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
-    /** 设置彩色点缀风格：true 启用彩色，false 回到纯 M3 单色。 */
     suspend fun setColorStyleEnabled(value: Boolean) =
         context.dataStore.edit { it[KEY_COLOR_STYLE] = value }
-    /**
-     * 设置手机端底部导航栏样式（贴边短栏 / 悬浮胶囊）。
-     *
-     * @param value 目标导航栏样式
-     * @return 无返回值
-     */
     suspend fun setBottomNavBarStyle(value: BottomNavBarStyle) =
         context.dataStore.edit { it[KEY_BOTTOM_NAV_BAR_STYLE] = value.value }
     suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
@@ -221,12 +174,6 @@ class UserPreferences @Inject constructor(
     suspend fun setMutedTags(value: List<String>) =
         context.dataStore.edit { it[KEY_MUTED_TAGS] = value.joinToString("\n") }
 
-    /**
-     * 原子追加一条屏蔽标签；空白标签忽略，已存在时不重复追加。
-     *
-     * @param tag 待屏蔽的标签文本
-     * @return 无返回值
-     */
     suspend fun addMutedTag(tag: String) {
         val trimmed = tag.trim()
         if (trimmed.isEmpty()) return
@@ -242,12 +189,6 @@ class UserPreferences @Inject constructor(
         }
     }
 
-    /**
-     * 原子移除一条屏蔽标签；不存在或空白时静默忽略。
-     *
-     * @param tag 待移除的标签文本
-     * @return 无返回值
-     */
     suspend fun removeMutedTag(tag: String) {
         val trimmed = tag.trim()
         if (trimmed.isEmpty()) return
@@ -261,13 +202,11 @@ class UserPreferences @Inject constructor(
         }
     }
 
-    /** 加入本地屏蔽（幂等：同目标重复添加不产生重复条目）。 */
     suspend fun addBlockedTarget(type: String, id: Long) =
         context.dataStore.edit { prefs ->
             prefs[KEY_BLOCKED_TARGETS] = (prefs[KEY_BLOCKED_TARGETS] ?: emptySet()) + "$type:$id"
         }
 
-    /** 解除本地屏蔽（目标不在集合中时静默忽略）。 */
     suspend fun removeBlockedTarget(type: String, id: Long) =
         context.dataStore.edit { prefs ->
             prefs[KEY_BLOCKED_TARGETS] = (prefs[KEY_BLOCKED_TARGETS] ?: emptySet()) - "$type:$id"
@@ -290,12 +229,6 @@ class UserPreferences @Inject constructor(
     suspend fun setNovelFileNameTemplateSeries(value: String) =
         context.dataStore.edit { it[KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES] = value }
 
-    /**
-     * 记录是否已弹过系统通知权限引导。
-     *
-     * @param value true 表示已引导过，后续不再自动弹窗
-     * @return 操作完成后结束的协程
-     */
     suspend fun setNotificationPermissionPrompted(value: Boolean) =
         context.dataStore.edit { it[KEY_NOTIFICATION_PERMISSION_PROMPTED] = value }
 
@@ -315,9 +248,7 @@ class UserPreferences @Inject constructor(
         val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
         val KEY_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
-        /** 彩色风格开关（默认 false = 纯 M3 单色） */
         val KEY_COLOR_STYLE = booleanPreferencesKey("color_style_enabled")
-        /** 手机端底部导航栏样式（0 = 贴边短栏，1 = 悬浮胶囊） */
         val KEY_BOTTOM_NAV_BAR_STYLE = intPreferencesKey("bottom_nav_bar_style")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")

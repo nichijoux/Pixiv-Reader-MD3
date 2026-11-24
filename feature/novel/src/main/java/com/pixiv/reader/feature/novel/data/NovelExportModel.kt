@@ -1,13 +1,8 @@
 package com.pixiv.reader.feature.novel.data
 
-/** 导出格式：TXT（纯文本跳过插图） / EPUB（标准电子书内嵌插图） / PDF / MARKDOWN / DOCX。 */
 enum class NovelExportFormat { TXT, EPUB, PDF, MARKDOWN, DOCX }
 
-/**
- * 导出内嵌插图（EPUB / DOCX / Markdown 共用）：
- * [ref] 为容器内相对文件名（EPUB `OEBPS/Images/` 下、DOCX `word/media/` 下）；
- * [width]/[height] 为原始像素（DOCX 按可用页宽缩放用；EPUB / Markdown 不需要，默认 0）。
- */
+/** [width]/[height] 仅 DOCX 按页宽缩放使用，EPUB/Markdown 传 0。 */
 internal data class ExportImage(
     val ref: String,
     val bytes: ByteArray,

@@ -49,20 +49,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.novel.R
 
-/**
- * 标题信息卡：标题 / 作者（关注按钮）/ 发布时间 / 统计（均分撑满整行）/ 标签 / 简介（首行缩进 + 展开全文）。
- *
- * @param novel 小说数据（标题 / 作者 / 统计 / 标签 / 简介来源）
- * @param onOpenUser 作者点击回调（打开用户主页）
- * @param expandableIntro 简介是否可展开（手机 true，平板 false）
- * @param isAuthorFollowed 当前是否已关注作者
- * @param isAuthorFollowing 关注操作进行中（按钮禁用）
- * @param onToggleFollowAuthor 关注 / 取关回调
- * @param onOpenNovel 简介内 pixiv://novels 链接回调（不接线时链接仅显示样式）
- * @param onOpenIllust 简介内 pixiv://illusts 链接回调
- * @param onSearchTag 标签点击跳搜索（默认空实现纯展示）
- * @return 无返回值（渲染 Composable）
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NovelHeader(
@@ -72,19 +58,15 @@ internal fun NovelHeader(
     isAuthorFollowed: Boolean = false,
     isAuthorFollowing: Boolean = false,
     onToggleFollowAuthor: () -> Unit = {},
-    // 简介富文本链接回调（pixiv://novels / illusts；不接线时链接仅显示样式）
     onOpenNovel: (Long) -> Unit = {},
     onOpenIllust: (Long) -> Unit = {},
-    // 标签点击跳搜索（不接线时标签纯展示）
     onSearchTag: (String) -> Unit = {},
 ) {
     Column(modifier = Modifier.padding(Spacing.lg)) {
-        // 标题：titleLarge 派生 + 22sp Bold
         Text(
             text = novel.title.orEmpty(),
             style = novelTitleStyle(),
         )
-        // 作者行：头像/昵称 › 撑左（点击进用户主页），关注/取关胶囊顶到行最右
         val publishDate = novel.create_date?.take(10)
         Row(
             modifier = Modifier
@@ -109,7 +91,7 @@ internal fun NovelHeader(
                     style = novelAuthorStyle(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    // 占满剩余宽度（fill=false 短名不拉伸），超长省略，保证关注胶囊不被挤出
+                    // fill=false 短名不拉伸，超长省略，保证关注胶囊不被挤出
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Icon(
@@ -119,14 +101,12 @@ internal fun NovelHeader(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // 关注 / 取关胶囊：顶到行最右
             AuthorFollowPill(
                 isFollowed = isAuthorFollowed,
                 enabled = !isAuthorFollowing,
                 onClick = onToggleFollowAuthor,
             )
         }
-        // 发布时间：作者行下一行、右侧对齐（不可点击）
         if (!publishDate.isNullOrBlank()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -147,7 +127,6 @@ internal fun NovelHeader(
                 )
             }
         }
-        // 统计：三块均分撑满整行（icon + 值 15sp Bold + 标签 11sp）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -173,7 +152,6 @@ internal fun NovelHeader(
                 modifier = Modifier.weight(1f),
             )
         }
-        // 标签胶囊：统一 chip 样式，可点击跳搜索
         val tags = novel.tags.orEmpty().take(8)
         if (tags.isNotEmpty()) {
             FlowRow(
@@ -192,8 +170,7 @@ internal fun NovelHeader(
                 }
             }
         }
-        // 简介：HTML 富文本（加粗/换行/pixiv 深链可点），13.5sp + 首行缩进两格；
-        // 手机 6 行截断 + 展开全文，平板完整显示；展开/收起按钮仅在 clamped 截断时出现
+        // 手机 6 行截断 + 展开全文，平板完整显示；按钮仅在真的截断时出现
         val caption = novel.caption
         if (!caption.isNullOrBlank()) {
             var expanded by rememberSaveable { mutableStateOf(false) }
@@ -207,12 +184,11 @@ internal fun NovelHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (clamped) 6 else Int.MAX_VALUE,
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
-                // 展开/收起时高度平滑过渡
                 modifier = Modifier
                     .padding(top = Spacing.mdPlus)
                     .animateContentSize(),
                 onTextLayout = { layout ->
-                    // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
+                    // 展开后 maxLines 无限，溢出恒 false，只在 clamped 时检测
                     if (clamped) truncated = layout.hasVisualOverflow
                 },
                 onOpenNovel = onOpenNovel,
@@ -220,7 +196,6 @@ internal fun NovelHeader(
                 onOpenUser = onOpenUser,
             )
             if (expandableIntro && (truncated || expanded)) {
-                // 展开 / 收起：居中按钮（未截断时不出现）
                 TextButton(
                     onClick = { expanded = !expanded },
                     modifier = Modifier.fillMaxWidth(),
@@ -238,7 +213,7 @@ internal fun NovelHeader(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** 作者关注 / 取关胶囊（紧凑，作者名旁；系列页作者行复用）。 */
+/** 紧凑作者关注胶囊（系列页作者行复用）。 */
 @Composable
 internal fun AuthorFollowPill(
     isFollowed: Boolean,
@@ -268,7 +243,7 @@ internal fun AuthorFollowPill(
     )
 }
 
-/** 统计块：图标 + 数值 + 标签（weight(1f) 均分整行，块内水平居中保证左右边距对称）。 */
+/** 图标 + 数值 + 标签；weight(1f) 均分整行。 */
 @Composable
 internal fun NovelStatBlock(
     icon: ImageVector,
@@ -284,7 +259,7 @@ internal fun NovelStatBlock(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                // 与数值同档放大：16dp 在详情页整页比例下偏小，提到 20dp
+                // 16dp 在整页比例下偏小，与数值同档提到 20dp
                 modifier = Modifier.size(Sizes.s20),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -296,7 +271,6 @@ internal fun NovelStatBlock(
         }
         Text(
             text = label,
-            // 说明文案放大一档（labelMedium 12sp → bodyMedium 14sp），与数值层级平衡
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = Spacing.xxs),

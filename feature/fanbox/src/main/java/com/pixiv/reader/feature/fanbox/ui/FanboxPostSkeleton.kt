@@ -27,16 +27,9 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/** 骨架占位卡数量（首屏可见约 5~6 张）。 */
 private const val SKELETON_CARD_COUNT = 6
 
-/**
- * FANBOX 投稿流加载骨架：仿 `FanboxPostCard` 结构（16:9 封面 + 标题 + 创作者行 + 摘要 + 徽标/计数行），
- * 呼吸脉冲占位替代全屏转圈；列表边距与真实列表一致，切到真实内容时不跳变。
- *
- * @param modifier 外部传入的 Modifier
- * @return 无返回值（渲染 Composable）
- */
+/** 仿 [FanboxPostCard] 结构；列表边距与真实列表一致，切到真实内容时不跳变。 */
 @Composable
 internal fun FanboxPostSkeleton(modifier: Modifier = Modifier) {
     val color = skeletonPulseColor(label = "fanboxPostSkeleton")
@@ -52,7 +45,6 @@ internal fun FanboxPostSkeleton(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column {
-                    // 封面：16:9（与真实卡一致，仅在有封面时渲染）
                     SkeletonBlock(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -60,7 +52,6 @@ internal fun FanboxPostSkeleton(modifier: Modifier = Modifier) {
                         color = color,
                     )
                     Column(modifier = Modifier.padding(Spacing.md)) {
-                        // 标题（两行）
                         SkeletonBlock(
                             modifier = Modifier.fillMaxWidth(0.8f).height(16.dp).clip(AppShapes.tiny),
                             color = color,
@@ -73,7 +64,6 @@ internal fun FanboxPostSkeleton(modifier: Modifier = Modifier) {
                                 .clip(AppShapes.tiny),
                             color = color,
                         )
-                        // 创作者行：圆头像 + 昵称 + 行尾时间
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(top = Spacing.xs),
@@ -96,7 +86,6 @@ internal fun FanboxPostSkeleton(modifier: Modifier = Modifier) {
                                 color = color,
                             )
                         }
-                        // 摘要两行
                         SkeletonBlock(
                             modifier = Modifier
                                 .padding(top = Spacing.xs)
@@ -113,7 +102,6 @@ internal fun FanboxPostSkeleton(modifier: Modifier = Modifier) {
                                 .clip(AppShapes.tiny),
                             color = color,
                         )
-                        // 元信息行：费用徽标 + 点赞/评论计数
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(top = Spacing.sm),

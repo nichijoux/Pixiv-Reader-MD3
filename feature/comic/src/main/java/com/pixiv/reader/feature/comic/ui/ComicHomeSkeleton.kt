@@ -22,27 +22,15 @@ import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/** 骨架网格列数（与真实榜单网格 [GRID_COLUMNS] 一致）。 */
+/** 必须与真实网格 [GRID_COLUMNS] 一致。 */
 private const val SKELETON_GRID_COLUMNS = 3
 
-/** 骨架占位卡数量（三列 × 三行，铺满首屏）。 */
 private const val SKELETON_CARD_COUNT = 9
 
-/** 骨架封面宽高比（与 [ComicWorkCard] 的 CARD_COVER_RATIO 保持一致）。 */
+/** 必须与 [ComicWorkCard] 的 CARD_COVER_RATIO 一致。 */
 private const val SKELETON_COVER_RATIO = 0.71f
 
-/**
- * COMIC 首页加载骨架（「更新」与「排行」两页签共用）。
- *
- * 对齐两 Tab 的真实结构：`LazyVerticalGrid` 三列 + 同款内容边距；
- * [showRankingHeader] 为 true 时在网格顶部整行渲染排行头部占位
- * （模式分段条 + 分类标签横滑行），为 false 时渲染 banner 整行 + 分区标题条。
- * 呼吸脉冲占位替代全屏转圈，仅替换加载态渲染，不参与加载判定。
- *
- * @param showRankingHeader true = 排行 Tab 头部（模式分段 + 标签行）；false = 更新 Tab 头部（banner + 标题）
- * @param modifier 外部传入的 Modifier
- * @return 无返回值（渲染 Composable）
- */
+/** 两页签共用；只替换加载态渲染，不参与加载判定。 */
 @Composable
 internal fun ComicHomeSkeleton(
     showRankingHeader: Boolean,
@@ -57,7 +45,6 @@ internal fun ComicHomeSkeleton(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         if (showRankingHeader) {
-            // 排行头部：模式分段条（两段等宽）
             item(span = { GridItemSpan(maxLineSpan) }, key = "comic_skeleton_modes") {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     repeat(2) {
@@ -71,7 +58,6 @@ internal fun ComicHomeSkeleton(
                     }
                 }
             }
-            // 排行头部：分类标签横滑行（只渲染首行可见的 4 个占位）
             item(span = { GridItemSpan(maxLineSpan) }, key = "comic_skeleton_labels") {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     repeat(4) {
@@ -83,7 +69,7 @@ internal fun ComicHomeSkeleton(
                 }
             }
         } else {
-            // 更新头部：banner 整行（2:1，与 ComicBannerRow 常见比例一致）
+            // 2:1 与真实 banner 行一致。
             item(span = { GridItemSpan(maxLineSpan) }, key = "comic_skeleton_banner") {
                 SkeletonBlock(
                     modifier = Modifier
@@ -93,7 +79,6 @@ internal fun ComicHomeSkeleton(
                     color = color,
                 )
             }
-            // 更新头部：分区标题条
             item(span = { GridItemSpan(maxLineSpan) }, key = "comic_skeleton_section_title") {
                 SkeletonBlock(
                     modifier = Modifier
@@ -105,7 +90,6 @@ internal fun ComicHomeSkeleton(
                 )
             }
         }
-        // 作品卡占位：封面（竖版书页比例）+ 标题条 + 作者条
         items(count = SKELETON_CARD_COUNT) {
             Column {
                 SkeletonBlock(

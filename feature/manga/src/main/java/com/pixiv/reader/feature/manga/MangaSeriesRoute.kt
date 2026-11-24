@@ -48,13 +48,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * 漫画系列详情（路由 `illust_series/{seriesId}`）：
- * 头部（首话封面 + 标题/作者/话数 + 追更按钮 + 简介）+ 系列内作品瀑布流（触底分页）。
- * 追更按钮走 v1/watchlist/manga add/remove；作品点击跳插画/漫画详情。
- *
- * @param onBack 返回
- * @param onOpenIllust 点击系列内作品打开插画/漫画详情
- * @param onOpenUser 点击作者打开用户主页
+ * 漫画系列详情（路由 `illust_series/{seriesId}`）：头部 + 系列内作品瀑布流（触底分页）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,7 +79,7 @@ fun MangaSeriesRoute(
         when {
             isLoading && detail == null -> IllustWaterfallSkeleton(
                 modifier = Modifier.padding(padding),
-                // 系列头骨架：对齐下方真实 SeriesHeader 结构（随网格滚动）
+                // 头部骨架要与真实 SeriesHeader 结构对齐，否则加载态会跳一下
                 header = { MangaSeriesHeaderSkeleton() },
             )
             error != null && detail == null -> ErrorBox(
@@ -103,7 +97,6 @@ fun MangaSeriesRoute(
                 error = error,
                 modifier = Modifier.padding(padding),
                 onOpenUser = onOpenUser,
-                // 系列头部：封面 + 标题/作者/话数/追更 + 简介（随网格滚动）
                 header = {
                     SeriesHeader(
                         firstIllust = items.firstOrNull(),
@@ -124,19 +117,7 @@ fun MangaSeriesRoute(
 }
 
 /**
- * 系列头部：封面（首话封面，无则书本图标兜底）+ 标题/作者/话数/追更按钮 + 简介。
- *
- * @param firstIllust 系列首话作品（封面来源）
- * @param title 系列标题
- * @param caption 系列简介（空则不渲染）
- * @param authorName 作者名
- * @param authorAvatarUrl 作者头像
- * @param chapters 总话数
- * @param isWatchlisted 是否已追更
- * @param isWatchlisting 追更请求进行中
- * @param onToggleWatchlist 追更/取消追更回调
- * @param onOpenUser 作者行点击（打开用户主页）
- * @return 无返回值
+ * 系列头部：首话封面（无则书本图标）+ 标题/作者/话数/追更 + 简介。
  */
 @Composable
 private fun SeriesHeader(
@@ -158,7 +139,6 @@ private fun SeriesHeader(
             .padding(horizontal = Spacing.lg, vertical = Spacing.md),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            // 封面（96x128，与 SeriesCard 同规格）：首话封面 / 图标兜底
             Box(
                 modifier = Modifier
                     .size(width = 96.dp, height = 128.dp)
@@ -176,7 +156,6 @@ private fun SeriesHeader(
                     SeriesBookCover(modifier = Modifier.fillMaxSize(), iconSize = 48.dp)
                 }
             }
-            // 右侧信息列：标题 + 作者行 + 话数 + 追更按钮
             Column(
                 modifier = Modifier
                     .padding(start = Spacing.md)
@@ -189,7 +168,6 @@ private fun SeriesHeader(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                // 作者行（头像 + 名称，可点进主页）
                 Row(
                     modifier = Modifier
                         .padding(top = Spacing.sm)
@@ -232,7 +210,6 @@ private fun SeriesHeader(
                 }
             }
         }
-        // 简介（可空）
         if (!caption.isNullOrBlank()) {
             Text(
                 text = caption,
@@ -245,10 +222,8 @@ private fun SeriesHeader(
 }
 
 /**
- * 漫画系列头骨架：仿 [SeriesHeader]（96×128 封面块 + 右侧标题/作者行/话数/追更按钮 + 简介一行），
- * 供 [IllustWaterfallSkeleton] 的整行 header 槽位使用，避免加载态与真实头部结构错位。
- *
- * @return 无返回值（渲染 Composable）
+ * 系列头骨架：与 [SeriesHeader] 同规格（96×128 封面块 + 右侧信息列 + 简介行），
+ * 供 [IllustWaterfallSkeleton] 整行 header 槽位使用，避免加载态结构错位。
  */
 @Composable
 private fun MangaSeriesHeaderSkeleton() {
@@ -260,14 +235,12 @@ private fun MangaSeriesHeaderSkeleton() {
             .padding(horizontal = Spacing.lg, vertical = Spacing.md),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            // 封面块：与 SeriesHeader 同规格（96×128，AppShapes.card）
             SkeletonBlock(
                 modifier = Modifier
                     .size(width = 96.dp, height = 128.dp)
                     .clip(AppShapes.card),
                 color = color,
             )
-            // 右侧信息列：标题两行 + 作者行 + 话数 + 追更按钮
             Column(
                 modifier = Modifier
                     .padding(start = Spacing.md)
@@ -285,7 +258,6 @@ private fun MangaSeriesHeaderSkeleton() {
                         .clip(AppShapes.tiny),
                     color = color,
                 )
-                // 作者行：小圆头像 + 昵称条
                 Row(
                     modifier = Modifier.padding(top = Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
@@ -303,7 +275,6 @@ private fun MangaSeriesHeaderSkeleton() {
                         color = color,
                     )
                 }
-                // 话数条
                 SkeletonBlock(
                     modifier = Modifier
                         .padding(top = Spacing.xs)
@@ -312,7 +283,6 @@ private fun MangaSeriesHeaderSkeleton() {
                         .clip(AppShapes.tiny),
                     color = color,
                 )
-                // 追更按钮
                 SkeletonBlock(
                     modifier = Modifier
                         .padding(top = Spacing.sm)
@@ -323,7 +293,6 @@ private fun MangaSeriesHeaderSkeleton() {
                 )
             }
         }
-        // 简介一行
         SkeletonBlock(
             modifier = Modifier
                 .padding(top = Spacing.md)

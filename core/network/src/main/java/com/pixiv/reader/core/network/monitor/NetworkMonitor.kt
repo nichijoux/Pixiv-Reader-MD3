@@ -11,10 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * 网络状态监听：基于 ConnectivityManager 的默认网络回调，提供可观察的在线状态。
- * 用于全局"网络连接已断开"提示。
- */
 @Singleton
 class NetworkMonitor @Inject constructor(
     @ApplicationContext context: Context,

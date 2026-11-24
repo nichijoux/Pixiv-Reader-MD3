@@ -36,19 +36,6 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.card.toCardData
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/**
- * 我的收藏（P5）：插画/小说收藏 + 标签筛选 + 分页。
- *
- * @param onBack 返回
- * @param onOpenIllust 打开作品详情
- * @param onOpenNovel 打开小说详情
- * @param onOpenUser 打开作者主页
- * @param onOpenSeries 打开小说系列
- * @param onSearchTag 搜索标签
- * @param onNovelSearchTag 搜索小说标签，空时复用通用标签入口
- * @param viewModel 收藏页状态与操作入口
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarkRoute(
@@ -58,7 +45,7 @@ fun BookmarkRoute(
     onOpenUser: (Long) -> Unit,
     onOpenSeries: (Long) -> Unit,
     onSearchTag: (String) -> Unit,
-    // 小说分区标签点击（搜小说类型）；空则复用 [onSearchTag]
+    // 小说分区标签搜小说类型；空则复用 [onSearchTag]
     onNovelSearchTag: ((String) -> Unit)? = null,
     viewModel: BookmarkViewModel = hiltViewModel(),
 ) {
@@ -78,8 +65,6 @@ fun BookmarkRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段（作品 / 小说）+ 滑动分页：SegmentedPager 双向同步
-                // （点击分段 / 左右滑动均可切换；落页同步当前类型，VM 内部负责重置标签 / 加载对应列表）
                 val pagerState = rememberPagerState(
                     initialPage = BookmarkType.entries.indexOf(type).coerceAtLeast(0),
                     pageCount = { BookmarkType.entries.size },
@@ -91,7 +76,7 @@ fun BookmarkRoute(
                     tabLabel = { it.labelRes },
                     pagerModifier = Modifier.weight(1f),
                     between = {
-                        // 标签筛选（当前类型的标签）
+                        // 标签筛选
                         if (tags.isNotEmpty()) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -145,18 +130,7 @@ fun BookmarkRoute(
     }
 }
 
-/**
- * 插画收藏列表：三态门槛 + 瀑布流（触底翻页回调透传 [IllustWaterfallGrid]）。
- *
- * @param paged 插画收藏分页状态
- * @param onOpenIllust 卡片点击（打开作品详情）
- * @param onOpenUser 作者行点击（打开用户主页）
- * @param onToggleFavorite 收藏切换回调
- * @param onRetry 首屏失败重试回调
- * @param onLoadMore 触底加载更多回调
- * @param isCurrentPage 当前是否选中插画页
- * @return 无返回值
- */
+/** 插画收藏：三态门槛 + 瀑布流。 */
 @Composable
 private fun BookmarkIllustList(
     paged: PagedState<com.pixiv.api.model.Illust>,
@@ -186,20 +160,7 @@ private fun BookmarkIllustList(
     }
 }
 
-/**
- * 小说收藏列表：三态门槛 + NovelCard 列表（触底加载）。
- *
- * @param paged 小说收藏分页状态
- * @param onOpenNovel 卡片点击（打开小说详情）
- * @param onOpenUser 作者行点击（打开用户主页）
- * @param onOpenSeries 系列标题点击（打开系列详情）
- * @param onToggleFavorite 收藏切换回调
- * @param onTagClick 标签点击（跳搜索）
- * @param onRetry 首屏失败重试回调
- * @param onLoadMore 触底加载更多回调
- * @param isCurrentPage 当前是否选中小说页
- * @return 无返回值
- */
+/** 小说收藏：三态门槛 + NovelCard 列表。 */
 @Composable
 private fun BookmarkNovelList(
     paged: PagedState<com.pixiv.api.model.Novel>,
@@ -232,7 +193,6 @@ private fun BookmarkNovelList(
                     onToggleFavorite = { fav -> onToggleFavorite(novel.id, fav) },
                     onTagClick = onTagClick,
                     onSeriesClick = { novel.series?.id?.let(onOpenSeries) },
-                    // 进场淡入 + 取消收藏/翻页追加时位置平滑重排
                     modifier = Modifier.animateItem(
                         fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                         placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),

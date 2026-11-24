@@ -24,23 +24,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixiv.reader.core.ui.R
 
-/** 见底空白时最多自动连续翻页跳过空页的次数，防止全屏蔽列表无限触发请求。 */
+/** 过滤后空页最多连续自动翻页次数，防止全屏蔽列表无限触发请求。 */
 private const val MAX_AUTO_CONTINUE_PAGES = 10
 
 /**
- * 列表触底分页底部组件。
- *
- * 常规列表在首次进入视口时触发一次下一页请求；当可见列表因过滤完全为空且开启
- * [autoContinueWhenEmpty] 时，仅在底层条目数推进后继续自动翻页，最多连续自动翻页
- * 10 页。发生错误后立即停止自动请求，由用户点击按钮手动重试。
- *
- * @param isLoadingMore 是否正在加载下一页
- * @param onLoadMore 触发加载下一页的回调
- * @param modifier 修饰符
- * @param hasMore 是否还有下一页
- * @param error 最近一次分页错误信息；非空时不自动重试，仅展示手动重试按钮
- * @param itemCount 底层总条目数，仅在 [autoContinueWhenEmpty] 为 true 时用于检测翻页进度
- * @param autoContinueWhenEmpty 可见结果为空时是否允许有限次自动连续翻页跳过空页
+ * 列表触底分页项；开启 [autoContinueWhenEmpty] 时仅在 [itemCount] 推进后自动续翻（最多 10 页），
+ * 发生 [error] 后立即停止自动请求改为手动重试。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -58,7 +47,6 @@ fun LoadMoreItem(
     var autoPages by remember(autoContinueWhenEmpty) { mutableStateOf(0) }
     var lastAutoItemCount by remember(autoContinueWhenEmpty) { mutableStateOf<Int?>(null) }
     LaunchedEffect(hasMore, isLoadingMore, error, itemCount, autoContinueWhenEmpty) {
-        // 终态、加载中或出错时均不再自动请求，防止无休止重试或空转。
         if (!hasMore || isLoadingMore || error != null) return@LaunchedEffect
         if (autoContinueWhenEmpty) {
             if (autoPages >= MAX_AUTO_CONTINUE_PAGES) return@LaunchedEffect
@@ -82,7 +70,7 @@ fun LoadMoreItem(
                 TextButton(
                     onClick = {
                         autoPages = 0
-                        // 将当前条目数记为已手动触发过，避免若成功返回 0 条时立即再次自动触发。
+                        // 将当前条目数记为已手动触发过，避免成功返回 0 条时立即再次自动触发
                         lastAutoItemCount = itemCount
                         onLoadMore()
                     },
@@ -105,15 +93,6 @@ fun LoadMoreItem(
     }
 }
 
-/**
- * 触底加载 footer（[LazyListScope] 扩展）：[hasMore] 时在列表尾部追加自动触发的加载项，
- * 收敛各页重复的 `if (hasMore) { item(key = "load_more") { LoadMoreItem(...) } }` 壳。
- *
- * @param hasMore 是否还有下一页；false 不追加任何 item
- * @param isLoadingMore 翻页请求进行中（footer 显示转圈）
- * @param onLoadMore footer 进入可视区时触发一次的翻页回调
- * @param error 分页错误信息；非空时显示手动重试按钮
- */
 fun LazyListScope.loadMoreFooter(
     hasMore: Boolean,
     isLoadingMore: Boolean,
@@ -131,15 +110,6 @@ fun LazyListScope.loadMoreFooter(
     }
 }
 
-/**
- * 触底加载 footer（瀑布流 staggered 网格版，语义同 [loadMoreFooter]）。
- *
- * @param hasMore 是否还有下一页；false 不追加任何 item
- * @param isLoadingMore 翻页请求进行中（footer 显示转圈）
- * @param onLoadMore footer 进入可视区时触发一次的翻页回调
- * @param span footer 占用的跨列范围（通栏 footer 传 [StaggeredGridItemSpan.FullLine]）
- * @param error 分页错误信息；非空时显示手动重试按钮
- */
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyStaggeredGridScope.loadMoreFooter(
     hasMore: Boolean,

@@ -29,25 +29,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 /**
- * 我的页「外观」设置：主题模式 / 动态取色 / 彩色风格 / 字号缩放 / 语言。
- * Expressive 分组面板：各项聚入单张 28dp 圆角卡，行间以留白分隔（无分割线），
- * 每行前置图标带各自点缀色。
- *
- * @param themeMode 当前主题模式
- * @param dynamicColor 当前动态取色开关
- * @param colorStyleEnabled 当前彩色风格开关（false = 纯 M3 单色）
- * @param bottomNavBarStyle 手机端底部导航栏样式（贴边短栏 / 悬浮胶囊）
- * @param fontScale 当前全局字体缩放
- * @param appLanguage 当前应用语言（存储值）
- * @param switchingLanguage 语言切换写盘中（锁定重复触发）
- * @param onSetThemeMode 设置主题模式
- * @param onSetDynamicColor 设置动态取色
- * @param onSetColorStyleEnabled 设置彩色风格开关
- * @param onSetBottomNavBarStyle 设置手机端底部导航栏样式
- * @param onSetFontScale 设置字体缩放（写入 DataStore 后 MainActivity 覆盖 fontScale 即时生效）
- * @param onSetAppLanguage 设置语言（参数 = 存储值 + 落盘完成回调）
- * @param onLanguageApplied 语言落盘完成回调（调用方重建 Activity 生效）
- * @return 无返回值
+ * 语言切换必须等落盘完成（onSetAppLanguage 回调）才能重建 Activity，否则异步写入会被取消。
  */
 @Composable
 internal fun MeAppearanceSection(
@@ -73,7 +55,6 @@ internal fun MeAppearanceSection(
     }
 
     MeGroupCard {
-        // 主题模式：宽控件行（标题行 + 全宽分段选择）
         val themeModes = listOf(
             ThemeMode.FOLLOW_SYSTEM to R.string.me_theme_follow_system,
             ThemeMode.LIGHT to R.string.me_theme_light,
@@ -87,7 +68,6 @@ internal fun MeAppearanceSection(
             accent = SettingAccentViolet,
             onSelect = onSetThemeMode,
         )
-        // 动态取色（开关行：整行可点切换）
         MeSwitchRow(
             icon = Icons.Filled.AutoAwesome,
             title = stringResource(R.string.me_dynamic_color),
@@ -96,7 +76,7 @@ internal fun MeAppearanceSection(
             accent = SettingAccentPink,
             onCheckedChange = onSetDynamicColor,
         )
-        // 彩色风格（开关行）：关闭时全 App 图标/空态/徽标回退主题单色
+        // 关闭时全 App 图标/空态/徽标回退主题单色（各组件经 resolveAccent 解析）
         MeSwitchRow(
             icon = Icons.Filled.ColorLens,
             title = stringResource(R.string.me_color_style),
@@ -105,7 +85,7 @@ internal fun MeAppearanceSection(
             accent = SettingAccentViolet,
             onCheckedChange = onSetColorStyleEnabled,
         )
-        // 底部导航栏样式：仅手机端生效（平板为左侧栏）
+        // 仅手机端生效（平板为左侧栏）
         val navBarStyles = listOf(
             BottomNavBarStyle.DOCKED to R.string.me_nav_bar_style_docked,
             BottomNavBarStyle.FLOATING_CAPSULE to R.string.me_nav_bar_style_floating,
@@ -119,14 +99,13 @@ internal fun MeAppearanceSection(
             accent = SettingAccentOrange,
             onSelect = onSetBottomNavBarStyle,
         )
-        // 字号缩放（滑杆行：标题 + 当前百分比，滑杆全宽）
         MeRow(
             icon = Icons.Filled.FormatSize,
             title = stringResource(R.string.me_font_scale),
             subtitle = stringResource(R.string.me_font_scale_desc),
             accent = SettingAccentBlue,
             trailing = {
-                // 语言中性 token：百分比档位（80%~130%）
+                // 语言中性 token：百分比档位保留内联，不走 strings.xml
                 Text(
                     text = "${(selectedFontScale * 100).roundToInt()}%",
                     style = MaterialTheme.typography.bodyMedium,
@@ -144,7 +123,6 @@ internal fun MeAppearanceSection(
                 .fillMaxWidth()
                 .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md),
         )
-        // 语言（值行 + 下拉菜单；切换写入落盘后由调用方重建 Activity 生效）
         MeDropdownRow(
             icon = Icons.Filled.Translate,
             title = stringResource(R.string.me_language),
@@ -152,7 +130,7 @@ internal fun MeAppearanceSection(
             options = LANG_OPTIONS,
             accent = SettingAccentTeal,
             onSelect = { value ->
-                // 已选语言/切换中不重复触发；写入落盘完成后再重建，避免异步写入被取消
+                // 切换中/同值不重复触发
                 if (!switchingLanguage && appLanguage != value) {
                     onSetAppLanguage(value, onLanguageApplied)
                 }
@@ -161,19 +139,13 @@ internal fun MeAppearanceSection(
     }
 }
 
-/**
- * 将字号比例对齐到 80% 至 130% 的 10% 刻度。
- *
- * @param value 存储或滑杆产生的字号比例
- * @return 对齐后的字号比例
- */
 private fun snapAppearanceFontScale(value: Float): Float {
     // 异常偏好值回到 100%，避免 NaN 转整数时抛出异常。
     if (!value.isFinite()) return 1f
     return (value * 10).roundToInt().coerceIn(8, 13) / 10f
 }
 
-/** 语言选项（存储值, 显示文案）；按本地名显示（与系统语言设置一致）。 */
+/** 语言选项按本地名显示（与系统语言设置一致），不跟随界面语言翻译。 */
 private val LANG_OPTIONS = listOf(
     AppLanguage.SYSTEM to R.string.me_language_follow_system,
     AppLanguage.ZH to R.string.me_language_chinese,
@@ -181,7 +153,6 @@ private val LANG_OPTIONS = listOf(
     AppLanguage.EN to R.string.me_language_english,
 )
 
-/** 当前语言显示名。 */
 @Composable
 private fun languageLabel(value: String): String =
     stringResource(LANG_OPTIONS.firstOrNull { it.first == value }?.second ?: R.string.me_language_follow_system)

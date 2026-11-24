@@ -20,9 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 屏蔽管理 ViewModel：
- * - 服务端：已屏蔽用户 / 标签（getMutedHistory），取消屏蔽用户（saveBlock unblock）
- * - 本地：推荐过滤标签（UserPreferences.mutedTags）增删
+ * 屏蔽分两套体系：服务端（getMutedHistory / saveBlock）与本地推荐过滤（UserPreferences.mutedTags）。
  */
 @HiltViewModel
 class BlockedViewModel @Inject constructor(
@@ -36,11 +34,10 @@ class BlockedViewModel @Inject constructor(
     private val _mutedTags = MutableStateFlow<List<MuteTag>>(emptyList())
     val mutedTags: StateFlow<List<MuteTag>> = _mutedTags.asStateFlow()
 
-    /** 本地推荐过滤标签。 */
     val localTags: StateFlow<List<String>> =
         userPreferences.mutedTags.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** 本地屏蔽作品（卡片长按屏蔽的 `illust:123` / `novel:456` 键集合）。 */
+    /** 键形式为 `type:id`（`illust:123` / `novel:456`），与卡片长按屏蔽写入一致。 */
     val localBlockedWorks: StateFlow<Set<String>> =
         userPreferences.blockedTargets.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
@@ -66,12 +63,7 @@ class BlockedViewModel @Inject constructor(
 
     // ── 本地过滤标签 ──
 
-    /**
-     * 原子追加本地过滤标签（避免读改写覆盖并发或未订阅初始空列表）。
-     *
-     * @param tag 待添加标签文本
-     * @return 无返回值
-     */
+    /** 原子追加：读改写会覆盖并发写入或未订阅时的初始空列表。 */
     fun addLocalTag(tag: String) {
         val t = tag.trim()
         if (t.isBlank()) return
@@ -80,12 +72,6 @@ class BlockedViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 原子移除本地过滤标签。
-     *
-     * @param tag 待移除标签文本
-     * @return 无返回值
-     */
     fun removeLocalTag(tag: String) {
         viewModelScope.launch {
             runCatching { userPreferences.removeMutedTag(tag) }
@@ -100,11 +86,6 @@ class BlockedViewModel @Inject constructor(
 
     // ── 本地屏蔽作品（就地屏蔽） ──
 
-    /**
-     * 解除本地屏蔽的单个作品（"illust:123" / "novel:456" 键 → 拆分后写 DataStore）。
-     *
-     * @param key 屏蔽键（type:id 形式）；格式非法时静默忽略
-     */
     fun removeLocalBlockedWork(key: String) {
         val parts = key.split(':')
         if (parts.size != 2) return
@@ -115,7 +96,6 @@ class BlockedViewModel @Inject constructor(
         }
     }
 
-    /** 取消屏蔽用户（网页接口 saveBlock action=unblock）。 */
     fun unblockUser(muted: MuteUser) {
         val uid = muted.user?.id ?: return
         viewModelScope.launch {

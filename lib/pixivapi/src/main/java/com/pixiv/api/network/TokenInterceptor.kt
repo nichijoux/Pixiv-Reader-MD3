@@ -7,17 +7,9 @@ import okhttp3.Response
 import java.io.IOException
 
 /**
- * Token 自动刷新拦截器
- *
- * 对齐 Pixiv-Shaft `ceui/lisa/http/TokenInterceptor.java`：
- * - 检测 HTTP 400 + "Error occurred at the OAuth process" → access_token 过期
- * - 用 refresh_token 换新 token，重放原请求
- * - "Invalid refresh token" → refresh_token 被吊销，触发登出
- *
- * @param session 会话管理（清空 token）
- * @param refresher token 刷新器（拦截器内阻塞刷新）
- * @param onInvalidRefreshToken refresh_token 被吊销回调：拦截器线程无法直接更新 UI 登录态，
- *   由装配层注入事件总线通知可观察层
+ * 检测 400 + "Error occurred at the OAuth process"（token 过期）→ 刷新后重放原请求；
+ * "Invalid refresh token"（refresh_token 被吐销）→ 登出并回调 [onInvalidRefreshToken]。
+ * 回调必须由装配层注入事件总线：拦截器线程无法直接更新 UI 登录态。
  */
 class TokenInterceptor(
     private val session: SessionManager,
@@ -63,11 +55,8 @@ class TokenInterceptor(
 }
 
 /**
- * 图片 CDN 拦截器：pximg.net 各子域必须带 Referer 否则 403
- * （i.pximg.net 作品图 / s.pximg.net 贴纸等静态资源）。
- *
- * pixiv COMIC 的封面 / 正文图 CDN（img-comic.pximg.net、public-img-comic.pximg.net）
- * 只认 `comic.pixiv.net` 的 Referer，需按域名分流；正文打乱图另需按页签名头，
+ * 图片 CDN 拦截器：pximg.net 各子域必须带 Referer 否则 403。
+ * COMIC 的封面/正文图只认 `comic.pixiv.net`，需按域名分流；正文打乱图另需按页签名头，
  * 由 core:network 的 ComicPageLoader 自行下载，不经过本拦截器。
  */
 class ImageInterceptor : Interceptor {

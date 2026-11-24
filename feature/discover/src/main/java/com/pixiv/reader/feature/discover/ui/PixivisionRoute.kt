@@ -49,15 +49,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.PixivisionViewModel
 
-/**
- * pixivision 特辑列表（路由 `pixivision`）：沉浸式布局——无独立顶栏，状态栏区域与
- * 页面同色延伸，自绘顶行（返回钮 + 大标题 + 副标语），文章封面卡列表。
- *
- * pixivision 无正文 app API：文章卡点击跳系统浏览器打开原文，
- * 触底分页（`getArticles` + `getNextArticles`）。
- *
- * @param onBack 返回
- */
 @Composable
 fun PixivisionRoute(
     onBack: () -> Unit,
@@ -70,7 +61,6 @@ fun PixivisionRoute(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        // 沉浸式顶行：状态栏同色延伸，返回钮 + 大标题 + 副标语
         Row(
             modifier = Modifier
                 .statusBarsPadding()
@@ -151,7 +141,6 @@ fun PixivisionRoute(
     }
 }
 
-/** 特辑文章卡：左侧封面（横幅比例裁剪）+ 右侧标题/分类标签/日期。 */
 @Composable
 private fun PixivisionArticleCard(
     article: Article,

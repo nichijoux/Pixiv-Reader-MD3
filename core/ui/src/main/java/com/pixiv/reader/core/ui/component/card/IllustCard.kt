@@ -78,48 +78,8 @@ import com.pixiv.reader.core.ui.theme.extendedColors
 import kotlin.math.roundToInt
 
 /**
- * 插画卡片（通用组件，首页 / 搜索结果 / 收藏 / 下载 / 浏览历史 / 排行榜共用）。
- *
- * ## UI 设计方式
- * 纵向 Column 分两段：
- * - **封面区**（Box，撑满宽度）：图片按作品 `width/height` 计算 `aspectRatio` 完整显示
- *   （`ContentScale.Crop` + 比例匹配即不裁剪）；无宽高时回退 [coverHeight] 固定高度，
- *   可能只显示中间部分——调用方应尽量提供宽高（历史/下载实体已存）。
- *   浮层统一用 `Modifier.align` 定位，黑底白字中性风：
- *   - 左上角：排名徽标（[rank] 非空时，1金/2橙/3灰）+ AI 标识 + 页码（多 P 时 `xP`）
- *   - 右上角：收藏切换按钮（[onToggleFavorite] 非空才显示）
- *   - 右下角：收藏数角标
- * - **信息区**（Column，10dp 内边距）：标题（最多 2 行省略号）+ 作者行（20dp 小头像 + 名称）。
- *
- * ## 交互
- * 整卡经 [rememberCardBlockGesture] 包装：未屏蔽时点击直接回调 [onClick] 打开详情、
- * 长按弹出全局动作菜单（稍后再看 / 屏蔽）；已屏蔽时整卡模糊遮罩，首次点击临时显示、
- * 再次点击提示已屏蔽无法打开详情（临时显示态左上角出现「已屏蔽」角标持续提醒；
- * 恢复打开详情需先经菜单取消屏蔽）。收藏按钮点击**先翻转本地状态
- * 再回调**外部执行 API（成功与否由外部负责，组件仅维护 UI 态 [favorite]）；
- * 作者行（头像+名称）点击 [onOpenAuthor] 打开作者主页（user 为 null 时不可点）。
- *
- * ## hero 过渡
- * 封面容器挂 `heroBoundsModifier(illustCoverKey(id))`（key 与详情大图一致），点击时把封面
- * URL / 宽高比写入 [HeroSeedStore]，详情页加载期据此渲染占位衔接 morph。两个
- * CompositionLocal（scope / 可见性作用域）均由 app 根部与顶层 NavHost 对应路由提供，
- * 本组件无需透传。
- *
- * 注意：仅提供 scope 的宿主链路（含 Tab 的 `main` 路由）会真正挂上共享边界；排行页等
- * 未提供可见性作用域的全屏路由自动退化为普通卡片。若后续在这些路由也提供 scope，
- * 需注意 `AnimatedContent` 内容必须应用传入 modifier 的既有约定（见 `RankingList` 注释），
- * 并真机验证「Uninitialized LayoutCoordinates」风险。
- *
- * @param illust 作品数据（`width/height` 用于完整显示、`is_bookmarked` 初始化收藏态）
- * @param onClick 整卡点击回调（通常打开作品详情）
- * @param modifier 外部传入的 Modifier（瀑布流网格通常传 `fillMaxWidth`）
- * @param coverHeight 无宽高数据时的回退封面高度
- * @param rank 排名序号（排行榜用；非 null 时封面左上角显示排名徽标：前三名 Expressive
- *   有机形底 + 金/橙/灰斜体加粗，其余名次白色小圆角矩形）
- * @param onToggleFavorite 收藏切换回调，参数为切换后的目标状态（true=收藏）；null 隐藏按钮
- * @param onOpenAuthor 作者行点击回调（打开作者主页；user 为 null 时不可点）
- * @param ugoiraLoader 动图加载器；非空且作品为 ugoira 时封面播放动图动画（帧未就绪露出静态封面）；null 恒静态
- * @param download 下载徽标三态（None=标题正常；Running=进度条+百分比；Failed=红色失败文案；下载管理用）
+ * 封面按 `illust.width/height` 计算 `aspectRatio` 完整显示；无宽高时回退 [coverHeight] 固定高度 + Crop
+ * 可能裁剪中间，调用方应尽量提供宽高。hero 共享边界仅在宿主提供双 CompositionLocal 时生效，否则退化。
  */
 // scope 实际用到了（maxWidth 作为 ugoira 解码上限），IDE 误报"scope 未使用"
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -133,12 +93,11 @@ fun IllustCard(
     rank: Int? = null,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
     onOpenAuthor: () -> Unit = {},
-    // 标签点击 → 跳发现页搜索该标签；null 不展示标签行（兼容瀑布流密度）
     onTagClick: ((String) -> Unit)? = null,
     ugoiraLoader: UgoiraLoader? = null,
     download: DownloadBadge = DownloadBadge.None,
 ) {
-    // 订阅进程级收藏覆盖态（按 ID 去重映射，保证失败回滚和详情页操作同步到此卡片）。
+    // 按 ID 去重订阅全局收藏覆盖态，避免其他作品变动引发全页重组并同步失败回滚
     val favoriteActions = LocalFavoriteActions.current
     val favoriteOverride by if (favoriteActions != null) {
         remember(favoriteActions, illust.id) {
@@ -156,7 +115,6 @@ fun IllustCard(
     val tagNames = remember(illust.tags) {
         illust.tags.orEmpty().mapNotNull { it.name?.trim() }.filter { it.isNotEmpty() }
     }
-    // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
     val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "illust",
@@ -164,9 +122,7 @@ fun IllustCard(
         title = { illust.title },
         payload = { gson.toJson(illust) },
         onClick = {
-            // hero：点击瞬间快照封面（URL + 比例），详情加载期据此渲染占位并衔接 morph——
-            // 详情数据到达前终点无共享元素，占位可避免「飞入空窗」。
-            // 平板右栏点击也会写入：pane 侧同样消费该种子作加载期占位（scope 已置空，不参与 morph）
+            // 点击瞬间写入封面快照供详情加载期占位衔接 morph，避免数据到达前的飞入空窗
             HeroSeedStore.seed(
                 key = illustCoverKey(illust.id),
                 value = HeroSeed(
@@ -185,8 +141,7 @@ fun IllustCard(
         tags = tagNames,
         serverMuted = illust.is_muted == true,
     )
-    // 卡片根容器：圆角 + 卡片底色 + 整卡点击（含屏蔽手势包装）
-    // interactionSource 与整卡手势共享：按压缩放需要收到 pressed 态（自建 source 收不到）
+    // 共享 interactionSource：pressScale 须与 combinedClickable 共用 source 才能收到 pressed 态
     val cardInteraction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
@@ -200,24 +155,19 @@ fun IllustCard(
                 onLongClick = block.onLongClick,
             ),
     ) {
-        // 内容层：屏蔽时整体模糊（标题/作者随封面一并打码；点击临时显示）
         Column(
             modifier = Modifier.then(if (block.state.isMasked) Modifier.blur(16.dp) else Modifier),
         ) {
-        // ── 封面区（Box 内浮层用 align 定位） ──
-        // hero：共享边界挂在封面容器（含徽标 / 收藏按钮浮层）而非图片本身，morph 时元素更完整；
-        // 共享元素在 overlay 中渲染会绕过父级裁剪，故此处显式补上顶部圆角裁剪
-        // （与卡片顶部圆角一致）。无共享过渡环境时该修饰器无操作（预览 / 非 app 根环境安全）
+        // 共享边界挂在封面容器且须显式补顶部圆角：sharedBounds 在 overlay 中渲染会绕过父级裁剪
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .heroBoundsModifier(illustCoverKey(illust.id))
                 .clip(AppShapes.cardLargeTop),
         ) {
-            // 封面宽度（px）：动图帧采样解码上限（避免解码 zip 原图尺寸浪费内存）
+            // 以封面实宽作动图解码上限，避免按 zip 原图尺寸解码浪费内存
             val coverWidth = maxWidth
             val coverMaxSize = with(LocalDensity.current) { coverWidth.roundToPx() }
-            // 封面：有宽高比按原比例完整显示，否则回退固定高度
             val ratio = if (illust.width > 0 && illust.height > 0) {
                 illust.width.toFloat() / illust.height.toFloat()
             } else {
@@ -234,7 +184,6 @@ fun IllustCard(
                     ),
                 contentScale = ContentScale.Crop,
             )
-            // 动图：ugoira 卡片播放（zip 帧动画覆盖静态封面；帧未就绪透明露出封面）
             if (ugoiraLoader != null && illust.isGif()) {
                 UgoiraCardPlayer(
                     loader = ugoiraLoader,
@@ -243,14 +192,11 @@ fun IllustCard(
                     modifier = Modifier.matchParentSize(),
                 )
             }
-            // 左上角：排名徽标（排行榜专用）+ AI 标识 + 页码（多 P），中性黑底白字
             Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
-                // 排名徽标：前三名用 Expressive 有机多边形底形（1金/2橙/3灰，斜体加粗），
-                // 其余名次小圆角矩形白字（与 NovelCard 排名徽标同语言）
                 if (rank != null) {
                     Surface(
                         color = ImageScrim,
@@ -292,13 +238,11 @@ fun IllustCard(
                         )
                     }
                 }
-                // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
                 if (block.state.isRevealed) {
                     BlockedRevealBadge()
                 }
             }
-            // 收藏切换按钮：外层 48dp 隐形热区满足 M3 最小触控目标 + Role.Checkbox 语义，
-            // 内层 32dp 视觉圆底使用 ImageScrim（70% 黑），距顶/右边保持 8dp 网格
+            // 外层 48dp 隐形热区满足 M3 最小触控目标，内层保持 32dp 视觉圆底
             if (onToggleFavorite != null) {
                 val favoriteInteraction = remember { MutableInteractionSource() }
                 Box(
@@ -335,7 +279,6 @@ fun IllustCard(
                     }
                 }
             }
-            // 收藏数角标：右下角
             val bookmarkCount = (illust.total_bookmarks ?: 0).toLong()
             if (bookmarkCount > 0) {
                 Surface(
@@ -364,7 +307,6 @@ fun IllustCard(
             }
         }
         Column(modifier = Modifier.padding(Spacing.smPlus)) {
-            // 下载中 / 下载失败：标题栏替换为进度条 + 状态文案（下载管理用）
             when (val badge = download) {
                 is DownloadBadge.Running -> {
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -427,8 +369,6 @@ fun IllustCard(
                     )
                 }
             }
-            // 标签胶囊（与小说卡同款紧凑 chip，最多 3 个 + "+N" 折叠）：仅调用方提供
-            // [onTagClick] 时展示，每个标签独立可点 → 跳发现页搜索该标签（作品类型）
             if (onTagClick != null && tagNames.isNotEmpty()) {
                 FlowRow(
                     modifier = Modifier.padding(top = Spacing.xs),
@@ -439,14 +379,13 @@ fun IllustCard(
                         TagChip(text = "#$tag", onClick = { onTagClick(tag) }, compact = true)
                     }
                     if (tagNames.size > 3) {
-                        // "+N" 折叠：纯展示不可点
                         TagChip(text = "+${tagNames.size - 3}", onClick = null, compact = true)
                     }
                 }
             }
         }
         }
-        // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层作者行/收藏不可点
+        // 遮罩置于最上层接管手势，屏蔽期间拦截下层作者行/收藏/标签点击
         if (block.state.isMasked) {
             BlockedOverlay(
                 modifier = Modifier.matchParentSize(),
@@ -457,19 +396,13 @@ fun IllustCard(
     }
 }
 
-/** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */
+// Gson 线程安全，共享单例避免每张卡片组合重复创建
 private val PAYLOAD_GSON = Gson()
 
-/**
- * 下载徽标三态（[IllustCard] 信息区标题栏形态；替代 progress: Float? + failed: Boolean 组合）。
- */
 sealed interface DownloadBadge {
-    /** 无下载语义：正常显示标题。 */
     data object None : DownloadBadge
 
-    /** 下载中：进度条 + 百分比。 */
     data class Running(val progress: Float) : DownloadBadge
 
-    /** 失败：进度条停住（红）+ 失败文案。 */
     data object Failed : DownloadBadge
 }

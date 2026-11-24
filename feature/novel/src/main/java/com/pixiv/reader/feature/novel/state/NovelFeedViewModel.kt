@@ -29,11 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * 小说 Tab 推荐流（P4）+ 关注流 + 默认页偏好（第五十三/五十四轮）。
- * 推荐接口：v1/novel/recommended（带 next_url 游标分页）；关注接口：v1/novel/follow（公开关注）。
- * 首页秒开：冷启动先恢复推荐流快照，后台刷新成功后无感替换。
- */
+/** 冷启动先恢复推荐流快照再联网替换：秒开，且弱网/离线时快照内容仍保留。 */
 @HiltViewModel
 class NovelFeedViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -43,49 +39,38 @@ class NovelFeedViewModel @Inject constructor(
     private val snapshotStore: FeedSnapshotStore,
 ) : MessageViewModel() {
 
-    /** 追更 Tab 调试日志 tag（排查隐藏系列闪退用：`adb logcat -s NovelWatchlist`）。 */
+    /** 排查隐藏系列闪退：`adb logcat -s NovelWatchlist`。 */
     private companion object {
         const val TAG = "NovelWatchlist"
     }
 
-    /** Gson 列表元素类型（推荐流快照序列化用）。 */
     private val novelListType = object : TypeToken<List<Novel>>() {}.type
 
-    /** 推荐 Tab：v1/novel/recommended 游标分页。 */
     val feed = PagedState<Novel>(keySelector = { it.id })
 
-    /** 关注 Tab：v1/novel/follow?restrict=public 游标分页（数据驻留 VM，切回不重复请求）。 */
+    /** 数据驻留 VM，切回 Tab 不重复请求。 */
     val follow = PagedState<Novel>(keySelector = { it.id })
 
-    /** 关注流是否已触发首次加载（防切回重复请求）。 */
     private var followInitialized = false
 
-    /** 追更 Tab：v1/watchlist/novel 已追更小说系列游标分页（数据驻留 VM，切回不重复请求）。 */
     val watchlist = PagedState<WatchlistSeries>(keySelector = { it.id })
 
-    /** 进行中的小说收藏请求 ID 集合，防止同卡片快速连点并发竞态。 */
     private val pendingFavorites = mutableSetOf<Long>()
 
-    /** 追更流是否已触发首次加载（防切回重复请求）。 */
     private var watchlistInitialized = false
 
-    /** 追更列表系列详情：seriesId → 封面/简介/连载状态（SeriesDetailLoader 批量补齐，内存缓存 + in-flight 去重）。 */
     private val _watchlistInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
     val watchlistInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _watchlistInfos.asStateFlow()
 
-    /** 推荐流下拉刷新指示。 */
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    /** 关注流下拉刷新指示。 */
     private val _isFollowRefreshing = MutableStateFlow(false)
     val isFollowRefreshing: StateFlow<Boolean> = _isFollowRefreshing.asStateFlow()
 
-    /** 追更流下拉刷新指示。 */
     private val _isWatchlistRefreshing = MutableStateFlow(false)
     val isWatchlistRefreshing: StateFlow<Boolean> = _isWatchlistRefreshing.asStateFlow()
 
-    /** 小说 Tab 默认页偏好（我的页-浏览设置）：推荐 / 关注。 */
     val novelDefaultTab: StateFlow<NovelDefaultTab> = userPreferences.novelDefaultTab
         .stateIn(viewModelScope, SharingStarted.Eagerly, NovelDefaultTab.RECOMMEND)
 
@@ -97,13 +82,11 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 快照预填：推荐流第一页（秒开内容；init 后续联网替换，失败时快照内容保留）。 */
     private fun restoreFeedSnapshot(): Job = viewModelScope.launch {
         snapshotStore.restore<Novel>(FeedSnapshotStore.KEY_NOVEL_FEED, novelListType)
             ?.let { (items, nextUrl) -> feed.restoreSnapshot(items, nextUrl) }
     }
 
-    /** 推荐流错误重试或主动刷新第一页（清空旧游标并重拉）。 */
     fun refresh() {
         viewModelScope.launch {
             feed.reset()
@@ -111,7 +94,6 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 执行推荐流首页网络请求并在成功后写回快照。 */
     private suspend fun loadFeedInitial() {
         feed.loadInitial(
             fetch = {
@@ -127,12 +109,6 @@ class NovelFeedViewModel @Inject constructor(
         viewModelScope.launch { feed.loadMore() }
     }
 
-    /**
-     * 推荐流下拉刷新：重拉第一页（reset + loadInitial 内联在同一协程，fetch 内含快照回写），
-     * 等网络结束后复位指示（防重入）。
-     *
-     * @return 无返回值
-     */
     fun pullRefresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
@@ -153,7 +129,6 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 关注 Tab 首次进入时加载（幂等）；失败可重试。 */
     fun ensureFollowLoaded() {
         if (followInitialized) return
         followInitialized = true
@@ -180,7 +155,6 @@ class NovelFeedViewModel @Inject constructor(
         viewModelScope.launch { follow.loadMore() }
     }
 
-    /** 关注流下拉刷新：重拉第一页，结束后复位指示（防重入）。 */
     fun pullRefreshFollow() {
         if (_isFollowRefreshing.value) return
         viewModelScope.launch {
@@ -197,7 +171,6 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 追更 Tab 首次进入时加载（幂等）；失败可重试。 */
     fun ensureWatchlistLoaded() {
         if (watchlistInitialized) return
         watchlistInitialized = true
@@ -212,7 +185,6 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 追更流重试 / 下拉刷新重拉第一页（非刷新手势入口）。 */
     fun refreshWatchlist() {
         watchlistInitialized = true
         Log.d(TAG, "refreshWatchlist: 重拉第一页")
@@ -227,7 +199,6 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 追更流下拉刷新：重拉第一页，结束后复位指示（防重入）。 */
     fun pullRefreshWatchlist() {
         if (_isWatchlistRefreshing.value) return
         viewModelScope.launch {
@@ -254,7 +225,6 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 追更列表页状态日志：当前条目数 / 被隐藏（masked）系列数 / 分页状态。 */
     private fun logWatchlistPage(step: String) {
         val items = watchlist.items.value
         Log.d(
@@ -266,15 +236,9 @@ class NovelFeedViewModel @Inject constructor(
     }
 
     /**
-     * 为追更列表批量取系列详情（[SeriesDetailLoader] 批量管线：SeriesDetailCache 内存缓存 +
-     * in-flight 去重，与用户页系列列表同一缓存；封面/简介/连载状态同源自一次 `getNovelSeries`）。
-     * 列表项无这些字段；并发限 6，避免首屏一批详情请求打满连接池。
-     * 已缓存条目先同步回填 [_watchlistInfos]——VM 随 Tab 切换销毁重建后其本地流为空，
-     * 缓存命中路径也必须把数据送进 UI 流（否则二次进入追更页签封面全空白），仅真正缺失的走网络。
-     *
-     * 隐藏（masked）系列：`getNovelSeries` 可能抛异常（非 2xx 等），此前异常上抛到 launch
-     * 未捕获 → 闪退。批量管线内逐系列捕获：失败打 Log.e 留痕并视为无详情（UI 空兜底），
-     * 不再中断整批/崩溃。
+     * 列表项无封面/简介字段，需批量补详情；并发限 6 避免首屏一批请求打满连接池。
+     * 已缓存命中也要回填 [_watchlistInfos]——VM 重建后本地流为空，不回填则二次进入封面全空白。
+     * 隐藏系列 getNovelSeries 会抛非 2xx 异常，必须逐条捕获，否则整批中断并闪退。
      */
     private suspend fun loadWatchlistInfos() {
         val ids = watchlist.items.value.map { it.id }
@@ -286,10 +250,6 @@ class NovelFeedViewModel @Inject constructor(
         ) { id -> fetchSeriesDetail(id) }
     }
 
-    /**
-     * 单个系列详情请求（日志包裹）：成功打响应摘要，异常打堆栈并返回 null
-     * （隐藏系列常见此路径，日志用于定位其 API 失败形态）。
-     */
     private suspend fun fetchSeriesDetail(seriesId: Long): SeriesDetailInfo? {
         return try {
             val resp = pixivRepository.api.getNovelSeries(seriesId)
@@ -317,16 +277,9 @@ class NovelFeedViewModel @Inject constructor(
         }
     }
 
-    /** 读取小说 Tab 默认页（首帧定位用，取真实落盘值而非 stateIn 占位）。 */
+    /** 取真实落盘值而非 stateIn 占位（首帧定位用）。 */
     suspend fun loadDefaultTab(): NovelDefaultTab = userPreferences.novelDefaultTab.first()
 
-    /**
-     * 收藏 / 取消收藏小说（nowFavorite 为目标状态），同一 ID 进行中时防连点；失败发错误提示。
-     *
-     * @param novelId 小说 ID
-     * @param nowFavorite 目标收藏状态
-     * @return 无返回值
-     */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) {
         if (!pendingFavorites.add(novelId)) return
         viewModelScope.launch {

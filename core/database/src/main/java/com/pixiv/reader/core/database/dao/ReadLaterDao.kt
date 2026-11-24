@@ -9,63 +9,43 @@ import androidx.room.Transaction
 import com.pixiv.reader.core.database.entity.ReadLaterEntity
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 稍后再看目标键投影（供只关心「某目标是否已在稍后再看」的订阅方使用，
- * 避开 `payloadJson` 大列）。
- *
- * @property targetType 目标类型（illust / novel）
- * @property targetId 目标 ID
- */
+/** 轻量目标键投影，避开 `payloadJson` 大列供卡片集合态判重。 */
 data class ReadLaterTargetRow(
     val targetType: String,
     val targetId: Long,
 )
 
-/** 稍后再看 DAO：Flow 观察 + 先删后插去重 + 单条删除/清空（形态对齐 [BrowseHistoryDao]）。 */
 @Dao
 interface ReadLaterDao {
 
-    /** 观察全量稍后再看（按加入时间倒序）。 */
     @Query("SELECT * FROM read_later ORDER BY addedAt DESC")
     fun observeAll(): Flow<List<ReadLaterEntity>>
 
-    /** 观察全量稍后再看的目标键投影（无大列；卡片集合态判重用）。 */
     @Query("SELECT targetType, targetId FROM read_later")
     fun observeAllTargets(): Flow<List<ReadLaterTargetRow>>
 
-    /** 观察某类型（illust / novel）稍后再看（稍后再看页类型筛选用）。 */
     @Query("SELECT * FROM read_later WHERE targetType = :type ORDER BY addedAt DESC")
     fun observeByType(type: String): Flow<List<ReadLaterEntity>>
 
-    /** 查询某类型某目标是否已加入（长按菜单动态文案用）。 */
     @Query("SELECT * FROM read_later WHERE targetType = :type AND targetId = :targetId LIMIT 1")
     suspend fun get(type: String, targetId: Long): ReadLaterEntity?
 
-    /** 删除同类型同目标的旧记录（加入前先删旧再插入，防唯一索引冲突）。 */
     @Query("DELETE FROM read_later WHERE targetType = :type AND targetId = :targetId")
     suspend fun deleteByTarget(type: String, targetId: Long)
 
-    /** 插入/覆盖记录（配合 [deleteByTarget] 使用实现去重置顶）。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ReadLaterEntity)
 
-    /**
-     * 原子删旧并置顶插入稍后再看记录，避免重复键冲突或先删后插空窗。
-     *
-     * @param entity 待写入的稍后再看实体
-     * @return 无返回值
-     */
+    /** 原子先删旧再插实现去重置顶，防唯一索引冲突与并发空窗。 */
     @Transaction
     suspend fun replaceTop(entity: ReadLaterEntity) {
         deleteByTarget(entity.targetType, entity.targetId)
         upsert(entity)
     }
 
-    /** 删除单条记录（稍后再看页长按移除 / 打开后移除）。 */
     @Delete
     suspend fun delete(entity: ReadLaterEntity)
 
-    /** 清空全部稍后再看。 */
     @Query("DELETE FROM read_later")
     suspend fun clearAll()
 }

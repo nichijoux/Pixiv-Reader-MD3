@@ -73,15 +73,7 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * 漫画 Tab：左上角切换漫画 / 插画 / 动图三种内容流，各自独立分页瀑布流 + 下拉刷新；
- * 排行榜入口 banner（网格头部）按类型显示对应榜单（漫画榜 / 插画榜）。
- *
- * @param onOpenIllust 点击作品卡打开详情
- * @param onOpenMangaRanking 点击漫画排行榜 banner / 顶栏奖杯打开漫画排行榜全屏页
- * @param onOpenIllustRanking 点击插画排行榜 banner / 顶栏奖杯打开插画排行榜全屏页
- * @param onOpenWatchlist 顶栏追更入口（铃铛，仅漫画分段显示；跳追更页漫画分段）
- * @param onOpenUser 点击作者行打开用户主页
- * @param onOpenViewer 打开全屏查看器（平板详情 pane 图片点击）
+ * 漫画 Tab：左上角切换漫画 / 插画 / 动图三流，各自独立分页 + 下拉刷新。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,7 +90,7 @@ fun MangaRoute(
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-    // 下拉刷新手势起始触觉：仅在 isRefreshing false→true 时响
+    // 下拉刷新手势起始触觉：仅在 false→true 时响
     val haptic = rememberHapticCue()
     var wasRefreshing by remember { mutableStateOf(isRefreshing) }
     LaunchedEffect(isRefreshing) {
@@ -107,7 +99,7 @@ fun MangaRoute(
         }
         wasRefreshing = isRefreshing
     }
-    // Master-Detail：选中作品 id（平板详情 pane；手机端不启用恒为 null 不生效）
+    // 平板详情 pane 的选中 id；手机端不启用恒为 null
     var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
     // pane 启用判定（点击分流用；回调 lambda 非 composable 上下文，需在此捕获）
     val detailPaneEnabled = isDetailPaneEnabled()
@@ -116,7 +108,6 @@ fun MangaRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    // 平板限宽居中（与下方 AdaptiveContentBox 内容对齐）：左上角内容类型切换
                     Box(
                         modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.CenterStart,
@@ -171,10 +162,9 @@ fun MangaRoute(
                     }
                 },
                 actions = {
-                    // 排行榜入口按内容类型显示对应榜单（漫画榜 / 插画榜；动图无榜单页）
+                    // 顶部奖杯入口跳对应榜单（动图段无榜单页）
                     when (tab) {
                         MangaContentType.MANGA -> Row {
-                            // 追更入口（漫画分段）：跳追更页漫画分段
                             IconButton(onClick = onOpenWatchlist) {
                                 Icon(
                                     Icons.Filled.NotificationsActive,
@@ -203,18 +193,16 @@ fun MangaRoute(
             )
         },
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：不再由 Scaffold 垫高内容（平板上系统导航栏区域留给列表/详情直通）；
-        // 手机端底部导航栏由壳层（AdaptiveNavScaffold）的 bottomBar 承担，行为不变
+        // Scaffold 不垫高内容（平板导航栏区域留给列表/详情直通）；手机底部导航栏由壳层 bottomBar 承担
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        // 平板 Master-Detail：主列表左移 + 右侧详情 pane（手机不启用，退化为主列表原样）
         ListDetailOverlay(
             selected = selectedIllustId,
             onClose = { selectedIllustId = null },
             // 消费已应用的 padding，pane 内 navigationBarsPadding/imePadding 按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             listContent = { listMax ->
-                // 主列表限宽跟随 pane 状态动态变化（未选中 760 / 选中让位）
+                // 限宽跟随 pane 状态（未选中 760 / 选中让位）
                 AdaptiveContentBox(maxWidth = listMax) {
                     PullToRefreshBox(
                         isRefreshing = isRefreshing,
@@ -286,7 +274,7 @@ fun MangaRoute(
                 }
             },
             detailPane = {
-                // 右侧详情 pane：内嵌 IllustViewModel + CommentListViewModel（同一 backstack entry 作用域）
+                // 同一 backstack entry 作用域
                 val detailVm: IllustViewModel = hiltViewModel()
                 val commentVm: CommentListViewModel = hiltViewModel()
                 IllustDetailPane(
@@ -326,8 +314,7 @@ fun MangaRoute(
 }
 
 /**
- * 内容类型切换菜单展示顺序（插画 / 漫画 / 动图）。
- * 与枚举声明顺序解耦：改菜单顺序不影响 `MangaContentType` 的既有语义。
+ * 菜单展示顺序与枚举声明顺序排耦：改菜单顺序不影响 `MangaContentType` 的既有语义。
  */
 private val MENU_ORDER = listOf(
     MangaContentType.ILLUST,
@@ -335,7 +322,6 @@ private val MENU_ORDER = listOf(
     MangaContentType.UGOIRA,
 )
 
-/** 内容类型切换按钮文案（@StringRes）。 */
 @StringRes
 private fun MangaContentType.labelRes(): Int = when (this) {
     MangaContentType.MANGA -> R.string.manga_content_manga
@@ -343,7 +329,6 @@ private fun MangaContentType.labelRes(): Int = when (this) {
     MangaContentType.UGOIRA -> R.string.manga_content_ugoira
 }
 
-/** 内容类型切换按钮/菜单图标。 */
 private fun MangaContentType.icon(): ImageVector = when (this) {
     MangaContentType.MANGA -> Icons.Filled.Collections
     MangaContentType.ILLUST -> Icons.Filled.Image
@@ -351,10 +336,7 @@ private fun MangaContentType.icon(): ImageVector = when (this) {
 }
 
 /**
- * 内容类型瀑布流：按 `PagedState` 三态渲染（骨架 / 错误 / 空 / 网格）。
- *
- * @param rankingBanner 排行榜入口（漫画/插画类型传入，作网格头部 + 骨架占位；动图不传）
- * @param ugoiraLoader 动图加载器（仅动图类型传入，卡片播放动画）
+ * 按 [PagedState] 三态渲染（骨架 / 错误 / 空 / 网格）。
  */
 @Composable
 private fun MangaContentList(
@@ -378,8 +360,7 @@ private fun MangaContentList(
     val error by paged.error.collectAsStateWithLifecycle()
 
     when {
-        // 首载 / 下拉刷新（reset 后 items 清空）→ 骨架占位，替代全屏转圈
-        // 顶部渲染排行榜入口 banner 骨架占位（对齐真实网格 header，不随数据消失）
+        // reset 后 items 清空也走骨架；banner 骨架与真实网格 header 对齐，不随数据消失
         (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton(
             header = { if (rankingBanner != null) RankingBannerSkeleton() },
         )
@@ -408,7 +389,6 @@ private fun MangaContentList(
             onToggleFavorite = onToggleFavorite,
             onOpenUser = onOpenUser,
             ugoiraLoader = ugoiraLoader,
-            // 排行榜入口 banner 作为网格头部（仅漫画/插画类型，随列表滚动/下拉）
             header = rankingBanner,
             onTagClick = onTagClick,
             scrollToTopKey = scrollToTopKey,

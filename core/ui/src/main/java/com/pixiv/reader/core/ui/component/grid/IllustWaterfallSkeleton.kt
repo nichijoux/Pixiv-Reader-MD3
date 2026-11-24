@@ -28,21 +28,8 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/** 瀑布流骨架封面高度循环（与 [IllustWaterfallGrid] 的 CoverHeights 一致，模拟错落）。 */
 private val SkeletonCoverHeights = listOf(150.dp, 120.dp, 180.dp, 140.dp, 130.dp, 160.dp)
 
-/**
- * 插画瀑布流骨架（首页 / 漫画页 / 搜索结果首载与刷新共用的加载占位）。
- *
- * 布局对齐 [IllustWaterfallGrid]：`LazyVerticalStaggeredGrid` + `Adaptive(minColumnWidth)`，
- * 渲染 8 张占位卡（封面块交替高度 + 标题 2 行 + 作者行），呼吸脉冲动画替代全屏转圈；
- * 可选 [header] 在网格顶部整行渲染（对齐真实网格的 header，如排行榜入口 banner 骨架占位）。
- *
- * @param modifier 外部传入的 Modifier（默认 `fillMaxSize`）
- * @param contentPadding 与真实网格一致的内容边距
- * @param minColumnWidth 每列最小宽度（与真实网格一致）
- * @param header 网格头部内容（整行跨列，随列表滚动）；null 不显示
- */
 @Composable
 fun IllustWaterfallSkeleton(
     modifier: Modifier = Modifier,

@@ -1,10 +1,5 @@
 package com.pixiv.api
 
-/**
- * Pixiv API 常量定义
- *
- * 数据来源：对 Pixiv-Shaft 项目源码分析整理（app/src/main/java/ceui/loxia 与 ceui/lisa/http）
- */
 object PixivConstants {
 
     // ── Base URLs ────────────────────────────────────────────────────────────
@@ -25,9 +20,8 @@ object PixivConstants {
         "Mozilla/5.0 (Linux; Android 14; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.39 Mobile Safari/537.36"
 
     // ── 请求签名 ──────────────────────────────────────────────────────────────
-    // 签名密钥 HASH_SECRET 与 pixiv-login 库（com.github.SoxiaLiSA:pixiv-login）
-    // PixivOAuthClient.HASH_SECRET 完全一致（官方客户端抓包）。官方客户端更新后
-    // 可能失效，需重新抓包同步到 pixiv-login 库与本文件。
+    // 签名密钥 HASH_SECRET 与 pixiv-login 库 PixivOAuthClient.HASH_SECRET 完全一致（官方客户端抓包）。
+    // 官方客户端更新后可能失效，需重新抓包同步到 pixiv-login 库与本文件。
     const val CLIENT_TIME_SECRET =
         "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
 
@@ -92,9 +86,7 @@ object PixivConstants {
     }
 }
 
-/**
- * 通用分页响应接口：所有列表接口都返回 [nextPageUrl] 做游标翻页
- */
+/** 通用分页契约：所有列表接口都用 [nextPageUrl] 做游标翻页 */
 interface Pageable<T> {
     val items: List<T>
     val nextPageUrl: String?

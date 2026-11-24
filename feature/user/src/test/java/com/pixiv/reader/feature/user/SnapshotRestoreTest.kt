@@ -11,11 +11,6 @@ class SnapshotRestoreTest {
 
     private val gson = Gson()
 
-    /**
-     * 验证旧快照缺失或为 0 的整数字段会保留下载/历史实体兜底计数，且恢复 serverMuted 字段。
-     *
-     * @return 无返回值
-     */
     @Test
     fun `restoreNovelCardData 缺失计数回退兜底值并恢复 serverMuted`() {
         val jsonWithZeroAndMuted = """

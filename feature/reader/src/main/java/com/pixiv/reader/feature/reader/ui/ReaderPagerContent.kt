@@ -22,23 +22,6 @@ import com.pixiv.reader.feature.reader.R
 import com.pixiv.reader.feature.reader.state.ReaderSpread
 import com.pixiv.reader.feature.reader.state.spreadIndexForChar
 
-/**
- * 翻页模式：普通横向滑动翻页（无 3D 特效）。
- * 双页显示时每个 Pager 页 = 一个跨页（左右两半页并排 + 中缝阴影）。
- *
- * @param pagerState 外层持有的横向翻页状态
- * @param spreads 跨页列表
- * @param pageHeight 内容可用高度
- * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度）
- * @param restoreCharOffset 首次恢复阅读进度的字符偏移
- * @param onPageChange 页码落定后回调当前跨页下标
- * @param onPageInfo 页码及总跨页数信息回调
- * @param jumpToChar 目录或搜索跳转目标字符偏移
- * @param onOpenImage 点击图片全屏预览回调
- * @param onJumpHandled 跳转完成后清理外部跳转锚点的回调
- * @param modifier 外部修饰符
- * @return 无返回值
- */
 @Composable
 internal fun PagerReaderContent(
     pagerState: PagerState,
@@ -68,7 +51,7 @@ internal fun PagerReaderContent(
         restored = true
     }
 
-    // 排版重排（字号/行距/双页/简繁切换）后按当前字符锚点重新对齐页码，避免页数变化导致停在错误页或越界。
+    // 排版重排后按字符锚点重新对齐页码，防止页数变化错位或越界
     LaunchedEffect(spreads) {
         if (!restored || spreads.isEmpty()) return@LaunchedEffect
         val target = spreads.spreadIndexForChar(anchorChar).coerceIn(0, spreads.lastIndex)
@@ -77,7 +60,7 @@ internal fun PagerReaderContent(
         }
     }
 
-    // 目录/搜索跳转（就绪后跳转并通知外层清空锚点以便连续跳同一位置）
+    // 跳转后清空外部锚点，保证连续跳转同一位置仍触发
     LaunchedEffect(jumpToChar, spreads.isNotEmpty()) {
         val j = jumpToChar ?: return@LaunchedEffect
         if (spreads.isEmpty()) return@LaunchedEffect
@@ -102,8 +85,7 @@ internal fun PagerReaderContent(
         return
     }
 
-    // 吸附动画比默认弹簧（StiffnessMediumLow）更快：滑动翻页松手后页面快速到位，点击翻页（外层
-    // animateScrollToPage 同用 tween(220)）与滑动手感一致
+    // 吸附动画与外层点击翻页统一用 tween(220)，比默认弹簧更快到位
     val flingBehavior = PagerDefaults.flingBehavior(
         state = pagerState,
         snapAnimationSpec = tween(220),

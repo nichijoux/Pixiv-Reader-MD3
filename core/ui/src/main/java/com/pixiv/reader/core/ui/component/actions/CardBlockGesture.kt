@@ -35,29 +35,17 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * 卡片屏蔽遮罩三态（[CardBlockGesture.state] 取值）。
- *
- * @property isMasked 是否处于「屏蔽且未临时显示」态（true 时封面模糊 + 遮罩）
- * @property isRevealed 是否处于「已临时显示但仍被屏蔽」态（true 时调用方显示已屏蔽角标）
+ * 屏蔽遮罩三态，互斥（勿拆成双 Boolean）；MASKED = 模糊 + 全遮罩，REVEALED = 内容可见 + 已屏蔽角标。
  */
 enum class CardMaskState(val isMasked: Boolean, val isRevealed: Boolean) {
-    /** 未被屏蔽：正常渲染。 */
     NONE(false, false),
 
-    /** 屏蔽且未临时显示：封面模糊 + 全遮罩。 */
     MASKED(true, false),
 
-    /** 屏蔽且已临时显示：内容可见 + 常驻「已屏蔽」角标。 */
     REVEALED(false, true),
 }
 
-/**
- * 卡片就地屏蔽手势包装结果（[rememberCardBlockGesture] 产物，三卡共用）。
- *
- * @param state 屏蔽遮罩三态（NONE / MASKED / REVEALED；互斥，勿用双 Boolean 表达）
- * @param onClick 包装后的点击回调（屏蔽态首次点击改为临时显示，不透传原点击）
- * @param onLongClick 包装后的长按回调（弹全局动作菜单；无宿主环境为 null）
- */
+/** [rememberCardBlockGesture] 产物，三卡共用。 */
 class CardBlockGesture(
     val state: CardMaskState,
     val onClick: () -> Unit,
@@ -65,20 +53,8 @@ class CardBlockGesture(
 )
 
 /**
- * 卡片就地屏蔽手势助手（IllustCard / NovelCard 共用）：
- * 收集全局屏蔽集合（[LocalCardActionsHost]）判断本卡是否被屏蔽，并包装点击/长按行为——
- * 屏蔽态下首次点击改为「临时显示」（不透传原点击），已临时显示后再点击弹
- * 「已屏蔽，无法查看详情」提示（卡片仍在屏蔽名单内，直接打开详情会被拦下），
- * 长按弹全局动作菜单（稍后再看/屏蔽）。
- *
- * @param targetType 目标类型（"illust" / "novel"）
- * @param targetId 目标 id
- * @param title 卡片标题供给函数（长按菜单副标题；惰性求值避免组合期取值）
- * @param payload 卡片快照 JSON 供给函数（加入稍后再看时落库；惰性求值避免组合期序列化）
- * @param onClick 原点击回调（非屏蔽态透传）
- * @param tags 作品标签名列表，用于实时匹配本地屏蔽标签集合
- * @param serverMuted 服务端返回的是否已屏蔽标记（如 `is_muted == true`）
- * @return [CardBlockGesture]（含 isBlocked/isRevealed 与包装后的点击/长按）
+ * 屏蔽态首次点击改为「临时显示」且不透传原点击；已临时显示后再点击只弹提示，因为卡片仍在屏蔽名单内，
+ * 直开详情会被拦下（需先长按菜单取消屏蔽）。长按则弹全局动作菜单（稍后再看/屏蔽）。
  */
 @Composable
 internal fun rememberCardBlockGesture(
@@ -92,7 +68,7 @@ internal fun rememberCardBlockGesture(
 ): CardBlockGesture {
     val controller = LocalCardActionsHost.current
     val context = LocalContext.current
-    // 仅订阅本卡片键是否命中屏蔽集合，避免任意卡片屏蔽变动引发全页卡片重组。
+    // 仅订阅本卡片键的命中结果，避免任意卡片屏蔽变动引发全页重组（标签同）。
     val isBlockedTarget by if (controller != null) {
         val targetKey = controller.keyOf(targetType, targetId)
         remember(controller, targetKey) {
@@ -117,11 +93,9 @@ internal fun rememberCardBlockGesture(
     } else {
         remember { mutableStateOf(false) }
     }
-    // 本卡「已临时显示」标记：屏蔽态点击一次后解除模糊（remember(id) 切卡重置）
     var revealed by remember(targetType, targetId) { mutableStateOf(false) }
     val rawBlocked = serverMuted || isBlockedTarget || hasMutedTag
-    // 取消屏蔽后再次屏蔽：重置临时显示标记——否则上一次点开留下的 revealed=true
-    // 会让遮罩永不恢复（历史 bug，枚举化前三态被拆成双 Boolean 时的踩坑记录）
+    // 重新屏蔽必须重置临时显示标记，否则上一次点开留下的 revealed=true 会让遮罩永不恢复（史 bug）。
     LaunchedEffect(rawBlocked) {
         if (rawBlocked) revealed = false
     }
@@ -133,8 +107,6 @@ internal fun rememberCardBlockGesture(
     return CardBlockGesture(
         state = state,
         onClick = {
-            // 非屏蔽态透传原点击；屏蔽态首次点击 = 临时显示；
-            // 已临时显示（仍在屏蔽名单或服务端屏蔽中）→ 安全提示无法打开详情
             when {
                 !rawBlocked -> onClick()
                 revealed -> controller?.showMessage(
@@ -150,17 +122,10 @@ internal fun rememberCardBlockGesture(
 }
 
 /**
- * 屏蔽遮罩（三卡共用）：半透明黑底 + 禁止图标 +「已屏蔽 · 轻点显示」文案。
+ * 三卡共用遮罩：ImageScrim 深色底保证白字对比度不随封面亮度变化。
  *
- * ## 手势拦截（关键）
- * 遮罩绘制在最上层并**持有全部点击手势**——Compose 命中测试最上层优先，
- * 模糊内容层里的标签 chip / 作者行 / 收藏按钮等 clickable 在屏蔽期间全部收不到事件，
- * 防止「透过遮罩点标签跳搜索 / 进作者主页」。点击 = 临时显示，长按 = 动作菜单。
- *
- * @param modifier 遮罩范围（调用方传 `matchParentSize()` / `fillMaxSize()`）
- * @param onClick 点击回调（通常传 [CardBlockGesture.onClick]，即临时显示路径）；null 纯展示无手势
- * @param onLongClick 长按回调（传 [CardBlockGesture.onLongClick] 弹动作菜单）
- * @return 无返回值
+ * 遮罩绘制在最上层并持有全部点击手势（Compose 命中测试最上层优先），模糊内容层里的标签 chip / 作者行 /
+ * 收藏按钮等 clickable 在屏蔽期间收不到事件，防止「透过遮罩点标签跳搜索 / 进作者主页」。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -171,9 +136,7 @@ internal fun BlockedOverlay(
 ) {
     Column(
         modifier = modifier
-            // 遮罩用 ImageScrim（70% 黑）：下方白字的对比度不再依赖封面亮度
             .background(ImageScrim)
-            // 手势挂遮罩（最上层）而非内容层：屏蔽期间下层所有 clickable 一并失效
             .let { base ->
                 if (onClick != null) {
                     base.combinedClickable(
@@ -207,13 +170,7 @@ internal fun BlockedOverlay(
     }
 }
 
-/**
- * 已屏蔽角标（临时显示态专用，三卡共用）：黑底半透明胶囊「已屏蔽」，
- * 与 AI / 页码角标同风格——遮罩消失后持续提示该卡片仍在屏蔽名单内，
- * 点击不会打开详情（打开详情需先经长按菜单取消屏蔽）。
- *
- * @return 无返回值（纯展示组件）
- */
+/** 临时显示态角标：与 AI / 页码角标同风格，持续提示该卡片仍在屏蔽名单内（点击不打开详情）。 */
 @Composable
 internal fun BlockedRevealBadge() {
     Surface(

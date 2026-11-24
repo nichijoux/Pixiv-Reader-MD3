@@ -39,11 +39,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * 小说系列详情页 ViewModel：系列信息 + 分册列表（`/v2/novel/series` 分页）。
- * 系列封面（第一册 medium）走 [SeriesDetailCache]，与用户主页系列列表共享缓存。
- * 关注作者：内嵌 `user.is_followed` 初始 + `getUserDetail` 权威刷新（与详情页一致）。
- * 追更：detail.watchlist_added 初始 + [toggleWatchlist] 乐观翻转（与漫画系列页/小说详情页同模式）。
- * 导出（worker）：整系列 / 部分分册（合并为一个文件），完成/失败观察下载索引发应用内通知。
+ * 系列无独立封面，取首册 medium 并经 [SeriesDetailCache] 与用户主页系列列表共享缓存。
+ * 关注态以 detail 内嵌 `is_followed` 初始 + getUserDetail 权威刷新；导出整系列/部分分册合并为单文件。
  */
 @HiltViewModel
 class NovelSeriesViewModel @Inject constructor(
@@ -61,7 +58,7 @@ class NovelSeriesViewModel @Inject constructor(
     private val _detail = MutableStateFlow<NovelSeriesDetail?>(null)
     val detail: StateFlow<NovelSeriesDetail?> = _detail.asStateFlow()
 
-    /** 系列第一册封面 URL（系列无独立封面，用首册 `image_urls` 兜底；null 表示无可用图）。 */
+    /** 系列无独立封面，用首册 `image_urls` 兜底；null 表示无可用图。 */
     private val _firstNovelCover = MutableStateFlow<String?>(null)
     val firstNovelCover: StateFlow<String?> = _firstNovelCover.asStateFlow()
 
@@ -69,11 +66,9 @@ class NovelSeriesViewModel @Inject constructor(
 
     // ── 关注作者 / 追更（ToggleUiState 状态机） ────────────────────────────────
 
-    /** 作者关注状态机（内嵌 is_followed 初始 + getUserDetail 权威刷新；[toggleFollowAuthor] 驱动）。 */
     private val _authorFollowState = MutableStateFlow(ToggleUiState.OFF)
     val authorFollowState: StateFlow<ToggleUiState> = _authorFollowState.asStateFlow()
 
-    /** 追更状态机（detail.watchlist_added 初始化；[toggleWatchlist] 驱动转移）。 */
     private val _watchlistState = MutableStateFlow(ToggleUiState.OFF)
     val watchlistState: StateFlow<ToggleUiState> = _watchlistState.asStateFlow()
 
@@ -85,7 +80,7 @@ class NovelSeriesViewModel @Inject constructor(
     private val _downloadProgress = MutableStateFlow<String?>(null)
     val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
 
-    /** 系列全量分册（供「选取部分」下载；首次按需拉取并缓存，非分页）。 */
+    /** 非分页：首次按需全量拉取并缓存，供「选取部分」下载。 */
     private val _allChapters = MutableStateFlow<List<Novel>>(emptyList())
     val allChapters: StateFlow<List<Novel>> = _allChapters.asStateFlow()
 
@@ -107,18 +102,12 @@ class NovelSeriesViewModel @Inject constructor(
         if (seriesId != 0L) load()
     }
 
-    /**
-     * pane 场景切换加载目标（类比 [NovelViewModel.switchTo]）：重置全部状态后重新加载。
-     * 幂等：同 id 且已有详情时不重载（重组 / 重复点击不触发多余请求）。
-     *
-     * @param id 目标系列 id
-     * @return 无返回值
-     */
+    /** pane 场景切换加载目标；同 id 且已有详情时不重载（重组 / 重复点击不触发多余请求）。 */
     fun switchTo(id: Long) {
         if (id == seriesId && _detail.value != null) return
         seriesId = id
         exportObserverJob?.cancel()
-        // 重置状态：详情 / 封面 / 关注与追更状态机 / 全量分册清空，分页游标重置防旧系列数据串页
+        // 分页游标也要重置，否则旧系列数据串页
         _detail.value = null
         _firstNovelCover.value = null
         _authorFollowState.value = ToggleUiState.OFF
@@ -169,11 +158,10 @@ class NovelSeriesViewModel @Inject constructor(
         viewModelScope.launch { paged.loadMore() }
     }
 
-    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
 
-    /** 用 user/detail 权威刷新作者关注态（best-effort，失败保留内嵌值）。 */
+    /** best-effort：失败保留内嵌值。 */
     private fun loadAuthorFollowState(userId: Long) {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getUserDetail(userId) }
@@ -186,12 +174,6 @@ class NovelSeriesViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 关注 / 取关作者（系列页作者行按钮，[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，
-     * 失败回滚；经 FavoriteActions 统一收口）。
-     *
-     * @return 无返回值（操作完成后结束的协程）
-     */
     fun toggleFollowAuthor() {
         val userId = _detail.value?.user?.id ?: return
         runToggle(
@@ -201,12 +183,7 @@ class NovelSeriesViewModel @Inject constructor(
         ) { favoriteActions.toggleFollowUser(userId, it) }
     }
 
-    /**
-     * 追更 / 取消追更当前系列（信息头按钮，[ToggleUiState] 状态机：进行中保留旧文案
-     * 禁用防连点，失败回滚；成功经消息通道提示；经 FavoriteActions 统一收口，断网自动入队待同步）。
-     *
-     * @return 无返回值（操作完成后结束）
-     */
+    /** 断网自动入队待同步。 */
     fun toggleWatchlist() {
         runToggle(
             _watchlistState,
@@ -215,20 +192,20 @@ class NovelSeriesViewModel @Inject constructor(
         ) { favoriteActions.toggleNovelWatchlist(seriesId, it) }
     }
 
-    /** 拉取系列全量分册（供「选取部分下载」多选；复用已加载分页数据，避免重复请求）。 */
+    /** 复用已加载分页数据，避免重复请求。 */
     fun ensureAllChaptersLoaded() {
         if (_allChapters.value.isNotEmpty()) return
-        // 复用 paged 已加载的分册作初始快照（含触底已加载的）：弹窗立即有内容，不空白等待
+        // 先用已加载分册作快照，弹窗立即有内容
         val initial = paged.items.value
         if (initial.isNotEmpty()) _allChapters.value = initial
-        // 分页已全部加载完（hasMore=false，如小系列第一页即全量）：直接复用，零额外请求
+        // hasMore=false（如小系列第一页即全量）时直接复用，零额外请求
         if (!paged.hasMore.value) return
 
         viewModelScope.launch {
-            // 大系列补拉剩余页：LinkedHashMap 按 id 去重（初始快照 + 补拉合并，保持顺序）
+            // LinkedHashMap 按 id 去重合并初始快照与补拉结果，保持原顺序
             val result = LinkedHashMap<Long, Novel>().apply { initial.forEach { put(it.id, it) } }
             runCatching {
-                // 共享游标分页（core:network），防御上限放宽到 200 页（约 2000 章）
+                // 共享游标分页，防御上限放宽到 200 页（约 2000 章）
                 fetchAllSeriesChapters(pixivRepository, seriesId, maxPages = 200)
                     .forEach { result[it.id] = it }
             }.onSuccess {
@@ -237,14 +214,7 @@ class NovelSeriesViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 导出小说为指定格式文件（整系列或部分分册，后台队列，支持断点续传）。
-     * 先写好待同步索引并唯一入队 WorkManager，再按精确复合主键等待终态完成。
-     *
-     * @param format 导出格式
-     * @param chapterIds 选中的分册 ID（空表示整系列）
-     * @return 无返回值
-     */
+    /** 先写好待同步索引并唯一入队 WorkManager，再按精确复合主键等待终态。 */
     fun export(format: NovelExportFormat, chapterIds: List<Long>) {
         if (_downloading.value) return
         // targetId 用系列首册（全量未加载时用分页已加载的第一本兜底）
@@ -277,7 +247,7 @@ class NovelSeriesViewModel @Inject constructor(
         exportObserverJob?.cancel()
         exportObserverJob = viewModelScope.launch {
             try {
-                // 等待 pending 落库及唯一入队完成后，按精确复合主键观察导出终态。
+                // 等 pending 落库及唯一入队完成后再观察终态
                 DownloadQueue.markPending(downloadEntryDao, entry)
                 WorkManager.getInstance(context)
                     .enqueueUniqueWork(workTag, ExistingWorkPolicy.KEEP, request)

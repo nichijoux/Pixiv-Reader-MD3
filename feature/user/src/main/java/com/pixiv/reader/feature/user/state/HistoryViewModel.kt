@@ -25,9 +25,6 @@ enum class HistoryFilter(@param:StringRes val labelRes: Int) {
     USER(R.string.history_filter_user),
 }
 
-/**
- * 阅读历史 ViewModel：观察本地浏览历史（Room），按类型筛选；支持历史卡片收藏。
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -36,9 +33,7 @@ class HistoryViewModel @Inject constructor(
     private val favoriteActions: FavoriteActions,
 ) : ViewModel() {
 
-    /**
-     * 类型筛选：由页面 Pager 落页经 [selectFilter] 回写；选中态由 UI 侧 Pager 状态持有，不对外暴露。
-     */
+    /** 选中态由 UI 侧 Pager 状态持有，此处仅用于切换订阅流。 */
     private val filter = MutableStateFlow(HistoryFilter.ILLUST)
 
     val history: StateFlow<List<BrowseHistoryEntity>> =
@@ -50,7 +45,6 @@ class HistoryViewModel @Inject constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** 切换类型筛选（切换后重订阅对应类型的历史流）。 */
     fun selectFilter(f: HistoryFilter) {
         if (filter.value != f) filter.value = f
     }
@@ -63,11 +57,9 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch { browseHistoryDao.clearAll() }
     }
 
-    /** 收藏 / 取消收藏插画（历史卡与首页一致）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 
-    /** 收藏 / 取消收藏小说（历史卡与详情一致）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
 }

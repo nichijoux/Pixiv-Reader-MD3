@@ -8,15 +8,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * FANBOX 正文解析纯函数单测（PRD §11）：article blocks + map、image 列表形态、
- * 受限帖空 body、entry HTML、coverUrl 双来源、FanboxPostList 的 Pageable 映射。
- */
 class FanboxParsingTest {
 
     private val gson = Gson()
 
-    /** article 类型：blocks + imageMap/embedMap 混排，块里只存 id、资源去 map 查。 */
+    /** 块里只存 id，资源去 imageMap/embedMap 查。 */
     @Test
     fun `article blocks resolve resources from maps`() {
         val json = """
@@ -62,7 +58,6 @@ class FanboxParsingTest {
         assertEquals("https://example.com", urlEmbed.url)
     }
 
-    /** image 类型：text + images 列表（无 blocks）。 */
     @Test
     fun `image post renders text then images`() {
         val json = """
@@ -85,7 +80,7 @@ class FanboxParsingTest {
         assertEquals(300, (sections[2] as FanboxSection.Image).width)
     }
 
-    /** 受限帖 / post.get 兜底：body 为 null → 空列表（正常态非失败）。 */
+    /** 受限帖 / post.get 兜底：body 为 null → 空列表（正常态，非失败）。 */
     @Test
     fun `null body yields empty sections`() {
         val post = gson.fromJson("""{"id": "p3", "title": "受限帖", "isRestricted": true}""", FanboxPost::class.java)
@@ -93,7 +88,6 @@ class FanboxParsingTest {
         assertTrue(parseFanboxBody(null).isEmpty())
     }
 
-    /** entry 类型：整段 HTML 拆段落 + 图片。 */
     @Test
     fun `entry html splits into paragraphs and images`() {
         val json = """
@@ -127,7 +121,6 @@ class FanboxParsingTest {
         assertEquals("", missing.coverUrl)
     }
 
-    /** FanboxPostList 的 Pageable 映射：items / nextPageUrl（缺字段安全兜底）。 */
     @Test
     fun `postList maps pageable items and cursor`() {
         val list = gson.fromJson(

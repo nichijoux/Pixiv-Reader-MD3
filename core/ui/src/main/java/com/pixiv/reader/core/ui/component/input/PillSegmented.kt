@@ -32,50 +32,18 @@ import com.pixiv.reader.core.ui.component.feedback.PixivHaptics
 import com.pixiv.reader.core.ui.component.feedback.rememberHapticCue
 import com.pixiv.reader.core.ui.theme.AppShapes
 
-/** 胶囊轨道的视觉高度（绘制轨道与滑块）。 */
 private val PillTrackHeight = 40.dp
 
-/**
- * 触控目标高度：M3 规定最小 48dp。
- * 视觉仍是 40dp 轨道，多出的 8dp 上下留白只扩展点击热区，不改变外观。
- */
+/** 视觉轨道 40dp，但触控热区保持 M3 最小 48dp。 */
 private val PillTouchTargetHeight = 48.dp
 
-/** 滑块与轨道边缘的间距（上下左右统一）。 */
 private val PillEdgeThickness = 4.dp
 
-/** 按压/聚焦状态层不透明度（M3 state layer）。 */
 private const val PillStateLayerAlpha = 0.12f
 
 /**
- * iOS 风胶囊分段选择器（全 App 分段控件统一口径）。
- *
- * ## 视觉结构
- * 圆角胶囊轨道（[AppShapes.pill]）内叠一块同形状滑块：轨道底色按主题明暗自适应
- * （深色 `surfaceContainerLow` / 浅色 `surfaceContainerHigh`），滑块取反一级
- * （深色 `surfaceContainerHighest` / 浅色 `surface`），保证动态取色下也有清晰层级。
- * 无描边、不依赖 M3 [androidx.compose.material3.SegmentedButton]。
- *
- * ## 交互
- * 选项等分轨道宽度；点击可选项先发 [PixivHaptics.HapticCue.SELECT] 触觉再回调 [onSelect]。
- * 选中态 = 滑块 + `primary` 文字 + [FontWeight.Medium]；未选 = `onSurfaceVariant`；
- * 禁用 = `onSurfaceVariant` 40% 透明度且不可点。标签复用 [SegmentedButtonLabel]
- * 的单行缩字能力，长文案（英文）不会换行把轨道撑高。
- *
- * 无障碍约定：轨道视觉 40dp，但触控目标保持 M3 最小 **48dp**（上下各留 4dp 热区）；
- * 交互反馈用 M3 state layer（按压/聚焦 12% `onSurface` 叠层）而非涟漪——涟漪会与滑块
- * 位移动效打架，但完全去掉反馈层会让用户失去按压感知；语义用 `selectable` +
- * [Role.RadioButton]（单选分段），TalkBack 可读到「已选中/未选中」。
- *
- * 布局为等宽分段 + LTR（项目语言 zh / zh-TW / en 均无 RTL 语序需求）。
- *
- * @param T 选项值类型（枚举 / 索引等）
- * @param options 选项列表（值 to 文案资源），顺序即分段顺序
- * @param selected 当前选中值；不在 [options] 内时不渲染滑块（仍可选新值）
- * @param onSelect 选中回调（已响应触觉后触发）
- * @param modifier 外部传入的 Modifier（宽度由调用方决定，内部 fillMaxWidth）
- * @param optionEnabled 各选项是否可点（默认全部可用）
- * @return 无返回值
+ * 胶囊分段选择器（全 App 统一分段实现，不依赖 M3 SegmentedButton）。
+ * [selected] 不在 [options] 内时不渲染滑块；布局按等宽 LTR 切分。
  */
 @Composable
 fun <T> PillSegmentedRow(
@@ -85,12 +53,11 @@ fun <T> PillSegmentedRow(
     modifier: Modifier = Modifier,
     optionEnabled: (T) -> Boolean = { true },
 ) {
-    // 空列表直接不渲染：避免后续按选项数做等分计算时除零
     if (options.isEmpty()) return
 
     val haptic = rememberHapticCue()
     val colorScheme = MaterialTheme.colorScheme
-    // 按 surface 亮度判定明暗：动态取色（dynamicColor=true）下同样成立
+    // 按 surface 亮度判定明暗，保证动态取色（dynamicColor=true）下同样成立
     val dark = colorScheme.surface.luminance() < 0.5f
     val trackColor = if (dark) colorScheme.surfaceContainerLow else colorScheme.surfaceContainerHigh
     val thumbColor = if (dark) colorScheme.surfaceContainerHighest else colorScheme.surface
@@ -101,7 +68,6 @@ fun <T> PillSegmentedRow(
             .fillMaxWidth()
             .height(PillTouchTargetHeight),
     ) {
-        // 轨道：视觉 40dp，在 48dp 触控区内垂直居中
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -110,10 +76,8 @@ fun <T> PillSegmentedRow(
                 .clip(AppShapes.pill)
                 .background(trackColor),
         )
-        // 滑块宽 = (轨道宽 - 左右边距) / 选项数；轨道宽在这里已知，无需 onSizeChanged 换算
         val thumbWidth = (maxWidth - PillEdgeThickness * 2) / options.size
         if (selectedIndex >= 0) {
-            // 偏移动画走 expressive fastSpatialSpec：切段时滑块横向滑入目标位置
             val targetOffset = PillEdgeThickness + thumbWidth * selectedIndex
             val offset by animateDpAsState(
                 targetValue = targetOffset,
@@ -129,16 +93,15 @@ fun <T> PillSegmentedRow(
                     .width(thumbWidth)
                     .height(PillTrackHeight - PillEdgeThickness * 2)
                     .clip(AppShapes.pill)
-                    // MD3 用 tonal 层级区分表面而非投影：滑块已取反一级容器色，不再叠阴影
+                    // MD3 用 tonal 层级区分表面：滑块已取反一级容器色，不叠投影
                     .background(thumbColor),
             )
         }
-        // 选项层叠满 48dp 触控区：每项等宽、整高可点（点击区域覆盖滑块）
         Row(modifier = Modifier.fillMaxSize()) {
             options.forEach { (value, labelRes) ->
                 val enabled = optionEnabled(value)
                 val isSelected = value == selected
-                // 无涟漪点击源：胶囊分段以滑块位移表达状态，涟漪会与滑块动效打架
+                // 禁用涟漪避免与滑块位移动效冲突，改用下方 12% onSurface state layer 提供按压/聚焦反馈
                 val interactionSource = remember { MutableInteractionSource() }
                 val pressed by interactionSource.collectIsPressedAsState()
                 val focused by interactionSource.collectIsFocusedAsState()
@@ -153,13 +116,11 @@ fun <T> PillSegmentedRow(
                             interactionSource = interactionSource,
                             indication = null,
                         ) {
-                            // 触觉先行，再交给业务回调切状态（与全 App 分段控件一致）
                             haptic(PixivHaptics.HapticCue.SELECT)
                             onSelect(value)
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    // M3 state layer：按压/聚焦时叠 12% onSurface，替代被移除的涟漪
                     if (enabled && (pressed || focused)) {
                         Box(
                             modifier = Modifier

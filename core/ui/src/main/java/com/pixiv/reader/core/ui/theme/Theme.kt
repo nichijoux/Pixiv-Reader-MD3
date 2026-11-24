@@ -82,7 +82,6 @@ internal val DarkColors = darkColorScheme(
     onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
     outlineVariant = DarkOutlineVariant,
-    // M3 容器/反向角色（深色）：显式定义替换 M3 基线紫灰 #211F26
     surfaceDim = DarkSurfaceDim,
     surfaceBright = DarkSurfaceBright,
     surfaceContainerLowest = DarkSurfaceContainerLowest,
@@ -96,10 +95,7 @@ internal val DarkColors = darkColorScheme(
     inversePrimary = DarkInversePrimary,
 )
 
-/**
- * Material 3 Expressive 形状 token：M3 组件（Button/Card/Dialog/Sheet 等）默认形状统一
- * 收敛到更圆润的 Expressive 圆角口径，与 [AppShapes] 的自定义口径保持同一档位语言。
- */
+/** M3 组件默认形状收敛到 Expressive 圆角，与 [AppShapes] 同一档位。 */
 private val ExpressiveShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
@@ -109,14 +105,8 @@ private val ExpressiveShapes = Shapes(
 )
 
 /**
- * 全局主题入口：动态取色（Android 12+）或手写 Light/Dark 色板之上，
- * 启用 Material 3 Expressive——弹性 spring 动效方案、Expressive 形状 token
- * 与组件级 Expressive 默认行为（按压形变、加载指示样式等），并注入扩展语义色板 [LocalExtendedColors]。
- *
- * @param darkTheme 是否使用深色配色（默认跟随系统）
- * @param dynamicColor 是否启用 Android 12+ 动态取色
- * @param content 应用主题的内容
- * @return 无返回值；向 [content] 提供 Expressive 主题环境
+ * 全局主题入口：动态取色（Android 12+）或静态 Light/Dark 色板之上启用 M3 Expressive，
+ * 并注入扩展语义色板 [LocalExtendedColors]。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -139,8 +129,7 @@ fun PixivReaderTheme(
     CompositionLocalProvider(LocalExtendedColors provides extendedColors) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
-            // Expressive 动效方案：M3 组件默认动画切换为 spring 物理曲线（弹性进入/快速吸附），
-            // 显式 tween 的自定义动画不受影响
+            // M3 组件默认动画走 spring 物理曲线；显式 tween 的自定义动画不受影响
             motionScheme = MotionScheme.expressive(),
             shapes = ExpressiveShapes,
             typography = Typography,

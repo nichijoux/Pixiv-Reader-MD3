@@ -26,17 +26,7 @@ import com.pixiv.reader.core.ui.theme.ImageScrim
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/**
- * ugoira 卡片播放：加载帧（进程内缓存命中后立即播放）→ [UgoiraPlayer] 逐帧动画。
- *
- * 下载反馈：zip 下载中（[UgoiraLoader.prepare] 进度回调）在静态封面之上显示
- * 半透明黑底 + 转圈 + 百分比；帧就绪后切换为动画播放；下载失败/未开始透明露出封面。
- * 离开视口随 item 组合销毁（协程取消，下载中断）。
- *
- * @param loader 动图加载器（上层注入）
- * @param illustId 作品 id（zip/帧缓存与 metadata 均按 id）
- * @param maxDecodeSize 帧采样解码最长边上限（px），传封面宽度避免解码原图浪费内存
- */
+/** 卡片内动图加载与播放；[maxDecodeSize] 应传封面宽（px）避免按原图解码浪费内存，离开视口自动取消下载。 */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun UgoiraCardPlayer(
@@ -45,7 +35,7 @@ fun UgoiraCardPlayer(
     maxDecodeSize: Int,
     modifier: Modifier = Modifier,
 ) {
-    // 按 illustId 绑定进度与帧缓存，避免列表项复用同一槽位时残留旧作品动图。
+    // 按 illustId 绑定进度与帧缓存，避免列表项复用同一槽位时残留旧作品动图
     val progress = remember(illustId) { MutableStateFlow<Float?>(null) }
     val progressValue by progress.collectAsState()
     var frames by remember(illustId) { mutableStateOf<List<UgoiraFrame>?>(null) }
@@ -70,7 +60,6 @@ fun UgoiraCardPlayer(
     } else {
         val p = progressValue
         if (p != null) {
-            // zip 下载中：ImageScrim + 转圈 + 百分比（帧就绪后由播放器替换）
             Box(
                 modifier = modifier.background(ImageScrim),
                 contentAlignment = Alignment.Center,
@@ -89,6 +78,5 @@ fun UgoiraCardPlayer(
                 }
             }
         }
-        // p == null：metadata 请求中 / 下载失败 / 帧未就绪 → 透明露出静态封面
     }
 }

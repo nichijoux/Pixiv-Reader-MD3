@@ -88,14 +88,9 @@ import java.io.File
 import kotlinx.coroutines.launch
 
 /**
- * 快速轻点检测 modifier：无移动且在长按阈值内抬起才回调 onTap。
- * - 长按（按住 ≥ 长按阈值）：抬起时时间差超阈值 → 不回调
- * - 长按后拖动 / 普通拖动（移动超 slop）：break 不回调，事件不消费 → 穿透下层滚动/卷页
- * - 全程不消费 down/move（requireUnconsumed=false、不调 consume），滚动不被打断
- * - requireUnconsumed=false 收事件：下层 Pager/LazyColumn/卷页 消费的移动也可见，
- *   翻页/滚动手势的松手 up 不会被误判为轻点（这是"滑动/翻页误触工具栏"的根因）
- * pointerInput block 是受限协程（PointerInputScope），可直接调用受限挂起函数。
- * @param onTap 轻点回调（点击位置 + 容器尺寸；无位置/尺寸需求的调用方可忽略参数）
+ * 快速轻点检测：无移动且在长按阈值内抬起才回调。
+ * 不消费 down/move 且 requireUnconsumed=false：下层 Pager/LazyColumn/卷页消费的移动仍可见，
+ * 翻页/滚动手势的松手 up 才不会被误判为轻点（「滑动误触工具栏」的根因）。
  */
 private fun Modifier.quickTap(onTap: (Offset, Size) -> Unit): Modifier =
     pointerInput(Unit) {
@@ -133,12 +128,9 @@ private fun Modifier.quickTap(onTap: (Offset, Size) -> Unit): Modifier =
     }
 
 /**
- * 触控井字九宫格分区（quickTap 之上）：分区判定与仿真模式共用 [readerTapZone]，
- * 中间格点击切换工具栏（[onToggleBars]）；
- * 其余 8 格沿中间对称轴分为左右两半——工具栏显示时点击关闭（[onCloseBars]，避免误翻页），
- * 隐藏时左半区触发 [onPrevPage]、右半区触发 [onNextPage]（翻页/仿真模式翻页，滑动模式为空操作）。
- *
- * @param isBarsVisible 工具栏可见性（lambda 读取实时状态，避免 pointerInput 捕获陈旧值）
+ * 触控井字九宫格（quickTap 之上，分区判定与仿真模式共用 [readerTapZone]）：中间格切换工具栏；
+ * 其余 8 格同样沿中间对称轴平分为左右两半——工具栏显示时点击关闭（避免误翻页），隐藏时
+ * 左半区翻上一页、右半区翻下一页（滑动模式无翻页，仅关闭工具栏）。
  */
 private fun Modifier.tapZones(
     isBarsVisible: () -> Boolean,
@@ -147,7 +139,7 @@ private fun Modifier.tapZones(
     onPrevPage: () -> Unit,
     onNextPage: () -> Unit,
 ): Modifier = quickTap { offset, containerSize ->
-    // 井字九宫格分区（纯函数，与仿真模式同源）：中间格切换工具栏，左右半区翻页/关闭
+    // 中间格切换工具栏；左右半区翻页/关闭
     when (readerTapZone(offset.x, offset.y, containerSize.width, containerSize.height)) {
         ReaderTapZone.CENTER -> onToggleBars()
         ReaderTapZone.LEFT -> if (isBarsVisible()) onCloseBars() else onPrevPage()
@@ -155,28 +147,6 @@ private fun Modifier.tapZones(
     }
 }
 
-/**
- * 小说阅读器（P4 核心）。
- *
- * 支持：
- * - 3 种翻页模式：滑动（[ScrollReaderContent]）/ 翻页（[PagerReaderContent]）/ 仿真（[SimulationPageContent]）
- * - 4 套主题 + 亮度调节
- * - 字号 / 行距 / 字体调节
- * - 字符级进度落库 + 官方 marker 同步
- * - 阅读书签 / 收藏 / 追更
- * - 目录（[ReaderTocSheet]）/ 全文搜索（[ReaderSearchSheet]）/ 设置（[ReaderSettingsSheet]）
- *
- * @param novelId 小说或本地文档对应的进度 ID
- * @param onBack 返回上一级
- * @param onOpenNovel 打开其他章节
- * @param onOpenImage 放大正文插图
- * @param localDocument 下载管理已解析的本地文档
- * @param localTitle 本地文档标题
- * @param toEnd 是否从上一章末尾开始阅读
- * @param onOpenNovelToEnd 打开其他章节并定位到末尾
- * @param viewModel 阅读器状态与操作入口
- * @return 无返回值
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderRoute(
@@ -231,7 +201,7 @@ fun ReaderRoute(
 
     val progressRestored by viewModel.progressRestored.collectAsStateWithLifecycle()
     val percentage by viewModel.percentage.collectAsStateWithLifecycle()
-    // 开关状态机：单流收集，派生展示态供下游（ReaderBars 菜单）使用
+    // 开关状态机：单流收集
     val markState by viewModel.markState.collectAsStateWithLifecycle()
     val isMarked = markState.isOn
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
@@ -239,7 +209,6 @@ fun ReaderRoute(
     val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
     val isWatchlisted = watchlistState.isOn
 
-    // P4 增强：目录 / 搜索 / 自定义字体 / 跟随系统
     val toc by viewModel.toc.collectAsStateWithLifecycle()
     val tocLoading by viewModel.tocLoading.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
@@ -261,7 +230,6 @@ fun ReaderRoute(
         if (nextChapterId != null) onOpenNovel(nextChapterId)
     }
 
-    // 主题跟随系统：开启后按系统深色模式选「夜间/纸张」
     val isDark = isSystemInDarkTheme()
     val effectiveTheme = if (followSystem) {
         if (isDark) ReaderThemeMode.NIGHT else ReaderThemeMode.PAPER
@@ -273,11 +241,8 @@ fun ReaderRoute(
     val context = LocalContext.current
     var settingsOpen by remember { mutableStateOf(false) }
     var pageInfo by remember { mutableStateOf(0 to 0) }
-    // 清除自定义字体确认
     var showClearFontConfirm by remember { mutableStateOf(false) }
-    // 沉浸式阅读：默认只显示正文，点击正文切换工具栏显隐
     var barsVisible by remember { mutableStateOf(false) }
-    // 目录 / 搜索跳转目标（全文字符偏移），由各内容组件响应
     var jumpToChar by remember { mutableStateOf<Int?>(null) }
     var tocOpen by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
@@ -285,7 +250,6 @@ fun ReaderRoute(
 
     // 底栏进度条跳转所需的跨页列表（readerSurface 内经 SideEffect 回写，仅排版变化时更新）
     var chapterSpreads by remember { mutableStateOf<List<ReaderSpread>>(emptyList()) }
-    // 自定义字体：从文件路径加载 FontFamily（损坏时回退 null）
     val customFont = remember(customFontPath) {
         if (customFontPath.isNotBlank()) {
             runCatching { FontFamily(Font(File(customFontPath))) }.getOrNull()
@@ -673,7 +637,6 @@ fun ReaderRoute(
             )
         }
 
-        // 消息提示
         NotificationHost(
             state = notificationHostState,
             modifier = Modifier
@@ -727,7 +690,6 @@ fun ReaderRoute(
         )
     }
 
-    // 清除自定义字体确认（删除字体文件并恢复默认）
     if (showClearFontConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.reader_settings_clear_font_title),
@@ -741,7 +703,6 @@ fun ReaderRoute(
         )
     }
 
-    // 目录面板
     if (tocOpen) {
         ReaderTocSheet(
             toc = toc,

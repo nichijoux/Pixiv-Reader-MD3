@@ -12,13 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * OAuth 刷新器：负责 token 刷新与请求重放
- *
- * 完全委托给 pixiv-login 库（com.github.SoxiaLiSA:pixiv-login）的
- * [PixivOAuthClient.refreshTokenSuspend] —— 密钥、签名、PKCE 均由库处理。
- * 对齐 Shaft `TokenInterceptor.getNewToken` 的同步锁逻辑：
- * - 若其它线程已刷新过（缓存 token ≠ 本请求头 token），直接复用
- * - 否则用 refresh_token 换新 token
+ * Token 刷新器：密钥/签名/PKCE 全由 pixiv-login 库处理，这里只加锁避免并发 401 重复刷新。
  */
 class AuthRefresher(
     private val oauthClient: PixivOAuthClient,
@@ -31,7 +25,6 @@ class AuthRefresher(
     /** 返回 "Bearer xxx"，失败返回 null */
     suspend fun refreshAndGetBearer(tokenForThisRequest: String?): String? = mutex.withLock {
         val current = session.bearerTokenOrEmpty()
-        // 已被别的线程刷新过
         if (current.isNotEmpty() && current != tokenForThisRequest) {
             return current
         }
@@ -59,43 +52,26 @@ class AuthRefresher(
         }
     }
 
-    /**
-     * 阻塞版刷新（供 OkHttp 拦截器使用）。
-     * 拦截器的 intercept() 是阻塞方法，不能直接调用 suspend 函数。
-     */
+    /** 供 OkHttp 拦截器使用：intercept() 是阻塞方法，不能直接调 suspend。 */
     fun refreshAndGetBearerBlocking(tokenForThisRequest: String?): String? =
         runBlocking { refreshAndGetBearer(tokenForThisRequest) }
 }
 
 /**
- * Pixiv OAuth PKCE 登录门面
- *
- * 完全委托给 pixiv-login 库（com.github.SoxiaLiSA:pixiv-login）的 [PixivOAuthClient]：
- * clientId / clientSecret / 登录 URL / 回调 scheme 全部取自库的
- * `PixivOAuthConfig.PIXIV_ANDROID`，无需也不应再硬编码。
- *
- * 流程：
- * 1. [startLoginUrl] → 打开 Chrome Custom Tab
- * 2. 回调（pixiv://account/login?code=…）→ [isOAuthCallback] 判断 → [handleCallback] 换 token
+ * PKCE 登录门面：clientId / clientSecret / 回调 scheme 全取自 pixiv-login 库的
+ * `PixivOAuthConfig.PIXIV_ANDROID`，不要硬编码。
  */
 class PixivOAuth(
     private val oauthClient: PixivOAuthClient,
 ) {
 
-    /** 生成登录 URL（库内部完成 PKCE） */
     fun startLoginUrl(): String = oauthClient.startLogin()
 
-    /** 生成临时账号创建 URL（未注册浏览） */
     fun startProvisionalAccountUrl(): String = oauthClient.startProvisionalAccount()
 
-    /** 是否为 OAuth 回调 URI（scheme 匹配 callbackScheme，如 "pixiv"） */
     fun isOAuthCallback(uri: Uri): Boolean = oauthClient.isOAuthCallback(uri)
 
-    /**
-     * 处理 OAuth 回调并换取 token。
-     * 库返回的 [PixivOAuthResult.Success.rawBody] 用 Gson 反序列化为
-     * 本库的 [AccountResponse]（含完整 user 信息），可直接交给 SessionManager。
-     */
+    /** 库只给 rawBody，需反序列化成本库 [AccountResponse] 才能交给 SessionManager。 */
     suspend fun handleCallback(uri: Uri): PixivAuthResult = withContext(Dispatchers.IO) {
         when (val result = oauthClient.handleCallback(uri)) {
             is PixivOAuthResult.Success -> {
@@ -122,7 +98,6 @@ class PixivOAuth(
     }
 }
 
-/** 登录结果（门面类型；内部映射自库的 [PixivOAuthResult]） */
 sealed interface PixivAuthResult {
     data class Success(val account: AccountResponse) : PixivAuthResult
 

@@ -23,14 +23,7 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * 下载通知去重键（与数据库复合主键一致，区分同作品多格式与单本/系列/部分导出）。
- *
- * @property targetType 目标类型（illust / ugoira / novel）
- * @property targetId 目标 ID
- * @property format 导出格式（插画为空串，小说/动图为具体格式）
- * @property scopeKey 下载作用域（单本为空串，系列为 series，部分分册为 partial）
- */
+/** 下载通知去重键，与数据库复合主键一致。 */
 data class DownloadTaskKey(
     val targetType: String,
     val targetId: Long,
@@ -45,16 +38,6 @@ data class DownloadTaskKey(
     )
 }
 
-/**
- * 当前活跃下载任务聚合状态（用于构建系统进度通知与 Android 16 实况胶囊）。
- *
- * @property activeCount 活跃任务总数（downloading + pending）
- * @property downloadingCount 正在下载中的任务数
- * @property pendingCount 等待网络/排队的任务数
- * @property primaryTitle 优先展示的主任务标题（优先取 downloading 首个非空标题）
- * @property progress 聚合进度百分比（0-100；全为 pending 时为 0）
- * @property indeterminate 是否不确定进度（仅当全为 pending 无 downloading 时为 true）
- */
 data class DownloadProgressState(
     val activeCount: Int,
     val downloadingCount: Int,
@@ -64,41 +47,17 @@ data class DownloadProgressState(
     val indeterminate: Boolean,
 )
 
-/** 系统下载通知输出端口（隔离 Android 通知 API，便于 [com.pixiv.reader.app.DownloadCompletionNotifier] 单元测试）。 */
+/** 隔离 Android 通知 API，供 [com.pixiv.reader.app.DownloadCompletionNotifier] 单测替换。 */
 interface DownloadNotificationSink {
-    /** 创建或校验通知渠道。 */
     fun ensureChannels()
-
-    /**
-     * 展示或更新系统下载进度通知（含 Android 16 Live Updates）。
-     *
-     * @param state 当前聚合下载状态
-     * @return 无返回值
-     */
     fun showProgress(state: DownloadProgressState)
-
-    /** 撤销正在展示的进度通知。 */
     fun cancelProgress()
-
-    /**
-     * 发送后台下载完成或失败通知。
-     *
-     * @param key 任务去重键（用于计算稳定通知 ID）
-     * @param title 任务标题
-     * @param isSuccess true 为下载完成，false 为下载失败
-     * @return 无返回值
-     */
     fun showResult(key: DownloadTaskKey, title: String, isSuccess: Boolean)
 }
 
 /**
- * 系统下载通知构建与分发器（兼容标准系统进度通知 + Android 16 原生 Live Updates 实况通知）。
- *
- * 规范约束：
- * - 进度渠道使用 `IMPORTANCE_DEFAULT`（Android 16 实况提升禁止 `IMPORTANCE_MIN`），同时静音无震动并设 `setOnlyAlertOnce(true)`；
- * - 使用 `NotificationCompat.ProgressStyle` + `setOngoing(true)` + `setRequestPromotedOngoing(true)` +
- *   `setShortCriticalText(...)`，不使用 `RemoteViews`、`setColorized(true)` 或 `setGroupSummary(true)`；
- * - Android 15 及以下自动降级为标准系统进度条通知。
+ * 系统下载通知管理器（兼容 Android 16 Live Updates，低版本自动降级为标准进度条）。
+ * Android 16 实况提升要求进度渠道 importance >= DEFAULT 且禁用 RemoteViews/colorized/groupSummary。
  */
 @Singleton
 class DownloadNotificationManager @Inject constructor(
@@ -107,16 +66,11 @@ class DownloadNotificationManager @Inject constructor(
     private val compatManager: NotificationManagerCompat
         get() = NotificationManagerCompat.from(context)
 
-    /**
-     * 确保下载进度与结果通知渠道已创建（幂等，minSdk 26 均支持）。
-     *
-     * @return 无返回值
-     */
     override fun ensureChannels() {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val res = localizedContext().resources
 
-        // 进度渠道：Android 16 Live Updates 要求 importance >= DEFAULT（不能用 MIN），同时关闭提示音与震动
+        // Live Updates 要求 importance >= DEFAULT，改为关闭声音与震动保持静默
         val progressChannel = NotificationChannel(
             CHANNEL_PROGRESS,
             res.getString(R.string.download_channel_progress_name),
@@ -129,7 +83,6 @@ class DownloadNotificationManager @Inject constructor(
             setShowBadge(false)
         }
 
-        // 结果渠道：后台下载完成/失败通知
         val resultChannel = NotificationChannel(
             CHANNEL_RESULT,
             res.getString(R.string.download_channel_result_name),
@@ -141,11 +94,6 @@ class DownloadNotificationManager @Inject constructor(
         manager.createNotificationChannels(listOf(progressChannel, resultChannel))
     }
 
-    /**
-     * 检查当前是否已拥有发送系统通知的权限且用户未在系统设置关闭通知。
-     *
-     * @return true 表示可以安全调用 `notify`
-     */
     fun canPostNotifications(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
@@ -157,12 +105,6 @@ class DownloadNotificationManager @Inject constructor(
         return compatManager.areNotificationsEnabled()
     }
 
-    /**
-     * 发送或更新下载进度系统通知（支持 Android 16 实况胶囊，旧系统自动降级为标准进度条）。
-     *
-     * @param state 当前聚合下载状态
-     * @return 无返回值
-     */
     // canPostNotifications() 已在入口处校验 POST_NOTIFICATIONS 运行时权限与通知总开关
     @SuppressLint("MissingPermission")
     override fun showProgress(state: DownloadProgressState) {
@@ -205,7 +147,7 @@ class DownloadNotificationManager @Inject constructor(
             },
         )
 
-        // Android 16+ 渲染为分段实况进度条；API < 36 在 apply() 内部自动回退为标准 setProgress(100, p, indeterminate)
+        // API < 36 在 ProgressStyle.apply() 内部自动降级为标准进度条
         val progressStyle = NotificationCompat.ProgressStyle()
             .setStyledByProgress(true)
             .addProgressSegment(NotificationCompat.ProgressStyle.Segment(100))
@@ -236,11 +178,6 @@ class DownloadNotificationManager @Inject constructor(
         }
     }
 
-    /**
-     * 撤销正在展示的进度通知。
-     *
-     * @return 无返回值
-     */
     override fun cancelProgress() {
         runCatching {
             compatManager.cancel(NOTIFICATION_ID_PROGRESS)
@@ -249,14 +186,6 @@ class DownloadNotificationManager @Inject constructor(
         }
     }
 
-    /**
-     * 发送后台下载结果通知（完成 / 失败）。
-     *
-     * @param key 任务去重键（用于计算稳定通知 ID）
-     * @param title 任务标题
-     * @param isSuccess true 为下载完成，false 为下载失败
-     * @return 无返回值
-     */
     // canPostNotifications() 已在入口处校验 POST_NOTIFICATIONS 运行时权限与通知总开关
     @SuppressLint("MissingPermission")
     override fun showResult(key: DownloadTaskKey, title: String, isSuccess: Boolean) {
@@ -296,7 +225,6 @@ class DownloadNotificationManager @Inject constructor(
         }
     }
 
-    /** 构造点击通知跳转下载管理页的 PendingIntent（复用 singleTask MainActivity）。 */
     private fun openDownloadsPendingIntent(): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
@@ -311,7 +239,6 @@ class DownloadNotificationManager @Inject constructor(
         )
     }
 
-    /** 构造通知栏「取消 / 全部取消」动作按钮的 PendingIntent。 */
     private fun cancelPendingIntent(): PendingIntent {
         val intent = Intent(context, DownloadNotificationActionReceiver::class.java).apply {
             action = DownloadNotificationActionReceiver.ACTION_CANCEL_ACTIVE
@@ -324,10 +251,7 @@ class DownloadNotificationManager @Inject constructor(
         )
     }
 
-    /**
-     * 按当前应用覆盖后的 [Locale.getDefault] 派生资源上下文，
-     * 避免 Application Context 在语言切换后仍返回系统语言文案。
-     */
+    // Application Context 不随应用内语言覆盖更新，按 Locale.getDefault() 派生资源上下文
     private fun localizedContext(): Context {
         val targetLocale = Locale.getDefault()
         val currentLocale = if (!context.resources.configuration.locales.isEmpty) {

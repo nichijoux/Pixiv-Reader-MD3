@@ -2,10 +2,7 @@ package com.pixiv.reader.core.common.model
 
 import com.pixiv.api.model.Novel
 
-/**
- * 小说通用卡片数据（core 共享）。
- * 历史/下载条目用 Gson 将 payloadJson 反序列化为本类（字段名与序列化一致，勿改名）。
- */
+/** 字段名与历史/下载 payloadJson 的 Gson 序列化绑定，勿改名。 */
 data class NovelCardData(
     val id: Long,
     val title: String,
@@ -23,12 +20,6 @@ data class NovelCardData(
     val serverMuted: Boolean = false,
 )
 
-/**
- * Novel → [NovelCardData] 映射（core 共享）。
- *
- * 此前 8+ 处 feature 各自内联相同映射（加字段需多处同步），统一收口此处。
- * 标签取前 6 个、优先 translated_name（显示语言），空标签过滤。
- */
 fun Novel.toCardData(): NovelCardData = NovelCardData(
     id = id,
     title = title.orEmpty(),

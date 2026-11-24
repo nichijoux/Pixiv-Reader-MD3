@@ -17,15 +17,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * Pixiv 网络客户端构建器
- *
- * 对齐 Pixiv-Shaft `ceui/loxia/Client.kt` + `ceui/lisa/http/Retro.java`。
- *
- * OAuth 部分完全使用 pixiv-login 库（com.github.SoxiaLiSA:pixiv-login）：
- * - 密钥（clientId / clientSecret / 签名密钥）取自 [PixivOAuthConfig.PIXIV_ANDROID]
- * - PKCE 登录、token 交换/刷新由 [PixivOAuthClient] 处理
- *
- * 构建顺序：PixivOAuthClient → AuthRefresher → AppApi / WebApi → PixivClientBundle
+ * 网络客户端构建器：OAuth 密钥与 PKCE 均由 pixiv-login 库处理，不在此硬编码。
  */
 object PixivClient {
 
@@ -36,21 +28,19 @@ object PixivClient {
         debug: Boolean = false,
         onInvalidRefreshToken: () -> Unit = {},
     ): PixivClientBundle {
-        // 1. OAuth 客户端（pixiv-login 库；独立 OkHttp，不参与业务签名/刷新）
+        // 独立 OkHttp，不参与业务签名/刷新
         val oauthClient = PixivOAuthClient(
             config = config,
             logHttp = debug,
             verifierStore = verifierStore,
         )
 
-        // 2. Token 刷新器（委托库的 refreshTokenSuspend）
         val refresher = AuthRefresher(
             oauthClient = oauthClient,
             session = session,
             onInvalidRefreshToken = onInvalidRefreshToken,
         )
 
-        // 3. App API（签名头 + token 自动刷新）
         val appOkHttp = baseClient()
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .addInterceptor(HeaderInterceptor(session))
@@ -58,16 +48,14 @@ object PixivClient {
             .apply { if (debug) addLogging() }
             .build()
 
-        // 4. Web API（Cookie 鉴权）
         val webOkHttp = baseClient()
             .protocols(listOf(Protocol.HTTP_1_1))
             .addInterceptor(WebHeaderInterceptor(session::cookie))
             .apply { if (debug) addLogging() }
             .build()
 
-        // 5. 图片专用 client（i.pximg.net 需 Referer）。
-        // Dispatcher 单主机并发默认 5：详情页主图与相关作品缩略图同队排队，
-        // 弱网下队首停滞会阻塞后续请求（转圈），放宽到 8 缓解
+        // Dispatcher 默认单主机 5 并发：详情页主图与相关作品缩略图同队排队，弱网下队首停滞
+        // 会阻塞后续请求（转圈），放宽到 8 缓解。
         val imageClient = OkHttpClient.Builder()
             .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8 })
             .connectTimeout(PixivConstants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -104,7 +92,6 @@ object PixivClient {
     }
 }
 
-/** 构建结果 */
 data class PixivClientBundle(
     val appApi: AppApi,
     val webApi: PixivWebApi,

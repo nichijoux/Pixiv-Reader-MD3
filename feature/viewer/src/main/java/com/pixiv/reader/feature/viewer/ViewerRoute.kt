@@ -85,10 +85,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.ViewerScrim
 import com.pixiv.reader.core.ui.theme.extendedColors
 
-/**
- * 全屏插画查看器：多 P 翻页 + 捏合缩放 + 页码 + 底部操作。
- * 平板/横屏：图片自适应居中，底部操作条宽度受限。
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ViewerRoute(
@@ -100,12 +96,10 @@ fun ViewerRoute(
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val isGif by viewModel.isGif.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
-    // 收藏状态机：单流收集，派生展示态供下游使用
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
     val isBookmarked = bookmarkState.isOn
     val isOriginal by viewModel.isOriginal.collectAsStateWithLifecycle()
     val orientation by viewModel.viewerOrientation.collectAsStateWithLifecycle()
-    // 收藏编辑器状态（公开/私密 + 标签弹层）
     val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
     val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
     val editorSavedTags by viewModel.bookmarkEditor.savedTags.collectAsStateWithLifecycle()
@@ -125,7 +119,6 @@ fun ViewerRoute(
             if (target > 0) pagerState.scrollToPage(target)
         }
     }
-    // 无缝竖向模式用列表状态（与 pagerState 二选一，按当前方向取用）
     val listState = rememberLazyListState()
     LaunchedEffect(pages.size) {
         if (pages.isNotEmpty()) {
@@ -135,14 +128,12 @@ fun ViewerRoute(
     }
     var anyZoomed by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
-    // 动图导出格式选择弹层（MP4 / ZIP）
     var showGifExportSheet by remember { mutableStateOf(false) }
-    // 设为壁纸确认（直接覆盖系统壁纸，加确认防误触）
     var showWallpaperConfirm by remember { mutableStateOf(false) }
-    // 图库式工具栏显隐：仅单击图片区切换，滑动翻页不影响其显隐
+    // 仅单击图片区切换显隐，滑动翻页不影响
     var barsVisible by remember { mutableStateOf(true) }
     val barsShown = barsVisible
-    // 当前页：无缝竖向按首可见项，其余按 pager 当前页（页码指示 / 下载 / 壁纸共用）
+    // 无缝竖向取首可见项，其余取 pager 当前页（页码 / 下载 / 壁纸共用）
     val currentIndex = if (orientation == ViewerOrientation.SEAMLESS) {
         listState.firstVisibleItemIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     } else {
@@ -168,7 +159,7 @@ fun ViewerRoute(
             .background(ViewerScrim),
     ) {
         if (isGif) {
-            // 动图同样支持单击切换工具栏（UgoiraPlayer 自身不消费点击）
+            // UgoiraPlayer 自身不消费点击，需外层包一层才能切工具栏
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -188,9 +179,8 @@ fun ViewerRoute(
                 )
             }
         } else {
-            // 页内容（放大 / 预览·原图切换），三种方向共用。
             // 默认 Fit 完整展示（相册标准：黑边只在图片比例 ≠ 屏幕比例时出现），
-            // 缩放手势由 telephoto 处理（捏合放大/缩小、双击切换、放大后平移）
+            // 缩放手势由 telephoto 处理
             val pageContent: @Composable (Int) -> Unit = { index ->
                 val page = pages.getOrNull(index)
                 if (page != null) {
@@ -203,20 +193,17 @@ fun ViewerRoute(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         onZoomChanged = { zoomed -> anyZoomed = zoomed },
-                        // 单击切换工具栏显隐
                         onClick = { barsVisible = !barsVisible },
                     )
                 }
             }
             when (orientation) {
-                // 无缝竖向：按自然宽高比连续堆叠，上下滚动（我的页-浏览设置可切）
                 ViewerOrientation.SEAMLESS -> SeamlessViewer(
                     pages = pages,
                     state = listState,
                     userScrollEnabled = !anyZoomed,
                     content = pageContent,
                 )
-                // 竖向翻页：整页上下滑动切换
                 ViewerOrientation.VERTICAL -> VerticalPager(
                     state = pagerState,
                     userScrollEnabled = !anyZoomed,
@@ -224,7 +211,6 @@ fun ViewerRoute(
                     beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize(),
                 ) { index -> pageContent(index) }
-                // 横向翻页（默认）
                 ViewerOrientation.HORIZONTAL -> HorizontalPager(
                     state = pagerState,
                     userScrollEnabled = !anyZoomed,
@@ -235,7 +221,6 @@ fun ViewerRoute(
             }
         }
 
-        // 顶部栏（图库式：单击图片区切换显隐，翻页手势中强制隐藏）
         AnimatedVisibility(
             visible = barsShown,
             enter = slideInVertically { -it } + fadeIn(),
@@ -268,7 +253,6 @@ fun ViewerRoute(
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                 )
-                // 更多菜单：收藏 / 下载 / 举报
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(
@@ -325,7 +309,6 @@ fun ViewerRoute(
             }
         }
 
-        // 页码指示（随工具栏一同显隐）
         AnimatedVisibility(
             visible = barsShown,
             enter = fadeIn(),
@@ -352,7 +335,6 @@ fun ViewerRoute(
             }
         }
 
-        // 底部操作条：收藏 / 下载 / 壁纸 / 原图（随工具栏一同显隐）
         AnimatedVisibility(
             visible = barsShown,
             enter = slideInVertically { it } + fadeIn(),
@@ -386,7 +368,6 @@ fun ViewerRoute(
         )
     }
 
-    // 收藏编辑弹层：公开/私密 + 标签多选，保存走 viewModel.saveBookmarkEditor
     BookmarkEditSheet(
         visible = editorOpen,
         restrict = editorRestrict,
@@ -401,7 +382,6 @@ fun ViewerRoute(
         onConfirm = viewModel::saveBookmarkEditor,
     )
 
-    // 设为壁纸确认：提示将覆盖系统壁纸，确认后才真正执行（防误触）
     if (showWallpaperConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.viewer_wallpaper_confirm_title),
@@ -416,7 +396,6 @@ fun ViewerRoute(
         )
     }
 
-    // 动图导出格式选择：MP4 视频（通用播放）/ ZIP 帧包（原始帧 + 延时表）
     if (showGifExportSheet) {
         ModalBottomSheet(onDismissRequest = { showGifExportSheet = false }) {
             GifExportOption(
@@ -435,13 +414,11 @@ fun ViewerRoute(
                 showGifExportSheet = false
                 viewModel.downloadGif(UgoiraExportFormat.ZIP)
             }
-            // 底部安全间距
             Spacer(modifier = Modifier.navigationBarsPadding())
         }
     }
 }
 
-/** 动图导出选项行（图标 + 标题 + 说明，整行点击选择）。 */
 @Composable
 private fun GifExportOption(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -469,18 +446,13 @@ private fun GifExportOption(
     }
 }
 
-// ── 无缝竖向滚动（webtoon 连续堆叠） ───────────────────────────────────────────
-
-/** 无缝模式宽高缺失时兜底 3:4 竖图比例（loadRealSizes 补齐前/失败时） */
+/** loadRealSizes 补齐前或失败时的兜底宽高比 3:4 */
 private const val FALLBACK_ASPECT_RATIO = 0.75f
 
 /**
- * 无缝竖向模式：每 P 按真实宽高比撑满屏宽连续堆叠（无间距），
- * 单指上下连续滚动；缩放时由 [LazyColumn.userScrollEnabled] 锁定滚动（与翻页模式一致）。
- *
- * 单图特例：整屏作为缩放画布（`fillParentMaxSize`，与翻页模式同语义的 Fit 居中）——
- * telephoto 的缩放平移被约束在自身布局边界内，若按宽高比裁框，放大后平移会被框限制；
- * 整屏边界下放大体验与横向/竖向翻页一致。
+ * 无缝竖向：每 P 按真实宽高比连续堆叠，缩放时锁滚动（与翻页模式一致）。
+ * 单图特例必须整屏作缩放画布（fillParentMaxSize）：telephoto 的平移被约束在自身边界内，
+ * 若按宽高比裁框，放大后平移会被框限制。
  */
 @Composable
 private fun SeamlessViewer(
@@ -496,7 +468,6 @@ private fun SeamlessViewer(
     ) {
         itemsIndexed(pages) { index, page ->
             if (pages.size == 1) {
-                // 单图：整屏边界，图片 Fit 居中（黑边语义与翻页模式一致）
                 Box(modifier = Modifier.fillParentMaxSize()) {
                     content(index)
                 }
@@ -518,22 +489,6 @@ private fun SeamlessViewer(
     }
 }
 
-// ── 底部操作条（Material 3 Expressive 浮动工具栏） ────────────────────────────
-
-/**
- * 底部操作条：Expressive 胶囊形 [HorizontalFloatingToolbar] 承载收藏 / 下载 / 壁纸 / 原图
- * 四个操作，浮在底部渐变遮罩上；GIF 场景禁用壁纸与原图。
- *
- * @param modifier 外部传入的 Modifier
- * @param isBookmarked 当前作品是否已收藏
- * @param isGif 是否为动图（动图不支持壁纸/原图切换）
- * @param isOriginal 是否处于原图浏览模式
- * @param onBookmark 收藏/取消收藏回调
- * @param onDownload 下载原图回调
- * @param onWallpaper 设为壁纸回调
- * @param onOriginal 切换原图/预览模式回调
- * @return 无返回值
- */
 @Composable
 private fun ViewerActionBar(
     modifier: Modifier = Modifier,
@@ -584,7 +539,6 @@ private fun ViewerActionBar(
                     contentDescription = stringResource(R.string.viewer_cd_set_wallpaper),
                 )
             }
-            // 原图切换：选中态用填充圆形按钮表达（Expressive 选中语言）
             FilledIconToggleButton(
                 checked = isOriginal,
                 onCheckedChange = { onOriginal() },

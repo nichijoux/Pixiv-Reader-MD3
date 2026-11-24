@@ -9,27 +9,8 @@ import com.pixiv.reader.feature.novel.state.NovelSeriesViewModel
 import com.pixiv.reader.feature.novel.ui.NovelDetailPane
 import com.pixiv.reader.feature.novel.ui.NovelSeriesPane
 
-/**
- * 平板 Master-Detail 右栏槽位共享件（app 组合根）：
- * 用户页（PixivNavGraph，直连 navController.navigate）与关注页（MainShell，回调链）
- * 注入同一组 pane，本文件只共享「ViewModel 创建 + pane 组装」——
- * 导航出口（阅读器 / 用户主页 / 全屏大图 / 标签搜索）一律由调用方以回调注入。
- */
+// 平板右栏共享槽位：只共享 VM 创建与 pane 组装，导航出口由宿主按各自导航层级注入
 
-/**
- * 小说详情 pane 槽位：组装 [NovelDetailPane]（小说卡点击 → 右栏小说详情）。
- * 详情/评论 ViewModel 由宿主 pane 管线传入；占位文案统一为本文件内的
- * 小说排行右栏占位资源。导出事件由共享 pane 接线，所有宿主复用同一入队逻辑。
- *
- * @param selectedId 当前选中小说 id（null = 未选中，显示占位）
- * @param novelVm 小说详情 ViewModel（宿主传入）
- * @param commentVm 评论 ViewModel（宿主传入，进入评论区时按当前小说 switchTo）
- * @param onOpenSeries 「查看完整系列」回调（宿主分流：pane 内切换系列 pane / 全屏）
- * @param onOpenReader 开始阅读回调（全屏路由）
- * @param onOpenUser 点击作者打开用户主页回调（全屏路由）
- * @param onSearchTag 标签搜索回调（宿主跳发现页）
- * @return 无返回值（UI 渲染）
- */
 @Composable
 internal fun NovelDetailPaneSlot(
     selectedId: Long?,
@@ -47,7 +28,6 @@ internal fun NovelDetailPaneSlot(
         ),
         onOpenReader = onOpenReader,
         onOpenUser = onOpenUser,
-        // 「查看完整系列」由宿主分流（pane 内切换系列 pane / 全屏）
         onOpenSeries = onOpenSeries,
         onSearchTag = onSearchTag,
         commentVm = commentVm,
@@ -55,18 +35,6 @@ internal fun NovelDetailPaneSlot(
     )
 }
 
-/**
- * 小说系列 pane 槽位：组装 [NovelSeriesPane]（小说卡系列标题点击 → 右栏系列详情）。
- * 系列 ViewModel 在本槽位内 hiltViewModel 创建（槽位签名不暴露 feature:novel 类型）。
- *
- * @param selectedId 当前选中系列 id（null = 未选中，显示占位）
- * @param onOpenNovel 分册点击回调（宿主分流：pane 内切换小说详情 / 全屏路由）
- * @param onOpenSeries 分册卡系列标题点击回调（宿主维护返回栈后原地切换系列）
- * @param onOpenUser 点击作者打开用户主页回调
- * @param onOpenCover 打开封面全屏大图回调
- * @param onSearchTag 标签搜索回调（宿主跳发现页）
- * @return 无返回值（UI 渲染）
- */
 @Composable
 internal fun NovelSeriesPaneSlot(
     selectedId: Long?,

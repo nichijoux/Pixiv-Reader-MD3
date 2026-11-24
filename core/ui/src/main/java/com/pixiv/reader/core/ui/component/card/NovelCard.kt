@@ -72,65 +72,9 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.extendedColors
 
-/**
- * 小说卡片数据模型（通用：搜索结果 / 推荐流 / 用户主页 / 收藏夹 / 浏览历史）。
- * 由 API 的 [com.pixiv.api.model.Novel] 映射，或由历史/下载快照恢复。
- *
- * @param id 小说 ID（点击跳转 / 收藏 API 用）
- * @param title 小说标题
- * @param coverUrl 封面 URL（square_medium 优先，其次 medium）
- * @param authorId 作者用户 ID（点击作者行跳用户主页用；0 表示无）
- * @param authorName 作者名称
- * @param authorAvatarUrl 作者头像 URL
- * @param publishDate 发布日期（ISO 字符串，展示时取前 10 位 yyyy-MM-dd）
- * @param seriesTitle 所属系列标题（非系列为 null）
- * @param seriesId 所属系列 ID（非系列/快照缺失为 null；非 null 时系列标题可点击进系列页）
- * @param favoriteCount 收藏数（封面底部角标）
- * @param wordCount 字数（封面底部角标）
- * @param tags 标签展示名列表（FlowRow chip；最多展示 5 个，多余折叠 "+N"）
- * @param isFavorite 是否已收藏（初始化收藏按钮状态）
- */
-/**
- * 小说通用卡片数据。定义已下沉 core:common（历史/下载页 Gson 反序列化共用），
- * 此处 typealias 保持 core:ui 组件与既有引用方 import 不变。
- */
+/** 兼容 core:ui 既有引用方的 typealias，本体已下沉 core:common。 */
 typealias NovelCardData = com.pixiv.reader.core.common.model.NovelCardData
 
-/**
- * 小说通用卡片（Material 主题自适应，上下两部分布局：上方 左封面|右信息，下方 标签）。
- *
- * ## UI 设计方式
- * - **上部分**（Row）：左封面（104dp 宽 + `aspectRatio(3/4)` 书籍比例，圆角 12dp，点击随整卡打开详情）；
- *   底部居中角标（无背景、白色加粗 11sp + 轻文字阴影）：红心 + 收藏数 / 字数两行。
- *   右信息（Column 撑满封面高度，作者行抵底）：
- *   - 标题：`titleMedium` 加粗 `onSurface`（最多 2 行省略）+ 右侧收藏切换按钮
- *   - 系列名（若有）：`labelMedium` **APP 主题色 `primary`**（仅换色，不加粗无前缀），1 行省略
- *   - 弹性占位 + 底部作者行：28dp 头像 + 作者名（`onSurfaceVariant`）+ 时间（`outline` 最浅）同行抵底
- * - **下部分**：标签区 `FlowRow` 圆角 chip（最多 3 个 + "+N" 折叠，无分隔线），点击触发搜索
- * 颜色全部取自 `MaterialTheme`，尺寸用 `aspectRatio`/`typography`/相对布局，不硬编码。
- *
- * ## 交互
- * - [onClick] 整卡（含封面）→ 小说详情
- * - [onOpenAuthor] 作者行 → 用户主页；[onToggleFavorite] 收藏切换（组件维护 UI 态 + 回调外部 API）
- * - [onTagClick] 标签 → 搜索该标签
- *
- * ## hero 过渡
- * 封面容器挂 `heroBoundsModifier(novelCoverKey(id))`（key 与详情 banner 一致），点击时把封面
- * URL 写入 [HeroSeedStore]（比例固定 3:4），详情加载期据此渲染占位衔接 morph。
- *
- * @param novel 卡片数据（见 [NovelCardData]）
- * @param onClick 整卡点击（打开小说详情）
- * @param onOpenAuthor 作者行点击（打开用户主页；快照缺 authorId 时传空 lambda）
- * @param onToggleFavorite 收藏切换回调（参数为目标状态 true=收藏）；组件本地维护 UI 态
- * @param onSeriesClick 系列标题点击（打开系列详情页；seriesId 为 null 时系列标题不可点）
- * @param onTagClick 标签点击（触发标签搜索）
- * @param rank 排名序号（排行榜用，非 null 时封面左上角显示排名徽标：1金/2橙/3灰，其余白色）
- * @param showFavoriteCount 是否显示封面角标的「红心+收藏数」行（默认 true；下载管理等场景传 false，
- *                          仅隐藏收藏数行，字数行保留）
- * @param coverBadge 封面右上角浮层内容（如下载管理页的格式类型胶囊）；null 时不渲染
- * @param coverWidth 封面宽度（默认 104dp，3:4 比例；紧凑场景可传更小值）
- * @param modifier 外部传入的 Modifier
- */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun NovelCard(
@@ -146,7 +90,7 @@ fun NovelCard(
     coverWidth: Dp = 104.dp,
     modifier: Modifier = Modifier,
 ) {
-    // 订阅进程级小说收藏覆盖态（按 ID 去重映射，保证失败回滚和详情页操作同步）。
+    // 按 ID 去重订阅全局收藏覆盖态，避免其他作品变动引发全页重组并同步失败回滚
     val favoriteActions = LocalFavoriteActions.current
     val favoriteOverride by if (favoriteActions != null) {
         remember(favoriteActions, novel.id) {
@@ -160,13 +104,11 @@ fun NovelCard(
     var localFavorite by remember(novel.id, novel.isFavorite) { mutableStateOf(novel.isFavorite) }
     val favorite = favoriteOverride ?: localFavorite
 
-    // 封面角标文字样式：配合底部渐变遮罩确保纯白封面上 ≥4.5:1 对比度
     val badgeStyle = MaterialTheme.typography.labelMedium.copy(
         fontWeight = FontWeight.SemiBold,
         color = Color.White,
     )
 
-    // 就地屏蔽手势：屏蔽态首次点击=临时显示，已临时显示再点击=提示无法打开详情，长按=动作菜单
     val gson = PAYLOAD_GSON
     val block = rememberCardBlockGesture(
         targetType = "novel",
@@ -174,9 +116,7 @@ fun NovelCard(
         title = { novel.title },
         payload = { gson.toJson(novel) },
         onClick = {
-            // hero：点击瞬间快照封面，详情 banner 加载期据此渲染占位并衔接 morph；
-            // 小说封面固定 3:4 书籍比例（与卡片封面一致）。
-            // 平板右栏点击也会写入：pane 侧同样消费该种子作加载期占位（scope 已置空，不参与 morph）
+            // 点击瞬间写入 3:4 封面快照供详情加载期占位衔接 morph
             HeroSeedStore.seed(
                 key = novelCoverKey(novel.id),
                 value = HeroSeed(coverUrl = novel.coverUrl.orEmpty(), aspectRatio = 3f / 4f),
@@ -187,7 +127,7 @@ fun NovelCard(
         serverMuted = novel.serverMuted,
     )
 
-    // 卡片 interactionSource：与整卡手势共享，供 pressScale 收集按压态
+    // 共享 interactionSource：pressScale 须与 combinedClickable 共用 source 才能收到 pressed 态
     val cardInteraction = remember { MutableInteractionSource() }
     Card(
         modifier = modifier
@@ -205,19 +145,13 @@ fun NovelCard(
         shape = AppShapes.large,
     ) {
         Box {
-            // 整卡模糊（屏蔽语义：标题/作者/标签随封面一并打码；点击临时显示由整卡手势处理）
             Column(
                 modifier = Modifier
                     .padding(Spacing.mdPlus)
                     .then(if (block.state.isMasked) Modifier.blur(12.dp) else Modifier),
             ) {
-            // ── 上部分：左右布局（左封面 | 右信息） ──
-            // height(IntrinsicSize.Min)：Row 高度取封面固有高度（104×4/3），
-            // 使右信息 Column 的 fillMaxHeight 有确定高度可撑满，作者行才能抵底与封面齐平。
+            // IntrinsicSize.Min 让 Row 取封面固有高度，右侧 fillMaxHeight 才有确定高度使作者行抵底
             Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                // 左：封面（书籍比例 + 底部居中角标；点击随整卡 onClick 打开小说详情）
-                // hero：共享边界挂在封面容器（含角标与徽标），与详情 banner 同 key 衔接 morph；
-                // 无共享过渡环境时该修饰器无操作（预览 / 非 app 根环境安全）
                 Box(
                     modifier = Modifier
                         .width(coverWidth)
@@ -232,14 +166,11 @@ fun NovelCard(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    // 左上角浮层列：排名徽标 + 已屏蔽角标（临时显示态提示）纵向堆叠——
-                    // 封面仅 104dp 宽，横排放不下两枚徽标，纵列互不重叠也不会被裁剪
+                    // 封面仅 104dp 宽，纵列堆叠排名与已屏蔽角标防横向重叠裁剪
                     Column(
                         modifier = Modifier.align(Alignment.TopStart),
                         verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                     ) {
-                        // 排名徽标（排行榜用）：1金/2橙/3灰，其余白色；
-                        // 前三名底形用 Expressive 有机多边形，其余名次小圆角矩形
                         if (rank != null) {
                             Box(
                                 modifier = Modifier
@@ -257,14 +188,12 @@ fun NovelCard(
                                 )
                             }
                         }
-                        // 已屏蔽角标：临时显示态持续提示（卡片仍被屏蔽，点击不会打开详情）
                         if (block.state.isRevealed) {
                             Box(modifier = Modifier.padding(horizontal = Spacing.xsPlus)) {
                                 BlockedRevealBadge()
                             }
                         }
                     }
-                    // 封面右上角浮层：如下载管理页的格式类型胶囊（不占行，与左上角 rank 徽标对称）
                     if (coverBadge != null) {
                         Box(
                             modifier = Modifier
@@ -274,7 +203,7 @@ fun NovelCard(
                             coverBadge()
                         }
                     }
-                    // 底部居中角标：底端渐变遮罩 + 高对比收藏红心/收藏数/字数
+                    // 底端渐变遮罩确保纯白封面上白字对比度 ≥4.5:1
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -311,14 +240,12 @@ fun NovelCard(
                     }
                 }
 
-                // 右：信息区（顶部标题/系列，弹性占位后作者+时间抵底）
                 Column(
                     modifier = Modifier
                         .padding(start = Spacing.mdPlus)
                         .weight(1f)
                         .fillMaxHeight(),
                 ) {
-                    // 标题 + 收藏按钮（IconToggleButton 保证 48dp M3 最小触控与 Role.Checkbox 选中态语义）
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = novel.title,
@@ -346,7 +273,6 @@ fun NovelCard(
                             )
                         }
                     }
-                    // 系列信息（APP 主题色 primary，仅换色；seriesId 非空时可点击进系列页）
                     val seriesId = novel.seriesId
                     if (!novel.seriesTitle.isNullOrBlank()) {
                         Row(
@@ -373,9 +299,7 @@ fun NovelCard(
                             )
                         }
                     }
-                    // 弹性占位：把作者+时间推到信息区底部
                     Spacer(Modifier.weight(1f))
-                    // 作者 + 时间（一行抵底：头像 + 作者名 + 右侧时间）
                     Row(
                         modifier = Modifier
                             .clip(AppShapes.small)
@@ -408,7 +332,6 @@ fun NovelCard(
                 }
             }
 
-            // ── 下部分：标签（FlowRow + 折叠 "+N"，无分隔线） ──
             if (novel.tags.isNotEmpty()) {
                 FlowRow(
                     modifier = Modifier.padding(top = Spacing.smPlus),
@@ -419,13 +342,12 @@ fun NovelCard(
                         TagChip(text = "#$tag", onClick = { onTagClick(tag) }, compact = true)
                     }
                     if (novel.tags.size > 5) {
-                        // "+N" 折叠：纯展示不可点
                         TagChip(text = "+${novel.tags.size - 5}", onClick = null, compact = true)
                     }
                 }
             }
             }
-            // 全卡遮罩：持有全部手势（点击=临时显示，长按=动作菜单），屏蔽期间下层标签/作者不可点
+            // 遮罩置于最上层接管手势，屏蔽期间拦截下层标签/作者/收藏点击
             if (block.state.isMasked) {
                 BlockedOverlay(
                     modifier = Modifier.matchParentSize(),
@@ -437,5 +359,5 @@ fun NovelCard(
     }
 }
 
-/** 卡片快照序列化共享实例（Gson 线程安全；避免每卡片组合各建一个）。 */
+// Gson 线程安全，共享单例避免每张卡片组合重复创建
 private val PAYLOAD_GSON = Gson()

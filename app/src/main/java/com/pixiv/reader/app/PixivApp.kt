@@ -14,10 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-/**
- * 应用入口。Hilt 装配网络层 + WorkManager Worker 工厂；
- * 同时作为 Coil 的默认 ImageLoader 工厂（注入 Pixiv 图片专用 OkHttpClient，带 Referer）。
- */
 @HiltAndroidApp
 class PixivApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
@@ -27,19 +23,16 @@ class PixivApp : Application(), Configuration.Provider, ImageLoaderFactory {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
-    /** 卡片本地动作（稍后再看 / 就地屏蔽）：进程单例，App 创建时启动数据流同步。 */
     @Inject
     lateinit var appCardActions: AppCardActions
 
-    /** 进程级下载通知协调器（前台应用内提示 + 系统进度/Android 16 Live Updates + 后台结果通知）。 */
     @Inject
     lateinit var downloadCompletionNotifier: DownloadCompletionNotifier
 
     override fun onCreate() {
         super.onCreate()
-        // 一次性清理旧版「离线下载」缓存目录（离线功能已移除，老数据不再使用）
+        // 清理旧版离线功能残留目录
         runCatching { File(filesDir, "offline").deleteRecursively() }
-        // 进程级作用域（Application 生命周期）：卡片动作数据流与全局下载通知共用
         val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         appCardActions.start(appScope)
         downloadCompletionNotifier.start(appScope)

@@ -82,24 +82,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 
-/** 首页 tab（投稿 / 推荐创作者）。 */
 private enum class FanboxHomeTab(@param:StringRes val labelRes: Int) {
     POSTS(R.string.fanbox_tab_posts),
     CREATORS(R.string.fanbox_tab_creators),
 }
 
 /**
- * FANBOX 首页：胶囊分段 + Pager 双 tab（全 App 统一分段口径，沿 Downloads/History 惯式）——
- * 「投稿」流（触底翻页）与「推荐创作者」（单页，点击进创作者网页）。
- * 会话过期（401）时以「重新登录」引导替代普通错误态；从登录页返回本页时自动重试
- * （cookie 换新后无需手动点重试，仍 401 则继续展示过期引导）。
- * 平板（内容区 ≥704dp）启用 Master-Detail：帖子卡点击右栏滑入详情 pane；手机退化为全屏路由。
- *
- * @param onBack 返回上一页
- * @param onOpenPost 打开帖子详情全屏路由（手机端 / pane 未启用时）
- * @param onOpenWeb 打开 App 内可见 WebView（url, title）
- * @param onOpenImage 打开全屏图片预览（url, title）
- * @param viewModel 页面状态
+ * 平板（内容区 ≥704dp）启用 Master-Detail：帖子卡点击右栏滑入详情 pane，手机退化为全屏路由。
+ * 会话过期（401）时以「重新登录」引导代替普通错误态，从登录页返回本页自动重试。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,9 +118,8 @@ fun FanboxHomeRoute(
     val notificationHost = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHost)
 
-    // 从登录页（或其他网页）返回时自动重试：过期态在 401 时置位、登录换新 cookie 后
-    // 服务端已有效，但无返回通知路径——借本页 ON_RESUME 触发刷新；首次进入时
-    // 过期态为 false，与 init 的加载不重复
+    // 过期态在 401 时置位；登录换新 cookie 后无回调通知路径，只能借本页 ON_RESUME 重试
+    // （首次进入过期态为 false，与 init 的加载不重复）
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -211,15 +200,6 @@ fun FanboxHomeRoute(
     }
 }
 
-/**
- * 平板详情 pane：selectedId 为空显示占位，非空加载并渲染帖子详情。
- * 内容复用 [FanboxPostContent]（全屏路由同款内容块）；WebView / 图片全屏经回调上抛宿主路由。
- *
- * @param selectedPostId 当前选中的帖子 id（null 显示占位）
- * @param onOpenWeb 打开 App 内可见 WebView（url, title）
- * @param onOpenImage 打开全屏图片预览（url, title）
- * @param viewModel 帖子详情 VM（宿主提供的 backstack entry 作用域实例）
- */
 @Composable
 private fun FanboxPostPane(
     selectedPostId: String?,
@@ -243,7 +223,6 @@ private fun FanboxPostPane(
     val commentsState by viewModel.comments.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    /** 链接统一路由：fanbox.cc → 可见 WebView；站外 → 系统浏览器（共享实现见 [openFanboxLink]）。 */
     fun openLink(url: String) = openFanboxLink(context, url, postState.post?.title.orEmpty(), onOpenWeb)
 
     FanboxPostContent(
@@ -340,15 +319,6 @@ private fun SessionExpiredBox(onLoginAgain: () -> Unit, onRetry: () -> Unit) {
     }
 }
 
-/**
- * 投稿卡（M3 Expressive）：封面 + 标题 + 创作者行 + 摘要/标签 + 徽标与计数元信息行。
- * 摘要、标签、预览等可选内容为空时收起，不留空位。
- *
- * @param post 投稿数据
- * @param onClick 卡片点击（打开投稿详情）
- * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
- * @return 无返回值
- */
 @Composable
 private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val fallbackTitle = stringResource(R.string.fanbox_post_title)
@@ -367,7 +337,6 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modi
                 )
             }
             Column(modifier = Modifier.padding(Spacing.md)) {
-                // 标题
                 Text(
                     text = post.title.orEmpty().ifEmpty { fallbackTitle },
                     style = MaterialTheme.typography.titleMedium,
@@ -375,7 +344,6 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modi
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                // 创作者行：头像 + 名字 + 时间
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(top = Spacing.xs),
@@ -398,7 +366,7 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modi
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                // 摘要（列表接口常为空串，空则不占位）
+                // 列表接口常为空串，空则不占位
                 val excerpt = post.excerpt.orEmpty()
                 if (excerpt.isNotBlank()) {
                     Text(
@@ -410,7 +378,7 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modi
                         modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
-                // 标签：文本式 #tag（列表密度优先，不上 chip）
+                // 列表密度优先，不上 chip
                 val tags = post.tags.orEmpty().filter { it.isNotEmpty() }
                 if (tags.isNotEmpty()) {
                     Text(
@@ -422,7 +390,6 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modi
                         modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
-                // 元信息行：费用/受限/R-18 徽标 + 点赞/评论计数
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(top = Spacing.sm),
@@ -477,9 +444,6 @@ private fun FanboxPostCard(post: FanboxPost, onClick: () -> Unit, modifier: Modi
     }
 }
 
-/**
- * 推荐创作者页：三态 + 创作者行（点击进创作者网页）。
- */
 @Composable
 private fun CreatorsPage(
     state: FanboxCreatorsState,
@@ -517,15 +481,6 @@ private fun CreatorsPage(
     }
 }
 
-/**
- * 创作者卡（M3 Expressive）：头像 + 名字 + 支持/关注关系徽标 + 分类 + 简介 +
- * 主页展示图预览排（常不足 4 张，缺的格子收起）。
- *
- * @param creator 创作者数据
- * @param onClick 卡片点击（打开创作者主页）
- * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
- * @return 无返回值
- */
 @Composable
 private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
@@ -572,7 +527,7 @@ private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit, modif
                             )
                         }
                     }
-                    // 分类（服务端常给 null，可空展示）
+                    // 服务端常给 null，可空展示
                     val category = creator.category.orEmpty()
                     if (category.isNotBlank()) {
                         Text(
@@ -601,7 +556,6 @@ private fun FanboxCreatorCard(creator: FanboxCreator, onClick: () -> Unit, modif
                     modifier = Modifier.padding(top = Spacing.xs),
                 )
             }
-            // 主页展示图预览排（缩略图优先；最多 4 张）
             val previews = creator.profileItems.orEmpty().take(4)
             if (previews.isNotEmpty()) {
                 Row(

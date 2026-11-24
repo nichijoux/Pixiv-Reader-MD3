@@ -48,63 +48,20 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
-/** 漫画/插画排行榜瀑布流最小列宽：[RankingList] 与 [RankingIllustSkeleton] 必须同值，保证骨架列数与真实列表一致。 */
+/** 漫画/插画排行榜瀑布流最小列宽：必须与 [RankingIllustSkeleton] 同值，否则骨架列数与真实列表不一致。 */
 val RANKING_GRID_MIN_COLUMN_WIDTH = 200.dp
 
-/** 段选择行居中阈值：段数 ≤ 此值用 PrimaryTabRow 均分占满（页签居中），超过改用可滑动页签。 */
 private const val CENTERED_TAB_MAX = 4
 
 /**
- * 通用排行榜容器（数据驱动，供漫画/插画/小说排行榜复用）。
+ * 通用排行榜容器（漫画/插画/小说复用）。
  *
- * ## 交互
- * 顶部段选择行按段数自适应（≤[CENTERED_TAB_MAX] 段 `PrimaryTabRow` 均分占满、页签居中；
- * 更多段 `PrimaryScrollableTabRow` 内容宽度可滑动）+ `HorizontalPager` 左右滑动切换；
- * 点 Tab `animateScrollToPage` 平滑滑动，滑动切页后回调 [onModeSelect]（触发调用方加载该段）。
+ * 每页只 collect **自己 mode** 的 [PagedState]（实例由调用方 ViewModel 缓存、数据驻留 VM）：已加载段滑动切回
+ * 直接显示、不重复请求；[AnimatedContent] 的 targetState 用**该页自身内容状态**，首次数据到位纯淡入，切回已就绪页
+ * 不重播过渡。
  *
- * ## 每段独立分页（消除滑动突兀与状态错配）
- * 各 mode 由调用方提供**独立**的 [PagedState]（[stateFor] 按 mode 值取，实例在 ViewModel 层
- * 缓存、数据驻留 VM，滑动切回/旋转不丢）；HorizontalPager 每页只 collect **自己 mode** 的
- * PagedState——已加载过的段滑动即时显示自己的榜单，未加载段显示加载占位，滑到位加载完成后
- * 以 [AnimatedContent] 淡入，避免"邻页复用当前内容造成滑动闪换"。
- *
- * [AnimatedContent] 的 targetState 使用**该页自身的内容状态**（加载/错误/空/内容）：首次数据到位
- * （加载→内容）**纯淡入**（骨架占位淡出 + 内容淡入，无位移跳动）；之后滑动离开再切回
- * **已就绪页状态不变 → 不重播过渡**（直接静态显示该页数据），避免"每次切回已有列整页
- * 从下方上滑跳一下"。
- *
- * 加载态用**骨架占位**（调用方经 [skeleton] 传入与真实条目布局一致的骨架，如漫画/插画榜用
- * `RankingIllustSkeleton`、小说榜用 `NovelFeedSkeleton`），错误/空复用 `core:ui` StatusViews；
- * 错误与触底加载均作用于**该页自己的** PagedState；
- * [PagedState.hasMore] 为 true 时列表尾部自动触发 [onLoadMore]。
- *
- * @param T 榜单条目类型（漫画/插画为 `Illust`，小说为 `Novel`，行渲染由 [itemContent] 决定）
- * @param modes 分段配置（label 资源 + mode 值）
- * @param onModeSelect 滑动/点 Tab 切到某 mode 时回调（调用方在此按需加载该段）
- * @param stateFor 按 mode 值返回该段独立的 [PagedState]（每次需返回同一实例，如 `pages.getOrPut`）
- * @param onRetry 某段加载失败重试（参数为该段 mode 值）
- * @param onLoadMore 某段触底加载下一页（参数为该段 mode 值）
- * @param modifier 排行容器的布局修饰器
- * @param emptyText 空态文案（调用方传入本地化文案）
- * @param filter 条目过滤谓词（null = 不过滤）。命中项保留其在原始榜单中的**真实名次**（过滤只隐藏
- *               不匹配项，不重排）；过滤后本页无匹配但榜单还有下一页时自动续载，直到出现匹配或耗尽
- * @param filterKey 过滤结果的缓存键（配合 [filter] 的 `remember` 使用）：[filter] 的过滤行为
- *                  发生变化时调用方**必须**传入不同的值（如过滤开关的 Boolean / 枚举 / 常量字符串），
- *                  否则会沿用旧过滤结果；[filter] 为 null 或行为固定时可保持默认 null
- * @param filteredEmptyText 过滤后无任何命中且榜单耗尽时的空态文案（null 时回落 [emptyText]）
- * @param skeleton 加载骨架占位（调用方应传入与 itemContent 布局一致的骨架；默认空占位，需调用方指定，
- *                 如漫画/插画榜 `RankingIllustSkeleton`、小说榜 `NovelFeedSkeleton`）
- * @param gridMinColumnWidth 条目瀑布流自适应列宽（dp）。null = 单列列表（小说等大卡）；
- *                           非 null 时条目按 `StaggeredGridCells.Adaptive` 瀑布流分列
- *                           （宽屏 2-3 列，pane 让位/小屏自动减少列数；卡片宽高比各异，
- *                           各列独立流动不按行对齐），排名顺序不变、尾部加载项横跨整行
- * @param stateKey 段状态键（如当前日期筛选）：变更时各页经 [stateFor] 取到新维度的 [PagedState]
- *                 实例（页级 remember 键含 stateKey），并重新触发当前段 [onModeSelect] 加载；
- *                 默认空串 = 无额外维度（Tab 选中位不受影响，各段旧数据仍在 VM 缓存）
- * @param listHeader 列表头（渲染在 TabRow 上方、限宽内容块内，如日期筛选 chip 行）；null = 无。
- *                   平板 pane 让位时随列表整体移动，与 TabRow/列表左缘对齐
- * @param itemContent 条目渲染（参数为 条目 + 排名序号，从 1 开始）；漫画/插画可用 `IllustCard(rank = …)`
- * @return 无返回值
+ * [filter] 只隐藏不匹配项，名次仍取原列表位置；[filter] 的过滤行为变化时调用方**必须**传不同的 [filterKey]，
+ * 否则会沿用旧过滤结果。[stateKey]（如日期筛选）变更时各页按新维度取新 [PagedState] 并重新触发加载。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,14 +97,9 @@ fun <T> RankingList(
         activatedModes[mode] = true
     }
 
-    // 平板限宽居中：段选择行 + 列表整体经 AdaptiveContentBox 不超过 MAX_CONTENT_WIDTH_DP（手机自然占满）
     AdaptiveContentBox(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // 列表头（如日期筛选 chip 行）：位于 TabRow 上方、限宽内容块内，随 pane 让位整体移动
             listHeader?.invoke()
-            // 段选择按段数自适应：段少（≤4，如发现页 AI/年代/壁纸榜）用 PrimaryTabRow 均分
-            // 占满整行（页签视觉居中，不出现左侧拥挤）；段多（主榜单 5-7 段）用
-            // PrimaryScrollableTabRow（内容宽度可横向滑动）
             if (modes.size <= CENTERED_TAB_MAX) {
                 PrimaryTabRow(
                     selectedTabIndex = pagerState.currentPage.coerceIn(0, (modes.size - 1).coerceAtLeast(0)),
@@ -184,8 +136,7 @@ fun <T> RankingList(
                 if (mode == null) {
                     LoadingBox()
                 } else {
-                    // 该页独立的 PagedState（实例由 ViewModel 缓存，数据驻留 VM；
-                    // stateKey（日期维度）变更时按新复合键取到新实例并重新加载）
+                    // 该页独立的 PagedState；stateKey 变更时按新复合键取到新实例并重新加载
                     val paged = remember(mode.value, stateKey) { stateFor(mode.value) }
                     val items by paged.items.collectAsStateWithLifecycle()
                     val isLoading by paged.isLoading.collectAsStateWithLifecycle()
@@ -199,21 +150,15 @@ fun <T> RankingList(
                         hasItems = items.isNotEmpty() || canContinue,
                         hasError = error != null,
                     )
-                    // 状态切换淡入淡出：Expressive effects 弹簧（transitionSpec 非组合上下文，
-                    // 规格在组合期先取好再闭包捕获）
+                    // transitionSpec 非组合上下文：规格须在组合期取好再闭包捕获
                     val rankFade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
                     AnimatedContent(
-                        // 用"该页自身内容状态"：已就绪页切回时状态不变 → 不重播过渡；
-                        // 首次数据到位（Loading→Content）只淡入（骨架占位淡出 + 内容淡入），无跳动位移
                         targetState = contentState,
                         transitionSpec = {
                             fadeIn(animationSpec = rankFade)
                                 .togetherWith(fadeOut(animationSpec = rankFade))
                         },
                         label = "rankPage",
-                        // Compose 1.7 AnimatedContent 内部 SharedTransitionScope 要求 content 应用传入
-                        // 的 modifier，否则 lookahead pass 拿不到根坐标 → 冷启动布局崩
-                        // "Uninitialized LayoutCoordinates"（首次运行正常、二次打开必现）
                     ) { state ->
                         when (state) {
                             FeedPhase.CONTENT -> RankingPage(
@@ -249,26 +194,7 @@ fun <T> RankingList(
 }
 
 /**
- * 排行榜单页内容：按 [feedPhase] 渲染加载骨架 / 错误 / 空态 / 榜单本身。
- * 网格模式（[gridMinColumnWidth] 非 null）走瀑布流，否则单列大卡列表；两者条目均挂
- * `animateItem`：首次进榜淡入、翻页追加与过滤切换时位置平滑重排。
- *
- * @param modeValue 当前段标识（重试/加载更多回调回传，用于按段分派）
- * @param items 该段当前已加载的全部条目（含被过滤隐藏项，名次取其在原列表中的位置）
- * @param isLoading 首屏加载中
- * @param isLoadingMore 触底加载更多中
- * @param hasMore 是否还有下一页（true 时尾部渲染加载项）
- * @param error 首屏或翻页错误信息（null=无错误）
- * @param onRetry 失败重试回调（参数为段标识）
- * @param onLoadMore 触底加载更多回调（参数为段标识）
- * @param emptyText 榜单为空时的文案
- * @param filter 条目过滤谓词（null=不过滤；只隐藏不改名次）
- * @param filterKey 过滤条件标识（参与 [remember] 键，变化时重算可见集）
- * @param filteredEmptyText 过滤后无匹配且已无下一页时的文案（null 回落 [emptyText]）
- * @param gridMinColumnWidth 瀑布流最小列宽（null=单列列表）
- * @param itemContent 单条目内容渲染（参数：条目 + 真实名次，名次从 1 开始）
- * @param modifier 外部传入的 Modifier
- * @return 无返回值
+ * [items] 含被过滤隐藏项，名次取其在原列表中的位置；条目挂 `animateItem` 实现进榜淡入与重排平滑。
  */
 @Composable
 private fun <T> RankingPage(
@@ -300,17 +226,14 @@ private fun <T> RankingPage(
         )
         FeedPhase.EMPTY -> EmptyBox(emptyText, modifier)
         FeedPhase.CONTENT -> {
-            // 保留真实排名：rank 取该项在原始 items 中的位置 + 1（即榜单真实名次）。
-            // 过滤只隐藏不匹配项，不改变其余项排名——封面左上角显示的是其在榜单中的真实名次。
-            // 过滤结果随 (items, filterKey) 记忆：避免每次重组全量重算（filter 谓词本身不稳定）
+            // 名次取该项在原始 items 中的位置 + 1（过滤只隐藏不匹配项，不重排）。
+            // 结果随 (items, filterKey) 记忆：filter 谓词本身不稳定，避免每次重组全量重算
             val visibleIndexed = remember(items, filterKey) {
                 items.withIndex().filter { (_, item) ->
                     filter == null || filter(item)
                 }.toList()
             }
             if (visibleIndexed.isNotEmpty()) {
-                // 网格模式（gridMinColumnWidth 非 null，漫画/插画榜）：瀑布流自适应分列 2-3 列
-                // （卡片宽高比各异，各列独立流动不按行对齐）；否则单列列表（小说榜大卡）
                 if (gridMinColumnWidth != null) {
                     LazyVerticalStaggeredGrid(
                         columns = StaggeredGridCells.Adaptive(gridMinColumnWidth),
@@ -334,7 +257,6 @@ private fun <T> RankingPage(
                             }
                         }
                         if (canContinue) {
-                            // 尾部加载项横跨整行（不占用条目列）
                             item(key = "load_more", span = StaggeredGridItemSpan.FullLine) {
                                 LoadMoreItem(
                                     isLoadingMore = isLoadingMore,
@@ -350,9 +272,7 @@ private fun <T> RankingPage(
                         modifier = modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.xs, bottom = Spacing.xl),
                     ) {
-                        // key 用原始榜单索引：过滤只隐藏不改序、分页只追加，列表内稳定唯一
                         itemsIndexed(visibleIndexed, key = { _, indexed -> indexed.index }) { _, (index, item) ->
-                            // 进场淡入 + 重排位移：包在 slot 外层，调用方 itemContent 零改动
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -377,7 +297,7 @@ private fun <T> RankingPage(
                     }
                 }
             } else if (canContinue) {
-                // 没有可见项时启用受上限保护的自动续页入口，跳过连续被过滤的空页。
+                // 受上限保护的自动续页入口：跳过连续被过滤的空页
                 LazyColumn(
                     modifier = modifier.fillMaxSize(),
                 ) {

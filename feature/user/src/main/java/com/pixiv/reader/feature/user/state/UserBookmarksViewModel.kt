@@ -10,9 +10,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 
-/**
- * 用户公开收藏页 ViewModel：拉取指定用户公开收藏的插画（`/v1/user/bookmarks/illust` restrict=public）。
- */
 @HiltViewModel
 class UserBookmarksViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,

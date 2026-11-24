@@ -56,19 +56,8 @@ internal fun novelScopeKey(seriesId: Long?, chapterIds: List<Long>?): String = w
 
 
 /**
- * 小说导出引擎：把小说（单本或整个系列）导出为 TXT / EPUB / PDF / MARKDOWN / DOCX 文件。
- * - TXT：纯文本，正文插图位置跳过（[pixivimage]/[uploadedimage] 标记不输出）
- * - EPUB：EPUB3 标准 zip 容器，正文内嵌图片（下载失败则跳过该图）
- * - PDF：pdfbox-android 排版，中日文依赖系统字体
- * - MARKDOWN / DOCX：文本 / OOXML 容器
- *
- * 输出目录：默认 Android 10+ 写公共 `Download/PixivReader/`（MediaStore，用户可在文件管理器直接看到），
- * Android 8-9 回退应用私有 `filesDir/Downloads/novels/`（后台 Worker 无法申请存储权限）；
- * 用户可在「我的-下载位置」通过 SAF 指定任意目录（如系统 Download），配置非空时优先。
- * 断点缓存始终留在私有目录（不可见，导出成功后清理）。
- *
- * 各格式字节生成见 [buildTxt] / [buildMarkdown] / [buildDocx] / [buildEpub]（纯函数可测）；
- * 文件级编排、缓存、下载索引写入、SAF 写入与 PDF 渲染在本类。
+ * 导出目录优先用户 SAF，其次 Android 10+ 走 MediaStore 写 `Download/PixivReader/`，
+ * Android 8-9 因后台 Worker 无法申请存储权限回退私有目录；断点缓存始终在 `filesDir/Downloads/novels/.export_*`，成功后清理。
  */
 @Singleton
 class NovelExporter @Inject constructor(
@@ -81,14 +70,7 @@ class NovelExporter @Inject constructor(
     private val exportDir: File
         get() = File(context.filesDir, "Downloads/novels").apply { mkdirs() }
 
-    /**
-     * 返回章节断点缓存子目录（按小说 ID、格式及导出作用域隔离，避免单本与系列导出互相污染）。
-     *
-     * @param novelId 起始小说 ID
-     * @param format 导出格式
-     * @param scopeKey 导出作用域（""=单本 / "series"=整系列 / "partial"=部分分册）
-     * @return 对应的临时缓存目录
-     */
+    /** 断点缓存目录 `filesDir/Downloads/novels/.export_*`，按小说 ID、格式与 scopeKey 隔离防互相污染。 */
     private fun cacheDir(novelId: Long, format: NovelExportFormat, scopeKey: String): File {
         val scopePart = scopeKey.ifEmpty { "single" }
         return File(
@@ -98,16 +80,8 @@ class NovelExporter @Inject constructor(
     }
 
     /**
-     * 断点续传导出：单本或整个系列导出为指定格式文件。
-     *
-     * 每章下载成功后缓存到临时目录（[cacheDir]）；中断重跑（WorkManager 自动重试 /
-     * 下载管理页手动重试）时已缓存章节直接读盘，只补缺失章节，实现断点重下。
-     *
-     * @param novelId 小说 ID（同时是下载索引 targetId）
-     * @param format 导出格式
-     * @param seriesId 所属系列 ID；>0 时导出整个系列，否则单本
-     * @param chapterIds 系列部分分册 ID；非空且 seriesId>0 时只导出选中的分册（合并为一个文件）
-     * @return 导出的本地路径（应用内文件路径 或 content:// uri）
+     * 断点续传导出单本/整系列（`seriesId > 0`）/部分分册（`chapterIds` 非空时合并为单文件），
+     * 返回本地路径或 `content://` URI；已缓存章节重跑时直接读盘跳过下载。
      */
     suspend fun exportResumable(
         novelId: Long,
@@ -134,8 +108,6 @@ class NovelExporter @Inject constructor(
                 "章节加载完成 count=${chapters.size} 首章id=${chapters.firstOrNull()?.first?.id}"
             )
             if (chapters.isEmpty()) error(context.getString(R.string.novel_export_no_chapters))
-            // 导出前统一格式化（对齐 format_novel）：合并硬换行、卷/章重排、简繁转换（OpenCC）、标点规范化；
-            // 四种格式（TXT/EPUB/DOCX/Markdown，PDF 复用 TXT）自动全部生效。
             val formatted = formatChapters(chapters, simplifyConverter())
             val localPath = when (format) {
                 NovelExportFormat.TXT -> buildTxtFile(
@@ -184,7 +156,6 @@ class NovelExporter @Inject constructor(
                 result.chapterCount,
                 scopeKey,
             )
-            // 导出成功清理临时缓存
             cacheDir(novelId, format, scopeKey).deleteRecursively()
         }.onFailure {
             // 协程取消（用户删除任务 / Worker 停止）不落 failed：保留已缓存章节供下次续传，
@@ -200,7 +171,6 @@ class NovelExporter @Inject constructor(
             .map { it.localPath }
     }
 
-    /** 加载章节（断点）：已缓存章节读盘，缺失章节网络下载并写缓存；按章推进进度。 */
     private suspend fun loadChaptersWithCache(
         novelId: Long,
         format: NovelExportFormat,
@@ -216,7 +186,6 @@ class NovelExporter @Inject constructor(
             val selected = if (chapterIds.isNullOrEmpty()) {
                 novels
             } else {
-                // 部分下载：只保留选中分册（保持系列接口返回顺序），至少一本
                 novels.filter { it.id in chapterIds }.ifEmpty {
                     error(context.getString(R.string.novel_export_no_chapters))
                 }
@@ -237,7 +206,6 @@ class NovelExporter @Inject constructor(
         return chapters to chapters.first().first
     }
 
-    /** 单章加载：`chapter_{index}_{id}.json` 缓存命中直接读盘，否则网络加载并写缓存。 */
     private suspend fun loadChapterCached(
         cache: File,
         chapterId: Long,
@@ -252,20 +220,13 @@ class NovelExporter @Inject constructor(
             Log.w(TAG, "章节缓存损坏，重新下载 index=$index chapterId=$chapterId")
         }
         val loaded = contentLoader.load(chapterId).getOrThrow()
-        // 共享加载器详情可空：导出必须拿到详情元数据，缺失视为失败
         val detail = loaded.first ?: error(context.getString(R.string.novel_not_found))
         runCatching { cacheFile.writeText(encodeChapterCache(detail, loaded.second)) }
         Log.d(TAG, "章节网络加载完成 index=$index chapterId=$chapterId title=${detail.title}")
         return detail to loaded.second
     }
 
-    /**
-     * 将章节元数据与正文文档编码为断点缓存 JSON。
-     *
-     * @param novel 小说详情元数据
-     * @param document 解析后的小说正文文档
-     * @return 缓存 JSON 字符串
-     */
+    /** 断点缓存 JSON 契约：`document` 字段经 [NovelDocumentCodec.encode] 写入，由 [decodeChapterCache] 恢复断点（运行时在用）。 */
     private fun encodeChapterCache(novel: Novel, document: NovelDocument): String {
         val obj = JSONObject()
         obj.put("id", novel.id)
@@ -289,12 +250,7 @@ class NovelExporter @Inject constructor(
         return obj.toString()
     }
 
-    /**
-     * 从断点缓存 JSON 还原章节元数据与正文文档（损坏或缺失正文返回 null）。
-     *
-     * @param json 缓存文件 JSON 文本
-     * @return 还原后的小说元数据与文档对，解析失败返回 null
-     */
+    /** 与 [encodeChapterCache] 配对，经 [NovelDocumentCodec.decode] 恢复断点缓存，损坏返回 null。 */
     private fun decodeChapterCache(json: String): Pair<Novel, NovelDocument>? = runCatching {
         val obj = JSONObject(json)
         val id = obj.optLong("id")
@@ -325,22 +281,8 @@ class NovelExporter @Inject constructor(
     }.getOrNull()
 
     /**
-     * 写入下载完成索引（targetType=novel，localPath=导出文件路径或 content uri）。
-     *
-     * 系列 / 部分分册导出时卡片维度是「系列」而非封面章（首章）：`title` 与 `payloadJson`
-     * 传 null，由 [upsertIndex] 的合并语义保留 existing 值，即入队时 `pendingEntry` 写入的
-     * 系列标题（「系列标题（FORMAT）」）与系列快照；单本导出仍按封面章元数据正常覆盖。
-     * `scopeKey` 必须转发：否则完成态会落到 scopeKey="" 的另一条主键行，与进度写入的系列行
-     * 分裂成两张下载卡（系列卡停 100% + 首章卡显示完成）。
-     *
-     * @param novelId 首章（封面章）小说 ID，与入队索引保持一致
-     * @param format 导出格式
-     * @param seriesId 系列 ID（单本为 null）
-     * @param coverNovel 封面章小说元数据（作者 / 封面 / 字数等快照来源）
-     * @param localPath 导出文件路径或 content uri
-     * @param chapterCount 导出的章节数
-     * @param scopeKey 下载条目作用域（""=单本，"series"=整系列，其余=部分分册）
-     * @return 无返回值
+     * 系列/部分导出卡片维度为系列而非首章，`title`/`payloadJson` 传 null 以保留入队快照不被首章覆盖；
+     * 必须转发 `scopeKey`，否则终态会落到 `scopeKey=""` 另一主键行，导致系列卡与首章卡分裂。
      */
     private suspend fun recordDownload(
         novelId: Long,
@@ -351,7 +293,6 @@ class NovelExporter @Inject constructor(
         chapterCount: Int,
         scopeKey: String = "",
     ) {
-        // 系列 / 部分导出：卡片维度是系列，标题与快照沿用入队已有值不被封面章覆盖
         val seriesScope = scopeKey.isNotEmpty()
         upsertIndex(
             novelId = novelId,
@@ -363,20 +304,17 @@ class NovelExporter @Inject constructor(
             status = DownloadEntryEntity.STATUS_DONE,
             progress = 100,
             chapterCount = chapterCount,
-            // 下载管理卡片元数据快照（作者/字数/收藏/发布/系列标题）
             authorName = coverNovel.user?.name,
             authorAvatarUrl = coverNovel.user?.profile_image_urls?.best(),
             wordCount = coverNovel.text_length ?: 0,
             favoriteCount = coverNovel.total_bookmarks ?: 0,
             publishDate = coverNovel.create_date,
             seriesTitle = coverNovel.series?.title,
-            // 完整卡片快照（与浏览历史同格式，下载管理页完整显示用）；系列维度保留入队快照
             payloadJson = if (seriesScope) null else Gson().toJson(coverNovel.toCardData()),
             scopeKey = scopeKey,
         )
     }
 
-    /** 标记开始下载（downloading 中间态，进度 0）。 */
     private suspend fun markDownloading(
         novelId: Long,
         format: NovelExportFormat,
@@ -390,7 +328,6 @@ class NovelExporter @Inject constructor(
         )
     }
 
-    /** 更新下载进度（第 x/y 章 → 百分比）。 */
     private suspend fun updateProgress(
         novelId: Long,
         format: NovelExportFormat,
@@ -405,7 +342,6 @@ class NovelExporter @Inject constructor(
         )
     }
 
-    /** 标记下载失败（failed 状态，供下载管理页标记/重试）。 */
     private suspend fun markFailed(
         novelId: Long,
         format: NovelExportFormat,
@@ -468,14 +404,11 @@ class NovelExporter @Inject constructor(
         }
     }
 
-    /** 导出结果（本地路径 + 封面小说 + 章节数）。 */
     private data class ExportResult(
         val localPath: String,
         val coverNovel: Novel,
         val chapterCount: Int
     )
-
-    // ── 各格式文件构建（编排：文件名 + 下载内嵌图 + 写入目标） ────────────────
 
     private suspend fun buildTxtFile(
         chapters: List<Pair<Novel, NovelDocument>>,
@@ -507,7 +440,6 @@ class NovelExporter @Inject constructor(
             val coverExt = extForMime(coverMime)
             downloadImage(coverUrl)?.let { images += ExportImage("cover.$coverExt", it, mime = coverMime) }
         }
-        // 正文内嵌图片（按章节/序号与真实扩展名命名；未解析标记或失败图片跳过）
         chapters.forEachIndexed { ci, (_, document) ->
             document.blocks.filterIsInstance<NovelBlock.Image>().forEachIndexed { ii, img ->
                 if (img.url.startsWith("pixivimage:") || img.url.startsWith("uploadedimage:")) return@forEachIndexed
@@ -516,7 +448,6 @@ class NovelExporter @Inject constructor(
                 downloadImage(img.url)?.let { images += ExportImage("img_${ci}_${ii}.$imgExt", it, mime = imgMime) }
             }
         }
-        // 合并样式表（assets/epub/Main.css，样书 Main.css 全文；读取失败则导出无样式文件）
         val css = runCatching {
             context.assets.open("epub/Main.css").bufferedReader().use { it.readText() }
         }.getOrDefault("")
@@ -534,7 +465,6 @@ class NovelExporter @Inject constructor(
     ): String {
         val first = chapters.first().first
         val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.md"
-        // 插图以 data URI 内嵌（下载失败跳过）
         val images = downloadImages(chapters)
         Log.d(TAG, "buildMarkdownFile 开始 fileName=$fileName 内嵌图片=${images.count { it != null }}")
         return writeExportFile(
@@ -551,7 +481,6 @@ class NovelExporter @Inject constructor(
     ): String {
         val first = chapters.first().first
         val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.docx"
-        // 正文插图（按块顺序下载；未解析的 pixivimage/uploadedimage 标记或下载失败跳过）
         val images = downloadImages(chapters)
         Log.d(
             TAG,
@@ -572,7 +501,7 @@ class NovelExporter @Inject constructor(
         val first = chapters.first().first
         val fileName = "${fileNameBase(first, seriesTitle, scopeKey)}.pdf"
         Log.d(TAG, "buildPdfFile 开始 fileName=$fileName 章节数=${chapters.size}")
-        // PDF 排版对齐阅读器设置：字号 / 行距（1.6+增量）/ 段首缩进 / 段距
+        // 行高倍数 = 1.6 基线 + 阅读器增量，对齐阅读器排版
         val layout = PdfLayoutSettings(
             fontSize = userPreferences.readerFontSize.first(),
             lineHeightMultiplier = 1.6f + userPreferences.readerLineSpacing.first(),
@@ -584,7 +513,6 @@ class NovelExporter @Inject constructor(
             "PDF 排版参数 fontSize=${layout.fontSize} 行高倍数=${layout.lineHeightMultiplier} " +
                     "缩进数=${layout.indentCount} 段距em=${layout.paragraphSpacingEm}"
         )
-        // 结构化内容流（文本 + 内嵌插图；文本结构对齐 buildTxt）
         val contents = buildPdfContents(chapters, seriesTitle)
         val pictureCount = contents.count { it is PdfContent.Picture }
         Log.d(TAG, "buildPdfFile 内容块数=${contents.size} 图片块=$pictureCount")
@@ -597,10 +525,7 @@ class NovelExporter @Inject constructor(
         )
     }
 
-    /**
-     * webp 字节转 jpg（BitmapFactory 解码 + JPEG 压缩，质量 90）；
-     * pdfbox 2.x 不支持嵌入 webp（PDF 侧用），转换失败返回 null。
-     */
+    /** pdfbox 2.x 不支持嵌入 WebP，转 JPEG（质量 90）供 PDF 使用。 */
     private fun webpToJpeg(bytes: ByteArray): ByteArray? = runCatching {
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         try {
@@ -612,24 +537,7 @@ class NovelExporter @Inject constructor(
         }
     }.getOrNull()
 
-    /**
-     * 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与下载失败跳过）。
-     *
-     * 返回列表与「全局插图块序」严格一一对应：无法下载/无法解析的位置以 null 占位，
-     * 保证下游按块序取图时不会因某张图缺失而整体错位。
-     *
-     * @param chapters 待导出章节（元数据 + 文档模型）
-     * @return 与全局插图块序等长的图片列表（缺失位置为 null）
-     */
-    /**
-     * 按块顺序下载正文插图（pixivimage:/uploadedimage: 未解析标记与下载失败跳过）。
-     *
-     * 返回列表与「全局插图块序」严格一一对应：无法下载/无法解析的位置以 null 占位，
-     * 保证下游按块序取图时不会因某张图缺失而整体错位。
-     *
-     * @param chapters 待导出章节（元数据 + 文档模型）
-     * @return 与全局插图块序等长的图片列表（缺失位置为 null）
-     */
+    /** 返回列表与全局插图块序严格等长，未解析标记或失败项以 null 占位，防止下游按块序取图整体错位。 */
     private fun downloadImages(
         chapters: List<Pair<Novel, NovelDocument>>,
     ): List<ExportImage?> {
@@ -640,7 +548,6 @@ class NovelExporter @Inject constructor(
             document.blocks.filterIsInstance<NovelBlock.Image>()
                 .forEachIndexed { ii, img ->
                     if (img.url.startsWith("pixivimage:") || img.url.startsWith("uploadedimage:")) {
-                        // 未解析标记：占位跳过，保持后续图与块序对齐
                         images += null
                         return@forEachIndexed
                     }
@@ -672,12 +579,6 @@ class NovelExporter @Inject constructor(
         return images
     }
 
-    /**
-     * 将图片 MIME 类型映射为容器内文件扩展名。
-     *
-     * @param mime 图片 MIME 类型
-     * @return 对应的小写文件扩展名（不含点号）
-     */
     private fun extForMime(mime: String): String = when (mime) {
         "image/png" -> "png"
         "image/webp" -> "webp"
@@ -685,18 +586,6 @@ class NovelExporter @Inject constructor(
         else -> "jpg"
     }
 
-    // ── 导出目标（默认系统 Download / 用户指定 SAF 目录） ─────────────────────
-
-    /**
-     * 写入导出文件并返回本地定位串（content:// uri 或应用内文件路径）。
-     * - 用户配置了 SAF tree uri：写入指定目录（同名文件先删再建，避免重复）
-     * - 未配置：Android 10+ 走 MediaStore 写入公共 Download/PixivReader（用户可在文件管理器直接看到）；
-     *   Android 8-9（MediaStore.Downloads 不可用且公共目录需运行时权限）回退应用私有目录。
-     */
-    /**
-     * 按用户模板渲染导出文件名主体（不含扩展名）。
-     * 单本下载与系列导出各用各的模板（「我的」页分别配置），回退默认亦随范围。
-     */
     private suspend fun fileNameBase(novel: Novel, seriesTitle: String?, scopeKey: String): String {
         val isSingle = scopeKey.isEmpty()
         val template = if (isSingle) {
@@ -731,8 +620,7 @@ class NovelExporter @Inject constructor(
                 )
                 writeToMediaStore(fileName, mime, bytes)
             } else {
-                // Android 8-9：公共目录需 WRITE_EXTERNAL_STORAGE 运行时权限，而导出在后台 Worker
-                // 无法弹权限框，回退应用私有目录（下载管理页仍可打开/系统分享）。
+                // Android 8-9 公共目录需运行时权限，后台 Worker 无法申请，回退私有目录
                 val file = File(exportDir, fileName)
                 file.writeBytes(bytes)
                 Log.d(TAG, "writeExportFile 目标=私有目录 path=${file.path} size=${file.length()}")
@@ -751,7 +639,6 @@ class NovelExporter @Inject constructor(
         return doc.uri.toString()
     }
 
-    /** 通过 MediaStore 写入公共 Download/PixivReader 目录（Android 10+，免存储权限）。 */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun writeToMediaStore(fileName: String, mime: String, bytes: ByteArray): String {
         val resolver = context.contentResolver
@@ -792,12 +679,6 @@ class NovelExporter @Inject constructor(
         NovelExportFormat.DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     }
 
-    // ── PDF 渲染（PdfRenderer 独立类：字体发现/加载/排版） ────────────────
-
-    /**
-     * 生成 PDF 内容元素流（文本结构对齐 buildTxt，插图按块顺序内嵌）。
-     * 未解析的 pixivimage:/uploadedimage: 标记与下载失败/格式不支持（webp 等）的图片跳过。
-     */
     private fun buildPdfContents(
         chapters: List<Pair<Novel, NovelDocument>>,
         seriesTitle: String?,
@@ -806,7 +687,6 @@ class NovelExporter @Inject constructor(
         var imgIdx = 0
         val contents = mutableListOf<PdfContent>()
         val first = chapters.first().first
-        // 头部元数据（对齐 buildTxt；不缩进）
         contents += PdfContent.Text(first.title.orEmpty(), indent = false)
         first.user?.name?.takeIf { it.isNotBlank() }?.let {
             contents += PdfContent.Text("作者：$it", indent = false)
@@ -844,7 +724,7 @@ class NovelExporter @Inject constructor(
                         val img = images.getOrNull(imgIdx)
                         imgIdx++
                         if (img != null) {
-                            // webp → jpg：pdfbox 2.x 无法嵌入 webp，先转码（失败跳过该图）
+                            // pdfbox 2.x 不支持嵌入 WebP，先转 JPEG
                             if (img.mime == "image/webp") {
                                 webpToJpeg(img.bytes)?.let {
                                     contents += PdfContent.Picture(it, "image/jpeg")
@@ -867,7 +747,6 @@ class NovelExporter @Inject constructor(
     }
 
 
-    /** 下载图片字节（带 Referer 的 imageClient；失败返回 null）。 */
     private fun downloadImage(url: String): ByteArray? {
         return runCatching {
             val request = Request.Builder().url(url).build()
@@ -878,17 +757,12 @@ class NovelExporter @Inject constructor(
         }.getOrNull()
     }
 
-    /**
-     * 繁→简转换器（Android-OpenCC）：首次调用会由库内部把字典从 assets 复制到 filesDir；
-     * 转换失败回退原文，保证导出不中断。
-     */
+    /** 首次调用由 OpenCC 自动解压词典到 filesDir；转换失败回退原文避免中断导出。 */
     private fun simplifyConverter(): (String) -> String = { text ->
         runCatching { ChineseConverter.convert(text, ConversionType.T2S, context) }.getOrDefault(
             text
         )
     }
-
-    // ── 系列分页（共享 core:network fetchAllSeriesChapters，游标解析只维护一份） ────
 
     companion object {
         private const val TAG = "NovelExporter"

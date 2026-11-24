@@ -92,19 +92,9 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import java.io.File
 import kotlinx.coroutines.launch
 
-/** 下载快照反序列化共享实例（Gson 线程安全；避免每个列表项组合各建一个实例）。 */
+/** Gson 线程安全但创建有开销，整个模块共享一个实例。 */
 private val PAYLOAD_GSON = Gson()
 
-/**
- * 下载管理：分段控件（作品 / 小说）+ HorizontalPager 滑动切换。
- * 作品（插画/漫画/动图）用 `IllustCard`（宽高完整显示）、小说用 `NovelCard`；每项右上角删除按钮。
- * 小说本地文件点击：txt/epub/md → 解析本地文件本地阅读；pdf/docx → 系统应用打开。
- *
- * @param onBack 返回
- * @param onOpenIllust 打开插画详情
- * @param onOpenNovel 打开小说详情
- * @param onOpenLocalReader 打开本地文件阅读（local_reader）
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsRoute(
@@ -123,7 +113,6 @@ fun DownloadsRoute(
     val showOpenFailed: () -> Unit = {
         scope.launch { notificationHostState.show(openFailedMessage, NotificationType.Error) }
     }
-    // 待删除确认的下载条目（非 null 时弹出确认框）
     var pendingDelete by remember { mutableStateOf<DownloadEntryEntity?>(null) }
 
     Scaffold(
@@ -135,8 +124,7 @@ fun DownloadsRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段（作品 / 小说）+ 滑动切换：SegmentedPager 双向同步
-                // （选中态跟 Pager 落页，点击反向滚页；落页回调 VM 同步筛选）
+                // 选中态跟 Pager 落页，点击反向滚页，落页回调同步 VM 筛选
                 SegmentedPager(
                     tabs = DownloadFilter.entries,
                     onSelect = viewModel::selectFilter,
@@ -157,7 +145,7 @@ fun DownloadsRoute(
                                 entries = entries.filter { it.targetType == "novel" },
                                 context = context,
                                 onOpen = { entry ->
-                                    // 打开方式由导出格式内聚（IN_APP=App 内解析阅读，SYSTEM=系统应用）
+                                    // 打开方式由导出格式内聚：IN_APP 本地解析阅读，SYSTEM 交系统应用
                                     when (ExportFormat.from(entry.format)?.openMethod) {
                                         ExportOpenMethod.IN_APP ->
                                             viewModel.openLocal(
@@ -180,7 +168,6 @@ fun DownloadsRoute(
         }
     }
 
-    // 删除下载确认（删除文件 + 索引，不可撤销）
     pendingDelete?.let { entry ->
         ConfirmDialog(
             title = stringResource(R.string.downloads_delete_title),
@@ -198,9 +185,8 @@ fun DownloadsRoute(
 // ── 插画：IllustCard 瀑布流 ─────────────────────────────────────────────────
 
 /**
- * 插画 / 动图下载瀑布流（[IllustCard]）。
- * 动图（targetType=ugoira）已完成条目点击直接用系统应用打开产物（MP4 播放 / ZIP 解压分享），
- * 未完成 / 插画条目点击进入作品详情。
+ * 动图（targetType=ugoira）已完成条目点击用系统应用打开产物（MP4 播放 / ZIP 解压分享），
+ * 未完成 / 插画条目点击进作品详情。
  */
 @Composable
 private fun IllustDownloadList(
@@ -224,7 +210,6 @@ private fun IllustDownloadList(
         verticalItemSpacing = 8.dp,
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}" }) { entry ->
-            // 进场淡入 + 删除/新增条目时位置平滑重排
             Column(
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
@@ -245,7 +230,7 @@ private fun IllustDownloadList(
                             if (entry.targetType == "ugoira" && entry.status == DownloadEntryEntity.STATUS_DONE) onOpenFile(entry)
                             else onOpenIllust(entry.targetId)
                         },
-                        // 下载中/失败：标题栏显示进度条（failed 停住最后进度 + 红色标记）；待同步不显示进度；done 恢复标题
+                        // failed 停住最后进度并标红；待同步无进度；done 恢复标题
                         download = when (DownloadStatus.from(entry.status)) {
                             DownloadStatus.DOWNLOADING -> DownloadBadge.Running(entry.progress.coerceIn(0, 100) / 100f)
                             DownloadStatus.FAILED -> DownloadBadge.Failed
@@ -263,7 +248,7 @@ private fun IllustDownloadList(
                         onDelete = { onDelete(entry) },
                     )
                 }
-                // 待同步：卡片下方排队提示（断网排队，联网自动开始）
+                // 待同步：断网排队，联网自动开始
                 if (entry.status == DownloadEntryEntity.STATUS_PENDING) {
                     Text(
                         text = stringResource(R.string.downloads_status_pending),
@@ -280,7 +265,7 @@ private fun IllustDownloadList(
     }
 }
 
-// ── 小说 / 离线：NovelCard ───────────────────────────────────────────────────
+// ── 小说：NovelCard ──────────────────────────────────────────────────────────
 
 @Composable
 private fun NovelDownloadList(
@@ -302,7 +287,6 @@ private fun NovelDownloadList(
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
         items(entries, key = { "${it.targetType}_${it.targetId}_${it.format}_${it.scopeKey}" }) { entry ->
-            // 进场淡入 + 删除/新增条目时位置平滑重排
             Column(
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
@@ -331,7 +315,7 @@ private fun NovelDownloadList(
                         onOpenAuthor = {},
                         onToggleFavorite = {},
                         onTagClick = {},
-                        // 下载卡片：隐藏封面角标收藏数（字数保留），封面右上角展示下载类型胶囊
+                        // 下载卡片不展示收藏数（字数保留），封面右上角改挂下载类型胶囊
                         showFavoriteCount = false,
                         coverBadge = { DownloadFormatBadge(entry.format) },
                     )
@@ -346,14 +330,12 @@ private fun NovelDownloadList(
                         onDelete = { onDelete(entry) },
                     )
                 }
-                // 下载中 / 失败状态行（done 不显示）
                 DownloadStatusRow(entry)
             }
         }
     }
 }
 
-/** 下载状态行：downloading 显示进度条 + 百分比；待同步显示排队提示；failed 显示红色失败标记；done 不显示。 */
 @Composable
 private fun DownloadStatusRow(
     entry: DownloadEntryEntity,
@@ -389,7 +371,6 @@ private fun DownloadStatusRow(
     }
 }
 
-/** 右上角圆形删除按钮。 */
 @Composable
 private fun DeleteOverlay(
     modifier: Modifier = Modifier,
@@ -403,7 +384,6 @@ private fun DeleteOverlay(
     )
 }
 
-/** 右上角圆形重试按钮（failed 条目点击重新触发下载，断点续传）。 */
 @Composable
 private fun RetryOverlay(
     modifier: Modifier = Modifier,
@@ -417,16 +397,7 @@ private fun RetryOverlay(
     )
 }
 
-/**
- * 封面角落圆形浮钮（外层 48dp 热区满足 M3 最小触控目标，内层 32dp ImageScrim 视觉圆底）。
- * 按压时 spring 微缩提供 Expressive 触感。
- *
- * @param icon 图标
- * @param contentDescription 无障碍描述
- * @param onClick 点击回调
- * @param modifier 外部传入的 Modifier（定位用）
- * @return 无返回值
- */
+/** 外层 48dp 热区满足 M3 最小触控目标，内层 32dp ImageScrim 视觉圆底。 */
 @Composable
 private fun OverlayCircleButton(
     icon: ImageVector,
@@ -476,7 +447,6 @@ private fun OverlayCircleButton(
 
 // ── 数据转换（见 SnapshotRestore.kt） ────────────────────────────────────────
 
-/** 下载类型胶囊（封面右上角浮层）：图标 + 格式文字，ImageScrim 深底 + 白色内容（浅色封面上可读）。 */
 @Composable
 private fun DownloadFormatBadge(format: String) {
     val info = formatInfo(format) ?: return
@@ -503,7 +473,7 @@ private fun DownloadFormatBadge(format: String) {
     }
 }
 
-/** 导出格式 → 图标 + 文字（与详情页下载弹窗一致）。 */
+/** 格式图标/文案必须与详情页下载弹窗一致。 */
 private data class FormatInfo(
     val icon: ImageVector,
     val labelRes: Int,
@@ -520,13 +490,6 @@ private fun formatInfo(format: String): FormatInfo? = when (ExportFormat.from(fo
     null -> null
 }
 
-/**
- * 通过 ACTION_VIEW 交给系统应用打开导出文件（SAF/MediaStore content uri 直传，私有路径走 FileProvider）。
- *
- * @param context Android 上下文
- * @param entry 下载索引条目
- * @return 成功发起系统应用打开返回 true；文件缺失或无可用应用时返回 false
- */
 private fun openWithSystemApp(context: Context, entry: DownloadEntryEntity): Boolean {
     val path = entry.localPath ?: return false
     // MediaStore uri（content://media/...）不含文件名，mime 用索引 format 字段推断

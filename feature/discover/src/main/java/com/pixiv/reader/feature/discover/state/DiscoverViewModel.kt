@@ -31,20 +31,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/**
- * 发现页（搜索）ViewModel。
- *
- * ## 职责
- * - 搜索联想（300ms 防抖 + 去重，`searchAutocomplete`）
- * - 按类型（插画/小说/用户）+ 全量筛选（[SearchFilters]）+ 模式（最新/热门）执行搜索
- * - 热门搜索缓存（DataStore，24h TTL）、搜索历史（Room）、热门预览（popular-preview）
- * - 搜索结果分页：插画/小说/用户各自 `PagedState`（next_url 游标）
- *
- * ## 状态
- * `query`/`type`/`filters` 为可变 StateFlow（UI 直接改），其余只读 StateFlow。
- *
- * 类型与筛选模型见 [SearchType] / [SearchFilters]（DiscoverModels.kt）。
- */
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val pixivRepository: PixivRepository,
@@ -54,15 +40,13 @@ class DiscoverViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        /** 热门搜索缓存有效期：24 小时。 */
         private const val HOT_TAGS_TTL_MS = 24L * 60 * 60 * 1000
 
-        /** 插画可用的匹配方式（对齐 Pixiv-Shaft：插画不认 text/keyword）。 */
+        // 插画接口不接受 text/keyword，小说接口不接受 title_and_caption，跨类型传参会 400
         private val ILLUST_TARGETS = setOf(
             "partial_match_for_tags", "exact_match_for_tags", "title_and_caption",
         )
 
-        /** 小说可用的匹配方式（对齐 Pixiv-Shaft：小说不认 title_and_caption）。 */
         private val NOVEL_TARGETS = setOf(
             "partial_match_for_tags", "exact_match_for_tags", "text", "keyword",
         )
@@ -72,7 +56,7 @@ class DiscoverViewModel @Inject constructor(
     val type = MutableStateFlow(SearchType.ILLUST)
     val filters = MutableStateFlow(SearchFilters())
 
-    /** 筛选条件是否已从 DataStore 恢复完成（[loadSavedFilters] 末尾置 true；search 在此之前挂起等待，避免默认值竞态）。 */
+    // search() 在此置 true 前挂起，防止异步恢复值覆盖非会员降级写回的 filters.sort，导致深链首屏空白
     private val filtersRestored = MutableStateFlow(false)
 
     private val _hotTags = MutableStateFlow<List<TrendingTag>>(emptyList())
@@ -84,12 +68,10 @@ class DiscoverViewModel @Inject constructor(
     private val _hasSearched = MutableStateFlow(false)
     val hasSearched: StateFlow<Boolean> = _hasSearched.asStateFlow()
 
-    /** 搜索历史（最近 20 条，倒序）。 */
     val searchHistory: StateFlow<List<SearchHistoryEntity>> =
         searchHistoryDao.observeRecent(20)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** 搜索选项：绘制工具 / 题材（来自 /v1/search/options）。 */
     private val _toolOptions = MutableStateFlow<List<String>>(emptyList())
     val toolOptions: StateFlow<List<String>> = _toolOptions.asStateFlow()
 
@@ -99,25 +81,21 @@ class DiscoverViewModel @Inject constructor(
     private val _langOptions = MutableStateFlow<List<SearchLangOption>>(emptyList())
     val langOptions: StateFlow<List<SearchLangOption>> = _langOptions.asStateFlow()
 
-    /** 是否 Premium（决定排序档里的男/女性向人气两档是否可选，对齐 Pixiv-Shaft）。 */
     val isPremium: StateFlow<Boolean> = MutableStateFlow(pixivRepository.pixivApi.session.isPremium)
 
-    /** 热门预览（popular-preview）。 */
     private val _popularIllusts = MutableStateFlow<List<Illust>>(emptyList())
     val popularIllusts: StateFlow<List<Illust>> = _popularIllusts.asStateFlow()
 
     private val _popularNovels = MutableStateFlow<List<Novel>>(emptyList())
     val popularNovels: StateFlow<List<Novel>> = _popularNovels.asStateFlow()
 
-    /** 热门预览插画加载中（请求在途为 true；结果页骨架屏判断用，语义对齐 PagedState.isLoading）。 */
     private val _popularIllustsLoading = MutableStateFlow(false)
     val popularIllustsLoading: StateFlow<Boolean> = _popularIllustsLoading.asStateFlow()
 
-    /** 热门预览小说加载中（请求在途为 true；结果页骨架屏判断用，语义对齐 PagedState.isLoading）。 */
     private val _popularNovelsLoading = MutableStateFlow(false)
     val popularNovelsLoading: StateFlow<Boolean> = _popularNovelsLoading.asStateFlow()
 
-    // 搜索结果跨页重复 ID 会让列表撞 key 崩溃；用户预览无 user 时返回 null（不参与去重，避免捣掉数据）
+    // 跨页重复 ID 会导致列表 key 冲突；用户预览缺失 user 时返回 null 避免误去重
     val illustPaged = PagedState<Illust>(keySelector = { it.id })
     val novelPaged = PagedState<Novel>(keySelector = { it.id })
     val userPaged = PagedState<UserPreview>(keySelector = { it.user?.id })
@@ -127,7 +105,6 @@ class DiscoverViewModel @Inject constructor(
         loadHotTags()
         loadOptions()
         loadSavedFilters()
-        // 新输入立即取消旧联想，再等待防抖间隔。
         viewModelScope.launch {
             query.collectLatest { q ->
                 _suggestions.value = emptyList()
@@ -135,7 +112,7 @@ class DiscoverViewModel @Inject constructor(
 
                 delay(300)
                 val result = runCatching { pixivRepository.api.searchAutocomplete(q) }
-                // 丢弃取消后返回的结果，以及收集器尚未来得及消费的新输入。
+                // runCatching 会吞掉 CancellationException，需显式检查协程存活并校验词未过期
                 currentCoroutineContext().ensureActive()
                 if (query.value == q) {
                     _suggestions.value = result.getOrNull()?.tags.orEmpty().take(8)
@@ -144,33 +121,20 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /** 更新搜索关键词（触发联想防抖）。 */
     fun onQueryChange(value: String) {
         query.value = value
     }
 
-    /**
-     * 清除关键词和搜索结果，回到热门标签与搜索历史。
-     *
-     * @return 无返回值
-     */
     fun clearSearch() {
-        // 先退出结果态，再作废首页和翻页请求。
         query.value = ""
         _hasSearched.value = false
         _suggestions.value = emptyList()
         resetSearchResults()
     }
 
-    /**
-     * 终止当前搜索并清空结果，让旧分页游标和热门预览失效。
-     *
-     * @return 无返回值
-     */
     private fun resetSearchResults() {
         searchJob?.cancel()
         searchJob = null
-        // PagedState 的 reset 自增代次，在途翻页回包不会混入新列表。
         illustPaged.reset()
         novelPaged.reset()
         userPaged.reset()
@@ -180,26 +144,21 @@ class DiscoverViewModel @Inject constructor(
         _popularNovelsLoading.value = false
     }
 
-    /** 切换搜索类型；已搜索过则按当前词重新搜索。 */
     fun setType(value: SearchType) {
         if (type.value == value) return
         type.value = value
-        // 匹配方式按类型归一：小说/插画各自不认对方的档位（text/keyword ↔ title_and_caption），
-        // 跨类型残留值会 400 —— 切类型时回退默认档
+        // 跨类型残留的 searchTarget 会触发 400，切类型时回退默认档
         val allowed = if (value == SearchType.NOVEL) NOVEL_TARGETS else ILLUST_TARGETS
         if (filters.value.searchTarget !in allowed) {
             filters.value = filters.value.copy(searchTarget = "partial_match_for_tags")
         }
         if (_hasSearched.value) {
-            // 类型切换后按当前词重新搜索
             search()
         }
     }
 
-    /** 应用筛选条件（筛选面板"应用"后调用）。 */
     fun applyFilters(value: SearchFilters) {
         filters.value = value
-        // 持久化常用条件（对齐 Pixiv-Shaft 全局默认语义：下次打开发现页沿用上次筛选）
         viewModelScope.launch {
             runCatching {
                 userPreferences.setSearchFilterSort(value.sort)
@@ -211,15 +170,6 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 异步读取上次应用的筛选条件（DataStore）作为本会话默认。
-     *
-     * 恢复完成后置 [filtersRestored] 信号，[search] 依赖该信号等待——否则搜索可能先用构造默认值
-     * 判定非会员降级，随后被恢复值整体覆盖，导致渲染分支（按 filters.sort 选择）与数据落点脱节
-     * （深链搜索首屏空白）。
-     *
-     * @return 无返回值（恢复结果写入 [filters]）
-     */
     private fun loadSavedFilters() {
         viewModelScope.launch {
             val sort = runCatching { userPreferences.searchFilterSort.first() }.getOrDefault("popular_desc")
@@ -228,7 +178,6 @@ class DiscoverViewModel @Inject constructor(
             val bookmarkMin = runCatching { userPreferences.searchFilterBookmarkMin.first() }.getOrDefault(0)
             val keywordUsers = runCatching { userPreferences.searchFilterKeywordUsers.first() }.getOrDefault(0)
             val aiType = AiFilter.fromWire(runCatching { userPreferences.searchFilterAiType.first() }.getOrDefault(0))
-            // 恢复的匹配方式按当前类型归一（持久化可能来自另一类型，跨类型值会 400）
             val allowed = if (type.value == SearchType.NOVEL) NOVEL_TARGETS else ILLUST_TARGETS
             filters.value = SearchFilters(
                 sort = sort,
@@ -237,12 +186,10 @@ class DiscoverViewModel @Inject constructor(
                 keywordUsersBucket = keywordUsers.takeIf { it > 0 },
                 aiType = aiType,
             )
-            // 恢复完成信号：search() 在此之前挂起，保证降级写回不被恢复值覆盖
             filtersRestored.value = true
         }
     }
 
-    /** 拉取搜索选项（工具 / 题材下拉数据，来自 /v1/search/options）。 */
     private fun loadOptions() {
         viewModelScope.launch {
             runCatching { pixivRepository.api.searchOptions(word = "") }
@@ -254,11 +201,6 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 提交非空关键词，取消上一次搜索，并在筛选条件恢复后发起请求。
-     *
-     * @return 无返回值（结果经 illustPaged/novelPaged/userPaged 与 popularIllusts/popularNovels 暴露）
-     */
     fun search() {
         val rawWord = query.value.trim()
         if (rawWord.isBlank()) return
@@ -266,23 +208,14 @@ class DiscoverViewModel @Inject constructor(
         resetSearchResults()
         _hasSearched.value = true
         searchJob = viewModelScope.launch {
-            // 等待筛选恢复，避免覆盖与本次请求对应的排序状态。
             filtersRestored.first { it }
             ensureActive()
             executeSearch(rawWord, searchType)
         }
     }
 
-    /**
-     * 根据提交时的搜索类型选择接口，并为作品搜索计算筛选参数和有效排序。
-     *
-     * @param rawWord 调用方捕获的原始关键词（不含 users入り 后缀；历史只记原始词）
-     * @param searchType 本次提交的搜索类型
-     * @return 无返回值（结果写入对应状态流）
-     */
     private suspend fun executeSearch(rawWord: String, searchType: SearchType) {
         recordHistory(rawWord)
-        // 用户接口只接受原始关键词，首屏返回的游标交给通用分页状态。
         if (searchType == SearchType.USER) {
             userPaged.loadInitial(
                 fetch = { pixivRepository.api.searchUsers(rawWord) },
@@ -292,11 +225,10 @@ class DiscoverViewModel @Inject constructor(
         }
 
         val f = filters.value
-        // 「Xusers入り」关键字后缀拼进请求（对齐 Pixiv-Shaft：非会员也可用的收藏量过滤）；
-        // 搜索历史只记原始词
+        // 「Xusers入り」拼入请求以支持非会员收藏量过滤，历史仍只记原始词
         val keywordSuffix = f.keywordUsersBucket?.let { " ${it}users入り" } ?: ""
         val word = rawWord + keywordSuffix
-        // pixiv API：title_and_caption（标题简介）与 date_* 时间排序组合返回 400 —— 请求侧统一降级为按热度
+        // pixiv API：title_and_caption 与 date_* 组合会返回 400，统一降级为 popular_desc
         val sort = if (f.searchTarget == "title_and_caption" &&
             (f.sort == "date_desc" || f.sort == "date_asc")
         ) {
@@ -304,16 +236,14 @@ class DiscoverViewModel @Inject constructor(
         } else {
             f.sort
         }
-        // 非会员 + popular_* 人气排序走 /v1/search/illust 会 400（对齐 Pixiv-Shaft：非付费用户的人气
-        // 排序只能走 popular-preview，男/女性向两档同为 Premium 专属）。无借号系统 → 降级为热门预览，
-        // 并写回 filters 让结果页渲染分支一致。
+        // 非会员用 popular_* 调普通搜索会 400，需降级为 popular_preview 并写回 filters 使结果页渲染分支一致
         val premiumSorts = setOf("popular_desc", "popular_male_desc", "popular_female_desc")
         val usePopularPreview = sort == "popular_preview" ||
             (sort in premiumSorts && !pixivRepository.pixivApi.session.isPremium)
         val hasNovelLengthFilter = searchType == SearchType.NOVEL && f.bodyLengthUnit != null &&
             (f.bodyLengthMin != null || f.bodyLengthMax != null)
         val effectiveSort = when {
-            // 小说热门预览无正文长度参数，改走支持这些条件的分页搜索。
+            // 小说热门预览无正文长度参数，改走分页搜索
             usePopularPreview && hasNovelLengthFilter -> "date_desc"
             usePopularPreview -> "popular_preview"
             else -> sort
@@ -321,19 +251,15 @@ class DiscoverViewModel @Inject constructor(
         if (usePopularPreview && effectiveSort != f.sort) {
             filters.value = f.copy(sort = effectiveSort)
         }
-        // 匹配方式按类型合法化（跨类型残留值会 400：插画不认 text/keyword、小说不认 title_and_caption）；
-        // 默认档「标签部分一致」不传 search_target（对齐 Pixiv-Shaft #906：服务端合并 tag+标题命中）
+        // 默认档 partial_match_for_tags 不传 search_target，让服务端合并 tag 与标题命中
         val searchTarget = f.searchTarget
             .takeIf { it in if (searchType == SearchType.NOVEL) NOVEL_TARGETS else ILLUST_TARGETS }
             ?.takeUnless { it == "partial_match_for_tags" }
-        // 官方 search_ai_type 只有 0/1（对齐 Pixiv-Shaft）：「仅人绘」发 1；「全部」「仅看 AI」都发 0——
-        // 「仅看 AI」由客户端按真实 ai_type==2 过滤
+        // 服务端 search_ai_type 仅支持 0/1，「仅看 AI」需发 0 后在客户端按 ai_type==2 过滤
         val searchAiType = if (f.aiType == AiFilter.HUMAN_ONLY) 1 else 0
-        // 投稿期间相对档当场算 today−N（每次搜索重算，跨午夜自动跟随）；bucket 为空回落自定义起止
         val computed = durationRange(f.durationBucket)
         val startDate = computed?.first ?: f.startDate
         val endDate = computed?.second ?: f.endDate
-        // 已处于搜索协程内，直接调用对应接口。
         when (searchType) {
             SearchType.ILLUST -> if (effectiveSort == "popular_preview") {
                 loadPopular(searchType, word, f, searchTarget, searchAiType, startDate, endDate)
@@ -358,7 +284,6 @@ class DiscoverViewModel @Inject constructor(
                             heightMin = res?.heightMin,
                             heightMax = res?.heightMax,
                         )
-                        // 客户端过滤：仅看 AI（illust_ai_type==2）+ R18 档（x_restrict）
                         resp.copy(illusts = resp.illusts.filter {
                             (f.aiType != AiFilter.AI_ONLY || it.illust_ai_type == 2) &&
                                 r18Accept(it.x_restrict, f.r18Mode)
@@ -398,7 +323,6 @@ class DiscoverViewModel @Inject constructor(
                             readingTimeMin = body.readMin,
                             readingTimeMax = body.readMax,
                         )
-                        // 客户端过滤：仅看 AI（novel_ai_type==2）+ R18 档（x_restrict）
                         resp.copy(novels = resp.novels.filter {
                             (f.aiType != AiFilter.AI_ONLY || it.novel_ai_type == 2) &&
                                 r18Accept(it.x_restrict, f.r18Mode)
@@ -417,19 +341,6 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 按当前搜索类型分派 popular-preview 请求，结果写入 popularIllusts / popularNovels；
-     * 请求在途期间置对应 loading 标记，供结果页在无数据时显示骨架屏而非空态。
-     *
-     * @param searchType 本次提交的搜索类型
-     * @param word 搜索关键词
-     * @param f 当前搜索筛选条件（AI / R18 / 收藏数 / 工具 / 语言 / 比例）
-     * @param searchTarget 搜索目标（热门预览按类型透传，可空）
-     * @param searchAiType AI 过滤参数（1 仅人绘；0 其他档——「仅看 AI」由客户端按 ai_type 过滤，不走该参数）
-     * @param startDate 投稿起始日期（yyyy-MM-dd，可空）
-     * @param endDate 投稿结束日期（yyyy-MM-dd，可空）
-     * @return 无返回值（结果与在途状态写入对应 StateFlow）
-     */
     private suspend fun loadPopular(
         searchType: SearchType,
         word: String,
@@ -441,7 +352,6 @@ class DiscoverViewModel @Inject constructor(
     ) {
         when (searchType) {
             SearchType.ILLUST -> {
-                // 在途标记：请求期间结果页显示骨架屏而非空态
                 _popularIllustsLoading.value = true
                 val result = runCatching {
                     pixivRepository.api.popularPreview(
@@ -456,7 +366,7 @@ class DiscoverViewModel @Inject constructor(
                         ratioPattern = f.ratioPattern,
                     )
                 }
-                // 旧请求即使回包也不能覆盖新结果或复位新请求的加载标记。
+                // runCatching 会吞掉 CancellationException，需防止已取消请求回写结果或误清加载态
                 currentCoroutineContext().ensureActive()
                 _popularIllusts.value = result.getOrNull()?.illusts.orEmpty().take(10)
                     .filter { i ->
@@ -466,7 +376,6 @@ class DiscoverViewModel @Inject constructor(
                 _popularIllustsLoading.value = false
             }
             SearchType.NOVEL -> {
-                // 在途标记：请求期间结果页显示骨架屏而非空态
                 _popularNovelsLoading.value = true
                 val result = runCatching {
                     pixivRepository.api.popularNovelPreview(
@@ -476,7 +385,6 @@ class DiscoverViewModel @Inject constructor(
                         endDate = endDate,
                     )
                 }
-                // 只有仍有效的请求可以写入结果和清除加载标记。
                 currentCoroutineContext().ensureActive()
                 _popularNovels.value = result.getOrNull()?.novels.orEmpty().take(10)
                     .filter { n ->
@@ -489,9 +397,6 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    // ── 请求参数映射（对齐 Pixiv-Shaft / iOS 8.6.6 抓包）──
-
-    /** 投稿期间相对档 → (start_date, end_date)；today−N 当场计算，跨午夜自动跟随；无效 bucket 返回 null。 */
     private fun durationRange(bucket: String?, today: LocalDate = LocalDate.now()): Pair<String?, String?>? =
         when (bucket) {
             "Last24Hours" -> today.minusDays(1).toString() to today.toString()
@@ -502,7 +407,6 @@ class DiscoverViewModel @Inject constructor(
             else -> null
         }
 
-    /** 正文长度维度 → 三组 API 参数（text_length / word_count / reading_time，单位分钟）。 */
     private fun bodyRange(f: SearchFilters): BodyRange = when (f.bodyLengthUnit) {
         0 -> BodyRange(f.bodyLengthMin, f.bodyLengthMax, null, null, null, null)
         1 -> BodyRange(null, null, f.bodyLengthMin, f.bodyLengthMax, null, null)
@@ -510,7 +414,6 @@ class DiscoverViewModel @Inject constructor(
         else -> BodyRange(null, null, null, null, null, null)
     }
 
-    /** 分辨率档位 → width/height min/max 四参数（对齐 Shaft：≥3000 / 1000~2999 / ≤999）。 */
     private fun resolutionRange(bucket: String?): ResRange? = when (bucket) {
         "Above3000" -> ResRange(3000, null, 3000, null)
         "Between1000And2999" -> ResRange(1000, 2999, 1000, 2999)
@@ -518,28 +421,20 @@ class DiscoverViewModel @Inject constructor(
         else -> null
     }
 
-    /** 作品类别 5 档：默认档「插画、漫画、动图」等价不传（对齐 Shaft / iOS）。 */
     private fun contentTypeQuery(value: String?): String? = when (value) {
         null, "illust_and_manga_and_ugoira" -> null
         else -> value
     }
 
-    /** R18 三档客户端过滤（对齐 Shaft：按 x_restrict，缺失当全年龄 0）。 */
     private fun r18Accept(xRestrict: Int?, mode: R18Filter): Boolean = when (mode) {
         R18Filter.SAFE_ONLY -> (xRestrict ?: 0) <= 0
         R18Filter.R18_ONLY -> (xRestrict ?: 0) > 0
         else -> true
     }
 
-    /**
-     * 触底时用对应结果页的游标加载下一页。
-     *
-     * @param resultType 触发加载的结果页类型
-     * @return 无返回值
-     */
     fun loadMore(resultType: SearchType) {
         viewModelScope.launch {
-            // Pager 可同时组合相邻页，只有当前搜索类型可以继续翻页。
+            // Pager 会预组合相邻页，仅当前类型允许触发翻页
             if (!_hasSearched.value || type.value != resultType) return@launch
             when (resultType) {
                 SearchType.ILLUST -> illustPaged.loadMore()
@@ -549,17 +444,8 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /** 重试当前搜索。 */
     fun retry() = search()
 
-    // ── 搜索历史 ──
-
-    /**
-     * 记录搜索历史：通过 DAO 事务原子删除同词旧记录并置顶新记录，避免并发写入产生重复词条。
-     *
-     * @param keyword 搜索关键词
-     * @return 无返回值
-     */
     private fun recordHistory(keyword: String) {
         viewModelScope.launch {
             runCatching {
@@ -568,32 +454,25 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    /** 删除单条搜索历史（历史胶囊长按删除）。 */
     fun removeHistory(entity: SearchHistoryEntity) {
         viewModelScope.launch { runCatching { searchHistoryDao.delete(entity) } }
     }
 
-    /** 关注 / 取关用户（nowFollowed 为目标状态，由组件回调）。 */
     fun toggleFollowUser(userId: Long, nowFollowed: Boolean) =
         favoriteActions.toggleFollowUserSilent(viewModelScope, userId, nowFollowed)
 
-    /** 收藏 / 取消收藏小说（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleNovelFavorite(novelId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleNovelFavoriteSilent(viewModelScope, novelId, nowFavorite)
 
-    /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 
-    /** 清空搜索历史。 */
     fun clearHistory() {
         viewModelScope.launch { runCatching { searchHistoryDao.clearAll() } }
     }
 
-    /** 加载热门搜索（DataStore 缓存 24h TTL 优先，过期才网络刷新并回写缓存）。 */
     private fun loadHotTags() {
         viewModelScope.launch {
-            // 缓存优先：24 小时内直接用本地缓存，避免每次打开都网络请求
             val cached = runCatching { userPreferences.hotTags.first() }.getOrDefault(emptyList())
             val cachedAt = runCatching { userPreferences.hotTagsUpdatedAt.first() }.getOrDefault(0L)
             if (cached.isNotEmpty() && System.currentTimeMillis() - cachedAt < HOT_TAGS_TTL_MS) {
@@ -619,14 +498,12 @@ class DiscoverViewModel @Inject constructor(
     }
 }
 
-/** 正文长度三组 API 参数（text_length / word_count / reading_time）。 */
 private data class BodyRange(
     val textMin: Int?, val textMax: Int?,
     val wordMin: Int?, val wordMax: Int?,
     val readMin: Int?, val readMax: Int?,
 )
 
-/** 分辨率档位展开的 width/height 区间参数。 */
 private data class ResRange(
     val widthMin: Int?, val widthMax: Int?,
     val heightMin: Int?, val heightMax: Int?,

@@ -6,11 +6,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
-/**
- * 下载 worker 的依赖入口（@HiltWorker 聚合在当前构建为空，改用普通 Worker + 手动取依赖）。
- * Worker 内 `EntryPointAccessors.fromApplication(applicationContext, DownloadWorkerEntryPoint::class.java)`
- * 获取这些依赖。
- */
+/** 下载 Worker 依赖入口：当前构建 @HiltWorker 聚合为空，改用普通 Worker 手动通过 EntryPoint 取依赖。 */
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface DownloadWorkerEntryPoint {

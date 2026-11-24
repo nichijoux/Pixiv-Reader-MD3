@@ -64,25 +64,10 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.launch
 
 /**
- * 评论输入框（插画/小说详情评论区共用）。
- *
- * ## UI 设计方式
- * 主行：左表情按钮 + 富文本输入框（单行，[EmoteCommentField]：`(xxx)` 文本表情与开头
- * `@昵称 ` 回复提及以行内图渲染，各占一个占位字符，退格一次整块删除）+ 发送 [IconButton]。
- * 点击表情按钮弹出**底部停靠表情栏**（IME 式：面板占据屏幕底部、输入行保持可见于其正上方，
- * 与软键盘互斥切换），栏内 [HorizontalPager] 左右滑动切换「文本表情 / 贴纸」两个 Tab
- * （配 [TabRow] 指示）。系统返回键优先收起面板。
- *
- * **文本表情在缓冲区中为单个占位字符**，对外草稿仍是含 `(xxx)` 的纯文本（API 协议不变）；
- * 贴纸选后直接发送（`stamp_id`）。
- *
- * @param draft 当前输入内容（由外部 ViewModel 持有状态，含 `(tag)` 与开头 `@昵称 `）
- * @param onDraftChange 输入内容变化回调
- * @param onPost 发送评论回调（外部校验非空并调 API，成功后清空 draft）
- * @param modifier 外部传入的 Modifier
- * @param stamps pixiv 贴纸目录（外部经 `getStamps` 加载）；空则仅显示文本表情 Tab
- * @param onStampPick 选贴纸回调（参数为贴纸，外部发 `stamp_id`）
- * @param mentionName 当前回复目标精确昵称；草稿以其 `@昵称 ` 开头时渲染为回复胶囊
+ * 评论输入框（插画/小说详情评论区共用）：主行 = 表情按钮 + 富文本输入框 + 发送。表情按钮弹**底部停靠表情栏**
+ * （IME 式：面板占屏幕底部、输入行保持在其正上方，与软键盘互斥切换），栏内分页切换文本表情 / 贴纸，
+ * 系统返回键优先收起面板。表情与 `@昵称 ` 提及在缓冲区各占一个占位字符，对外草稿仍是含 `(xxx)` 的纯文本
+ * （API 协议不变）；贴纸选后直接发送（`stamp_id`）。
  */
 @Composable
 fun CommentInput(
@@ -108,7 +93,7 @@ fun CommentInput(
     val navBarBottomPx = WindowInsets.navigationBars.getBottom(density)
     LaunchedEffect(imeBottomPx) {
         // 面板展开期间冻结记录：打开面板触发的收起动画若持续刷新，
-        // 记忆值会被压到接近 0，面板随之塌缩（表现为"唤不出"）
+        // 记忆值会被压到接近 0，面板随之塌缩（表现为“唤不出”）
         if (!panelExpanded && imeBottomPx > navBarBottomPx) {
             lastKeyboardHeightDp = imeBottomPx - navBarBottomPx
         }
@@ -128,7 +113,7 @@ fun CommentInput(
         }
     }
 
-    // 点回复后：聚焦输入框、光标置于胶囊之后（缓冲区末尾）并唤起键盘，直接可打字
+    // 点回复后：聚焦输入框并唤起键盘，离去置于缓冲区末尾（胶囊之后）
     LaunchedEffect(mentionName) {
         if (!mentionName.isNullOrBlank()) {
             handle.view?.requestFocus()
@@ -150,8 +135,7 @@ fun CommentInput(
                     if (panelExpanded) {
                         closePanel(showKeyboard = true)
                     } else {
-                        // 先清焦再隐藏：部分设备对已聚焦 EditText 直接 hide 不生效，
-                        // 清焦让系统原生收起键盘，状态机更确定
+                        // 先清焦再隐藏：部分设备对已聚焦 EditText 直接 hide 不生效，清焦让系统原生收起键盘
                         panelExpanded = true
                         handle.view?.clearFocus()
                         keyboard?.hide()
@@ -226,20 +210,16 @@ fun CommentInput(
     }
 }
 
-/** 表情面板默认高度兜底（本次会话未记录到键盘高度前的首次展开）。 */
+/** 本次会话未记录到键盘高度前的首次展开兜底。 */
 private val DefaultPanelHeight = 300.dp
 
-/** 输入框最小高度。 */
 private val FieldMinHeight = 48.dp
 
-/** 输入行左右图标按钮边长（默认 48dp 触达区偏大，压缩给输入框让位）。 */
+/** 默认 48dp 触达区偏大，压缩给输入框让位。 */
 private val ButtonSide = 40.dp
 
 /**
- * 评论表情选择面板：`HorizontalPager` 左右滑动切换「文本表情 / 贴纸」两段（配胶囊分段控件）。
- * 文本表情点击回调 [onEmojiPick]（光标处插入草稿）；贴纸点击回调 [onStampPick]（直接发送）。
- * 高度由调用方给定（对齐上次键盘高度），不再自带导航栏 padding（外层列统一处理）。
- * @OptIn 试验 API FlowRow。
+ * 高度由调用方给定（对齐上次键盘高度），不自带导航栏 padding（外层列统一处理）。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -252,7 +232,7 @@ private fun CommentEmojiPanel(
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     Column(modifier = modifier) {
-            // 类型分段：文本表情 / 贴纸（以页码为值，选中态跟 Pager 落页，点击反向滚页）
+            // 以页码为值，选中态跟 Pager 落页，点击反向滚页
             PillSegmentedRow(
                 options = listOf(
                     0 to R.string.comment_emoji_title,
@@ -271,7 +251,6 @@ private fun CommentEmojiPanel(
                     .weight(1f),
             ) { page ->
                 when (page) {
-                    // Tab 0：文本表情（FlowRow 图像 chip）
                     0 -> Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -286,7 +265,6 @@ private fun CommentEmojiPanel(
                             }
                         }
                     }
-                    // Tab 1：贴纸（LazyVerticalGrid）
                     else -> {
                         if (stamps.isEmpty()) {
                             Box(

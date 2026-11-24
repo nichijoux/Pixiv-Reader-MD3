@@ -23,13 +23,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /**
- * 排行榜入口 banner 骨架占位：仿 [RankingList] 页顶排行榜入口（NovelRankingBanner / MangaRankingBanner）布局
- * ——图标底块（圆形，与真实 banner 同形）+ 两行文本条 + 右侧箭头块，
- * 位置/尺寸对齐真实入口，保证加载/刷新骨架阶段排行榜入口区域不"消失"。
- * 纯脉冲灰色，加载中不可点，数据到位后淡入真实 banner。
- *
- * @param modifier 外部传入的 Modifier
- * @return 无返回值（渲染 Composable）
+ * 仿排行榜入口 banner 的骨架：位置/尺寸与真实入口一致，保证首载阶段入口区域不「消失」。
  */
 @Composable
 fun RankingBannerSkeleton(modifier: Modifier = Modifier) {

@@ -58,32 +58,7 @@ import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
 
 /**
- * 右列单个类型段的动态流。
- *
- * - 手机（Compact）：单列流（LazyColumn，卡片全宽）
- * - 平板：masonry 瀑布流（`StaggeredGridCells.Adaptive(240.dp)`：列宽 ≥240dp 时自动多列，
- *   保证 NovelCard 横版信息区不被挤压——用户 v5 确认的宽度下限）
- * - 触底：当前页尚有下一页时，列表尾项自动触发 [onLoadMore]
- *
- * 插画 / 小说卡片完全复用 core:ui 的 [IllustCard] / [NovelCard] 组件。
- *
- * @param items 当前类型段的作品
- * @param isLoading 首屏是否加载中
- * @param isLoadingMore 续页是否加载中
- * @param hasMore 当前页是否应显示续页尾项
- * @param hasError 首屏是否加载失败
- * @param windowClass 当前窗口宽度级别
- * @param scrollToTopKey 列表回顶信号
- * @param onSearchTag 搜索标签
- * @param onLoadMore 加载下一页
- * @param onRetry 重试首屏
- * @param onOpenIllust 打开插画
- * @param onOpenNovel 打开小说
- * @param onOpenUser 打开作者主页
- * @param onOpenSeries 打开小说系列
- * @param onToggleIllustFavorite 切换插画收藏
- * @param onToggleNovelFavorite 切换小说收藏
- * @return 无返回值
+ * 右列单个类型段：手机单列流，平板瀑布流（列宽 <240dp 会挤压 NovelCard 横版信息区，故取 240dp 下限）。
  */
 @Composable
 internal fun FollowFeed(
@@ -104,7 +79,6 @@ internal fun FollowFeed(
     onToggleIllustFavorite: (Long, Boolean) -> Unit,
     onToggleNovelFavorite: (Long, Boolean) -> Unit,
 ) {
-    // 布局分化沿用紧凑判定（内部尺寸决策保持局部派生，避免散落比较）
     val isCompact = windowClass == WindowSizeClass.Compact
     when (feedPhase(loading = isLoading, hasItems = items.isNotEmpty(), hasError = hasError)) {
         FeedPhase.LOADING -> if (isCompact) FollowFeedListSkeleton() else IllustWaterfallSkeleton(
@@ -158,23 +132,6 @@ internal fun FollowFeed(
     }
 }
 
-/**
- * 渲染手机端单列动态流。
- *
- * @param items 当前类型段的作品
- * @param isLoadingMore 续页是否加载中
- * @param hasMore 当前页是否应显示续页尾项
- * @param scrollToTopKey 列表回顶信号
- * @param onSearchTag 搜索标签
- * @param onLoadMore 加载下一页
- * @param onOpenIllust 打开插画
- * @param onOpenNovel 打开小说
- * @param onOpenUser 打开作者主页
- * @param onOpenSeries 打开小说系列
- * @param onToggleIllustFavorite 切换插画收藏
- * @param onToggleNovelFavorite 切换小说收藏
- * @return 无返回值
- */
 @Composable
 private fun FollowFeedList(
     items: List<FollowFeedItem>,
@@ -217,7 +174,6 @@ private fun FollowFeedList(
         lazyItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
-                // 进场淡入 + 刷新追加时位置平滑过渡
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(
@@ -243,24 +199,7 @@ private fun FollowFeedList(
     }
 }
 
-/**
- * 渲染平板端瀑布流动态列表。
- *
- * @param items 当前类型段的作品
- * @param isLoadingMore 续页是否加载中
- * @param hasMore 当前页是否应显示续页尾项
- * @param loadMoreError 续页错误信息，非空时停止自动翻页并显示重试按钮
- * @param scrollToTopKey 列表回顶信号
- * @param onSearchTag 搜索标签
- * @param onLoadMore 加载下一页
- * @param onOpenIllust 打开插画
- * @param onOpenNovel 打开小说
- * @param onOpenUser 打开作者主页
- * @param onOpenSeries 打开小说系列
- * @param onToggleIllustFavorite 切换插画收藏
- * @param onToggleNovelFavorite 切换小说收藏
- * @return 无返回值
- */
+/** 平板端瀑布流动态列表。 */
 @Composable
 private fun FollowFeedGrid(
     items: List<FollowFeedItem>,
@@ -292,7 +231,6 @@ private fun FollowFeedGrid(
         state = gridState,
         columns = StaggeredGridCells.Adaptive(240.dp),
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
         contentPadding = PaddingValues(
             start = Spacing.md,
             end = Spacing.md,
@@ -305,7 +243,6 @@ private fun FollowFeedGrid(
         gridItems(items, key = { it.key }) { item ->
             FollowFeedItemCard(
                 item = item,
-                // 进场淡入 + 刷新追加时位置平滑过渡
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(
@@ -332,13 +269,12 @@ private fun FollowFeedGrid(
     }
 }
 
-/** 手机单列流骨架：封面块 + 标题 2 行 + 作者行（对齐单列卡片布局，脉冲动画）。 */
+/** 手机单列流骨架：封面块 + 标题 2 行 + 作者行（对齐单列卡片布局）。 */
 @Composable
 private fun FollowFeedListSkeleton() {
     val color = skeletonPulseColor(label = "followFeedSkeleton")
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：尾部额外避开系统导航栏（手机端 inset 已被壳层消费，补 0）
         contentPadding = PaddingValues(
             start = Spacing.smPlus,
             end = Spacing.smPlus,
@@ -401,7 +337,7 @@ private fun FollowFeedListSkeleton() {
     }
 }
 
-/** 单条卡片：插画 → IllustCard，小说 → NovelCard（组件复用）。 */
+/** 插画 → IllustCard，小说 → NovelCard。 */
 @Composable
 private fun FollowFeedItemCard(
     item: FollowFeedItem,
@@ -432,7 +368,6 @@ private fun FollowFeedItemCard(
             NovelCard(
                 novel = novel.toCardData(),
                 onClick = { onOpenNovel(novel.id) },
-                // 关注流紧凑排版：封面缩窄（默认 104dp → 88dp）
                 coverWidth = 88.dp,
                 onOpenAuthor = { novel.user?.id?.let(onOpenUser) },
                 onToggleFavorite = { fav -> onToggleNovelFavorite(novel.id, fav) },
@@ -444,7 +379,7 @@ private fun FollowFeedItemCard(
     }
 }
 
-/** 列表 key（插画 / 小说前缀区分，避免混合流内 id 冲突）。 */
+/** 插画/小说前缀区分：混合流内同 id 不会撞 key。 */
 private val FollowFeedItem.key: String
     get() = when (this) {
         is FollowFeedItem.IllustItem -> "i_${illust.id}"

@@ -7,12 +7,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * 全局字体阶梯：覆盖 M3 全部 15 个 type role。
- *
- * 为什么必须补全：M3 组件默认从 `MaterialTheme.typography` 取样式，只覆盖部分 role 会让另一半
- * 回退到 M3 基线（Roboto 默认字重/行高），同一页面里两套字阶混用会明显跳。
- * 字号保持 M3 规范值（仅 displaySmall/headlineSmall/titleLarge 略收紧），字重按中文字形优化：
- * display 系 Bold、headline 系 SemiBold、title/label 系 Medium、body 系 Normal。
+ * 全局字体阶梯：必须覆盖 M3 全部 15 个 type role——只覆盖部分会让其余回退到 M3 基线
+ * （Roboto 默认字重/行高），同一页面出现两套字阶。
  */
 val Typography = Typography(
     displayLarge = TextStyle(

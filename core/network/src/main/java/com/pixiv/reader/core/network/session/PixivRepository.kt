@@ -8,12 +8,8 @@ import javax.inject.Singleton
 import okhttp3.OkHttpClient
 
 /**
- * Pixiv API 统一出口，feature 层通过构造注入本仓库访问：
- * - [api]：app-api（作品/用户/评论/收藏等常规接口）
- * - [webApi]：pixiv 网页接口（补每 P 真实宽高、isBlocking、拉黑等 app-api 没有的能力）
- * - [imageClient]：带 pixiv Referer 的图片加载 client（否则图片 403），
- *   Coil 在 PixivApp 注入该 client，PixivImage/AsyncImage 自动携带
- * - oauth / session：经 PixivApi 直取，也可走 SessionRepository
+ * API 统一出口：app-api（作品/用户/评论/收藏等）/ webApi（网页接口，补 app-api 没有的能力）/
+ * imageClient（带 pixiv Referer 的图片 client，否则 403；Coil 于 PixivApp 注入）。
  */
 @Singleton
 class PixivRepository @Inject constructor(
@@ -23,11 +19,7 @@ class PixivRepository @Inject constructor(
     val webApi: PixivWebApi get() = pixivApi.webApi
     val imageClient: OkHttpClient get() = pixivApi.imageClient
 
-    /**
-     * 从网页 Cookie 解析 csrf_token（pixiv 网页写操作要求 x-csrf-token 头）。
-     *
-     * @return csrf_token 值；无会话或 Cookie 中无该键时返回 null
-     */
+    /** pixiv 网页写操作要求 x-csrf-token 头；无会话或 Cookie 中无该键返回 null。 */
     fun csrfToken(): String? =
         pixivApi.session.cookie()
             .split(';')

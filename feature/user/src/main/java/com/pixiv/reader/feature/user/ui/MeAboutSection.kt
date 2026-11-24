@@ -33,17 +33,15 @@ import com.pixiv.reader.core.ui.theme.SettingAccentViolet
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/** 开源仓库地址（与 git remote / CI 发布仓库一致）。 */
+/** 须与 git remote / CI 发布仓库保持一致。 */
 private const val OPEN_SOURCE_URL = "https://github.com/nichijoux/Pixiv-Reader-MD3"
 
-/** 仓库链接展示文本（去协议头，副标题更紧凑）。 */
 private val OPEN_SOURCE_URL_DISPLAY = OPEN_SOURCE_URL.removePrefix("https://")
 
-/** 开源许可（GPL-2.0）文本直链。 */
+/** 许可证文本直链（GPL-2.0）。 */
 private const val OPEN_SOURCE_LICENSE_URL =
     "https://github.com/nichijoux/Pixiv-Reader-MD3/blob/main/LICENSE"
 
-/** 应用图标 Drawable → Bitmap（自适应图标在给定画布上绘制图层）。 */
 private fun drawableToBitmap(drawable: Drawable): Bitmap {
     if (drawable is BitmapDrawable) return drawable.bitmap
     val size = maxOf(drawable.intrinsicWidth, drawable.intrinsicHeight).coerceAtLeast(1)
@@ -54,26 +52,17 @@ private fun drawableToBitmap(drawable: Drawable): Bitmap {
     return bitmap
 }
 
-/**
- * 我的页「关于」：应用信息 / 开源仓库 / 开源许可 / 检查更新。
- * Expressive 分组面板：应用信息头 + 三行导航，单张 28dp 圆角卡（行间无分割线）。
- *
- * @param versionName 当前版本号
- * @param onCheckUpdate 手动检查更新
- * @return 无返回值
- */
 @Composable
 internal fun MeAboutSection(
     versionName: String,
     onCheckUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
-    // 应用真实启动器图标（feature 模块访问不到 app 资源，运行时经 PackageManager 获取）
+    // feature 模块访问不到 app 资源，运行时经 PackageManager 取真实启动器图标
     val appIcon = remember {
         drawableToBitmap(context.packageManager.getApplicationIcon(context.packageName))
     }
     MeGroupCard {
-        // 应用信息头（非行式：图标 + 名称/版本 + 一句话描述）
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
@@ -101,7 +90,6 @@ internal fun MeAboutSection(
                 modifier = Modifier.padding(top = Spacing.smPlus),
             )
         }
-        // 开源仓库（外链行）
         MeRow(
             icon = Icons.AutoMirrored.Filled.OpenInNew,
             title = stringResource(R.string.me_open_source_repo),
@@ -117,7 +105,6 @@ internal fun MeAboutSection(
                 }
             },
         )
-        // 开源许可（外链行）
         MeRow(
             icon = Icons.Filled.Code,
             title = stringResource(R.string.me_open_source_license),
@@ -132,7 +119,6 @@ internal fun MeAboutSection(
                 }
             },
         )
-        // 检查更新
         MeRow(
             icon = Icons.Filled.SystemUpdate,
             title = stringResource(R.string.me_check_update),

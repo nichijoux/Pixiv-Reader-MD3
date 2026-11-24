@@ -47,7 +47,6 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import kotlinx.coroutines.launch
 
-/** 引导页单页内容：图标 + 标题 + 描述（图标仅装饰，无内容描述）。 */
 private data class OnboardingPage(
     val icon: ImageVector,
     @param:StringRes val titleRes: Int,
@@ -73,8 +72,7 @@ private val ONBOARDING_PAGES = listOf(
 )
 
 /**
- * 各页图标底的 Expressive 有机形状（MaterialShapes，与排行榜徽标同一形状语言）：
- * 探索 = Sunny / 阅读 = Clover8Leaf / 收藏 = Cookie9Sided。
+ * 图标底的 Expressive 有机形状，与排行榜徽标同一形状语言。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private val PAGE_SHAPES = listOf(
@@ -84,8 +82,7 @@ private val PAGE_SHAPES = listOf(
 )
 
 /**
- * 首次启动引导页：三页横向滑动介绍 + 圆点指示器 + 底部主按钮（下一步/开始使用）。
- * 无状态无注入：完成/跳过通过 [onFinished] 上抛，由调用方写入 DataStore 并跳转。
+ * 首次启动引导页。无状态无注入：完成/跳过经 [onFinished] 上抛，由调用方写 DataStore 并跳转。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -98,7 +95,7 @@ fun OnboardingRoute(
     val lastPage = pagerState.currentPage == ONBOARDING_PAGES.size - 1
 
     Column(modifier = modifier.fillMaxSize().systemBarsPadding()) {
-        // 顶部：跳过（最后一页隐藏，避免与「开始使用」重复）
+        // 末页隐藏跳过，避免与「开始使用」重复
         Box(
             modifier = Modifier.fillMaxWidth().height(56.dp),
             contentAlignment = Alignment.CenterEnd,
@@ -112,7 +109,6 @@ fun OnboardingRoute(
             }
         }
 
-        // 中间：三页介绍
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.weight(1f),
@@ -153,7 +149,7 @@ fun OnboardingRoute(
             }
         }
 
-        // 底部：指示器 + 主按钮（固定高度容器，文字切换无跳变）
+        // 固定高度容器：按钮文字切换时无跳变
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = Spacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally,

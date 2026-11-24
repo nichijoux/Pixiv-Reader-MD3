@@ -73,10 +73,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** 通知类型：决定图标与强调色。 */
 enum class NotificationType { Info, Success, Error }
 
-/** 一条待展示的通知数据（带单调递增 [id]，保证同文案重推也能触发计时重置与入场）。 */
+/** 单条通知数据；单调递增 [id] 保证同文案重推也能重置计时与入场动画。 */
 data class NotificationData(
     val text: String,
     val type: NotificationType,
@@ -89,39 +88,18 @@ data class NotificationData(
     }
 }
 
-/**
- * 全局应用内通知宿主状态：由根 Activity 向下提供。
- *
- * 子页面调用 [rememberNotificationHostState] 时会直接复用该根状态，
- * 其局部放置的 [NotificationHost] 自动退让为空实现，使全局通知与页面通知
- * 统一在右上角堆叠展示并跨页面保持连续。
- */
+/** 根 Activity 提供的全局通知宿主状态；子页 [rememberNotificationHostState] 复用该实例，其局部 [NotificationHost] 自动退让。 */
 val LocalNotificationHostState = staticCompositionLocalOf<NotificationHostState?> { null }
 
 /**
- * 自定义 Material3 风格可堆叠通知宿主状态（替代 Material `Snackbar`）。
- *
- * ## 设计说明
- * - 支持最多 [MAX_VISIBLE] 条通知在右上角纵向堆叠，新通知插在顶部并顺推旧通知；
- * - 文案、类型与操作标签均相同的活跃通知会被去重合并并重置到顶部；
- * - 视觉遵循 M3 `inverseSurface` 反色胶囊容器 + 16dp 圆角 + 微边框 + 阴影；
- * - 常规 2.6s 自动消失（带操作按钮延长至 4.2s），支持点击或向右滑动关闭。
+ * 可堆叠通知宿主状态（替代 M3 Snackbar）：最多 [MAX_VISIBLE] 条，
+ * 常规 2.6s / 带动作 4.2s 自动消失，同内容活跃通知合并置顶并刷新计时。
  */
 class NotificationHostState internal constructor() {
     private val _items = MutableStateFlow<List<NotificationData>>(emptyList())
 
-    /** 当前活跃通知列表（按最新在前排序，最多 [MAX_VISIBLE] 条）。 */
     val items: StateFlow<List<NotificationData>> = _items.asStateFlow()
 
-    /**
-     * 展示一条通知；新通知插在栈顶，相同内容的活跃通知会合并置顶并刷新计时。
-     *
-     * @param text 通知文案
-     * @param type 通知语义类型
-     * @param actionText 可选操作按钮文案（非空且配合 [onAction] 时展示）
-     * @param onAction 可选操作回调（点击后自动关闭该条通知）
-     * @return 无返回值
-     */
     fun show(
         text: String,
         type: NotificationType = NotificationType.Info,
@@ -138,52 +116,24 @@ class NotificationHostState internal constructor() {
         }
     }
 
-    /**
-     * 按 [id] 关闭指定通知。
-     *
-     * @param id 目标通知唯一编号
-     * @return 无返回值
-     */
     fun dismiss(id: Long) {
         _items.update { current -> current.filterNot { it.id == id } }
     }
 
-    /**
-     * 立即清空全部活跃通知。
-     *
-     * @return 无返回值
-     */
     fun dismiss() {
         _items.value = emptyList()
     }
 
     companion object {
-        /** 同时展示的最大通知堆叠条数，超出时移除最早条。 */
         const val MAX_VISIBLE = 3
     }
 }
 
-/**
- * 获取通知宿主状态：优先复用根部通过 [LocalNotificationHostState] 下发的统一实例，
- * 独立预览或脱离根壳的场景回退为局部实例。
- *
- * @return 可用的 [NotificationHostState]
- */
 @Composable
 fun rememberNotificationHostState(): NotificationHostState =
     LocalNotificationHostState.current ?: remember { NotificationHostState() }
 
-/**
- * 可堆叠右上角通知宿主：紧贴右上角显示紧凑胶囊通知栈，仅占用实际卡片区域，不拦截其余屏幕触摸。
- *
- * 若当前 [state] 与上级 [LocalNotificationHostState] 相同，说明根宿主已在右上角接管渲染，
- * 本次调用直接返回，使各子路由既有 `NotificationHost(...)` 零占位退让。
- *
- * @param state 通知状态（[rememberNotificationHostState]）
- * @param modifier 外部定位与避让修饰符（根宿主通过 `align(Alignment.TopEnd)` + insets 定位）
- * @param contentModifier 仅在存在可见卡片时应用的修饰符（空闲时不占高度）
- * @return 无返回值
- */
+/** 右上角可堆叠通知宿主；若 [state] 与上级 [LocalNotificationHostState] 为同一实例则零占位退让。 */
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun NotificationHost(
@@ -191,7 +141,6 @@ fun NotificationHost(
     modifier: Modifier = Modifier,
     contentModifier: Modifier = Modifier,
 ) {
-    // 根部已挂载统一宿主的子树直接让位，避免局部 Scaffold 与根部重复渲染或占用底部空白
     if (LocalNotificationHostState.current === state) return
 
     val activeItems by state.items.collectAsStateWithLifecycle()
@@ -233,7 +182,7 @@ fun NotificationHost(
         modifier = modifier,
         contentAlignment = Alignment.TopEnd,
     ) {
-        // 紧凑浮层上限：手机取屏宽 78% 且封顶 320dp，平板封顶 360dp，避免遮挡左侧标题
+        // 手机限宽 78% 且封顶 320dp、平板 360dp，避免遮挡左侧标题
         val cardMaxWidth = if (maxWidth >= 600.dp) 360.dp else (maxWidth * 0.78f).coerceAtMost(320.dp)
         Column(
             modifier = if (displayItems.isNotEmpty()) contentModifier else Modifier,
@@ -275,10 +224,6 @@ fun NotificationHost(
     }
 }
 
-/**
- * 单条右上角紧凑通知卡片：类型图标徽标 + 文案 + 可选动作 + 关闭图标。
- * 支持自动定时消失、点击关闭及向右滑动关闭。
- */
 @Composable
 private fun NotificationCard(
     notification: NotificationData,
@@ -286,7 +231,6 @@ private fun NotificationCard(
     modifier: Modifier = Modifier,
 ) {
     val hasAction = notification.actionText != null && notification.onAction != null
-    // 带动作按钮的通知给予更充裕的操作时间窗口
     LaunchedEffect(notification.id) {
         val timeout = if (hasAction) {
             Durations.NOTIFICATION_ACTION_TIMEOUT
@@ -396,7 +340,6 @@ private fun NotificationCard(
     }
 }
 
-/** 反色通知容器上的类型语义色：Info 用 inversePrimary、Success/Error 走扩展色反色角色。 */
 @Composable
 private fun notificationTypeColor(type: NotificationType): Color = when (type) {
     NotificationType.Info -> MaterialTheme.colorScheme.inversePrimary
@@ -404,14 +347,12 @@ private fun notificationTypeColor(type: NotificationType): Color = when (type) {
     NotificationType.Error -> MaterialTheme.extendedColors.errorOnInverse
 }
 
-/** 类型图标。 */
 private fun notificationTypeIcon(type: NotificationType): ImageVector = when (type) {
     NotificationType.Info -> Icons.Filled.Info
     NotificationType.Success -> Icons.Filled.CheckCircle
     NotificationType.Error -> Icons.Filled.ErrorOutline
 }
 
-/** core:common [MessageType] → 通知类型映射（ViewModel 一次性事件统一走此转换）。 */
 fun com.pixiv.reader.core.common.MessageType.toNotificationType(): NotificationType = when (this) {
     com.pixiv.reader.core.common.MessageType.INFO -> NotificationType.Info
     com.pixiv.reader.core.common.MessageType.SUCCESS -> NotificationType.Success

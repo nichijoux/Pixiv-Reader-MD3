@@ -5,10 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** RGB→YUV 转换与帧延时→PTS 累计的纯函数单测（MediaCodec 编码本体需真机验证）。 */
 class Mp4FrameEncoderTest {
-
-    // ── rgbIntToYuv：BT.601 limited range 参考点 ──────────────────────────────
 
     @Test
     fun `黑色映射到 limited range 下限`() {
@@ -54,8 +51,6 @@ class Mp4FrameEncoderTest {
             }
         }
     }
-
-    // ── buildFramePresentationTimesUs ────────────────────────────────────────
 
     @Test
     fun `首帧pts为零且逐帧累计延时`() {

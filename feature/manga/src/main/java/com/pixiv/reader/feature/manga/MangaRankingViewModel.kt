@@ -8,11 +8,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 /**
- * 漫画排行榜 ViewModel：5 段榜单（日/周/月/新人/R18）滑动切换。
- * 榜单拉取与收藏切换在共享基类 [IllustRankingViewModelBase]，本类仅提供漫画分段 mode。
- *
- * 分段 mode（周/月/新人/R18 为通用 mode，可能混入插画——pixiv 漫画专属榜仅 `day_manga`）：
- * - 日榜 `day_manga` / 周榜 `week` / 月榜 `month` / 新人 `week_rookie` / R18 `day_r18`
+ * 漫画榜 5 段（日/周/月/新人/R18）。周/月/新人/R18 为通用 mode，可能混入插画；
+ * pixiv 漫画专属榜仅有 `day_manga`，改这组 mode 前需确认服务端行为。
  */
 @HiltViewModel
 class MangaRankingViewModel @Inject constructor(

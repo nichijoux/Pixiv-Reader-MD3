@@ -26,21 +26,14 @@ import com.pixiv.reader.core.ui.theme.Spacing
 private val SKELETON_CONTENT_MAX_WIDTH = 480.dp
 
 /**
- * 小说详情完整加载骨架（深链进入 / 无 hero 种子兜底使用）。
- *
- * 顶部沉浸式 banner 块（[NOVEL_BANNER_HEIGHT]）+ [NovelInfoSkeleton] 信息区，
- * 呼吸脉冲占位替代全屏转圈；只换加载态渲染，不参与任何加载判定。
- * 卡片进入的详情路由不再使用本组件——banner 由 [NovelBanner] 的 seed 占位承载
- * （hero 元素唯一），信息区单独用 [NovelInfoSkeleton] 拼接。
- *
- * @param modifier 外部传入的 Modifier（通常携带 Scaffold innerPadding）
- * @return 无返回值（渲染 Composable）
+ * 整页加载骨架（仅深链 / 无 seed 兜底）。卡片进入不用本组件：hero 元素唯一，banner 由
+ * [NovelBanner] 的 seed 占位承载，信息区单独拼 [NovelInfoSkeleton]。
  */
 @Composable
 internal fun NovelDetailSkeleton(modifier: Modifier = Modifier) {
     val color = skeletonPulseColor(label = "novelDetailSkeleton")
     Column(modifier = modifier.fillMaxSize()) {
-        // 顶部 banner：与真实详情同高（沉浸式封面区）
+        // 与真实详情同高
         SkeletonBlock(
             modifier = Modifier
                 .fillMaxWidth()
@@ -53,18 +46,13 @@ internal fun NovelDetailSkeleton(modifier: Modifier = Modifier) {
 }
 
 /**
- * 小说详情信息区骨架：标题两行 + 作者行 + 统计行 + 标签胶囊 + 简介三行。
- *
- * 从 [NovelDetailSkeleton] 拆出，供详情路由在 banner 占位（seed 封面）之上拼接：
- * 数据未到达时 banner 已由 [NovelBanner] 渲染，信息区只用本组件占位。
- *
- * @param modifier 外部 Modifier（通常用于内边距控制）
- * @return 无返回值（渲染 Composable）
+ * 信息区骨架：标题两行 + 作者行 + 统计行 + 标签 + 简介三行。
+ * 供详情路由在 banner 已由 seed 占位时单独拼接。
  */
 @Composable
 internal fun NovelInfoSkeleton(modifier: Modifier = Modifier) {
     val color = skeletonPulseColor(label = "novelInfoSkeleton")
-    // 正文列：居中限宽，避免平板下统计/标签被拉得过散
+    // 居中限宽，避免平板下统计/标签被拉得过散
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.TopCenter,
@@ -75,7 +63,6 @@ internal fun NovelInfoSkeleton(modifier: Modifier = Modifier) {
                 .widthIn(max = SKELETON_CONTENT_MAX_WIDTH)
                 .padding(Spacing.lg),
         ) {
-            // 标题两行
             SkeletonBlock(
                 modifier = Modifier.fillMaxWidth(0.9f).height(18.dp).clip(AppShapes.tiny),
                 color = color,
@@ -88,7 +75,6 @@ internal fun NovelInfoSkeleton(modifier: Modifier = Modifier) {
                     .clip(AppShapes.tiny),
                 color = color,
             )
-            // 作者行：圆头像 + 昵称条 + 行尾关注胶囊
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -113,7 +99,6 @@ internal fun NovelInfoSkeleton(modifier: Modifier = Modifier) {
                     color = color,
                 )
             }
-            // 统计行：三块均分
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -127,7 +112,6 @@ internal fun NovelInfoSkeleton(modifier: Modifier = Modifier) {
                     )
                 }
             }
-            // 标签胶囊 × 4
             Row(
                 modifier = Modifier.padding(top = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
@@ -139,7 +123,6 @@ internal fun NovelInfoSkeleton(modifier: Modifier = Modifier) {
                     )
                 }
             }
-            // 简介：三行文字条（末行更短）
             SkeletonBlock(
                 modifier = Modifier
                     .padding(top = Spacing.mdPlus)

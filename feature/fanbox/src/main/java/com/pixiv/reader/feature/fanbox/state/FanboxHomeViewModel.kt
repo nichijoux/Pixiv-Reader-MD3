@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
-/** 推荐创作者单页状态（无游标，独立于 [PagedState] 的轻量三态）。 */
+/** 推荐创作者无游标，故用独立三态而不用 [PagedState]。 */
 data class FanboxCreatorsState(
     val items: List<FanboxCreator> = emptyList(),
     val isLoading: Boolean = false,
@@ -26,18 +26,14 @@ data class FanboxCreatorsState(
 )
 
 /**
- * FANBOX 首页 ViewModel：投稿流（PagedState 游标分页）+ 推荐创作者（单页）。
- *
- * 会话过期处理（PRD FR-2）：`FANBOXSESSID` 存在但失效时 post.listHome 返回 401——
- * 在 fetch lambda 内识别 401 并置 [sessionExpired]，UI 展示「重新登录」引导；
- * 用户在可见 WebView 重登后返回，点重试重新拉取。
+ * FANBOX 认证走 cookie：`FANBOXSESSID` 存在但失效时 post.listHome 返回 401，
+ * 在 fetch 内识别并置 [sessionExpired]，由 UI 换「重新登录」引导替代普通错误态。
  */
 @HiltViewModel
 class FanboxHomeViewModel @Inject constructor(
     private val fanboxRepository: FanboxRepository,
 ) : MessageViewModel() {
 
-    /** 投稿流（首页 + nextUrl 触底翻页）。 */
     val postsPaged = PagedState<FanboxPost>(keySelector = { it.id })
 
     private val _creators = MutableStateFlow(FanboxCreatorsState())
@@ -52,9 +48,6 @@ class FanboxHomeViewModel @Inject constructor(
         loadCreators()
     }
 
-    /**
-     * 首次 / 重试加载投稿流第一页。
-     */
     fun loadPosts() {
         viewModelScope.launch {
             postsPaged.loadInitial(
@@ -66,14 +59,10 @@ class FanboxHomeViewModel @Inject constructor(
         }
     }
 
-    /** 触底加载下一页投稿。 */
     fun loadMorePosts() {
         viewModelScope.launch { postsPaged.loadMore() }
     }
 
-    /**
-     * 加载推荐创作者（单页，失败不塌投稿流）。
-     */
     fun loadCreators() {
         if (_creators.value.isLoading) return
         _creators.value = FanboxCreatorsState(isLoading = true)
@@ -88,9 +77,7 @@ class FanboxHomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 整页重试（投稿 + 创作者；会话过期态一并复位，重登返回后由此恢复）。
-     */
+    /** 重登返回后由此恢复：过期态一并复位。 */
     fun retry() {
         _sessionExpired.value = false
         postsPaged.reset()
@@ -99,12 +86,7 @@ class FanboxHomeViewModel @Inject constructor(
     }
 
     /**
-     * 包一层 fetch 鉴别 401：过期时置 [sessionExpired] 并发通知，异常照常上抛
-     * （PagedState 捕获后置 error，但 UI 优先按过期态展示）。
-     *
-     * @param block 实际请求
-     * @return 请求结果
-     * @throws HttpException 请求失败时原样上抛（含 401）
+     * 过期时置 [sessionExpired] 并发通知，异常照常上抛（PagedState 置 error，UI 优先按过期态展示）。
      */
     private suspend fun <T> guardSession(block: suspend () -> T): T = try {
         block()

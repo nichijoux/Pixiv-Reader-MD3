@@ -6,18 +6,8 @@ import com.pixiv.api.model.ImageUrls
 import com.pixiv.reader.core.ui.component.card.NovelCardData
 
 /**
- * 快照还原插画（历史 / 下载卡片快照）：payloadJson → [Illust]。
- * 优先解析完整 payloadJson（含宽高，避免固定高度裁剪中间）；解析失败回退 fallback 最小数据。
- * 快照为手写 org.json 字段（id/title/coverUrl/width/height/bookmarks/pageCount/isBookmarked），
- * 逐字段映射，不直接反序列化 Illust。
- *
- * @param payloadJson 快照 JSON（null / 解析失败走 fallback）
- * @param fallbackId 快照不可用时的条目 id
- * @param fallbackTitle 快照不可用 / 缺键时的标题
- * @param fallbackCoverUrl 快照不可用 / 缺键时的封面 URL
- * @param fallbackWidth 快照不可用时的宽度（历史记录无结构宽高，默认 0）
- * @param fallbackHeight 快照不可用时的高度（历史记录无结构宽高，默认 0）
- * @return 还原的插画数据（字段级缺键兜底，渲染安全）
+ * 快照是手写的 org.json 扁平字段，须逐字段映射（不能直接反序列化 Illust）：
+ * 缺宽高会让卡片固定高度裁剪中间，故解析失败一律回退 fallback 最小数据。
  */
 internal fun restoreIllust(
     payloadJson: String?,
@@ -27,7 +17,6 @@ internal fun restoreIllust(
     fallbackWidth: Int = 0,
     fallbackHeight: Int = 0,
 ): Illust {
-    // 优先解析完整 payloadJson（含宽高，避免固定高度裁剪中间）；旧记录回退最小数据
     val parsed = payloadJson?.let {
         runCatching { org.json.JSONObject(it) }.getOrNull()
     }
@@ -52,18 +41,7 @@ internal fun restoreIllust(
     )
 }
 
-/**
- * 快照还原插画（稍后再看完整快照）：payloadJson → [Illust]。
- * 直解完整 `Illust`（Gson 往返安全：字段全为可空/基本类型，缺失落 JVM 默认值）；
- * 解析失败 / id 异常（0）回退最小数据（标题 + 封面）。
- *
- * @param payloadJson 快照 JSON（完整 Illust 的 Gson 序列化）
- * @param gson Gson 实例（调用方持有/复用）
- * @param fallbackId 快照不可用时的条目 id
- * @param fallbackTitle 快照不可用时的标题
- * @param fallbackCoverUrl 快照不可用时的封面 URL
- * @return 还原的插画数据
- */
+/** 稍后再看存的是完整 Illust 的 Gson 快照（字段全可空/基本类型，缺失落 JVM 默认值），可直接反序列化。 */
 internal fun restoreIllust(
     payloadJson: String?,
     gson: Gson,
@@ -79,26 +57,8 @@ internal fun restoreIllust(
 }
 
 /**
- * 快照还原小说卡：payloadJson（Gson 序列化的 [NovelCardData]）→ 逐字段重建。
- * Gson 对 Kotlin data class 用 UnsafeAllocator 绕过构造器：JSON 缺失的非空字段
- * 会被置为 null 且不抛异常——必须字段级补默认值，否则 NovelCard 渲染 NPE 闪退。
- * 解析失败（或 [requireValidId] 且快照 id 为 0 视为无效）回退 fallback 最小数据；
- * fallback 字段同时用于回填快照中缺失的可空字段（传 null 即不回填，保持快照原值）。
- *
- * @param payloadJson 快照 JSON（null / 解析失败走 fallback）
- * @param gson Gson 实例（调用方持有/复用）
- * @param fallbackId 快照不可用时的条目 id
- * @param fallbackTitle 快照不可用 / 缺键时的标题（调用方已兜底「未命名」文案）
- * @param fallbackCoverUrl 快照不可用 / 缺键时的封面 URL
- * @param fallbackAuthorName 快照缺键回填的作者名（null 不回填）
- * @param fallbackAuthorAvatarUrl 快照缺键回填的作者头像（null 不回填）
- * @param fallbackPublishDate 快照缺键回填的发布日期（null 不回填）
- * @param fallbackSeriesTitle 快照缺键回填的系列标题（null 不回填）
- * @param fallbackSeriesId 快照缺键回填的系列 id（null 不回填）
- * @param fallbackFavoriteCount 快照不可用时的收藏数
- * @param fallbackWordCount 快照不可用时的字数
- * @param requireValidId true 时快照 id 为 0 视为整体无效直接回退（稍后再看的 id!=0 守卫）
- * @return 还原的卡片数据（字段级缺键兜底，渲染安全）
+ * Gson 用 UnsafeAllocator 绕过 Kotlin 构造器：JSON 缺失的非空字段会被置 null 且不抛异常，
+ * 因此必须字段级补默认值，否则 NovelCard 渲染 NPE 闪退。fallback 里可空参数传 null 表示不回填。
  */
 internal fun restoreNovelCardData(
     payloadJson: String?,
@@ -115,7 +75,6 @@ internal fun restoreNovelCardData(
     fallbackWordCount: Int = 0,
     requireValidId: Boolean = false,
 ): NovelCardData {
-    // 快照损坏（非法 JSON）时 runCatching 落 null → 走 fallback；成功但字段缺失由下方逐字段兜底
     val parsed = payloadJson?.let {
         runCatching { gson.fromJson(it, NovelCardData::class.java) }.getOrNull()
     }
@@ -130,7 +89,7 @@ internal fun restoreNovelCardData(
             publishDate = parsed.publishDate ?: fallbackPublishDate,
             seriesTitle = parsed.seriesTitle ?: fallbackSeriesTitle,
             seriesId = parsed.seriesId ?: fallbackSeriesId,
-            // 旧快照缺失整数字段时 Gson 会填 0，仅在大于 0 时覆盖历史实体兜底计数。
+            // 旧快照缺失整数字段时 Gson 填 0，仅大于 0 才覆盖历史实体兜底计数。
             favoriteCount = parsed.favoriteCount.takeIf { it > 0 } ?: fallbackFavoriteCount,
             wordCount = parsed.wordCount.takeIf { it > 0 } ?: fallbackWordCount,
             tags = parsed.tags.orEmpty(),

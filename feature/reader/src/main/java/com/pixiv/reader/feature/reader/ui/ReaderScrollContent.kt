@@ -16,12 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import com.pixiv.reader.feature.reader.state.PageElement
 
-/**
- * 滑动模式列表项：行元素 + 字符锚点区间（用于进度恢复与目录/搜索跳转）。
- *
- * 行是元素（legado 语义）——每个 [PageElement.TextLine] 是独立列表项，
- * 段落只是排版输入（换行由 [com.pixiv.reader.feature.reader.state.ReaderLineEngine] 完成）。
- */
 internal data class ScrollItem(
     val key: Long,
     val element: PageElement,
@@ -29,11 +23,6 @@ internal data class ScrollItem(
     val anchorEnd: Int,
 )
 
-/**
- * 由行元素流构建滑动列表项：
- * - 文本行锚点 = 自身字符区间（行级，进度/跳转粒度比段落细）
- * - 段距空隙/图片无字符区间，锚点取上一个文本行结束位置（排版游标）
- */
 internal fun buildScrollItems(elements: List<PageElement>): List<ScrollItem> {
     var cursor = 0
     return elements.mapIndexed { index, element ->
@@ -48,21 +37,6 @@ internal fun buildScrollItems(elements: List<PageElement>): List<ScrollItem> {
     }
 }
 
-/**
- * 滑动阅读模式：LazyColumn 逐行渲染（行是元素，段落只是排版输入）。
- * 元素流由 [com.pixiv.reader.feature.reader.state.rememberReaderElements] 提供，
- * 与分页模式共用同一排版引擎，换行/样式/锚点完全一致。
- *
- * @param elements 排版行元素流
- * @param restoreCharOffset 首次恢复阅读进度的字符偏移
- * @param jumpToChar 目录或搜索跳转目标字符偏移
- * @param onScrollOffset 当前滚动首可见位置对应的字符偏移回调
- * @param onPageInfo 页码信息回调（滑动模式固定 0 to 1）
- * @param onOpenImage 点击图片全屏预览回调
- * @param onJumpHandled 跳转完成后清理外部跳转锚点的回调
- * @param modifier 外部修饰符
- * @return 无返回值
- */
 @Composable
 internal fun ScrollReaderContent(
     elements: List<PageElement>,
@@ -80,11 +54,9 @@ internal fun ScrollReaderContent(
     val currentOnJumpHandled by rememberUpdatedState(onJumpHandled)
     val listState = rememberLazyListState()
     var restored by remember { mutableStateOf(false) }
-    // 记录当前滚动锚点，字体/简繁重排后保持在同一字符位置附近。
     var anchorChar by remember { mutableIntStateOf(restoreCharOffset) }
     val density = LocalDensity.current
 
-    // 首次定位到上次阅读位置
     LaunchedEffect(items, restoreCharOffset) {
         if (restored || items.isEmpty()) return@LaunchedEffect
         val index = items.indexOfFirst { it.anchorEnd > restoreCharOffset }
@@ -94,7 +66,7 @@ internal fun ScrollReaderContent(
         restored = true
     }
 
-    // 排版重排（如修改字号/行距/简繁切换）后恢复至当前字符锚点。
+    // 排版重排后按当前字符锚点恢复位置
     LaunchedEffect(items) {
         if (!restored || items.isEmpty()) return@LaunchedEffect
         val index = items.indexOfFirst { it.anchorEnd > anchorChar }
@@ -105,7 +77,7 @@ internal fun ScrollReaderContent(
         }
     }
 
-    // 目录/搜索跳转（待列表就绪后执行，完成后通知外层清空锚点以便重复跳同一偏移）
+    // 跳转后清空外部锚点，保证重复跳同一偏移仍生效
     LaunchedEffect(jumpToChar, items.isNotEmpty()) {
         val j = jumpToChar ?: return@LaunchedEffect
         if (items.isEmpty()) return@LaunchedEffect
@@ -116,7 +88,7 @@ internal fun ScrollReaderContent(
         currentOnJumpHandled()
     }
 
-    // 滚动进度：使用最新 items 与回调，避免 elements 变更后仍读取首次组合的陈旧列表与闭包。
+    // 经 rememberUpdatedState 读取最新列表与回调，避免 LaunchedEffect(listState) 捕获陈旧闭包
     LaunchedEffect(listState) {
         snapshotFlow {
             val index = listState.firstVisibleItemIndex
@@ -142,7 +114,6 @@ internal fun ScrollReaderContent(
         contentPadding = PaddingValues(horizontal = PAGE_H_PADDING, vertical = PAGE_V_PADDING),
     ) {
         items(count = items.size, key = { items[it].key }) { index ->
-            // 行元素渲染与翻页模式共用同一实现（PageElementView）
             PageElementView(items[index].element, density, onOpenImage)
         }
     }

@@ -25,11 +25,7 @@ import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 
 /**
- * 通知分组子列表（/v1/notification/view-more）。
- * 子项均为普通通知行，点击同样按 `target_url` 跳转。
- *
- * @param onBack 返回
- * @param onOpenUser / onOpenIllust / onOpenNovel 同 [NotificationRoute]
+ * 通知分组子列表（/v1/notification/view-more）：子项均为普通通知行，同样按 target_url 跳转。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +36,6 @@ fun NotificationGroupRoute(
     onOpenNovel: (Long) -> Unit,
     viewModel: NotificationGroupViewModel = hiltViewModel(),
 ) {
-    // 顶栏标题：优先用入口传入的组名，缺省回退通用文案
     val passedTitle = viewModel.groupTitle
     val title = passedTitle?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.notification_group_title)

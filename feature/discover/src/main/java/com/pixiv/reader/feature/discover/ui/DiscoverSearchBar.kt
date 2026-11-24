@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.core.ui.theme.Spacing
 
-/** 发现页搜索栏（聚焦高亮 + 清除/搜索按钮 + 筛选入口）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SearchField(

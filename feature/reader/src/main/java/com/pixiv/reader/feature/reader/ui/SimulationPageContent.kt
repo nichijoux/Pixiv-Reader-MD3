@@ -66,13 +66,9 @@ private const val FOLD_SHADOW_FRACTION = 0.35f
 private enum class Phase { IDLE, DRAGGING, SETTLING }
 
 /**
- * 正在翻转的纸张（TurningSheet，规则九/十五）：
- * 任意时刻至多一个；正反面内容绑定同一方向与同一实时折痕，拖动全程不改 currentIndex。
- *
- * @property direction 翻页方向
- * @property topCorner true = 掀上角（角点 y=0），false = 掀下角（角点 y=H）
- * @property touch 拖动点 A（书脊坐标，已经 [clampDragPoint] 合法化）
- * @property press 按下手指数点（屏幕坐标）：A 从角点出发按相对位移驱动，按下时零折叠
+ * 正在翻转的纸张：任意时刻至多一个，正反面绑定同一方向与同一实时折痕，拖动全程不改 currentIndex。
+ * touch 为拖动点 A（书脊坐标，已 clamp），press 为按下手指数点：A 从角点出发按相对位移驱动，
+ * 按下时零折叠。
  */
 private data class TurnState(
     val direction: TurnDirection,
@@ -82,44 +78,12 @@ private data class TurnState(
 )
 
 /**
- * 仿真翻页：基于「物理纸张双面翻转 + 动态折痕 + 半平面裁剪」的折页效果。
+ * 仿真翻页：物理纸张双面翻转 + 动态折痕 + 半平面裁剪。跨页 N = 左页 P(2N-1) | 右页 P(2N)，
+ * 相邻两页是同一张纸的正反面；折痕 = 拖动点 A 与角点 B 的垂直平分线，正反面共享同一张纸，
+ * 经 reflect(折痕)∘reflect(书脊) 复合变换映射，全翻时退化为恒等、背面恰好平铺到目标页槽。
+ * 单页（[columns] = 1）屏幕页 = 书的右页（书脊在屏幕左缘），两方向动作与双页相反。
  *
- * 页面模型（规则一）：跨页 spread N = 左页 P(2N-1) | 右页 P(2N)；相邻两页是同一张纸的正反面。
- *
- * 向前翻（卷右页）：TurningSheet 正面 = 当前右页，背面 = 下一跨页左页（P2→P3），
- * 静态底层 = 当前左页 | 下一跨页右页（P1 | P4）；完成后跨页 +1（P3 | P4）。
- * 向后翻（卷左页）严格镜像：正面 = 当前左页，背面 = 上一跨页右页，
- * 静态底层 = 上一跨页左页 | 当前右页；完成后跨页 -1。
- *
- * 几何（规则四~八）：折痕 = 拖动点 A 与角点 B 的垂直平分线；正面 = 页矩形 ∩ A 侧半平面；
- * 背面 = 页矩形 ∩ B 侧半平面沿折痕反射。正反面共享同一张纸：
- * 背面内容画在「翻完后的阅读位」，经 reflect(折痕)∘reflect(书脊) 复合变换映射到当前翻起位置，
- * 全翻时折痕 = 书脊、复合变换 = 恒等、背面恰好可读平铺到目标页槽（无缝切换到新静态跨页）。
- *
- * 单页（columns = 1）：屏幕页 = 书的右页（书脊在屏幕左缘），两个方向动作相反：
- * 向后翻（去下一页）= 当前页从右缘往左翻走，折回区露出下一页文字，底层为下一页；
- * 向前翻（回上一页，对齐 e0864dd 卷角）= 角点固定书脊侧 (0, cy)（屏内），当前页
- * 从左缘向右卷走（纸背呈当前页镜像透字），底层为上一页，卷过大半屏或向右甩动
- * 即落定上一页，可掀一角跟手拖拽。
- * 双页（columns = 2）：对开叶模型，向前卷右叶、向后卷左叶（几何按方向镜像）。
- *
- * 手势（规则十/十一）：PRESS→DRAGGING→SETTLING→COMPLETED/CANCELED；
  * 松手按进度 ≥ 0.5 或沿翻向甩动速度判定完成/回弹，settle 动画驱动同一拖动点走同一几何管线。
- *
- * @param spreads 跨页列表（翻页单元，字符锚点取跨页 startChar）
- * @param columns 列数：1 单页整宽 / 2 双页对开
- * @param pageHeight 页面渲染高度（底部贴底微调用）
- * @param backgroundColor 纸底色（纸背与静态底层铺色）
- * @param restoreCharOffset 恢复进度的字符偏移（首次定位）
- * @param jumpToChar 目录/搜索跳转目标字符偏移
- * @param onPageChange 翻页完成后回调当前跨页下标（上层换算进度）
- * @param onPageInfo 回调当前跨页下标与跨页总数（页码指示）
- * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度）
- * @param barsVisible 工具栏可见性（点击分区在工具栏显示时仅关闭工具栏）
- * @param onCloseBars 关闭工具栏回调
- * @param onToggleBars 切换工具栏回调
- * @param onPrevChapterRequest 首跨页向前翻：系列跳上一章尾页
- * @param onNextChapterRequest 末跨页向后翻：系列跳下一章开头
  */
 @Composable
 fun SimulationPageContent(
@@ -158,13 +122,11 @@ fun SimulationPageContent(
     // 翻页阶段与正在翻转的纸张（规则十五：唯一 TurningSheet；完成时才改 currentIndex）
     var phase by remember { mutableStateOf(Phase.IDLE) }
     var turn by remember { mutableStateOf<TurnState?>(null) }
-    // 页面尺寸（px），由 BoxWithConstraints 填充
     var pageW by remember { mutableStateOf(0f) }
     var pageH by remember { mutableStateOf(0f) }
     // 松手速度判定样本（事件时间 ms → 拖动点 A.x），仅 onDragEnd 读取，无需触发重组
     val velocitySamples = remember { mutableListOf<Pair<Long, Float>>() }
 
-    // 首次定位到上次阅读位置
     LaunchedEffect(spreads, restoreCharOffset) {
         if (restored || spreads.isEmpty()) return@LaunchedEffect
         val index = spreads.spreadIndexForChar(restoreCharOffset).coerceIn(0, spreads.lastIndex)
@@ -189,7 +151,6 @@ fun SimulationPageContent(
         }
     }
 
-    // 翻页完成后上报当前页
     LaunchedEffect(currentIndex.intValue) {
         if (restored && currentSpreads.isNotEmpty()) {
             val idx = currentIndex.intValue.coerceIn(0, currentSpreads.lastIndex)
@@ -268,11 +229,8 @@ fun SimulationPageContent(
     }
 
     /**
-     * 收尾动画（规则十二）：驱动拖动点 A 连续运动到目标位——
-     * 完成 → reflect(书脊)(B)（翻过；末帧背面可读平铺目标槽，与新静态渲染逐像素一致），
-     * 回弹 → B。全程走同一折页几何管线；结束后才提交跨页变更。
-     *
-     * @param complete true 翻过（COMPLETED），false 回弹（CANCELED）
+     * 收尾动画：驱动拖动点 A 连续运动到目标位（完成 → reflect(书脊)(B)，回弹 → B），
+     * 全程走同一折页几何管线；结束后才提交跨页变更。
      */
     suspend fun settleTurn(complete: Boolean) {
         val t = turn ?: return
@@ -449,14 +407,12 @@ fun SimulationPageContent(
                 )
             },
     ) {
-        // 页面尺寸（px）：直接用 scope 的 constraints（无需 Density 转换，IDE 可识别 scope 使用）
         pageW = constraints.maxWidth.toFloat()
         pageH = constraints.maxHeight.toFloat()
 
         val density = LocalDensity.current
         val bookW = if (columns >= 2) pageW / 2f else pageW
         val spineScreenX = if (columns >= 2) bookW else 0f
-        // 页面槽位宽（双页半屏 / 单页整屏）
         val slotWidthDp = with(density) { bookW.toDp() }
         val i = currentIndex.intValue
         val turnV = turn
@@ -717,24 +673,9 @@ fun SimulationPageContent(
 }
 
 /**
- * 单页（手机端）仿真翻页的背面层：独立于双页（平板）实现，互不影响。
- *
- * - 向后翻（去下一页）：背面 = 下一页，内容槽在屏内 [0, W] 布局，绘制时先平移
- *   [slotTranslatePx]（= −页宽）到终位（书脊左侧屏外槽 [−W, 0]），再经
- *   reflect(书脊 x=0) 与 reflect(折痕) 两次**精确**反射映射到当前折回区
- * - 向前翻（回上一页）：背面 = 上一页，终位即右位原位（[slotTranslatePx] = 0），
- *   完成时折痕 = 书脊、复合变换 = 恒等，上一页可读平铺右位落定
- * - [backPage] 为 null（边界无对应页）→ 只画纸背 + 阴影
- *
- * @param foldLine 实时折痕（中点/法向/方向角）
- * @param flapPath 折回区裁剪路径（屏幕坐标）
- * @param backPage 背面内容页（向后 = 下一页，向前 = 上一页；null → 纸背）
- * @param pageHeight 页面渲染高度
- * @param slotWidthDp 内容槽宽（= 页宽）
- * @param slotTranslatePx 槽位平移量（px，把屏内布局的内容槽移到终位阅读位）
- * @param contentTopInset 内容顶部额外避让（沉浸式纸面覆盖状态栏时 = 状态栏高度）
- * @param backgroundColor 纸底色
- * @param shadowBrush 折痕阴影画刷
+ * 单页（手机端）仿真翻页的背面层，独立于双页实现：内容槽在屏内布局，绘制时先平移
+ * [slotTranslatePx] 到终位阅读位，再经 reflect(书脊) 与 reflect(折痕) 两次精确反射映射到
+ * 当前折回区；[backPage] 为 null（边界无对应页）时只画纸背 + 阴影。
  */
 @Composable
 private fun SingleFoldBackLayer(

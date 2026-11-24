@@ -34,9 +34,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * 我的页 ViewModel：当前登录用户信息 + 应用版本 + 屏蔽标签管理（本地偏好）+ 外观/语言/系统设置。
- */
 @HiltViewModel
 class MeViewModel @Inject constructor(
     @ApplicationContext context: Context,
@@ -52,27 +49,16 @@ class MeViewModel @Inject constructor(
     private val _user = MutableStateFlow<User?>(sessionRepository.currentUser?.user)
     val user: StateFlow<User?> = _user.asStateFlow()
 
-    /** 当前登录用户 UID（进个人主页用）。 */
     val ownUid: Long? get() = _user.value?.id
 
     /**
-     * 是否已登录 FANBOX（WebView cookie 含 FANBOXSESSID）——生态区 FANBOX 条目分流用。
-     * 注意存在 ≠ 有效：过期后原生首页按 401 引导重登（FanboxHomeViewModel）。
-     *
-     * @return 已登录过 FANBOX 为 true
+     * 存在 ≠ 有效：cookie 过期后原生首页按 401 引导重登（FanboxHomeViewModel）。
      */
     fun hasFanboxSession(): Boolean = fanboxRepository.hasSession()
 
     /**
-     * 打开 pixiv 生态网页（COMIC / 私信消息页；FANBOX 已改走原生入口，不再经过本方法）。
-     *
-     * 首次点击（本会话未完成浏览器 SSO）时先在系统浏览器打开 pixiv 授权登录页：
-     * 登录/SSO 完成后 pixiv 302 到 `pixiv://account/login` 自动唤起本 app，
-     * 同时浏览器已获得网页登录态——再次点击同一入口即以登录态直达目标网页。
-     * SSO 完成后的后续点击直接打开目标网页。
-     *
-     * @param targetUrl 目标网页地址（comic.pixiv.net / message.php）
-     * @return 无返回值；SSO 提示经消息通道展示
+     * 首次点击（本会话未完成浏览器 SSO）先开系统浏览器走 pixiv 授权：登录完成 302 到 `pixiv://account/login`
+     * 唤起本 app，浏览器同时拿到网页登录态，再次点击同一入口才能直达目标页。
      */
     fun openEcosystemPage(targetUrl: String) {
         if (sessionRepository.webSsoCompleted) {
@@ -85,7 +71,6 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 用系统浏览器打开 URL（app 级 context，需 NEW_TASK 标记；失败经消息通道提示）。 */
     private fun openBrowser(url: String) {
         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -102,23 +87,18 @@ class MeViewModel @Inject constructor(
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     }.getOrDefault("")
 
-    /** 远程最新 Release（非 null 时「我的」页显示更新对话框）。 */
     private val _updateDialog = MutableStateFlow<AppRelease?>(null)
     val updateDialog: StateFlow<AppRelease?> = _updateDialog.asStateFlow()
 
-    /** 主题模式：跟随系统 / 浅色 / 深色。 */
     val themeMode: StateFlow<ThemeMode> =
         userPreferences.themeMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.FOLLOW_SYSTEM)
 
-    /** 动态取色。 */
     val dynamicColor: StateFlow<Boolean> =
         userPreferences.dynamicColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    /** 彩色风格开关（false = 纯 M3 单色，默认关闭）。 */
     val colorStyleEnabled: StateFlow<Boolean> =
         userPreferences.colorStyleEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** 手机端底部导航栏样式（贴边短栏 / 悬浮胶囊）。 */
     val bottomNavBarStyle: StateFlow<BottomNavBarStyle> =
         userPreferences.bottomNavBarStyle.stateIn(
             viewModelScope,
@@ -126,35 +106,28 @@ class MeViewModel @Inject constructor(
             BottomNavBarStyle.DOCKED,
         )
 
-    /** 应用字号缩放（0.8~1.3；MainActivity 覆盖 fontScale 即时生效）。 */
     val appFontScale: StateFlow<Float> =
         userPreferences.appFontScale.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
 
-    /** 应用语言：system 跟随系统 / zh 中文 / en 英文。 */
     val appLanguage: StateFlow<String> =
         userPreferences.appLanguage.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
 
-    /** 自动更新开关。 */
     val autoUpdate: StateFlow<Boolean> =
         userPreferences.autoUpdate.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    /** 小说 Tab 默认页：推荐 / 关注。 */
     val novelDefaultTab: StateFlow<NovelDefaultTab> =
         userPreferences.novelDefaultTab.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NovelDefaultTab.RECOMMEND)
 
-    /** 作品（插画/漫画/动图）查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向。 */
     val viewerOrientation: StateFlow<ViewerOrientation> =
         userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerOrientation.HORIZONTAL)
 
-    /** 关注页左列用户排序：关注时间 / 名称升序 / 名称降序 / 代表作最新。 */
     val followSortMode: StateFlow<FollowSortMode> =
         userPreferences.followSortMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FollowSortMode.FOLLOW_TIME)
 
-    /** 小说导出目录（SAF tree uri；空 = 应用默认私有目录）。 */
     val novelExportDir: StateFlow<String> =
         userPreferences.novelExportDir.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    /** 小说导出文件名模板-单本下载（占位符 {title}/{author}/{id}/{series}；默认 {title}_{id}，缺失项渲染为空）。 */
+    /** 占位符 {title}/{author}/{id}/{series}，缺失项渲染为空。 */
     val novelFileNameTemplate: StateFlow<String> =
         userPreferences.novelFileNameTemplate.stateIn(
             viewModelScope,
@@ -162,7 +135,6 @@ class MeViewModel @Inject constructor(
             NovelFileNameTemplate.DEFAULT_SINGLE,
         )
 
-    /** 小说导出文件名模板-系列导出（整系列/部分分册；默认 {series}_{id}）。 */
     val novelFileNameTemplateSeries: StateFlow<String> =
         userPreferences.novelFileNameTemplateSeries.stateIn(
             viewModelScope,
@@ -170,7 +142,7 @@ class MeViewModel @Inject constructor(
             NovelFileNameTemplate.DEFAULT_SERIES,
         )
 
-    /** 剪贴板 pixiv 链接识别提示（打开 App / 回前台时检测并提示跳转）。 */
+    /** 打开 App / 回前台时检测剪贴板并提示跳转。 */
     val clipboardLinkPrompt: StateFlow<Boolean> =
         userPreferences.clipboardLinkPrompt.stateIn(
             viewModelScope,
@@ -178,7 +150,6 @@ class MeViewModel @Inject constructor(
             true,
         )
 
-    /** 缓存占用大小估算（离线缓存 + 调试文件 + 图片缓存）。 */
     private val _cacheSize = MutableStateFlow(context.getString(R.string.me_cache_calculating))
     val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
 
@@ -194,23 +165,11 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setDynamicColor(value) }
     }
 
-    /**
-     * 设置彩色风格开关：开启后各页使用彩色点缀，关闭回到纯 M3 单色（MainActivity 经
-     * CompositionLocal 下发，写入落盘后全局即时生效）。
-     *
-     * @param value true = 彩色风格，false = 纯 M3 单色
-     * @return 无返回值；写入在 [viewModelScope] 协程内异步完成
-     */
+    /** MainActivity 经 CompositionLocal 下发，落盘后全局即时生效。 */
     fun setColorStyleEnabled(value: Boolean) {
         viewModelScope.launch { userPreferences.setColorStyleEnabled(value) }
     }
 
-    /**
-     * 设置手机端底部导航栏样式（MainActivity 经 CompositionLocal 下发，写入后即时生效）。
-     *
-     * @param value 目标导航栏样式（贴边短栏 / 悬浮胶囊）
-     * @return 无返回值；写入在 [viewModelScope] 协程内异步完成
-     */
     fun setBottomNavBarStyle(value: BottomNavBarStyle) {
         viewModelScope.launch { userPreferences.setBottomNavBarStyle(value) }
     }
@@ -219,13 +178,7 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setAppFontScale(value) }
     }
 
-    /**
-     * 设置应用语言并异步落盘，结束后通过 [onDone] 告知写入是否成功（取消时正常向上传播）。
-     *
-     * @param value 目标语言存储值（system / zh / zh-TW / en）
-     * @param onDone 落盘结束回调（true = 成功，false = 写入失败）
-     * @return 无返回值
-     */
+    /** 落盘结束后回调写入是否成功（取消则正常向上传播，不回调）。 */
     fun setAppLanguage(value: String, onDone: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             val success = try {
@@ -244,17 +197,15 @@ class MeViewModel @Inject constructor(
         viewModelScope.launch { userPreferences.setAutoUpdate(value) }
     }
 
-    /** 设置小说导出目录（SAF tree uri；空串 = 恢复默认应用目录）。 */
+    /** 空串 = 恢复默认应用私有目录。 */
     fun setNovelExportDir(uri: String) {
         viewModelScope.launch { runCatching { userPreferences.setNovelExportDir(uri) } }
     }
 
-    /** 恢复默认导出目录（应用私有目录）。 */
     fun resetNovelExportDir() {
         viewModelScope.launch { runCatching { userPreferences.setNovelExportDir("") } }
     }
 
-    /** 保存小说导出文件名模板（单本/系列两套一起落盘）。 */
     fun setNovelFileNameTemplates(single: String, series: String) {
         viewModelScope.launch {
             runCatching {
@@ -264,7 +215,6 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 恢复默认文件名模板（单本 {title}_{id}，系列 {series}_{id}）。 */
     fun resetNovelFileNameTemplates() {
         viewModelScope.launch {
             runCatching {
@@ -274,36 +224,28 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 设置小说默认页（推荐 / 关注）。 */
     fun setNovelDefaultTab(value: NovelDefaultTab) {
         viewModelScope.launch { userPreferences.setNovelDefaultTab(value) }
     }
 
-    /** 设置剪贴板 pixiv 链接识别提示开关。 */
     fun setClipboardLinkPrompt(value: Boolean) {
         viewModelScope.launch { runCatching { userPreferences.setClipboardLinkPrompt(value) } }
     }
 
-    /** 设置作品（插画/漫画/动图）查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */
     fun setViewerOrientation(value: ViewerOrientation) {
         viewModelScope.launch { userPreferences.setViewerOrientation(value) }
     }
 
-    /** 设置关注页左列用户排序。 */
     fun setFollowSortMode(value: FollowSortMode) {
         viewModelScope.launch { userPreferences.setFollowSortMode(value) }
     }
 
-    /**
-     * 检查更新：拉取 GitHub Releases 最新发布并与本地 versionName 语义化比较。
-     *
-     * @param auto true=启动自动检查（已最新或失败时静默不打扰）；false=手动点击（三态全反馈）
-     */
+    /** 启动自动检查（已最新/失败均静默）与手动点击（三态全反馈）走不同提示分支。 */
     fun checkUpdate(auto: Boolean = false) {
         viewModelScope.launch {
             updateChecker.latestRelease()
                 .onSuccess { release ->
-                    // release == null：仓库尚无发布（404），与"已最新"同路径提示
+                    // 404（仓库尚无发布）与「已最新」同路径提示
                     if (release != null && AppUpdateVersion.isNewer(versionName, release.tagName)) {
                         _updateDialog.value = release
                     } else if (!auto) {
@@ -318,12 +260,10 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 关闭更新对话框（下次进入仍可再查）。 */
     fun dismissUpdateDialog() {
         _updateDialog.value = null
     }
 
-    /** 刷新缓存占用大小（cacheDir：Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）。 */
     fun refreshCacheSize() {
         viewModelScope.launch {
             val size = withContext(Dispatchers.IO) {
@@ -335,29 +275,21 @@ class MeViewModel @Inject constructor(
         }
     }
 
-    /** 清除缓存：整个 cacheDir（Coil 图片 / ugoira 动图帧 / novel_debug 调试文件等）+ 信息流快照。 */
+    /** 统计口径是整个 cacheDir（含 Coil 图片、ugoira 帧、novel_debug）加信息流首屏快照。 */
     fun clearCache() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                // 先让 Coil 正常关闭磁盘/内存缓存，再清空整个 cacheDir：
-                // 覆盖 image_cache（Coil）、ugoira（动图帧）、novel_debug（阅读器调试）等，与 refreshCacheSize 统计一致
+                // 先让 Coil 关闭磁盘/内存缓存，再清空整个 cacheDir
                 runCatching { appContext.imageLoader.diskCache?.clear() }
                 runCatching { appContext.imageLoader.memoryCache?.clear() }
                 runCatching { appContext.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
             }
-            // 信息流首屏快照（首页秒开）一并清除，下次启动重新联网拉取
+            // 首页秒开用的首屏快照一并清掉，下次启动重新联网拉取
             feedSnapshotStore.clearAll()
             refreshCacheSize()
             sendMessage(UiMessage(R.string.me_cache_cleared))
         }
     }
 
-    /**
-     * 缓存占用大小格式化：一行委托 core:common [formatFileSize]
-     * （KB/MB/GB 固定 US 单位）；缓存行为空值兜底 "0 B"（与 FANBOX「无大小不展示」语义不同）。
-     *
-     * @param bytes 字节数
-     * @return 可读大小串
-     */
     private fun formatSize(bytes: Long): String = formatFileSize(bytes).ifEmpty { "0 B" }
 }

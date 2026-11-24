@@ -5,18 +5,13 @@ import com.google.gson.annotations.SerializedName
 import java.io.Serializable
 
 /**
- * Pixiv App API 数据模型（DTO）
- *
- * 字段名与官方 JSON 完全一致（snake_case），配合 Gson/Moshi 无需额外注解。
- * 来源：Pixiv-Shaft `ceui/loxia/Models.kt` + `models/src/main/java/ceui/lisa/models`（`*.java`）
+ * App API DTO：字段名与官方 JSON 完全一致（snake_case），Gson 无需额外注解。
  */
 
 // ── 通用 ─────────────────────────────────────────────────────────────────────
 
-/** 空响应（写操作通用） */
 class NullResponse : Serializable
 
-/** 错误响应 */
 data class ErrorResponse(
     val error: ErrorBody? = null,
 ) : Serializable
@@ -33,7 +28,6 @@ data class ErrorBody(
 
 // ── OAuth / 账户 ────────────────────────────────────────────────────────────
 
-/** OAuth token 响应 */
 data class AccountResponse(
     val access_token: String? = null,
     val expires_in: Int? = null,
@@ -58,12 +52,10 @@ data class User(
     val comment: String? = null,
     val require_policy_agreement: Boolean? = null,
     val x_restrict: Int? = null,
-    /** user/detail v2 新增 */
     val is_access_blocking_user: Boolean? = null,
     val is_accept_request: Boolean? = null,
 ) : Serializable
 
-/** 用户详情（/v2/user/detail） */
 data class UserResponse(
     val profile: Profile? = null,
     val profile_publicity: ProfilePublicity? = null,
@@ -132,7 +124,6 @@ data class Workspace(
     val workspace_image_url: Any? = null,
 ) : Serializable
 
-/** /v1/user/me/state */
 data class SelfProfile(
     val profile: User? = null,
     val user_state: UserState? = null,
@@ -149,7 +140,6 @@ data class UserState(
     val is_user_restricted: Boolean = false,
 ) : Serializable
 
-/** 推荐用户列表项：user + 代表作预览 */
 data class UserPreview(
     val user: User? = null,
     val illusts: List<Illust> = emptyList(),
@@ -169,7 +159,6 @@ data class UserFollowDetail(
     val followed: Boolean = false,
 ) : Serializable
 
-/** 屏蔽列表 */
 data class MutedHistory(
     val mute_tags: List<MuteTag>? = null,
     val mute_users: List<MuteUser>? = null,
@@ -199,7 +188,6 @@ data class ImageUrls(
     val px_170x170: String? = null,
 ) : Serializable {
 
-    /** 返回可用的最大尺寸 URL */
     fun best(): String? = url ?: original ?: large ?: medium ?: square_medium ?: small
         ?: px_170x170 ?: px_50x50 ?: px_16x16
 }
@@ -256,10 +244,8 @@ data class Illust(
     val tools: List<String>? = null,
 ) : Serializable {
 
-    /** 是否为动图 */
     fun isGif(): Boolean = type == "ugoira"
 
-    /** 是否为漫画 */
     fun isManga(): Boolean = type == "manga"
 
     /** 是否为 AI 生成（0=未知 1=人类 2=AI） */
@@ -282,7 +268,6 @@ data class MetaSinglePage(
     val original_image_url: String? = null,
 ) : Serializable
 
-/** 列表响应 */
 data class IllustResponse(
     val illusts: List<Illust> = emptyList(),
     val next_url: String? = null,
@@ -291,7 +276,6 @@ data class IllustResponse(
     override val nextPageUrl: String? get() = next_url
 }
 
-/** 推荐列表（首屏带排行榜预览） */
 data class HomeIllustResponse(
     val illusts: List<Illust> = emptyList(),
     val ranking_illusts: List<Illust> = emptyList(),
@@ -301,12 +285,10 @@ data class HomeIllustResponse(
     override val nextPageUrl: String? get() = next_url
 }
 
-/** 作品详情 */
 data class SingleIllustResponse(
     val illust: Illust? = null,
 ) : Serializable
 
-/** 动图元数据 */
 data class GifResponse(
     val illust_id: Long = 0L,
     val ugoira_metadata: UgoiraMetadata? = null,
@@ -369,7 +351,6 @@ data class SingleNovelResponse(
     val novel: Novel? = null,
 ) : Serializable
 
-/** 推荐小说（首屏带排行榜预览） */
 data class NovelRecommendResponse(
     val novels: List<Novel> = emptyList(),
     val ranking_novels: List<Novel> = emptyList(),
@@ -379,7 +360,7 @@ data class NovelRecommendResponse(
     override val nextPageUrl: String? get() = next_url
 }
 
-/** 小说正文 HTML（/webview/v2/novel 返回 ResponseBody，这里保留 URL 模型） */
+/** 仅保留 URL 模型：正文经 /webview/v2/novel 直取 ResponseBody。 */
 data class NovelDetailV2(
     val id: Long = 0L,
     val html: String? = null,
@@ -518,7 +499,6 @@ data class BookmarkTagResponse(
     override val nextPageUrl: String? get() = next_url
 }
 
-/** 小说阅读书签列表（/v2/novel/markers） */
 data class NovelMarker(
     val is_cancelled: Boolean = false,
     val page: Int = 1,
@@ -839,7 +819,6 @@ data class PresetJob(
 
 // ── 简单用户列表（收藏该作品的用户等）───────────────────────────────────────
 
-/** 收藏该作品的用户等简单用户列表 */
 data class SimpleUserResponse(
     val users: List<User> = emptyList(),
     val next_url: String? = null,

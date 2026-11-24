@@ -4,10 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/**
- * COMIC viewer 页 salt 解析单测：正常 __NEXT_DATA__ 提取、script 属性顺序变化、
- * 块缺失、JSON 损坏四种形态。
- */
 class ComicViewerSaltParserTest {
 
     /** 标准 Next.js SSR 输出形态（字段名对齐 2026-09 实测抓包）。 */
@@ -36,14 +32,13 @@ class ComicViewerSaltParserTest {
         assertEquals("abc123", ComicViewerSaltParser.parse(html))
     }
 
-    /** 无 __NEXT_DATA__ 块（如 CF 挑战页 / 错误页）返回 null 而非抛出。 */
+    /** CF 挑战页 / 错误页没有该块，返回 null 而非抛出。 */
     @Test
     fun `returns null when NEXT_DATA missing`() {
         assertNull(ComicViewerSaltParser.parse("<html><body>Just an error page</body></html>"))
         assertNull(ComicViewerSaltParser.parse(""))
     }
 
-    /** JSON 损坏 / salt 键缺失时返回 null 而非抛出。 */
     @Test
     fun `returns null on malformed json or missing salt`() {
         assertNull(ComicViewerSaltParser.parse("""<script id="__NEXT_DATA__">{broken</script>"""))

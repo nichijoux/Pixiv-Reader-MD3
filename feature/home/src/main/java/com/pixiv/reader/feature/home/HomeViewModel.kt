@@ -17,13 +17,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** 首页 Tab：推荐 / 关注。 */
 enum class HomeTab { RECOMMEND, FOLLOW }
 
 /**
- * 首页 ViewModel：推荐流 / 关注流（PagedState 分页，切 Tab 懒加载）+ 热门标签横滑。
- * 收藏操作即时回调（nowFavorite 为目标状态），失败静默。
- * 首页秒开：冷启动先恢复上次快照（推荐 / 关注 / 热门标签），后台刷新成功后无感替换。
+ * 推荐流 / 关注流 + 热门标签。冷启动先恢复上次快照（推荐/关注/标签），后台刷新成功后无感替换。
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -41,15 +38,13 @@ class HomeViewModel @Inject constructor(
     private val _tab = MutableStateFlow(HomeTab.RECOMMEND)
     val tab: StateFlow<HomeTab> = _tab.asStateFlow()
 
-    /** 下拉刷新指示（PullToRefreshBox 用，按当前 Tab 生效）。 */
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    /** Gson 列表元素类型（快照序列化用）。 */
     private val illustListType = object : TypeToken<List<Illust>>() {}.type
     private val tagListType = object : TypeToken<List<TrendingTag>>() {}.type
 
-    /** 冷启动快照预填任务：网络首载前等待其完成，避免旧快照晚到与真实首页竞态。 */
+    /** 网络首载前要等它完成，否则旧快照晚到会与真实首页竞态。 */
     private val snapshotRestoreJob: Job
 
     init {
@@ -61,7 +56,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 快照预填：推荐 / 关注 / 热门标签（秒开内容；后台刷新成功后自动替换）。 */
     private fun restoreSnapshots(): Job = viewModelScope.launch {
         snapshotStore.restore<Illust>(FeedSnapshotStore.KEY_HOME_RECOMMEND, illustListType)
             ?.let { (items, nextUrl) -> recommendPaged.restoreSnapshot(items, nextUrl) }
@@ -71,7 +65,6 @@ class HomeViewModel @Inject constructor(
             ?.let { (tags, _) -> _trendingTags.value = tags }
     }
 
-    /** 切换 Tab：对应列表为空时懒加载；快照预填（stale）时静默后台刷新（内容先展示、成功后替换）。 */
     fun selectTab(tab: HomeTab) {
         _tab.value = tab
         when (tab) {
@@ -89,7 +82,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 加载更多：按当前 Tab 拉取对应列表下一页。 */
     fun loadMore() {
         viewModelScope.launch {
             when (_tab.value) {
@@ -99,7 +91,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 重试：按当前 Tab 重新加载。 */
     fun retry() {
         when (_tab.value) {
             HomeTab.RECOMMEND -> loadRecommend()
@@ -108,9 +99,7 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 加载推荐流第一页（fetch 内含快照回写）。
-     *
-     * @return 本次加载协程 [Job]，调用方可 join 以等待网络真正结束
+     * fetch 内含快照回写；返回 [Job] 供调用方 join 等网络真正结束。
      */
     private fun loadRecommend(): Job {
         return viewModelScope.launch {
@@ -126,9 +115,7 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 加载关注流第一页（fetch 内含快照回写）。
-     *
-     * @return 本次加载协程 [Job]，调用方可 join 以等待网络真正结束
+     * fetch 内含快照回写；返回 [Job] 供调用方 join 等网络真正结束。
      */
     private fun loadFollowing(): Job {
         return viewModelScope.launch {
@@ -145,10 +132,8 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 下拉刷新：重拉当前 Tab 第一页（清空旧列表），等网络结束后复位指示（防重入）。
-     * 复用 [loadRecommend]/[loadFollowing]（fetch 内含快照回写），刷新后的数据即下次冷启动的秒开内容。
-     *
-     * @return 无返回值
+     * 重拉当前 Tab 第一页，等网络结束后才复位指示（防重入）。复用 load* 使其 fetch 顺带回写快照——
+     * 刷新后的数据即下次冷启动的秒开内容。
      */
     fun pullRefresh() {
         if (_isRefreshing.value) return
@@ -173,7 +158,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 加载热门标签（横滑区，取前 10 个；失败静默；成功后写快照供下次冷启动预填）。 */
     private fun loadTrendingTags() {
         viewModelScope.launch {
             runCatching { pixivRepository.api.getTrendingTags("illust") }
@@ -185,7 +169,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 收藏 / 取消收藏插画（nowFavorite 为目标状态，由组件回调）。 */
+    /** nowFavorite 是目标状态（组件回调传入）。 */
     fun toggleIllustFavorite(illustId: Long, nowFavorite: Boolean) =
         favoriteActions.toggleIllustFavoriteSilent(viewModelScope, illustId, nowFavorite)
 }

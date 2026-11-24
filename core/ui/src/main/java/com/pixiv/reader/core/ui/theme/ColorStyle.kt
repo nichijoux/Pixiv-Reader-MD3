@@ -6,20 +6,14 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * 彩色风格开关（CompositionLocal 下发）。
- * true = 彩色点缀（设置页七色图标、各页彩色空态/按钮/徽标）；false = 纯 M3 单色（默认）。
- * 由 MainActivity 依 UserPreferences.colorStyleEnabled 注入，全局即时生效。
+ * 彩色风格开关（CompositionLocal 下发）：true = 彩色点缀，false = 纯 M3 单色（默认）。
+ * 由 MainActivity 依 UserPreferences.colorStyleEnabled 注入。
  */
 val LocalColorStyleEnabled = staticCompositionLocalOf { false }
 
 /**
- * 按全局彩色风格开关与当前明暗主题解析点缀色。
- * - 开关关闭：统一回退 `colorScheme.primary`（纯 M3 单色）。
- * - 开关开启：将七个 [SettingAccent*] 静态 token 映射到当前主题下的 [LocalExtendedColors]
- *   浅色（tone-40）/ 深色（tone-80）双档色值，保证 12%/18% 淡底上的对比度；其余色值原样返回。
- *
- * @param accent 调用方期望的点缀色（`SettingAccent*` 或语义色）
- * @return 实际生效的颜色
+ * 按彩色风格开关与明暗主题解析点缀色：关闭时回退 `colorScheme.primary`，开启时把七个
+ * [SettingAccent*] token 映射到 tone-40/tone-80 双档（保 12%/18% 淡底对比度）。
  */
 @Composable
 fun resolveAccent(accent: Color): Color {

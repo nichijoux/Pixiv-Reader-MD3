@@ -18,9 +18,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * 网络层依赖装配：MMKV → 会话存储 → PixivApi（OAuth 密钥来自 pixiv-login 库）。
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {

@@ -57,9 +57,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 
 /**
- * 全屏查看器 ViewModel：多图横滑 / 动图（UgoiraLoader）/ 预览·原图切换 /
- * 壁纸设置 / 收藏 / 当前页与动图导出下载（Worker 后台执行，断网自动排队）。
- * illustId 与初始 page 从 SavedStateHandle 读取（路由参数）。
+ * 全屏查看器：多图横滑 / 动图 / 预览·原图 / 壁纸 / 收藏 / 当前页与动图导出下载。
+ * illustId 与初始 page 来自 SavedStateHandle（与路由参数名一一对应）。
  */
 @HiltViewModel
 class ViewerViewModel @Inject constructor(
@@ -87,28 +86,25 @@ class ViewerViewModel @Inject constructor(
     private val _ugoiraFrames = MutableStateFlow<List<UgoiraFrame>>(emptyList())
     val ugoiraFrames: StateFlow<List<UgoiraFrame>> = _ugoiraFrames.asStateFlow()
 
-    /** 收藏状态机（一键收藏；详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移）。 */
+    /** 由详情 is_bookmarked 初始化，[toggleBookmark] 驱动转移。 */
     private val _bookmarkState = MutableStateFlow(ToggleUiState.OFF)
     val bookmarkState: StateFlow<ToggleUiState> = _bookmarkState.asStateFlow()
 
-    /** 收藏编辑器保存进行中（防连点 + 弹层确认按钮禁用；一键收藏走 [_bookmarkState] 独立防连点）。 */
+    /** 弹层确认按钮共用此标志禁用（防连点）；一键收藏走 [_bookmarkState] 独立防连点。 */
     private val _isEditorSaving = MutableStateFlow(false)
     val isEditorSaving: StateFlow<Boolean> = _isEditorSaving.asStateFlow()
 
-    /** 是否显示原图（false 显示预览图 displayUrl，true 显示原图 originalUrl）。 */
     private val _isOriginal = MutableStateFlow(false)
     val isOriginal: StateFlow<Boolean> = _isOriginal.asStateFlow()
 
-    /** 查看器翻页方向：横向翻页 / 竖向翻页 / 无缝竖向（我的页-浏览设置控制）。 */
+    /** 与「我的」页浏览设置共用同一偏好。 */
     val viewerOrientation: StateFlow<ViewerOrientation> =
         userPreferences.viewerOrientation.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerOrientation.HORIZONTAL)
 
-    /** 设置查看器翻页方向（横向翻页 / 竖向翻页 / 无缝竖向）。 */
     fun setViewerOrientation(value: ViewerOrientation) {
         viewModelScope.launch { userPreferences.setViewerOrientation(value) }
     }
 
-    /** 收藏编辑器（公开/私密 + 标签收藏）：详情加载回显当前设置，弹层保存。 */
     val bookmarkEditor = BookmarkEditor(
         scope = viewModelScope,
         api = pixivRepository.api,
@@ -138,8 +134,6 @@ class ViewerViewModel @Inject constructor(
 
     /**
      * 加载作品、页面和动图数据，并将网页尺寸合并到同一次加载的页面列表。
-     *
-     * @return 无返回值
      */
     fun load() {
         loadJob?.cancel()
@@ -189,12 +183,6 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 获取网页提供的逐页原图尺寸，供无缝竖向模式排版。
-     *
-     * @return 按页序排列的真实尺寸，失败时为空列表
-     * @throws CancellationException 尺寸请求被取消
-     */
     private suspend fun loadRealSizes(): List<WebIllustPage> = try {
         pixivRepository.webApi.getIllustPages(illustId).body.orEmpty()
     } catch (e: CancellationException) {
@@ -206,10 +194,7 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 读取当前作品的动图帧，仅在所属加载任务仍有效时发布。
-     *
-     * @return 无返回值
-     * @throws CancellationException 动图加载被取消
+     * 读动图帧，仅在所属加载任务仍有效时发布。
      */
     private suspend fun loadUgoira() {
         val frames = try {
@@ -229,9 +214,8 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 收藏 / 取消收藏（[ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；
-     * 断网自动入队待同步）。成功静默（查看器收藏图标即时反馈），
-     * 仅刷新收藏态与编辑器回显/清空；失败发通知。
+     * [ToggleUiState] 状态机：进行中保留旧文案禁用防连点，失败回滚；断网自动入队待同步。
+     * 成功静默（图标即时反馈），仅刷新收藏态与编辑器回显；失败发通知。
      */
     fun toggleBookmark() {
         runToggle(
@@ -240,16 +224,12 @@ class ViewerViewModel @Inject constructor(
             removedRes = null,
         ) { target ->
             favoriteActions.toggleIllustFavorite(illustId, target).onSuccess {
-                // 收藏成功 → 编辑器回显当前设置；取消收藏 → 清空回显
                 bookmarkEditor.onTargetLoaded(target)
             }
         }
     }
 
-    /**
-     * 收藏编辑器保存（公开/私密 + 标签收藏）：成功后刷新收藏态、关闭弹层并提示。
-     * 期间以 [_isEditorSaving] 防连点（弹层确认按钮禁用同一标志）。
-     */
+    /** 成功后刷新收藏态、关闭弹层并提示；期间以 [_isEditorSaving] 防连点。 */
     fun saveBookmarkEditor() {
         runActionNotified(
             _isEditorSaving,
@@ -262,7 +242,6 @@ class ViewerViewModel @Inject constructor(
         ) { bookmarkEditor.save() }
     }
 
-    /** 切换预览 / 原图显示。 */
     fun toggleOriginal() {
         _isOriginal.value = !_isOriginal.value
         viewModelScope.launch {
@@ -271,10 +250,7 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 下载并采样当前页图片，交给系统设置壁纸。
-     *
-     * @param page 当前页的原图及预览地址
-     * @return 无返回值
+     * 下载当前页图并交给系统设置壁纸。
      */
     fun wallpaper(page: IllustPageInfo) {
         val url = page.originalUrl ?: page.displayUrl
@@ -327,12 +303,7 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 只读图像头，按屏幕和系统建议的壁纸尺寸计算二次幂采样率。
-     *
-     * @param file 已下载的图片
-     * @param manager 提供系统壁纸建议尺寸的管理器
-     * @return 正式解码使用的采样选项
-     * @throws IllegalStateException 图片头未提供有效宽高
+     * 只读图像头，按屏幕与系统建议壁纸尺寸计算二次幂采样率；图片头无有效宽高时抛错。
      */
     private fun wallpaperDecodeOptions(file: File, manager: WallpaperManager): BitmapFactory.Options {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -355,11 +326,7 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 下载当前页原图：走 [IllustDownloadWorker] 单页任务（后台执行，切走页面不中断）。
-     * 入队即建「待同步」索引条目：断网自动排队，联网自动开始（`.part` 断点语义与整本一致）。
-     *
-     * @param page 待下载的当前页信息（用于定位页序号）
-     * @return 无返回值
+     * 走 [IllustDownloadWorker] 单页任务（后台执行，切走页面不中断）；入队即建「待同步」索引条目。
      */
     fun download(page: IllustPageInfo) {
         // 宽高可能刚被网页结果补齐，按地址定位同一张图。
@@ -390,11 +357,8 @@ class ViewerViewModel @Inject constructor(
         )
     }
 
-    /** 导出动图（MP4 视频 / ZIP 帧包）：后台 Worker 执行，进度见下载管理页（Range 断点续传 + 有限重试）。
-     * 入队即建「待同步」索引条目：断网自动排队，联网后自动开始。
-     *
-     * @param format 导出格式（MP4 / ZIP）
-     * @return 无返回值
+    /**
+     * MP4 / ZIP 帧包后台导出（Range 断点续传 + 有限重试），进度见下载管理页。
      */
     fun downloadGif(format: UgoiraExportFormat) {
         val illust = _illust.value
@@ -424,13 +388,8 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 下载入队共享路径（单页下载与动图导出同构收敛）：先写「待同步」索引条目
-     * （卡片立即可见，断网也不丢；Worker 起跑后覆写为下载中），完成后再入队 WorkManager 任务
-     * （网络约束：断网挂起待同步，联网自动开始）。
-     *
-     * @param entry 待写入下载索引的条目快照
-     * @param request 已装配好的 WorkManager 一次性任务
-     * @return 无返回值
+     * 单页下载与动图导出同构：先写「待同步」索引条目（卡片立即可见，断网不丢），
+     * 再入队 WorkManager 任务（网络约束：断网挂起，联网自动开始）。
      */
     private fun enqueueDownload(entry: DownloadEntryEntity, request: OneTimeWorkRequest) {
         val workTag = DownloadQueue.workTag(entry.targetType, entry.targetId, entry.format, entry.scopeKey)
@@ -465,10 +424,7 @@ class ViewerViewModel @Inject constructor(
 }
 
 /**
- * 判断两份单页信息是否引用相同的图片地址，忽略网页补齐的尺寸。
- *
- * @param other 待比较的单页信息
- * @return 两个图片地址均一致时为 true
+ * 忽略网页补齐的尺寸，只比图片地址（download 据此定位同一张图）。
  */
 private fun IllustPageInfo.hasSameImageAs(other: IllustPageInfo): Boolean =
     originalUrl == other.originalUrl && displayUrl == other.displayUrl

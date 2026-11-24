@@ -18,13 +18,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * 系统下载进度通知的操作广播接收器：处理通知栏“取消 / 全部取消”动作。
- *
- * 取消流程：
- * 1. 先立即撤销通知栏进度卡片，提供即时交互反馈；
- * 2. 查询当前处于 `pending` / `downloading` 的索引条目，按 [DownloadQueue.workTag] 取消 WorkManager 任务；
- * 3. 从 `download_entry` 删除对应条目（Worker 捕获 `CancellationException` 后不会回写数据库，
- *    必须在此清理，既防止状态卡在下载中，也避免误触发下载失败通知）。
+ * 处理通知栏取消下载广播：Worker 捕获 CancellationException 后不会回写数据库，
+ * 故须在此同步删除活跃条目，防状态卡在下载中或误发失败通知。
  */
 class DownloadNotificationActionReceiver : BroadcastReceiver() {
 
@@ -71,8 +66,6 @@ class DownloadNotificationActionReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "DownloadNotifReceiver"
-
-        /** 取消全部在途/待同步下载任务的广播 Action。 */
         const val ACTION_CANCEL_ACTIVE = "com.pixiv.reader.action.CANCEL_ACTIVE_DOWNLOADS"
     }
 }

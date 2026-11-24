@@ -71,18 +71,8 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * 追更页：小说 / 漫画系列追更列表。
- *
- * 两种形态（按入口 `type` 参数）：
- * - 作品 Tab 顶栏铃铛（`type=manga`）：**单分段纯漫画**——不显示类型切换，漫画系列瀑布流。
- * - 我的页入口（默认 novel）：小说 / 漫画胶囊分段；小说为 [SeriesCard] 列表
- *   （与小说 Tab 追更页签完全一致：封面/简介/完结态/字数经 [com.pixiv.reader.core.network.session.SeriesDetailCache]
- *   进程缓存补齐，点击打开系列详情页），漫画段与作品入口同款瀑布流。
- *
- * @param onBack 返回
- * @param initialType 初始分段（MANGA = 作品页入口纯漫画形态）
- * @param onOpenSeries 打开小说系列详情（小说卡片点击，对齐小说 Tab 追更页签）
- * @param onOpenIllust 打开插画/漫画详情（漫画卡片点击 = 最新一话）
+ * 追更页。两种形态由入口 type 决定：作品 Tab 顶栏铃铛（type=manga）不显示分段；
+ * 我的页入口为小说/漫画胶囊分段，小说段与小说 Tab 追更页签同组件、同缓存。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,14 +92,12 @@ fun WatchlistRoute(
     val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by paged.hasMore.collectAsStateWithLifecycle()
     val error by paged.error.collectAsStateWithLifecycle()
-    // 作品页入口（type=manga）：单分段纯漫画形态
     val mangaOnly = initialType == WatchlistSegment.MANGA
     val notificationHostState = rememberNotificationHostState()
 
-    // 行内取消追更失败等消息提示
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    // 列表就绪后补齐系列信息：小说段 → 系列详情（封面/简介），漫画段 → 首话封面
+    // 列表就绪后补齐：小说段取系列详情，漫画段取首话封面（数据驻留 VM，列表项本身不带）
     LaunchedEffect(items, type) {
         when (type) {
             WatchlistViewModel.TYPE_MANGA -> viewModel.loadMangaCovers(items)
@@ -126,7 +114,6 @@ fun WatchlistRoute(
     ) { padding ->
         AdaptiveContentBox(modifier = Modifier.padding(padding)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 类型分段：仅多类型形态显示（作品入口纯漫画不显示；全 App 统一胶囊分段）
                 if (!mangaOnly) {
                     PillSegmentedRow(
                         options = listOf(
@@ -173,18 +160,7 @@ fun WatchlistRoute(
     }
 }
 
-/**
- * 小说追更列表：[SeriesCard] 系列（与小说 Tab 追更页签同一组件与数据补齐方式），
- * 点击打开系列详情页；触底加载。
- *
- * @param items 小说追更系列
- * @param infos 系列详情（seriesId → 封面/简介/完结态/字数，异步补齐）
- * @param hasMore 是否还有下一页
- * @param isLoadingMore 加载更多中
- * @param onLoadMore 触底加载更多回调
- * @param onOpenSeries 卡片点击（打开系列详情页）
- * @return 无返回值
- */
+/** 与小说 Tab 追更页签同一组件与数据补齐方式。 */
 @Composable
 private fun NovelWatchlistList(
     items: List<WatchlistSeries>,
@@ -199,7 +175,6 @@ private fun NovelWatchlistList(
     val motionScheme = MaterialTheme.motionScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // 沉浸式底部：尾部避开系统导航栏（与小说 Tab 追更页签一致）
         contentPadding = PaddingValues(
             start = Spacing.lg,
             end = Spacing.lg,
@@ -217,19 +192,17 @@ private fun NovelWatchlistList(
                     } else {
                         series.title
                     },
-                    // 封面/简介/连载状态/字数来自 getNovelSeries 详情（SeriesDetailCache，与小说 Tab 追更页签同缓存）
                     coverUrl = info?.coverUrl,
                     caption = info?.caption,
                     isConcluded = info?.isConcluded,
                     partsCount = series.published_content_count,
                     totalChars = info?.totalChars ?: 0,
-                    // 最近更新时间（ISO 取前 10 位 yyyy-MM-dd，作者行右侧展示）
+                    // 最近更新时间（ISO 取前 10 位为 yyyy-MM-dd）
                     updatedAt = series.last_published_content_datetime?.take(10),
                     authorName = series.user?.name,
                     authorAvatarUrl = series.user?.profile_image_urls?.best(),
                 ),
                 onClick = { onOpenSeries(series.id) },
-                // 进场淡入 + 切换列表/追加时位置平滑过渡
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                     placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -246,8 +219,7 @@ private fun NovelWatchlistList(
 }
 
 /**
- * 漫画追更瀑布流：系列封面卡（3:4 封面 + 话数徽章 + 取消追更钮 + 标题/作者）+ 触底加载。
- * 封面缺失时书本图标兜底，异步补齐后渐次刷新。
+ * 漫画追更瀑布流：3:4 封面 + 话数徽章 + 取消追更钮 + 标题/作者。
  */
 @Composable
 private fun MangaWatchlistGrid(
@@ -275,7 +247,6 @@ private fun MangaWatchlistGrid(
                 coverUrl = covers[series.id],
                 onClick = { series.latest_content_id?.let(onOpenIllust) },
                 onRemove = { onRemove(series) },
-                // 进场淡入 + 取消追更/追加时位置平滑重排
                 modifier = Modifier.animateItem(
                     fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                     placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -292,16 +263,6 @@ private fun MangaWatchlistGrid(
     }
 }
 
-/**
- * 漫画追更卡片：封面（3:4）+ 左上话数徽章 + 右上取消追更钮 + 底部标题/作者。
- *
- * @param series 漫画追更系列
- * @param coverUrl 系列封面（异步补齐；null 用书本图标兜底）
- * @param onClick 卡片点击（打开最新一话详情）
- * @param onRemove 取消追更
- * @param modifier 外部传入的 Modifier（调用方用于挂 `animateItem` 列表动效）
- * @return 无返回值
- */
 @Composable
 private fun MangaWatchlistCard(
     series: WatchlistSeries,

@@ -16,7 +16,6 @@ class NotificationHostStateTest {
         state.show("three")
         assertEquals(listOf("three", "two", "one"), state.items.value.map { it.text })
 
-        // 超出上限 3 条时淘汰最旧的一条 ("one")
         state.show("four")
         assertEquals(listOf("four", "three", "two"), state.items.value.map { it.text })
     }
@@ -29,13 +28,11 @@ class NotificationHostStateTest {
         val firstId = state.items.value.single().id
         state.show("other", type = NotificationType.Success)
 
-        // 再次触发同文案/类型/动作的通知：应置顶并生成新 id，且总条数不增加
         state.show("dup", type = NotificationType.Info, actionText = "Open")
         val items = state.items.value
         assertEquals(listOf("dup", "other"), items.map { it.text })
         assertNotEquals(firstId, items.first().id)
 
-        // 若类型不同则不合并，视为不同通知堆叠
         state.show("dup", type = NotificationType.Error, actionText = "Open")
         assertEquals(3, state.items.value.size)
         assertEquals(NotificationType.Error, state.items.value.first().type)
@@ -53,7 +50,6 @@ class NotificationHostStateTest {
         state.dismiss(secondId)
         assertEquals(listOf("third", "first"), state.items.value.map { it.text })
 
-        // 关闭不存在的 id 为无操作
         state.dismiss(-999L)
         assertEquals(listOf("third", "first"), state.items.value.map { it.text })
     }

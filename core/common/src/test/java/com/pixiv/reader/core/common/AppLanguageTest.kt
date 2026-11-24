@@ -7,11 +7,6 @@ import org.junit.Test
 
 class AppLanguageTest {
 
-    /**
-     * 验证 [pixivLanguageCode] 按语言/脚本/地区正确映射为 pixiv 接口语言码与英文兜底。
-     *
-     * @return 无返回值
-     */
     @Test
     fun `pixivLanguageCode 正确映射简繁中日英与兜底语言`() {
         assertEquals("zh-CN", pixivLanguageCode(Locale.forLanguageTag("zh-CN")))

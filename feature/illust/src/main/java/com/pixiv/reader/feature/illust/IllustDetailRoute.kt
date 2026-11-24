@@ -82,20 +82,19 @@ fun IllustDetailRoute(
     viewModel: IllustViewModel = hiltViewModel(),
 ) {
     val illust by viewModel.illust.collectAsStateWithLifecycle()
-    // hero 占位用的作品 id：取路由参数（SavedStateHandle 初始化即有值，数据未到时也能定位 key）
+    // 取路由参数而非 illust.id：数据未到时也要能定位 hero key
     val routeIllustId by viewModel.illustIdFlow.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val ugoiraFrames by viewModel.ugoiraFrames.collectAsStateWithLifecycle()
     val ugoiraProgress by viewModel.ugoiraProgress.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    // 三对开关状态机：单流收集，派生展示态/进行中两个只读值供下游使用
     val bookmarkState by viewModel.bookmarkState.collectAsStateWithLifecycle()
     val isBookmarked = bookmarkState.isOn
     val isBookmarking = bookmarkState.inFlight
     val authorFollowState by viewModel.authorFollowState.collectAsStateWithLifecycle()
     val isAuthorFollowed = authorFollowState.isOn
     val isAuthorFollowing = authorFollowState.inFlight
-    // 收藏编辑器状态（公开/私密 + 标签弹层）；按钮微标只读取已提交生效的 committedRestrict。
+    // 微标只读已提交生效的 committedRestrict，不跟弹层里的未确认选择
     val editorOpen by viewModel.bookmarkEditor.isOpen.collectAsStateWithLifecycle()
     val editorRestrict by viewModel.bookmarkEditor.restrict.collectAsStateWithLifecycle()
     val committedRestrict by viewModel.bookmarkEditor.committedRestrict.collectAsStateWithLifecycle()
@@ -103,9 +102,8 @@ fun IllustDetailRoute(
     val editorAllTags by viewModel.bookmarkEditor.allTags.collectAsStateWithLifecycle()
     val editorTagsLoading by viewModel.bookmarkEditor.tagsLoading.collectAsStateWithLifecycle()
     val editorSaving by viewModel.isEditorSaving.collectAsStateWithLifecycle()
-    // 已收藏且为私密时，底部收藏按钮显示「私密收藏」文案标识
     val isPrivateBookmark = isBookmarked && committedRestrict == PixivConstants.RESTRICT_PRIVATE
-    // 所属漫画系列追更态（illust.series 非空才显示追更按钮）
+    // illust.series 非空才显示追更按钮
     val seriesId = illust?.series?.id?.takeIf { it > 0L }
     val seriesWatchlistState by viewModel.seriesWatchlistState.collectAsStateWithLifecycle()
     val isSeriesWatchlisted = seriesWatchlistState.isOn
@@ -115,16 +113,14 @@ fun IllustDetailRoute(
     var menuExpanded by remember { mutableStateOf(false) }
     val notificationHostState = rememberNotificationHostState()
     UiMessageEffect(viewModel.message, notificationHostState)
-    // hero 种子兜底清理：详情页销毁时丢弃未消费的种子（详情命中缓存 / 占位分支未组合的情况），
-    // 防过期封面被后续无关打开复用
+    // 兜底清理：详情命中缓存或占位分支未组合时种子未消费，防过期封面被后续无关打开复用
     val heroKey = illustCoverKey(routeIllustId)
-    // hero 种子在 Route 层消费一次，经参数下发手机/平板两条链路：
-    // 上下游各自 consume 会互相抢（取出即删，第二个拿到 null）
+    // 种子在 Route 层消费一次再下发手机/平板两条链路：各自 consume 会互抢（取出即删，第二个拿到 null）
     val heroSeed = remember(heroKey) { HeroSeedStore.consume(heroKey) }
     DisposableEffect(heroKey) {
         onDispose { HeroSeedStore.clear(heroKey) }
     }
-    // 下沉详情块文案（feature:illust 侧提供，core:ui 不直接引用本模块 R）
+    // core:ui 不直接引用本模块 R，文案由这里下沉传入
     val illustDetailStrings = IllustDetailStrings(
         loadRetry = stringResource(R.string.illust_load_retry),
         fullscreen = stringResource(R.string.illust_action_fullscreen),
@@ -189,7 +185,7 @@ fun IllustDetailRoute(
                                 },
                                 onClick = { menuExpanded = false; viewModel.toggleBookmark() },
                             )
-                            // 收藏设置：公开/私密 + 标签（弹层保存）
+                            // 收藏设置：公开/私密 + 标签
                             DropdownMenuItem(
                                 text = { Text(stringResource(CoreUiR.string.bookmark_edit_title)) },
                                 leadingIcon = {
@@ -239,7 +235,7 @@ fun IllustDetailRoute(
                     // 收藏激活用扩展语义红（浅/深双档合规）
                     activeIconTint = MaterialTheme.extendedColors.favorite,
                 )
-                // 漫画系列追更按钮（作品属于漫画系列时显示，与小说详情页追更同语义）
+                // 漫画系列追更（与小说详情页追更同语义）
                 if (seriesId != null) {
                     VerticalActionButton(
                         icon = if (isSeriesWatchlisted) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
@@ -285,7 +281,7 @@ fun IllustDetailRoute(
                     onRetry = viewModel::load,
                     modifier = Modifier.padding(padding),
                 )
-                // 深链进入（无 hero 种子且页面数据未到）：完整骨架兜底
+                // 深链进入（无种子且数据未到）：完整骨架兜底
                 !hasPagerContent -> Box(modifier = Modifier.padding(padding)) {
                     IllustDetailSkeleton()
                 }
@@ -314,8 +310,8 @@ fun IllustDetailRoute(
         } else {
             // 手机单列
             AdaptiveContentBox(modifier = Modifier.padding(padding)) {
-                // hero 元素全程唯一：有种子时 pager 以占位封面承载 hero（占位态不渲染页码等），
-                // 数据到达后同一容器原地转真实 pager，不再有 skeleton+seed → pager 的硬切
+                // hero 元素必须恒组合且唯一：有种子时 pager 直接以占位封面承载 hero，
+                // 数据到达后同一容器原地转真图；skeleton 与 pager 互斥挂同 key 会重播进入动画
                 val hasPagerContent = pages.isNotEmpty() || heroSeed != null
                 when {
                     error != null && illust == null -> ErrorBox(message = error?.let {
@@ -325,7 +321,7 @@ fun IllustDetailRoute(
                         )
                     }, onRetry = viewModel::load)
 
-                    // 深链进入（无 hero 种子且页面数据未到）：完整骨架兜底
+                    // 深链进入（无种子且数据未到）：完整骨架兜底
                     !hasPagerContent -> IllustDetailSkeleton()
 
                     else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -337,12 +333,11 @@ fun IllustDetailRoute(
                                 onPageChange = { currentPage = it },
                                 onOpenViewer = { onOpenViewer(illust?.id ?: 0L, it) },
                                 strings = illustDetailStrings,
-                                // hero：大图容器与列表卡片封面同 key
+                                // 大图容器与列表卡片封面同 key
                                 illustId = illust?.id ?: routeIllustId.takeIf { it > 0L },
-                                // 垫底 medium：与卡片封面/hero 占位同源，原图未就绪时先顶上
+                                // 垫底 medium：与卡片封面 / hero 占位同源
                                 placeholderUrl = illust?.image_urls?.medium,
-                                // 首页兜底比例取 illust 宽高（与卡片封面同源）：pages 宽高
-                                // 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
+                                // 兜底比例取 illust 宽高：pages 未就绪时首帧高度即与 hero 占位一致，避免接棒后两连跳
                                 fallbackRatio = illust
                                     ?.takeIf { it.width > 0 && it.height > 0 }
                                     ?.let { it.width.toFloat() / it.height.toFloat() },
@@ -391,7 +386,6 @@ fun IllustDetailRoute(
         }
     }
 
-    // 收藏编辑弹层：公开/私密 + 标签多选，保存走 viewModel.saveBookmarkEditor
     BookmarkEditSheet(
         visible = editorOpen,
         restrict = editorRestrict,
@@ -409,26 +403,6 @@ fun IllustDetailRoute(
 
 /**
  * 平板布局：主内容单列（图 + 作者 + 相关），评论走通用评论页。
- *
- * @param modifier 外部 Modifier（携带 Scaffold innerPadding）
- * @param illust 作品数据；null 表示页面数据未到（信息区由骨架占位）
- * @param pages 各 P 图片元数据
- * @param heroSeed hero 种子（pages 未就绪时 pager 的封面占位，保证 hero 元素唯一）
- * @param heroIllustId hero 共享元素 key 的回退作品 id（路由参数，illust 未到达时定位 key）
- * @param onPageChange 当前页变化回调
- * @param onOpenViewer 全屏入口回调
- * @param onOpenUser 打开作者主页回调
- * @param onOpenIllust 简介内打开其他插画回调
- * @param onSearchTag 点击标签搜索回调
- * @param isAuthorFollowed 作者是否已关注
- * @param isAuthorFollowing 关注操作是否进行中
- * @param onToggleFollowAuthor 切换作者关注回调
- * @param isBookmarked 是否已收藏
- * @param isBookmarking 收藏操作是否进行中
- * @param onOpenComments 打开评论回调
- * @param strings 详情页文案
- * @param viewModel 详情 ViewModel（相关作品 / 动图 / 操作复用）
- * @return 无返回值（渲染 Composable）
  */
 @Composable
 private fun TwoPaneContent(
@@ -475,7 +449,6 @@ private fun TwoPaneContent(
         onDownload = viewModel::download,
         onOpenComments = { onOpenComments(illust?.id ?: 0L) },
         expandableIntro = false,
-        // 详情页平板分支同样有底部固定栏，标签下不重复操作行
         showActionRow = false,
         modifier = modifier,
         seed = heroSeed,

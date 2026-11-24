@@ -47,35 +47,12 @@ import com.pixiv.reader.core.ui.theme.AppShapes
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
-/**
- * 按 ID 直达入口的渲染描述：图标 + 类型名资源 + 点击回调。
- *
- * @property icon 入口图标
- * @property labelRes 目标类型名（小说 / 插画 / 用户 / 系列）
- * @property onClick 点击后执行的跳转动作
- */
 private data class IdQuickOpenAction(
     val icon: ImageVector,
     @param:StringRes val labelRes: Int,
     val onClick: () -> Unit,
 )
 
-/**
- * 聚焦态：搜索联想列表。
- *
- * 纯数字输入（[numericId] 非空）时，在联想条目之前渲染「按 ID 打开」入口区
- * （分区标题 + 小说/插画/用户/系列四张两列卡片），点击即跳对应详情页且不写搜索历史；
- * 此时空联想不再显示 [R.string.search_hint] 占位（入口区本身就是有效内容）。
- *
- * @param suggestions 服务端返回的标签联想
- * @param numericId 输入解析出的纯数字 ID，null 表示不展示 ID 直达入口
- * @param onOpenNovel 按 ID 打开小说详情
- * @param onOpenIllust 按 ID 打开插画详情
- * @param onOpenUser 按 ID 打开用户主页
- * @param onOpenSeries 按 ID 打开小说系列
- * @param onPick 点击普通联想条目（回填关键词并搜索）
- * @return 无返回值
- */
 @Composable
 internal fun SuggestionList(
     suggestions: List<AutocompleteTag>,
@@ -87,7 +64,6 @@ internal fun SuggestionList(
     onPick: (String) -> Unit,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // 纯数字输入：顶部「按 ID 打开」入口区，顺序固定为小说/插画/用户/系列
         if (numericId != null) {
             item(key = "id_quick_open_header") {
                 IdQuickOpenHeader(numericId = numericId)
@@ -107,7 +83,6 @@ internal fun SuggestionList(
                         onOpenSeries(numericId)
                     },
                 )
-                // 两列网格：每行两张卡，窄屏也不至于把类型名截断
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -127,13 +102,11 @@ internal fun SuggestionList(
                                     modifier = Modifier.weight(1f),
                                 )
                             }
-                            // 奇数补位：保持两列等宽节奏
                             if (rowActions.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
             }
-            // 入口区与标签联想之间分隔；无联想时不画多余分隔线
             if (suggestions.isNotEmpty()) {
                 item(key = "id_quick_open_divider") {
                     HorizontalDivider(
@@ -143,7 +116,6 @@ internal fun SuggestionList(
                 }
             }
         }
-        // 无联想且无 ID 直达内容时才提示先输入关键词
         if (suggestions.isEmpty() && numericId == null) {
             item {
                 Text(
@@ -175,14 +147,6 @@ internal fun SuggestionList(
     }
 }
 
-/**
- * 「按 ID 打开」分区标题：标签图标 + 标题 + 右侧等宽感 ID 徽标。
- *
- * 标题与 ID 分列两端，卡片区只保留类型名，视觉更轻且信息无重复。
- *
- * @param numericId 当前输入的纯数字 ID（渲染为 `#123456`）
- * @return 无返回值
- */
 @Composable
 private fun IdQuickOpenHeader(numericId: Long) {
     Row(
@@ -205,7 +169,6 @@ private fun IdQuickOpenHeader(numericId: Long) {
                 .padding(start = Spacing.xsPlus)
                 .weight(1f),
         )
-        // ID 徽标：胶囊淡底承载纯数字，与标题形成主次层级
         Text(
             text = "#$numericId",
             style = MaterialTheme.typography.labelLarge,
@@ -219,16 +182,6 @@ private fun IdQuickOpenHeader(numericId: Long) {
     }
 }
 
-/**
- * 按 ID 直达入口卡：圆形强调色图标底 + 类型名，整卡可点；
- * 按压时 spring 微缩（与发现页入口卡、热门标签胶囊同一 Expressive 触感）。
- *
- * @param icon 目标类型图标
- * @param label 目标类型名（小说 / 插画 / 用户 / 系列）
- * @param onClick 点击回调（跳对应详情页）
- * @param modifier 布局参数（两列网格调用方传 `weight(1f)`）
- * @return 无返回值
- */
 @Composable
 private fun IdQuickOpenCard(
     icon: ImageVector,
@@ -238,7 +191,6 @@ private fun IdQuickOpenCard(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    // 按压微缩：Expressive 空间弹簧（位移/形变档）
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.96f else 1f,
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
@@ -259,7 +211,6 @@ private fun IdQuickOpenCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            // 圆形淡强调底：与发现页入口卡同一图标容器语言
             Box(
                 modifier = Modifier
                     .size(Sizes.s32)
@@ -279,7 +230,6 @@ private fun IdQuickOpenCard(
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                // 占满剩余宽度：长语言（如英文 Illustrations）省略号收敛，不挤压图标
                 modifier = Modifier.weight(1f),
             )
         }

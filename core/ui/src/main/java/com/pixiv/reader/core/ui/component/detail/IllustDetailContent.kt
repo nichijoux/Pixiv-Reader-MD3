@@ -107,12 +107,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.core.ui.theme.extendedColors
 import com.pixiv.reader.core.ui.theme.resolveAccent
 
-/**
- * 插画详情渲染块（core:ui 下沉，供详情路由与排行榜右栏共用）。
- *
- * 说明：core:ui 不依赖 feature 层，因此文案不直接取 R.string，由调用方经 [strings] 传入
- * （详情路由传 feature:illust 文案，排行榜传 feature:manga 文案）。
- */
+/** core:ui 不依赖 feature 资源，详情文案由调用方经此注入。 */
 data class IllustDetailStrings(
     val loadRetry: String,
     val fullscreen: String,
@@ -131,39 +126,8 @@ data class IllustDetailStrings(
 )
 
 /**
- * 详情内容（可滚动整页）：多 P Pager + 信息区（标题/作者/统计/标签/操作行/简介）+ 相关作品。
- * 操作按钮行放在标签之后、简介之前（排行榜右栏布局要求；详情页手机端仍走固定底栏）。
- *
- * 传入 [seed] 时即使 [pages] 尚未就绪也会渲染 pager 容器（占位封面），hero 共享元素
- * 自进入详情起即存在——详情路由据此不再叠加独立的 loader 分支。
- *
- * @param illust 作品数据；null 时信息区不渲染（骨架阶段）
- * @param pages 各 P 的图片元数据
- * @param ugoiraFrames 动图帧
- * @param ugoiraProgress 动图 zip 下载进度 0..1；null 表示未在下载
- * @param relatedItems 相关作品列表
- * @param strings 详情页文案（feature 侧注入）
- * @param onPageChange 当前页变化回调
- * @param onOpenViewer 全屏入口回调（参数为页索引）
- * @param onOpenUser 打开作者主页回调
- * @param onOpenIllust 简介内打开其他插画回调
- * @param onSearchTag 点击标签搜索回调
- * @param isAuthorFollowed 作者是否已关注
- * @param isAuthorFollowing 关注操作是否进行中
- * @param onToggleFollowAuthor 切换作者关注回调
- * @param isBookmarked 是否已收藏
- * @param isBookmarking 收藏操作是否进行中
- * @param onToggleBookmark 切换收藏回调
- * @param onDownload 下载回调
- * @param onOpenComments 打开评论回调
- * @param expandableIntro 简介是否可展开/收起
- * @param showActionRow 是否在标签下渲染操作行（详情页走底栏时为 false）
- * @param modifier 外部 Modifier
- * @param onOpenNovel 简介内打开小说回调
- * @param seed hero 种子（pages 未就绪时的封面占位），透传给 [IllustPagePager]
- * @param heroIllustId hero 共享元素 key 的回退作品 id（路由参数，[illust] 未到达时用于定位 key，
- *   保证占位封面在数据加载期即参与 morph）；null 时仅用 [illust] 的 id
- * @return 无返回值（渲染 Composable）
+ * 传入 [seed] 时即使 [pages] 为空也先渲染 pager 占位，确保 hero 共享元素自进入详情起由单一容器独占；
+ * 需同时传 [heroIllustId] 在 [illust] 到达前锚定共享元素 key。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -190,7 +154,6 @@ fun IllustDetailContent(
     expandableIntro: Boolean = true,
     showActionRow: Boolean = true,
     modifier: Modifier = Modifier,
-    // 简介内 `pixiv://novels/{id}` 链接回调（默认不接线，样式仍显示）
     onOpenNovel: (Long) -> Unit = {},
     seed: HeroSeed? = null,
     heroIllustId: Long? = null,
@@ -200,7 +163,7 @@ fun IllustDetailContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        // 有种子时 pages 为空也渲染 pager：hero 元素从进入详情起唯一存在
+        // 持有 seed 时即渲染 pager，保证 hero 元素全程由同一容器独占
         if (pages.isNotEmpty() || seed != null) {
             IllustPagePager(
                 pages = pages,
@@ -209,19 +172,15 @@ fun IllustDetailContent(
                 onPageChange = onPageChange,
                 onOpenViewer = onOpenViewer,
                 strings = strings,
-                // hero：详情大图与列表卡片封面同 key（illust 可空：回退路由参数 id）
                 illustId = illust?.id ?: heroIllustId,
-                // 垫底 medium：与 hero/卡片封面同源，原图未就绪时先顶上
                 placeholderUrl = illust?.image_urls?.medium,
-                // 首页兜底比例取 illust 宽高（与卡片 aspectRatio 同源）：pages 宽高未就绪时
-                // 首帧高度即与 hero 占位一致，避免接棒后从 1.5f 修正到大图真实比例的两连跳
+                // 用 illust 宽高兜底首页比例，避免 pages 补齐尺寸前落到 1.5f 导致接棒跳变
                 fallbackRatio = illust
                     ?.takeIf { it.width > 0 && it.height > 0 }
                     ?.let { it.width.toFloat() / it.height.toFloat() },
                 seed = seed,
             )
         }
-        // 数据未到（仅 seed 占位阶段）：信息区用骨架占位，避免大图下方直接空出
         if (illust == null) {
             IllustInfoSkeleton()
         } else {
@@ -250,50 +209,14 @@ fun IllustDetailContent(
             strings = strings,
             onOpenIllust = onOpenIllust,
         )
-        // 沉浸式底部收尾：内容直通系统导航栏的页面（平板 Master-Detail pane）尾部留出
-        // 导航栏高度，让最底部内容能滚出导航栏区域；inset 已被上层消费时高度为 0（手机）
+        // 兼容直通导航栏的平板 pane；上层已消费 inset 时（手机）高度为 0
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 
 /**
- * 多 P Pager：容器高度按「图片真实宽高比」自适应（无黑边、无闪变）。
- * 用 AsyncImage 的 onSuccess 拿到 drawable 真实尺寸计算比例；
- * spinner 仅在真正加载中显示，加载完成或失败即隐藏。
- *
- * 高度变化按来源分流：**换页**时用 Expressive spatial 弹簧吸附（不同比例页过渡自然）；
- * **同页内**的比例修正（图片加载完成、hero 占位接棒）直接落地不做动画——
- * 否则 hero morph 结束后弹簧重播，观感是「大图又跳一下」。
- *
- * 比例兜底链：图片真实比例 → 页面元数据宽高 → [fallbackRatio]（首页用 illust 宽高比）
- * → 1.5f 通用兜底。多页作品实时翻页时第 2+ 页在 web 接口补齐宽高前，用首页比例兜底
- * （严格优于 1.5f 的通用值）；补齐后翻页高度弹簧照常播放。
- *
- * 占位态（`pages` 为空但持有 [seed]）：容器不经 HorizontalPager，直接渲染种子封面，
- * 比例取 `seed.aspectRatio → fallbackRatio → 1.5f`，且不渲染页码胶囊 / 全屏按钮 / spinner /
- * 动图分支 / 失败重试层。容器本身始终挂 hero 共享边界，数据到达后同一个容器原地转为真实
- * pager——hero 元素全程唯一，避免 loading→content 硬切导致共享元素「消失后重现」重播动画。
- *
- * 容器底色：占位态与当前页图片尚未就绪时用 `colorScheme.surface`（占位图 / 加载中不露黑块）；
- * 图片真正加载完成后才切 `Color.Black`，用于压住图片 letterbox 区域的黑帧观感。
- *
- * @param pages 各 P 的图片元数据（宽高/URL）
- * @param onPageChange 当前页变化回调
- * @param onOpenViewer 点击全屏入口回调（参数为页索引）
- * @param ugoiraFrames 动图帧（ugoira 作品由 ViewModel 加载）；非空时首页（动图作品仅 1 页）
- *   叠加 [UgoiraPlayer] 播放动画——静态封面 AsyncImage 保留（量比例 + 帧未就绪兜底显示）
- * @param ugoiraProgress 动图 zip 下载进度 0..1；非 null 且帧未就绪时首页叠加转圈 + 百分比
- * @param strings 详情页文案（core:ui 不依赖 feature 的 R）
- * @param illustId 作品 id（hero 共享元素 key 用；null 时（无作品的骨架/预览场景）不挂共享边界）
- * @param placeholderUrl 当前页原图加载完成前的垫底图 URL（通常为已缓存的 medium，
- *   与 hero 占位同源）；null 时不垫底
- * @param fallbackRatio 首页兜底宽高比（调用方传 illust 的 `width / height`）；用于修正
- *   pages 宽高未就绪（web 接口补尺寸前的数百毫秒）时落到 1.5f 通用兜底、与 hero 占位
- *   （封面比例）高度不一致导致的接棒跳变。null 时仍走 1.5f 兜底
- * @param seed hero 种子（卡片点击时快照的封面）。pages 未就绪时作为封面占位渲染，
- *   保证 hero 共享元素自详情进入起即存在、跨 loading→content 切换不重建；null 时
- *   pages 为空则不渲染任何内容（深链兜底由调用方走完整骨架）
- * @return 无返回值（渲染 Composable）
+ * 多 P 大图 Pager：仅换页时用弹簧吸附高度，同页比例修正（原图就绪/hero 接棒）直接落地以防二次跳动；
+ * 占位态（`pages` 为空但有 [seed]）在同一 hero 容器内渲染种子封面，避免 loading/content 互斥子树重播 morph 动画。
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -310,28 +233,19 @@ fun IllustPagePager(
     fallbackRatio: Float? = null,
     seed: HeroSeed? = null,
 ) {
-    // 占位态：无页面数据但持有种子封面（数据到达前 hero 元素必须存在）
     val placeholderOnly = pages.isEmpty() && seed != null
-    // 占位态比例：种子封面比例 → 调用方兜底 → 通用兜底
     val placeholderRatio = seed?.aspectRatio ?: fallbackRatio ?: 1.5f
-    // lambda 每次调用重读最新 pages / seed，占位态 1 页、正常态按页数
     val pagerState = rememberPagerState(
         pageCount = { if (pages.isEmpty() && seed != null) 1 else pages.size },
     )
     val currentPage = pagerState.currentPage
     LaunchedEffect(currentPage) { onPageChange(currentPage) }
 
-    // 占位态不读 pages（pageCount=1 时索引无意义），用种子比例合成当前页关键参数
     val current = pages.getOrNull(currentPage)
-    // 图片加载完成后的真实宽高比（drawable.intrinsic）。
-    // 以 URL 为 remember key：切页时组合期同步重置——必须先于同组合内 AsyncImage 的回调。
-    // 不能用 LaunchedEffect 重置：Coil 内存命中走 Main.immediate 同步 fast path，
-    // onSuccess 会在组合期间先触发、随后被 LaunchedEffect 覆盖回 false，且不再有第二次回调，
-    // 导致「图片已显示但转圈永挂」（预加载完成的页必现）。
+    // 必须以 URL 为 key 同步重置状态，不可用 LaunchedEffect：Coil 内存命中走 Main.immediate 同步触发
+    // onSuccess，若后续被 LaunchedEffect 覆盖回 false 会导致预加载页转圈永挂
     var imageRatio by remember(current?.displayUrl) { mutableStateOf<Float?>(null) }
-    // 当前页加载完成或失败（用于隐藏 spinner）
     var loadDone by remember(current?.displayUrl) { mutableStateOf(false) }
-    // 加载失败标记（显示手动重试覆盖层）+ 重试代次（自增强制重建请求绕过失败状态）
     var loadFailed by remember(current?.displayUrl) { mutableStateOf(false) }
     var retryKey by remember(current?.displayUrl) { mutableIntStateOf(0) }
     fun retry() {
@@ -341,8 +255,6 @@ fun IllustPagePager(
         retryKey++
     }
 
-    // 优先图片真实比例，其次网页宽高，再次调用方传入的首页兜底比例，最后通用兜底；
-    // 占位态直接用种子封面比例，保证与卡片封面高度一致（接棒无跳变）
     val webRatio = current
         ?.takeIf { it.width > 0 && it.height > 0 }
         ?.let { it.width.toFloat() / it.height.toFloat() }
@@ -351,10 +263,9 @@ fun IllustPagePager(
     } else {
         imageRatio ?: webRatio ?: fallbackRatio ?: 1.5f
     }
-    // spinner 只反映「当前页图片是否已有尺寸/已停止加载」：fallbackRatio 是静态估值，
-    // 不代表图片已就绪，不计入 ready（否则首帧误隐藏转圈）
+    // fallbackRatio 仅为估值不代表图片就绪，不计入 ready 以免首帧误隐藏转圈
     val ready = imageRatio != null || webRatio != null
-    // 底色：占位态与图片未就绪时不露黑块；真实图片渲染后才用黑底压 letterbox 黑帧
+    // 图片未就绪前用 surface 底色避免露黑块，就绪后切黑底压 letterbox 黑帧
     val containerColor = if (placeholderOnly || (!ready && !loadDone)) {
         MaterialTheme.colorScheme.surface
     } else {
@@ -367,36 +278,24 @@ fun IllustPagePager(
             .background(containerColor),
     ) {
         val targetHeight = if (effectiveRatio > 0f) maxWidth / effectiveRatio else 400.dp
-        // 高度吸附弹簧：在组合期先取好（LaunchedEffect 的 body 不是组合上下文，
-        // 不能在其中读 MaterialTheme.motionScheme），与 theme/Motion.kt 同一做法
+        // LaunchedEffect 非组合上下文，须在组合期提前捕获 motionScheme
         val heightSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
-        // 容器高度改为手控 Animatable：只有换页才走弹簧，同页修正直接落地
         val heightAnim = remember { Animatable(targetHeight, Dp.VectorConverter) }
-        // 首组合标记：首个 LaunchedEffect 只做就位，不播放入场高度动画
         var heightSettled by remember { mutableStateOf(false) }
-        // 上次参与高度判定的页索引：用于区分「换页」与「同页比例修正」
         var lastPageForHeight by remember { mutableIntStateOf(currentPage) }
         LaunchedEffect(currentPage, targetHeight) {
-            // 三态判定：首组合就位 / 换页吸附 / 同页修正落地
             val firstComposition = !heightSettled
             val pageChanged = !firstComposition && lastPageForHeight != currentPage
-            // 先落标记再启动动画：弹簧被后续 targetHeight 变化打断时，
-            // 新的一次判定不会被重复当成「换页」而重播弹簧
+            // 先落标记再启动动画，防止动画被打断重入时重复判定为换页
             heightSettled = true
             lastPageForHeight = currentPage
             when {
-                // 首组合：容器直接落到目标高度（与 animateDpAsState 首帧即终值语义一致）
                 firstComposition -> heightAnim.snapTo(targetHeight)
-                // 换页：不同比例页之间保留 spatial 弹簧吸附
                 pageChanged -> heightAnim.animateTo(targetHeight, heightSpec)
-                // 同页修正（原图加载完成 / hero 占位接棒）：立即落地，消除二次跳动
                 else -> heightAnim.snapTo(targetHeight)
             }
         }
-        // 嵌套 lambda（pager item）无法隐式访问 BoxWithConstraints receiver：提前捕获
         val pagerMaxWidth = maxWidth
-        // hero：大图容器与卡片封面同 key 衔接 morph（容器高度换页时才有弹簧吸附，
-        // morph 期间 boundsTransform 由 sharedBounds 接管，静态态下即为当前显示高度）
         val heroModifier = if (illustId != null) {
             Modifier.heroBoundsModifier(illustCoverKey(illustId))
         } else {
@@ -409,10 +308,8 @@ fun IllustPagePager(
                 .height(heightAnim.value)
                 .then(heroModifier),
         ) {
-            // 占位态：pager 的 pageCount 为 1 而 pages 为空（取 pages[index] 会越界），
-            // 故不经过 HorizontalPager，直接在同一 hero 容器内渲染种子封面
+            // 占位态 pages 为空，跳过 HorizontalPager 防索引越界，在同一 hero 容器内直接展示种子
             if (placeholderOnly) {
-                // 封面空串走 null：PixivImage 会画主题占位色块（与容器 surface 底一致）
                 val seedCoverUrl = seed.coverUrl.ifBlank { null }
                 PixivImage(
                     url = seedCoverUrl,
@@ -423,17 +320,13 @@ fun IllustPagePager(
             } else {
                 HorizontalPager(
                     state = pagerState,
-                    // 预组合相邻页：翻页前邻图已在加载，滑动即显
                     beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize(),
                 ) { index ->
                     val p = pages[index]
                     if (index == currentPage) {
                         Box {
-                            // 垫底：原图（original/large，首访无缓存）加载完成前显示已在缓存中的
-                            // medium（与 hero 占位同源）。AsyncImage 成功后自然覆盖；非 hero 直接
-                            // 打开详情页同样受益（避免接棒瞬间空窗）。null 时不渲染——
-                            // PixivImage 对 null 会画主题占位色块，会盖掉容器的黑色底
+                            // 原图就绪前用已缓存 medium 垫底防接棒空窗；null 时跳过，避免 PixivImage 占位色块盖掉黑底
                             if (placeholderUrl != null) {
                                 PixivImage(
                                     url = placeholderUrl,
@@ -442,7 +335,7 @@ fun IllustPagePager(
                                     contentScale = ContentScale.Fit,
                                 )
                             }
-                            // key(retryKey)：手动重试时自增，强制重建 painter 重新发起请求
+                            // 自增 retryKey 强制重建 AsyncImage 重新发起请求
                             key(retryKey) {
                                 AsyncImage(
                                     model = p.displayUrl,
@@ -450,7 +343,6 @@ fun IllustPagePager(
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Fit,
                                     onSuccess = { res ->
-                                        // Coil 2.7：State.Success.result 是 SuccessResult，含 drawable
                                         val d = res.result.drawable
                                         if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) {
                                             imageRatio =
@@ -465,7 +357,7 @@ fun IllustPagePager(
                                     },
                                 )
                             }
-                            // 加载失败：点击手动重试（动图封面失败不拦截播放，帧就绪照常播）
+                            // 动图封面失败不拦截播放，帧就绪后照常覆盖显示
                             if (loadFailed && ugoiraFrames.isEmpty()) {
                                 Box(
                                     modifier = Modifier
@@ -490,7 +382,6 @@ fun IllustPagePager(
                                     }
                                 }
                             }
-                            // 动图：帧就绪播放 zip 帧动画；下载中显示转圈 + 百分比；均叠加静态封面之上
                             if (index == 0) {
                                 when {
                                     ugoiraFrames.isNotEmpty() -> {
@@ -505,7 +396,6 @@ fun IllustPagePager(
                                     }
 
                                     ugoiraProgress != null -> {
-                                        // zip 下载中：ImageScrim + 转圈 + 百分比（帧就绪后切换播放）
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -539,7 +429,6 @@ fun IllustPagePager(
                     }
                 }
             }
-            // 占位态：不渲染 spinner 与页码/全屏入口（尚无页面数据可操作）
             if (!placeholderOnly) {
                 if (!ready && !loadDone) {
                     Box(
@@ -549,7 +438,7 @@ fun IllustPagePager(
                         LoadingIndicator(color = Color.White)
                     }
                 }
-                // 页码 + 全屏入口（视觉保持 32dp，全屏钮外层 48dp 热区满足 M3 最小触控目标）
+                // 外层 48dp 隐形热区满足 M3 最小触控目标，内层保持 32dp 视觉按钮
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -621,7 +510,6 @@ fun IllustInfoSection(
     onOpenComments: () -> Unit,
     expandableIntro: Boolean,
     showActionRow: Boolean = true,
-    // 简介富文本链接回调（pixiv://illusts / novels / users）
     onOpenIllust: (Long) -> Unit = {},
     onOpenNovel: (Long) -> Unit = {},
 ) {
@@ -632,7 +520,6 @@ fun IllustInfoSection(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
-        // 作者行：头像 + 昵称（整行可点击进主页）› 关注/取关胶囊顶到行最右
         val authorId = illust.user?.id
         Row(
             modifier = Modifier
@@ -654,7 +541,6 @@ fun IllustInfoSection(
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                // 占满剩余宽度：weight 槽占满 → 关注胶囊被推到行最右
                 modifier = Modifier.weight(1f),
             )
             AuthorFollowPill(
@@ -664,7 +550,6 @@ fun IllustInfoSection(
                 strings = strings,
             )
         }
-        // 统计行：浏览 / 收藏 / 页数 均分（纯文字，无卡片背景）
         Row(modifier = Modifier.padding(top = Spacing.lg)) {
             StatBlock(
                 icon = Icons.Filled.Visibility,
@@ -688,7 +573,6 @@ fun IllustInfoSection(
                 iconAccent = SettingAccentAmber,
             )
         }
-        // 标签：可点击跳搜索该 tag
         val tags = illust.tags.orEmpty().take(8)
         if (tags.isNotEmpty()) {
             FlowRow(
@@ -699,7 +583,6 @@ fun IllustInfoSection(
                 tags.forEach { tag ->
                     val tagName = tag.displayName ?: tag.name.orEmpty()
                     if (tagName.isNotBlank()) {
-                        // 统一胶囊 chip（与小说详情一致）；点击跳搜索该标签
                         TagChip(
                             text = "#$tagName",
                             onClick = { onSearchTag(tagName) },
@@ -708,8 +591,6 @@ fun IllustInfoSection(
                 }
             }
         }
-        // 操作按钮行（标签之后、简介之前）：收藏 / 全屏 / 下载 / 评论。
-        // 手机详情页走固定底栏（showActionRow=false），排行右栏等内嵌布局用此行进操作。
         if (showActionRow) {
             ActionButtonsRow(
                 illustId = illust.id,
@@ -722,8 +603,6 @@ fun IllustInfoSection(
                 strings = strings,
             )
         }
-        // 简介：HTML 富文本（加粗/换行/pixiv 深链可点），首行缩进两格；
-        // 手机 6 行截断 + 展开/收起（短简介不显示按钮），平板完整显示
         val caption = illust.caption
         if (!caption.isNullOrBlank()) {
             var expanded by rememberSaveable { mutableStateOf(false) }
@@ -731,17 +610,15 @@ fun IllustInfoSection(
             val clamped = expandableIntro && !expanded
             HtmlCaptionText(
                 html = caption,
-                // 首行缩进两格放 style（Text 无 textIndent 参数）
                 style = MaterialTheme.typography.bodyMedium.copy(textIndent = TextIndent(firstLine = 2.em)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (clamped) 6 else Int.MAX_VALUE,
                 overflow = if (clamped) TextOverflow.Ellipsis else TextOverflow.Clip,
-                // 展开/收起时高度平滑过渡
                 modifier = Modifier
                     .padding(top = Spacing.mdPlus)
                     .animateContentSize(),
                 onTextLayout = { layout: TextLayoutResult ->
-                    // 仅在 clamped 时检测是否真的溢出（展开后 maxLines 无限，溢出恒 false）
+                    // 仅截断态检测溢出（展开后 maxLines 为无限，hasVisualOverflow 恒为 false）
                     if (clamped) truncated = layout.hasVisualOverflow
                 },
                 onOpenIllust = onOpenIllust,
@@ -749,7 +626,6 @@ fun IllustInfoSection(
                 onOpenUser = onOpenUser,
             )
             if (expandableIntro && (truncated || expanded)) {
-                // 展开 / 收起：居中按钮（未截断时不出现）
                 TextButton(
                     onClick = { expanded = !expanded },
                     modifier = Modifier.fillMaxWidth(),
@@ -765,23 +641,6 @@ fun IllustInfoSection(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/**
- * 操作按钮行（标签下方）：收藏 / 全屏 / 下载 / 评论（不固定，跟随内容滚动）。
- *
- * 四个按钮各配语义点缀色（收藏红 / 全屏紫 / 下载蓝 / 评论青），
- * 未激活态经 `VerticalActionButton` 内部 `resolveAccent` 解析——彩色风格关闭时统一回退 primary。
- *
- * @param illustId 当前作品 id（作为收藏弹跳「上一态」记忆的 key——平板 pane 不按 id 重建组合，
- *   切换作品时须重置，否则 A 未收藏 → 选中已收藏 B 会误播弹跳与触觉）
- * @param isBookmarked 是否已收藏
- * @param isBookmarking 收藏请求进行中（禁用按钮防连点）
- * @param onToggleBookmark 收藏/取消收藏回调
- * @param onOpenViewer 打开全屏查看器回调
- * @param onDownload 打开下载回调
- * @param onOpenComments 打开评论区回调
- * @param strings 详情页文案
- * @return 无返回值（渲染 Composable）
- */
 @Composable
 private fun ActionButtonsRow(
     illustId: Long,
@@ -793,16 +652,14 @@ private fun ActionButtonsRow(
     onOpenComments: () -> Unit,
     strings: IllustDetailStrings,
 ) {
-    // 收藏心形弹跳：0.6 → 过冲 → 1 的 pop；仅在「未收藏 → 已收藏」跳变时触发
     val favoriteBounce = remember { Animatable(1f) }
-    // 上一次收藏态：key 为作品 id（pane 切换作品时重置为该作品当前态，防止跨作品误播）
+    // key 为 illustId：平板 pane 切换作品不重建组合，须重置上一次收藏态防跨作品误播弹跳与触觉
     var wasBookmarked by remember(illustId) { mutableStateOf(isBookmarked) }
     val haptic = rememberHapticCue()
     LaunchedEffect(isBookmarked) {
         val becameBookmarked = isBookmarked && !wasBookmarked
         wasBookmarked = isBookmarked
         if (becameBookmarked) {
-            // 成功确认触觉 + 心形缩放 pop（MediumBouncy 过冲后回落到 1f）
             haptic(PixivHaptics.HapticCue.SUCCESS)
             favoriteBounce.snapTo(0.6f)
             favoriteBounce.animateTo(
@@ -827,10 +684,8 @@ private fun ActionButtonsRow(
             enabled = !isBookmarking,
             onClick = onToggleBookmark,
             modifier = Modifier.weight(1f),
-            // 收藏激活用扩展语义红（浅/深双档合规）；未激活态同步使用扩展收藏色点缀
             activeIconTint = MaterialTheme.extendedColors.favorite,
             accent = MaterialTheme.extendedColors.favorite,
-            // 图标级弹跳：按钮自身按压缩放（VerticalActionButton 内）不受影响
             iconModifier = Modifier.graphicsLayer {
                 scaleX = favoriteBounce.value
                 scaleY = favoriteBounce.value
@@ -866,16 +721,6 @@ private fun ActionButtonsRow(
     }
 }
 
-/**
- * 统计块：图标 + 数值 + 标签（weight(1f) 均分整行，块内水平居中）。
- *
- * @param icon 左侧小图标
- * @param value 主数值文案（已格式化）
- * @param label 数值下方说明文案
- * @param modifier 外部 Modifier（调用方用 weight 均分）
- * @param iconAccent 图标点缀色；[Color.Unspecified] 保持 onSurfaceVariant 中性，否则经 [resolveAccent] 取色
- * @return 无返回值
- */
 @Composable
 private fun StatBlock(
     icon: ImageVector,
@@ -892,18 +737,15 @@ private fun StatBlock(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                // 未指定点缀色时保持中性文字色（纯 M3 观感）
                 tint = if (iconAccent == Color.Unspecified) {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 } else {
                     resolveAccent(iconAccent)
                 },
-                // 与数值字号同档放大：16dp 在详情页整页比例下偏小，提到 20dp
                 modifier = Modifier.size(Sizes.s20),
             )
             Text(
                 text = value,
-                // titleSmall(14sp) → titleMedium(16sp)，与图标放大同档
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = Spacing.xsPlus),
@@ -911,7 +753,6 @@ private fun StatBlock(
         }
         Text(
             text = label,
-            // 说明文案与数值同档放大（labelMedium 12sp → bodyMedium 14sp），避免整行头重脚轻
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = Spacing.xs),
@@ -919,10 +760,6 @@ private fun StatBlock(
     }
 }
 
-/**
- * 作者关注 / 取关按钮（作者行顶右）：全圆 pill + Expressive 按压形变。
- * 未关注 = 实心主色 [Button]；已关注 = 主色描边 + 浅底 [OutlinedButton]。
- */
 @Composable
 private fun AuthorFollowPill(
     isFollowed: Boolean,
@@ -968,23 +805,13 @@ private fun AuthorFollowPill(
     }
 }
 
-// ── 相关作品 ──
-
-/**
- * 相关作品横滑区：标题 + 150dp 固定宽卡片行（封面 4:3 裁切 + 单行标题）。
- *
- * @param items 相关作品列表
- * @param strings 文案集合（标题「相关作品」等）
- * @param onOpenIllust 点击卡片打开作品详情（参数为作品 id）
- * @return 无返回值
- */
 @Composable
 fun IllustRelatedSection(
     items: List<Illust>,
     strings: IllustDetailStrings,
     onOpenIllust: (Long) -> Unit,
 ) {
-    // 动效方案在组合期取好：item lambda 不是组合上下文，无法在其中读取 MaterialTheme
+    // item lambda 非组合上下文，须在组合期提前捕获 motionScheme
     val motionScheme = MaterialTheme.motionScheme
     Column(modifier = Modifier.padding(Spacing.lg)) {
         Text(
@@ -998,7 +825,6 @@ fun IllustRelatedSection(
                 Column(
                     modifier = Modifier
                         .width(150.dp)
-                        // 进场淡入 + 相关作品换批时位置平滑过渡
                         .animateItem(
                             fadeInSpec = motionScheme.fastEffectsSpec<Float>(),
                             placementSpec = motionScheme.fastSpatialSpec<IntOffset>(),
@@ -1010,7 +836,6 @@ fun IllustRelatedSection(
                     PixivImage(
                         url = related.image_urls?.medium ?: related.image_urls?.square_medium,
                         contentDescription = related.title,
-                        // 固定 4:3 比例（非正方形、非真实宽高）
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(4f / 3f),

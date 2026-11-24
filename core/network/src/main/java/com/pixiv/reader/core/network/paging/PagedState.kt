@@ -8,22 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * 通用游标分页状态（基于 pixiv next_url）。
- *
- * 用法（ViewModel 持有）：
- * ```
- * class XViewModel : ViewModel() {
- *     val paged = PagedState<Illust>()
- *     fun load() = viewModelScope.launch {
- *         paged.loadInitial(
- *             fetch = { api.getRecommendedIllusts(true) },
- *             fetchNext = { url -> api.getNextIllusts(url) },
- *         )
- *     }
- *     fun loadMore() = viewModelScope.launch { paged.loadMore() }
- * }
- * ```
- *
- * @param keySelector 可选去重键。相同的非空键保留首次出现项，空键项全部保留。
+ * keySelector：可选去重键，相同非空键保留首次出现项，空键项全部保留。
  */
 class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
 
@@ -43,7 +28,6 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
     /** 当前内容是否来自快照预填（秒开场景；后台刷新成功后自动清除）。 */
     val isStale: StateFlow<Boolean> = _isStale.asStateFlow()
 
-    /** 记录分页 fetch 函数（供 loadMore 复用 next_url 游标）。 */
     private var next: String? = null
     private var initialFetch: (suspend () -> Pageable<T>)? = null
     private var nextFetch: (suspend (String) -> Pageable<T>)? = null
@@ -54,14 +38,7 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
      */
     private var generation = 0
 
-    /**
-     * 首次加载：拉取第一页并缓存 fetch 函数。
-     * 加载中重复调用直接忽略；失败时置 error 并停用加载更多（hasMore=false）。
-     *
-     * @param fetch 首页请求（返回第一页数据 + next_url 游标）
-     * @param fetchNext 后续页请求（入参为上一页返回的游标 URL）
-     * @return 无返回值（结果经 [items]/[isLoading]/[error] 等状态流暴露）
-     */
+    /** 加载中重复调用直接忽略；失败置 error 并停用加载更多。 */
     suspend fun loadInitial(
         fetch: suspend () -> Pageable<T>,
         fetchNext: suspend (String) -> Pageable<T>,
@@ -79,7 +56,6 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
             _items.value = mergePage(emptyList(), page.items)
             next = page.nextPageUrl
             _hasMore.value = page.nextPageUrl != null
-            // 首页加载成功 = 快照内容已被服务端数据替换
             _isStale.value = false
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -92,12 +68,7 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
         }
     }
 
-    /**
-     * 加载下一页：使用上次返回的 next_url 游标追加数据。
-     * 无游标 / 加载中直接忽略；失败仅报错不清空已有数据。
-     *
-     * @return 无返回值（结果经 [items]/[isLoadingMore]/[error] 等状态流暴露）
-     */
+    /** 用上次返回的 next_url 追加；失败仅报错，不清空已有数据。 */
     suspend fun loadMore() {
         val url = next ?: return
         if (_isLoading.value || _isLoadingMore.value) return
@@ -124,11 +95,7 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
     }
 
     /**
-     * 合并本页条目并保留已有列表和页内首次出现顺序。
-     *
-     * @param existing 当前已展示的条目
-     * @param incoming 本页待合并的条目
-     * @return 合并后的条目列表
+     * 合并本页条目，保留已有列表与页内首次出现顺序。
      */
     private fun mergePage(existing: List<T>, incoming: List<T>): List<T> {
         val selectKey = keySelector ?: return if (existing.isEmpty()) incoming else existing + incoming
@@ -140,9 +107,8 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
     }
 
     /**
-     * 清空并重新加载（下次 loadInitial 生效；游标与列表归零）。
-     * 同时复位 isLoading 并作废旧代次——保证「下拉刷新」（reset + loadInitial）
-     * 在任意状态下（含首载未完成）都真正重新拉取，而不是被幂等忽略。
+     * 复位游标与列表并作废旧代次：使 reset + loadInitial 在任意状态（含首载未完成）都真正重拉，
+     * 而不是被幂等忽略。
      */
     fun reset() {
         generation++
@@ -157,13 +123,7 @@ class PagedState<T>(private val keySelector: ((T) -> Any?)? = null) {
     }
 
     /**
-     * 快照预填（首页秒开）：冷启动时用上次保存的第一页内容立即填充列表，
-     * 后续 loadInitial 成功后无缝替换并清除 stale 标记；失败时快照内容保留可继续浏览
-     * （loadInitial 失败不清空 items）。已有内容时忽略（避免覆盖活动中的分页）。
-     *
-     * @param items 快照内容（上次成功加载的第一页）
-     * @param nextUrl 快照保存的分页游标（触底加载续传位置）
-     * @return 无返回值
+     * 快照预填（冷启动秒开）：已有内容时忽略以免覆盖活动中的分页；loadInitial 成功后清除 stale。
      */
     fun restoreSnapshot(items: List<T>, nextUrl: String?) {
         if (_items.value.isNotEmpty()) return

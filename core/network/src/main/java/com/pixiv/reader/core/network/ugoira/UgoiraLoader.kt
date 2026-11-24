@@ -18,22 +18,13 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 
-/** 单帧：本地文件 + 延迟毫秒 */
 data class UgoiraFrame(val file: File, val delayMs: Int)
 
 /**
- * ugoira 动图准备：下载 zip → 解压到 cache → 返回帧列表。
- * zip / 图片 URL 均走 imageClient（带 Referer）。
+ * ugoira 动图准备：下载 zip → 解压到 cache → 返回帧列表；zip/图片 URL 均走 imageClient（带 Referer）。
  *
- * 进程内**完成结果**缓存：成功帧列表驻留内存（瀑布流卡片滚动反复进出直接命中），
- * 命中时校验首帧文件仍存在（「清除缓存」清掉 cacheDir/ugoira 后自动失效重载）；
- * 失败不缓存（下次重试）。
- *
- * 刻意不做 in-flight Deferred 共享：取消的加载（如卡片滚出视口导致 LaunchedEffect 取消）
- * 若残留已取消的 Deferred，后续同 id 调用 await 会立即抛 CancellationException——
- * 造成查看器「动图加载中…」永久显示（frames 永远空）。完成结果缓存下取消只影响调用方自身，
- * 不污染、不传播；并发同 id 重复加载概率极低（LazyGrid key=id 保证同 id 单实例），且 zip
- * 有磁盘缓存兜底。
+ * 只缓存完成结果（进程内，命中校验首帧文件仍在）：不能做 in-flight Deferred 共享——取消的加载
+ * 若残留已取消 Deferred，后续同 id await 会立即抛 CancellationException，查看器永久停在加载中。
  */
 @Singleton
 class UgoiraLoader @Inject constructor(
@@ -44,10 +35,8 @@ class UgoiraLoader @Inject constructor(
     private val completed = ConcurrentHashMap<Long, List<UgoiraFrame>>()
 
     /**
-     * 返回帧列表；失败返回 null（成功结果进程内缓存，同 id 重复调用不重新请求）。
-     *
-     * @param onProgress zip 下载进度回调（0..1，按整百分比降频；IO 线程调用，需自行切线程写状态）；
-     *   磁盘 zip 命中或非下载路径不回调。
+     * 失败返回 null；成功结果进程内缓存，同 id 重复调用不重新请求。
+     * onProgress 在 IO 线程回调（0..1，按整百分比降频），磁盘命中时不回调。
      */
     suspend fun prepare(illustId: Long, onProgress: ((Float) -> Unit)? = null): List<UgoiraFrame>? {
         completed[illustId]?.let { cached ->
@@ -60,14 +49,6 @@ class UgoiraLoader @Inject constructor(
         return result
     }
 
-    /**
-     * 获取动图元数据，按需下载完整 zip，再解压帧文件。
-     *
-     * @param illustId 插画 ID
-     * @param onProgress 下载进度回调，磁盘命中时不调用
-     * @return 解压后的帧列表，普通加载失败时返回 null
-     * @throws CancellationException 调用协程取消时向上传播
-     */
     private suspend fun load(
         illustId: Long,
         onProgress: ((Float) -> Unit)? = null,
@@ -115,17 +96,7 @@ class UgoiraLoader @Inject constructor(
         }
     }
 
-    /**
-     * 下载 zip 到同目录的独立临时文件，完整接收后原子发布。
-     *
-     * @param zipUrl 动图帧包下载地址
-     * @param zipFile 正式缓存文件
-     * @param onProgress 下载进度回调
-     * @return 下载完成后无返回值
-     * @throws IOException 请求、读取、写入或原子发布失败
-     * @throws IllegalArgumentException 下载地址无效
-     * @throws CancellationException 调用协程取消
-     */
+    /** 写入同目录独立临时文件，完整接收后原子发布（ATOMIC_MOVE 不支持时降级为普通覆盖）。 */
     private suspend fun downloadZip(zipUrl: String, zipFile: File, onProgress: ((Float) -> Unit)?) {
         val coroutineContext = currentCoroutineContext()
         // 并发下载使用各自的临时文件，避免互相覆盖或清理对方的写入。

@@ -5,8 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * webview HTML 内嵌图提取（OAuth 鉴权兜底路径）测试：
- * `window.pixiv.novel` 对象的 images（上传图）→ uploadedimage URL 映射。
+ * webview HTML 内嵌图提取（OAuth 鉴权兜底路径）：`window.pixiv.novel` 的 images → uploadedimage URL 映射。
  */
 class NovelHtmlEmbeddedImagesTest {
 

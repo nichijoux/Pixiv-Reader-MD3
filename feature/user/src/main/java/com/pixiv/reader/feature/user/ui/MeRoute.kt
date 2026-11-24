@@ -64,15 +64,6 @@ import com.pixiv.reader.feature.user.R
 import com.pixiv.reader.feature.user.state.MeViewModel
 import kotlinx.coroutines.launch
 
-/**
- * 我的 Tab：个人中心/设置页——
- * Expressive 分组设置面板（账号 / 内容管理 / pixiv 生态 / 外观 / 浏览 / 系统 / 关于）。
- * 数据驱动（SettingsCardItem + MeRow），Material 主题，自适应布局。
- * 各区块组件见 [MeAccountSection] / [MeAppearanceSection] / [MeBrowseSection] / [MeSystemSection] / [MeAboutSection]。
- *
- * @param onOpenFanbox 打开 FANBOX 原生首页（生态区 FANBOX 条目，已登录 FANBOX 时）
- * @param onOpenFanboxWeb 打开 FANBOX 内置网页（url, title）：未登录登录引导 / 创作者主页等
- */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun MeRoute(
@@ -87,7 +78,6 @@ fun MeRoute(
     onOpenUser: (Long) -> Unit,
     onOpenFanbox: () -> Unit,
     onOpenFanboxWeb: (String, String) -> Unit,
-    /** 打开 pixiv COMIC 原生首页（免费内容无需登录，不做登录分流） */
     onOpenComic: () -> Unit,
     // 主壳「再次点击当前 Tab」回顶信号（计数 key，变化即滚回顶部）
     reselectKey: Int = 0,
@@ -115,22 +105,17 @@ fun MeRoute(
     val context = LocalContext.current
     val activity = context as? Activity
     val exportDirPermFailed = stringResource(R.string.me_export_dir_permission_failed)
-    // 语言切换防抖：落盘期间忽略重复点击，避免连点导致 DataStore 并发写竞态
+    // 落盘期间忽略重复点击，否则连点会让 DataStore 并发写竞态
     var switchingLanguage by remember { mutableStateOf(false) }
-    // 清除缓存确认
     var showClearCache by remember { mutableStateOf(false) }
-    // 退出登录确认（提示类，非删除）
     var showLogoutConfirm by remember { mutableStateOf(false) }
-    // 小说下载命名模板编辑
     var showFileNameTemplate by remember { mutableStateOf(false) }
 
     UiMessageEffect(viewModel.message, notificationHostState)
 
-    // 遵循 MD3 不透明 tonal 表面层级：页面底纯 surface + 分组卡纯 surfaceContainer
     Scaffold(
         snackbarHost = {
-            // 沉浸式底部（底部 inset 置 0）后 Scaffold 不再自动避开导航栏，
-            // 通知条自行避让（手机端导航栏 inset 已被壳层消费，此处补 0，无双重避让）
+            // 沉浸式底部后 Scaffold 不再自动避开导航栏，通知条自行避让（壳层已消费手机端导航栏 inset，此处补 0）
             NotificationHost(
                 notificationHostState,
                 modifier = Modifier.navigationBarsPadding(),
@@ -142,10 +127,9 @@ fun MeRoute(
         modifier = Modifier.fillMaxSize(),
     ) { padding ->
         AdaptiveContentBox(
-            // 消费已应用的 padding，内部 navigationBarsPadding 按剩余可见 inset 自适应
+            // 消费已应用的 padding，内部 navigationBarsPadding 才能按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
         ) {
-            // 设置页滚动状态提升到路由层：供「再次点击我的 Tab」回顶使用
             val scrollState = rememberScrollState()
             var lastScrollKey by remember { mutableIntStateOf(reselectKey) }
             LaunchedEffect(reselectKey) {
@@ -158,7 +142,6 @@ fun MeRoute(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    // 沉浸式底部：内容尾部避开系统导航栏与底部导航栏
                     .navigationBarsPadding()
                     .padding(
                         start = Spacing.lg,
@@ -198,14 +181,14 @@ fun MeRoute(
                         fanboxTitle,
                         stringResource(R.string.me_fanbox_desc),
                         accent = SettingAccentAmber,
-                        // FANBOX 按登录态分流：已登录（cookie 含 FANBOXSESSID）进原生首页，
-                        // 否则进 App 内可见 WebView 登录（不走系统浏览器与网页 SSO 门控）
+                        // FANBOX 按登录态分流：已登录进原生首页，否则进 App 内可见 WebView 登录
+                        // （不走系统浏览器与网页 SSO 门控）
                         onClick = {
                             if (viewModel.hasFanboxSession()) {
                                 onOpenFanbox()
                             } else {
-                                // 未登录直达 pixiv 账号登录页（returnTo 回 fanbox），
-                                // 移动版首页的登录入口藏在汉堡侧边栏且 WebView 内常点不开
+                                // 未登录直达 pixiv 账号登录页（returnTo 回 fanbox）：移动版首页的登录入口
+                                // 藏在汉堡侧边栏且 WebView 内常点不开
                                 onOpenFanboxWeb(FanboxHeaderInterceptor.FANBOX_LOGIN_URL, fanboxTitle)
                             }
                         },
@@ -215,7 +198,7 @@ fun MeRoute(
                         stringResource(R.string.me_comic_title),
                         stringResource(R.string.me_comic_desc),
                         accent = SettingAccentOrange,
-                        // COMIC 免费内容无需登录，直达原生首页（排行/详情/阅读器全原生）
+                        // COMIC 免费内容无需登录，直达原生首页
                         onClick = onOpenComic,
                     ),
                     SettingsCardItem(
@@ -286,7 +269,7 @@ fun MeRoute(
                     cacheSize = cacheSize,
                     onSetAutoUpdate = viewModel::setAutoUpdate,
                     onPickExportDir = { uri ->
-                        // 仅当持久化目录权限授予成功时才覆盖下载位置，失败则提示用户保持原配置。
+                        // 只有持久化权限授予成功才覆盖下载位置，失败保留原配置
                         val granted = runCatching {
                             context.contentResolver.takePersistableUriPermission(
                                 uri,
@@ -316,7 +299,7 @@ fun MeRoute(
         }
     }
 
-    // 清除缓存确认（清空 cacheDir + 离线缓存，不可撤销）
+    // 清除缓存确认
     if (showClearCache) {
         ConfirmDialog(
             title = stringResource(R.string.me_cache_clear_title),
@@ -330,7 +313,6 @@ fun MeRoute(
         )
     }
 
-    // 小说下载命名模板编辑
     if (showFileNameTemplate) {
         NovelFileNameTemplateDialog(
             initialSingle = novelFileNameTemplate,
@@ -347,8 +329,7 @@ fun MeRoute(
         )
     }
 
-    // 新版本更新对话框：changelog 正文（可滚动）+ 前往下载（浏览器打开 Release 页），
-    // 走 core:ui 共享组件（与启动自动检查弹层一致）
+    // 与启动自动检查弹层共用 core:ui 的 UpdateReleaseDialog
     updateRelease?.let { release ->
         UpdateReleaseDialog(
             release = release,
@@ -365,7 +346,6 @@ fun MeRoute(
         )
     }
 
-    // 退出登录确认（提示类：Info 图标 + primary 蓝色系，非删除语义）
     if (showLogoutConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.me_logout_confirm_title),

@@ -8,8 +8,6 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-// ── EPUB 容器常量 ────────────────────────────────────────────────────────────
-
 private const val CONTAINER_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
@@ -30,7 +28,6 @@ private const val DOCX_RELS = """<?xml version="1.0" encoding="UTF-8" standalone
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>"""
 
-/** Word 样式表：Title（书名）+ Heading1/Heading2（导航窗格目录层级）。 */
 private const val DOCX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
@@ -56,13 +53,7 @@ private const val DOCX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalo
   </w:style>
 </w:styles>"""
 
-/**
- * 从图片字节解析原始宽高（PNG/JPEG/WebP 文件头，纯 JVM 可测）；无法解析返回 null。
- * 供 PDF/DOCX 内嵌图片按比例缩放用（避免依赖 Android BitmapFactory）。
- *
- * @param bytes 图片原始字节
- * @return 宽高像素对（width to height），无法识别或头损坏返回 null
- */
+/** 纯字节头解析 PNG/JPEG/WebP 宽高，避免依赖 Android BitmapFactory 以保持 JVM 可测。 */
 internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
     val isPng = bytes.size >= 24 &&
             bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() &&
@@ -78,12 +69,6 @@ internal fun imageDimensions(bytes: ByteArray): Pair<Int, Int>? {
     return webpDimensions(bytes)
 }
 
-/**
- * 解析 WebP（RIFF....WEBP）容器中的图像宽高，兼容 VP8（有损）、VP8L（无损）和 VP8X（扩展）。
- *
- * @param bytes 图片原始字节
- * @return 宽高像素对（width to height），非合法 WebP 返回 null
- */
 private fun webpDimensions(bytes: ByteArray): Pair<Int, Int>? {
     if (bytes.size < 30) return null
     val isRiff = bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
@@ -141,7 +126,6 @@ private fun bigEndian4(bytes: ByteArray, offset: Int): Int =
             ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
             (bytes[offset + 3].toInt() and 0xFF)
 
-/** JPEG：扫描段标记定位 SOF（宽高 @SOF+5/+7）。 */
 private fun jpegDimensions(bytes: ByteArray): Pair<Int, Int>? {
     var i = 2
     while (i + 9 < bytes.size) {
@@ -168,21 +152,14 @@ private fun jpegDimensions(bytes: ByteArray): Pair<Int, Int>? {
     return null
 }
 
-/** 图片 URL 推断 mime（pixiv 图片扩展名 jpg/png/webp）。 */
 internal fun mimeFromUrl(url: String): String =
     when (url.substringBefore('?').substringAfterLast('.', "").lowercase()) {
         "png" -> "image/png"
         "webp" -> "image/webp"
         "gif" -> "image/gif"
-        else -> "image/jpeg" // jpg/jpeg 及未知一律按 jpeg 尝试
+        else -> "image/jpeg"
     }
 
-// ── TXT ─────────────────────────────────────────────────────────────────────
-
-/**
- * 生成 TXT 全文（纯函数，可测）。
- * 多章（系列）时每章前输出分隔线与章节标题；插图块直接跳过。
- */
 internal fun buildTxt(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
@@ -211,7 +188,7 @@ internal fun buildTxt(
                     }
 
                     is NovelBlock.Quote -> appendLine("> ${stripIndent(block.text)}")
-                    is NovelBlock.Image -> Unit // TXT 模式跳过插图
+                    is NovelBlock.Image -> Unit
                     is NovelBlock.Separator -> appendLine(block.symbol)
                 }
             }
@@ -220,14 +197,7 @@ internal fun buildTxt(
     }
 }
 
-// ── MARKDOWN ────────────────────────────────────────────────────────────────
-
-/**
- * 生成 Markdown 全文（纯函数，可测）。
- * 标题保留 `#` 层级、引用保留 `>`、分隔线用 `---`；
- * 插图以 data URI（base64）内嵌（[images] 与全局块序一一对齐，无法下载的图用 null 占位），
- * 任何 Markdown 阅读器（Typora/Obsidian/手机 App）无需目录结构即可显示。
- */
+/** 插图按全局块序与 [images] 对齐（null 占位跳过），以 base64 data URI 内嵌免外部资源目录。 */
 internal fun buildMarkdown(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
@@ -282,15 +252,7 @@ internal fun buildMarkdown(
     }
 }
 
-// ── DOCX 容器（手写最小 OOXML：Content_Types + rels + document.xml） ─────────
-
-/**
- * 生成 .docx 字节（纯函数，可测）。
- * 书名用 Title 样式；系列按卷/章层级：卷 Heading1、卷下章节 Heading2、无卷归属章节 Heading1，
- * Word 导航窗格呈现 卷 ▸ 章 层级；正文内部标题保持加粗+字号（不进目录）；
- * 插图按块顺序内嵌（[images] 与全局块序一一对齐；下载失败/无法解析的图用 null 占位，
- * 避免后续插图错位）。
- */
+/** 卷用 Heading1、卷下章用 Heading2（无卷章用 Heading1）以匹配 Word 导航窗格；[images] 按全局块序对齐，null 占位防错位。 */
 internal fun buildDocx(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
@@ -302,7 +264,6 @@ internal fun buildDocx(
     val imageRels: List<Pair<ExportImage, String>?> = images.map { img ->
         if (img == null) null else img to "rId${nextRelId++}"
     }
-    // 块 → OOXML（插图按全局块序取 [imageRels]，文本块走 docxBlock）
     var imgIdx = 0
     fun docxBlocks(blocks: List<NovelBlock>): String = buildString {
         blocks.forEach { block ->
@@ -324,7 +285,6 @@ internal fun buildDocx(
         first.caption?.takeIf { it.isNotBlank() }
             ?.let { append(docxParagraph("简介：${htmlToPlainText(it)}")) }
         if (chapters.size > 1) {
-            // 系列：卷 Heading1、卷下章节 Heading2；无卷归属章节 Heading1（导航窗格顶层）
             buildTocHierarchy(chapters).forEach { entry ->
                 append(docxParagraph(null))
                 append(docxChapterTitle(entry.title, 1))
@@ -338,7 +298,6 @@ internal fun buildDocx(
                 }
             }
         } else {
-            // 单本：书名 Title 样式，正文直接输出（不再重复章节标题）
             append(docxBlocks(chapters.first().second.blocks))
         }
         append("<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\"/></w:sectPr>")
@@ -349,8 +308,6 @@ internal fun buildDocx(
  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>$body</w:body></w:document>"""
-    // 动态 content-types（图片扩展名 Default）与 rels（image relationships）
-    // 实际内嵌的图片（剔除下载失败/无法解析的 null 占位）
     val validImages = imageRels.filterNotNull()
     val imageExtTypes =
         validImages.map { (img, _) -> img.ref.substringAfterLast('.', "") to img.mime }
@@ -365,8 +322,7 @@ internal fun buildDocx(
     val imageRelsXml = validImages.joinToString("") { (img, relId) ->
         """<Relationship Id="$relId" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${img.ref}"/>"""
     }
-    // 文档级 relationships（word/_rels/document.xml.rels）：styles + 图片
-    // 注意：图片关系必须在文档级，Word/mammoth 从 document.xml.rels 解析 r:embed
+    // 图片关系必须写在文档级 document.xml.rels，Word/mammoth 从此解析 r:embed
     val docRels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
@@ -383,11 +339,7 @@ $imageRelsXml</Relationships>"""
     return bytes.toByteArray()
 }
 
-/**
- * 插图段落（OOXML drawing，居中，按可用页宽缩放）。
- * 页面宽 11906 twips - 左右边距 1440×2 = 9026 twips；1 twip = 635 EMU。
- * 像素 → EMU：1px = 9525 EMU（96dpi，1in = 914400 EMU = 96px）。
- */
+/** 可用页宽 11906 - 1440×2 = 9026 twips（1 twip = 635 EMU），96dpi 下 1px = 9525 EMU。 */
 internal fun docxImage(img: ExportImage, relId: String): String {
     val pxToEmu = 9525L
     val maxCx = 9026L * 635L
@@ -405,11 +357,9 @@ internal fun docxImage(img: ExportImage, relId: String): String {
             """</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"""
 }
 
-/** 书名段落：Word Title 样式（居中大标题，不进导航目录）。 */
 internal fun docxTitle(text: String): String =
     """<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>"""
 
-/** 卷/章节标题段落：Word Heading 样式（导航窗格目录层级；1=Heading1 卷/顶层章，2=Heading2 卷下章）。 */
 internal fun docxChapterTitle(text: String, level: Int): String {
     val style = if (level <= 1) "Heading1" else "Heading2"
     return """<w:p><w:pPr><w:pStyle w:val="$style"/></w:pPr><w:r><w:t xml:space="preserve">${
@@ -419,7 +369,6 @@ internal fun docxChapterTitle(text: String, level: Int): String {
     }</w:t></w:r></w:p>"""
 }
 
-/** 正文块 → w:p（内部标题用加粗+字号，不进导航目录）。 */
 private fun docxBlock(block: NovelBlock): String = when (block) {
     is NovelBlock.Paragraph -> docxParagraph(block.text)
     is NovelBlock.Heading -> docxHeading(block.text, block.level)
@@ -428,7 +377,7 @@ private fun docxBlock(block: NovelBlock): String = when (block) {
     is NovelBlock.Separator -> docxParagraph(null)
 }
 
-/** 标题段落：加粗 + 字号（half-points：36=18pt / 32=16pt / 28=14pt）。 */
+/** 字号单位为 OOXML half-points（36=18pt / 32=16pt / 28=14pt）。 */
 internal fun docxHeading(text: String, level: Int): String {
     val size = when (level) {
         1 -> 36; 2 -> 32; else -> 28
@@ -440,7 +389,6 @@ internal fun docxHeading(text: String, level: Int): String {
     }</w:t></w:r></w:p>"""
 }
 
-/** 普通段落（引用带左缩进）；null/空白 → 空段落。 */
 internal fun docxParagraph(
     content: String?,
     bold: Boolean = false,
@@ -452,13 +400,6 @@ internal fun docxParagraph(
     return "<w:p>$pPr<w:r>$rPr<w:t xml:space=\"preserve\">${escapeXml(content)}</w:t></w:r></w:p>"
 }
 
-// ── EPUB 容器（EPUB3 标准 zip） ─────────────────────────────────────────────
-
-/**
- * 生成 EPUB3 zip 字节（纯函数，可测）。
- * 图片已由调用方下载为 [ExportImage] 传入（缺失即不内嵌）。
- * @param css 合并后的样式表（样书 Main.css 全文，含 @font-face 段），写入 OEBPS/Styles/Main.css。
- */
 internal fun buildEpub(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
@@ -484,9 +425,7 @@ internal fun buildEpub(
         zip.writeEntry("OEBPS/nav.xhtml", buildNav(chapters))
         zip.writeEntry("OEBPS/toc.ncx", buildNcx(chapters, seriesTitle))
         zip.writeEntry("OEBPS/Styles/Main.css", css)
-        // 书名页（Section0，spine 首位、不进目录）
         zip.writeEntry("OEBPS/Text/Section0.xhtml", buildTitlePage(chapters, seriesTitle))
-        // 章节（Section1..N）
         chapters.forEachIndexed { index, (novel, document) ->
             zip.writeEntry(
                 "OEBPS/Text/Section${index + 1}.xhtml",
@@ -500,7 +439,6 @@ internal fun buildEpub(
     return bytes.toByteArray()
 }
 
-/** 生成 content.opf（manifest / spine / metadata）。 */
 internal fun buildOpf(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
@@ -538,23 +476,14 @@ internal fun buildOpf(
 </package>"""
 }
 
-/**
- * 章节/分卷标题前缀正则（对齐阅读器规则）：
- * `序章` / `第N章`、`第N卷` / `终章` / `简章` / `后记` / `完本感言` / `上架感言` / `番外`。
- * 组 1 为徽标前缀，组 2 为剩余标题。
- */
 private val CHAPTER_NUM_REGEX = Regex(
     """^(序章|第[\d零一二三四五六七八九十百千万]+[章卷]|终章|简章|后记|完本感言|上架感言|番外)(.*)$"""
 )
 
-/** 提取标题前缀徽标（序章/第N章/后记/番外 等）；无前缀返回 null。 */
 internal fun extractChapterPrefix(title: String): String? =
     CHAPTER_NUM_REGEX.find(title)?.groupValues?.getOrNull(1)
 
-/**
- * 目录条目：卷（含子章节）或顶层章节。
- * [sectionIndex] 为 1 基章节序号（对应 EPUB SectionN / DOCX 章节顺序）。
- */
+/** [sectionIndex] 为 1 基章节序号（对应 EPUB SectionN）。 */
 internal data class TocEntry(
     val sectionIndex: Int,
     val title: String,
@@ -562,10 +491,6 @@ internal data class TocEntry(
     val children: List<Pair<Int, String>> = emptyList(),
 )
 
-/**
- * 卷/章层级：标题前缀以「卷」结尾（第X卷）即卷节点；其后非卷章节归入该卷，直到下一卷；
- * 卷前无归属章节为顶层。
- */
 internal fun buildTocHierarchy(chapters: List<Pair<Novel, NovelDocument>>): List<TocEntry> {
     val result = mutableListOf<TocEntry>()
     val pendingChildren = mutableMapOf<TocEntry, MutableList<Pair<Int, String>>>()
@@ -593,7 +518,6 @@ internal fun buildTocHierarchy(chapters: List<Pair<Novel, NovelDocument>>): List
     return result
 }
 
-/** 生成 EPUB3 导航文档（toc：卷为外层、卷下章节嵌套 ol；顶层章节平铺）。 */
 internal fun buildNav(chapters: List<Pair<Novel, NovelDocument>>): String {
     val items = buildTocHierarchy(chapters).joinToString("\n") { entry ->
         if (entry.isVolume) {
@@ -625,7 +549,6 @@ $items
 </html>"""
 }
 
-/** 生成 EPUB2 兼容目录（toc.ncx：卷 navPoint 内嵌子 navPoint；playOrder 全局顺序递增）。 */
 internal fun buildNcx(chapters: List<Pair<Novel, NovelDocument>>, seriesTitle: String?): String {
     val bookTitle = escapeXml(seriesTitle ?: chapters.firstOrNull()?.first?.title.orEmpty())
     val navMap = buildString {
@@ -684,7 +607,6 @@ $navMap  </navMap>
 </ncx>"""
 }
 
-/** 生成书名页（Section0）：书名 + 作者（样书 Title-center/Title-color 结构）。 */
 internal fun buildTitlePage(
     chapters: List<Pair<Novel, NovelDocument>>,
     seriesTitle: String?,
@@ -707,9 +629,6 @@ $authorLine
 </html>"""
 }
 
-/** 去除段落首部全角缩进（CSS text-indent:2em 已承担缩进，避免双重缩进）。 */
-
-/** 生成单章 xhtml（blocks → 样书语义化 HTML；插图成功下载才嵌 div>img）。 */
 internal fun buildChapterXhtml(
     novel: Novel,
     document: NovelDocument,
@@ -717,7 +636,6 @@ internal fun buildChapterXhtml(
     images: List<ExportImage>,
 ): String {
     val rawTitle = novel.title.orEmpty()
-    // 章标题拆「前缀徽标」+ 章题（样书 Title-num/Title-text 结构；前缀如 序章/第N章/后记/番外）
     val chapterNum = extractChapterPrefix(rawTitle)
     val chapterText = rawTitle.removePrefix(chapterNum.orEmpty()).trim()
     val showBadge = chapterNum != null && chapterText.isNotBlank()
@@ -732,6 +650,7 @@ internal fun buildChapterXhtml(
         var imgIndex = 0
         document.blocks.forEach { block ->
             when (block) {
+                // CSS text-indent:2em 已承担缩进，去除首部全角空格避免双重缩进
                 is NovelBlock.Paragraph -> append("<p>${escapeXml(stripIndent(block.text))}</p>\n")
                 is NovelBlock.Heading -> {
                     val level = block.level.coerceIn(2, 6)
@@ -753,7 +672,6 @@ internal fun buildChapterXhtml(
                             append("<p>${escapeXml(it)}</p>\n")
                         }
                     }
-                    // 未下载成功则不输出
                 }
             }
         }

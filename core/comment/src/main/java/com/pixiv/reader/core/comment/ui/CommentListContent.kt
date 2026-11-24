@@ -61,37 +61,8 @@ import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 
 /**
- * 评论列表内容块（core:comment 模块，评论页与排行右栏评论区共用）。
- * 不含 Scaffold/TopAppBar——由调用方决定外壳（全屏页 / 右栏面板）。
- * 参数均为调用方 collect 后的纯数据/回调（评论 VM 不进本组件）。
- * 评论条目挂 `animateItem`：新评论进场淡入、切换排序时整列平滑重排。
- *
- * @param comments 评论列表（一级评论，按分页累积）
- * @param isLoading 首屏加载中
- * @param isLoadingMore 触底加载更多中
- * @param hasMore 是否还有下一页
- * @param sortOrder 顶层评论排序方向（切换后列表整体翻转并滚回顶部）
- * @param error 首屏错误信息（null=无错误）
- * @param replies 回复树（评论 id → 该评论的回复列表）
- * @param repliesLoading 加载回复中的评论 id 集合
- * @param expandedReplies 已展开回复的评论 id 集合
- * @param draft 评论输入框草稿文本
- * @param replyTarget 当前回复目标（null=直接评论作品）
- * @param stamps 可选贴纸列表
- * @param emptyText 空态文案
- * @param onLoadComments 首次加载 / 失败重试回调
- * @param onLoadMoreComments 触底加载更多回调
- * @param onOpenUser 点击头像/用户名打开用户主页
- * @param onReply 点击回复（参数：目标评论 + 作品 id）
- * @param onLoadReplies 加载某评论的回复列表
- * @param onToggleRepliesExpanded 展开 / 收起某评论的回复
- * @param onDraftChange 草稿文本变化
- * @param onPost 发表评论 / 回复
- * @param onStampPick 选择贴纸（参数为贴纸 id）
- * @param ownUid 当前登录用户 id（>0 时自己的评论显示删除按钮；0=不显示）
- * @param onDeleteComment 删除自己的评论回调（null=不提供删除；参数为评论 id）
- * @param modifier 外部传入的 Modifier
- * @return 无返回值
+ * 评论列表内容块（评论页与排行右栏评论区共用）：不含 Scaffold/TopAppBar，外壳由调用方决定；传入的都是 collect
+ * 后的纯数据/回调（评论 VM 不进本组件）。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -122,12 +93,11 @@ fun CommentListContent(
     onDeleteComment: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    // 触底加载更多：最后可见项接近列表末尾且仍有下一页时触发
     val listState = rememberLazyListState()
     // 切换排序后列表整体翻转，滚回顶部避免视口内容跳变（首组合同样触发一次，无害）
     LaunchedEffect(sortOrder) { listState.scrollToItem(0) }
-    // derivedStateOf 捕获的 lambda 须随 comments 重建：分页追加产生新列表实例，
-    // 无 key 的 remember 会一直读首次组合的旧列表（lastIndex 恒旧，触底判定失效）
+    // derivedStateOf 捕获的 lambda 须随 comments 重建：分页追加产生新列表实例，无 key 的 remember 会一直读首次
+    // 组合的旧列表（lastIndex 恒旧，触底判定失效）
     val shouldLoadMore by remember(comments) {
         derivedStateOf {
             val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
@@ -144,7 +114,6 @@ fun CommentListContent(
 
     Box(modifier = modifier.fillMaxSize()) {
         when (feedPhase(loading = isLoading, hasItems = comments.isNotEmpty(), hasError = error != null)) {
-            // 首载：骨架占位（仿评论行布局），替代全屏转圈
             FeedPhase.LOADING -> CommentSkeleton(Modifier.fillMaxSize())
             FeedPhase.ERROR -> ErrorBox(
                 message = error,
@@ -164,7 +133,6 @@ fun CommentListContent(
                 contentPadding = PaddingValues(bottom = 72.dp),
             ) {
                 items(comments, key = { it.id }) { comment ->
-                    // 排序翻转（正/倒序切换）时条目平滑重排；新评论进场淡入
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -205,7 +173,7 @@ fun CommentListContent(
                 item { Spacer(Modifier.height(12.dp)) }
             }
         }
-        // 底部 overlay：回复目标条 + 输入条（align 到屏幕底，浮在列表上）
+        // 底部 overlay：输入条浮在列表上
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -231,7 +199,9 @@ fun CommentListContent(
     }
 }
 
-/** 评论行：头像 + 昵称 + 时间 + 正文 + 树形子回复（最多 3 条，超出可展开）+ 回复入口。 */
+/**
+ * 头像 + 昵称 + 时间 + 正文 + 树形子回复（最多 3 条，超出可展开）+ 回复入口。
+ */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CommentRow(
@@ -246,14 +216,12 @@ private fun CommentRow(
     onLoadReplies: () -> Unit,
     onToggleExpanded: () -> Unit,
 ) {
-    // 是否为自己的评论（判定删除入口 + 长按手势）
     val isMine = ownUid > 0L && comment.user?.id == ownUid
-    // 删除确认框状态（自己的评论长按触发）
     var showDeleteConfirm by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // 自己的评论：长按弹删除确认（仅 isMine 时挂手势，他人评论保持无手势）
+            // 仅 isMine 时挂手势，他人评论保持无长按
             .let { base ->
                 if (isMine && onDeleteComment != null) {
                     base.combinedClickable(
@@ -299,7 +267,7 @@ private fun CommentRow(
                 text = comment.comment.orEmpty(),
                 modifier = Modifier.padding(top = Spacing.xs),
             )
-            // 贴纸（stamp）：正文下方渲染，固定 120dp 方形，比例保持
+            // 贴纸固定 120dp 方形，比例保持
             comment.stamp?.stamp_url?.takeIf { it.isNotBlank() }?.let { stampUrl ->
                 PixivImage(
                     url = stampUrl,
@@ -311,14 +279,13 @@ private fun CommentRow(
                     contentScale = ContentScale.Fit,
                 )
             }
-            // 回复入口（胶囊，对齐 HTML `.replybtn`）
+            // 对齐 pixiv HTML `.replybtn`
             ReplyPill(
                 text = stringResource(R.string.comment_reply),
                 modifier = Modifier.padding(top = Spacing.xsPlus),
                 onClick = { onReply(comment) },
             )
-            // 树形对话：父评论下方渲染子回复（浅色块 + 缩进）。
-            // v3 列表只给 has_replies 标志，子回复按需拉取；未加载时自动触发加载。
+            // v3 列表只给 has_replies 标志，子回复按需拉取；未加载时自动触发加载
             if (comment.has_replies) {
                 if (repliesLoading && replies.isEmpty()) {
                     // 加载中占位
@@ -373,13 +340,12 @@ private fun CommentRow(
                         }
                     }
                 } else {
-                    // has_replies 但尚未加载（非加载中状态）→ 触发加载
+                    // has_replies 但尚未加载 → 触发加载
                     LaunchedEffect(comment.id) { onLoadReplies() }
                 }
             }
         }
     }
-    // 删除确认框：确认后上抛 onDeleteComment（由调用方调 VM 删除并刷新）
     if (showDeleteConfirm && onDeleteComment != null) {
         ConfirmDialog(
             title = stringResource(R.string.comment_delete_title),
@@ -394,10 +360,8 @@ private fun CommentRow(
     }
 }
 
-/** 子回复未展开时的最大显示条数。 */
 private const val MAX_VISIBLE_REPLIES = 3
 
-/** 回复入口胶囊（对齐 HTML `.replybtn`：primary-container 底 + primary 字 + 圆角胶囊）。 */
 @Composable
 private fun ReplyPill(
     text: String,
@@ -417,7 +381,7 @@ private fun ReplyPill(
     )
 }
 
-/** 子评论行（树形对话第二层：缩进浅色块内、带小头像、可回复；自己的评论长按可删除）。 */
+/** 树形对话第二层：缩进浅色块内、带小头像、可回复；自己的评论长按可删除。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReplyRow(
@@ -426,7 +390,6 @@ private fun ReplyRow(
     onReply: () -> Unit,
     onDelete: (() -> Unit)?,
 ) {
-    // 删除确认框状态（自己的子回复长按触发）
     var showDeleteConfirm by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
@@ -482,7 +445,7 @@ private fun ReplyRow(
                 },
                 modifier = Modifier.padding(top = Spacing.xxs),
             )
-            // 贴纸（stamp）：子回复同样渲染
+            // 贴纸子回复同样渲染
             reply.stamp?.stamp_url?.takeIf { it.isNotBlank() }?.let { stampUrl ->
                 PixivImage(
                     url = stampUrl,
@@ -494,7 +457,7 @@ private fun ReplyRow(
                     contentScale = ContentScale.Fit,
                 )
             }
-            // 回复入口（胶囊，可回复子评论）
+            // 回复入口（可回复子评论）
             ReplyPill(
                 text = stringResource(R.string.comment_reply),
                 modifier = Modifier.padding(top = Spacing.xs),
@@ -502,7 +465,6 @@ private fun ReplyRow(
             )
         }
     }
-    // 删除确认框：确认后上抛 onDelete（由调用方调 VM 删除并刷新）
     if (showDeleteConfirm && onDelete != null) {
         ConfirmDialog(
             title = stringResource(R.string.comment_delete_title),
@@ -517,7 +479,7 @@ private fun ReplyRow(
     }
 }
 
-/** 评论正文渲染：`(xxx)` 文本表情 → 行内小图（24dp，对齐 pixiv 网页），未命中保持原文本。 */
+/** `(xxx)` 文本表情 → 行内 24dp 小图（对齐 pixiv 网页），未命中保持原文本。 */
 @Composable
 private fun CommentText(
     text: String,
@@ -536,10 +498,9 @@ private fun CommentText(
     )
 }
 
-/** pixiv 评论时间为 ISO 格式，取日期部分 yyyy-MM-dd。 */
+/** 评论时间为 ISO 格式，取日期部分 yyyy-MM-dd。 */
 private fun formatCommentDate(date: String?): String = date?.take(10) ?: ""
 
-/** 评论列表加载骨架：仿评论行布局（36dp 圆头像 + 昵称/时间条 + 正文 2 行 + 分隔线）渲染 8 条。 */
 @Composable
 private fun CommentSkeleton(modifier: Modifier = Modifier) {
     val color = skeletonPulseColor(label = "commentSkeleton")

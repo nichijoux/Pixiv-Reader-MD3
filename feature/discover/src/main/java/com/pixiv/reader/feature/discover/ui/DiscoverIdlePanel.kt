@@ -67,7 +67,6 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.discover.R
 import com.pixiv.reader.feature.discover.state.DiscoverViewModel
 
-/** 初始态：发现入口区 + 搜索历史 + 热门标签（历史可清空/单删）。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun IdlePanel(
@@ -88,7 +87,6 @@ internal fun IdlePanel(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(Spacing.lg),
         ) {
-            // ── 发现入口区：pixivision / 画师榜 / AI榜 / 年代榜 / 壁纸榜 ──
             item(key = "discover_entries") {
                 DiscoverEntries(
                     onOpenPixivision = onOpenPixivision,
@@ -124,7 +122,6 @@ internal fun IdlePanel(
                         }
                     }
                 }
-                // 历史胶囊：点击搜索、长按删除单条
                 item(key = "history_chips") {
                     FlowRow(
                         modifier = Modifier.padding(bottom = Spacing.sm),
@@ -147,8 +144,6 @@ internal fun IdlePanel(
                     )
                 }
             }
-            // 热门搜索（Expressive）：标题带火焰图标；标签胶囊流——前 3 名 primaryContainer
-            // 强调 + 序号圆徽，其余中性胶囊；按压 spring 微缩（MotionScheme 弹性触感）
             if (hotTags.isNotEmpty()) {
                 item(key = "hot_title") {
                     SectionTitle(
@@ -183,7 +178,6 @@ internal fun IdlePanel(
             }
         }
 
-        // 清空搜索历史确认
         if (confirmClear) {
             ConfirmDialog(
                 title = stringResource(R.string.search_history_clear_title),
@@ -196,7 +190,6 @@ internal fun IdlePanel(
                 onDismiss = { confirmClear = false },
             )
         }
-        // 单条搜索历史删除确认（长按历史胶囊）
         pendingDelete?.let { entity ->
             ConfirmDialog(
                 title = stringResource(R.string.search_history_delete_title),
@@ -212,7 +205,6 @@ internal fun IdlePanel(
     }
 }
 
-/** 搜索历史胶囊：单击搜索、长按删除。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun HistoryChip(
@@ -234,15 +226,6 @@ internal fun HistoryChip(
     )
 }
 
-/**
- * 热门标签胶囊（Expressive）：序号圆徽 + 标签名；前 3 名 primaryContainer 强调
- * （徽标实心 primary），其余中性灰；按压时 spring 微缩（MotionScheme 弹性触感）。
- *
- * @param rank 名次（从 1 开始）
- * @param label 标签展示名（译名优先）
- * @param onClick 点击回调（以该标签发起搜索）
- * @return 无返回值
- */
 @Composable
 private fun HotTagChip(
     rank: Int,
@@ -252,7 +235,6 @@ private fun HotTagChip(
     val top = rank <= 3
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    // 按压微缩：Expressive 空间弹簧（位移/形变档）
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.94f else 1f,
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
@@ -277,7 +259,6 @@ private fun HotTagChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
         ) {
-            // 序号圆徽：前 3 名实心强调色，其余中性淡底
             Box(
                 modifier = Modifier
                     .size(Sizes.s20)
@@ -315,16 +296,6 @@ private fun HotTagChip(
     }
 }
 
-/**
- * 发现入口区：pixivision 特辑 / 画师榜 / AI 榜 / 年代榜 / 壁纸榜（两列小卡布局）。
- *
- * @param onOpenPixivision 打开 pixivision 特辑列表
- * @param onOpenUserRanking 打开画师榜（推荐创作者）
- * @param onOpenAiRanking 打开 AI 榜
- * @param onOpenEraRanking 打开年代榜（历史某天榜单）
- * @param onOpenWallpaperRanking 打开壁纸榜
- * @return 无返回值
- */
 @Composable
 private fun DiscoverEntries(
     onOpenPixivision: () -> Unit,
@@ -334,7 +305,6 @@ private fun DiscoverEntries(
     onOpenWallpaperRanking: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
-        // 分区标题：页面级分区用 titleMedium 层级（与设置页 labelMedium 分组标签区分）
         SectionTitle(
             text = stringResource(R.string.discover_entries_title),
             modifier = Modifier.padding(top = Spacing.sm),
@@ -394,24 +364,12 @@ private fun DiscoverEntries(
                 modifier = Modifier.weight(1f),
                 accent = SettingAccentGreen,
             )
-            // 补位：保持与上行等宽的两列节奏
+            // 补位占位，使第 5 个入口与上行保持等宽两列
             Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
 
-/**
- * 发现入口小卡：圆形图标徽标 + 标题 + 箭头（surfaceContainer 卡，整卡可点）。
- *
- * 图标底统一走 [AccentIconBadgeCircle]（彩色风格关闭时经 resolveAccent 回退主题单色）。
- *
- * @param icon 入口图标
- * @param label 入口标题
- * @param onClick 点击回调
- * @param modifier 布局参数（两列布局调用方传 `weight(1f)`）
- * @param accent 入口点缀色（五个入口各分配一种邻近色相，避免相邻同色）
- * @return 无返回值
- */
 @Composable
 private fun DiscoverEntryCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -429,7 +387,7 @@ private fun DiscoverEntryCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        // 未指定点缀色时保持主题 primary（老语义），指定后统一由徽标组件解析
+        // 图标点缀色由 AccentIconBadgeCircle 经 resolveAccent 解析，彩色风格关闭时回退主题主色
         AccentIconBadgeCircle(
             icon = icon,
             accent = if (accent == Color.Unspecified) MaterialTheme.colorScheme.primary else accent,

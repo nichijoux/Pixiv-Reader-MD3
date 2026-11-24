@@ -11,7 +11,6 @@ class NumberFormatTest {
         assertEquals("0", formatCount(0, Locale.CHINESE))
         assertEquals("999", formatCount(999, Locale.CHINESE))
         assertEquals("9999", formatCount(9_999, Locale.CHINESE))
-        // en 阈值为 1000，1500 显示 1.5K
         assertEquals("999", formatCount(999, Locale.ENGLISH))
     }
 
@@ -41,7 +40,6 @@ class NumberFormatTest {
 
     @Test
     fun `formatCountForNovel unifies behavior and trims trailing zero`() {
-        // 统一去尾零（修复历史 formatCountForNovel 显示 "1.0万" 的问题）
         assertEquals("1万", formatCountForNovel(10_000, Locale.CHINESE))
         assertEquals("1.5K", formatCountForNovel(1_500, Locale.ENGLISH))
         assertEquals("1M", formatCountForNovel(1_000_000, Locale.ENGLISH))

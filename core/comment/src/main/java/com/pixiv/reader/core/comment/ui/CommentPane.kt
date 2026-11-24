@@ -34,14 +34,8 @@ import com.pixiv.reader.core.ui.theme.Sizes
 /**
  * 评论 pane（Master-Detail 右栏内嵌评论区，首页 / 作品页 / 小说页共用）。
  *
- * 复用 [CommentListViewModel]（调用方 `hiltViewModel()` 注入，core:ui 不依赖 hilt）——
- * 由调用方在进入评论区前 `switchTo(type, id)` 定位目标；顶部返回条切回详情，
- * 同一行右侧图标切换顶层评论时间正序 / 倒序（排序偏好跨作品保留）。
- * 返回键导航（评论 → 详情 → 列表）由外层 pane 的 BackHandler 负责，本组件只管内容。
- *
- * @param commentVm 评论 ViewModel（调用方注入；进入前需已 [CommentListViewModel.switchTo]）
- * @param onOpenUser 点击评论者打开用户主页（全屏路由）
- * @param onBackToDetail 返回详情回调（顶部返回条；通常置外层 pane 的评论开关为 false）
+ * 复用 [CommentListViewModel]，但 core:ui 不依赖 hilt：VM 由调用方 `hiltViewModel()` 注入，并在进入评论区前
+ * `switchTo(type, id)` 定位目标。返回键导航（评论 → 详情 → 列表）由外层 pane 的 BackHandler 负责，本组件只管内容。
  */
 @Composable
 fun CommentPane(
@@ -84,7 +78,7 @@ fun CommentPane(
                 color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.weight(1f))
-            // 排序切换：IconButton 自行消费点击，不会穿透到整行的返回点击
+            // IconButton 自行消费点击，不会穿透到整行的返回点击
             IconButton(onClick = commentVm::toggleSortOrder) {
                 Icon(
                     if (sortOrder == CommentSortOrder.NEWEST_FIRST) {

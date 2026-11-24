@@ -232,11 +232,6 @@ class NovelParserTest {
         assertTrue(doc.fullText.contains("后半部分文字"))
     }
 
-    /**
-     * 验证 EpubNovelParser 能规范化相对 ../ 路径且不把 blockquote 内嵌套 p 重复拆段。
-     *
-     * @return 无返回值
-     */
     @Test
     fun `EpubNovelParser 解析相对路径且 blockquote 内嵌套 p 不重复成段`() {
         val tmp = File.createTempFile("epub_parser_test_", ".epub")

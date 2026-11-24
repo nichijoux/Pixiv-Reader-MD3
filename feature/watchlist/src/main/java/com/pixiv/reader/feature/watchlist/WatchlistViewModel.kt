@@ -20,14 +20,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * 追更 ViewModel：小说 / 漫画系列追更列表（分页）。
- *
- * 「类型 × 分页」缓存策略（与排行榜同款）：每类型独立 [PagedState]（`pages.getOrPut`），
- * 首次选中该类型才发请求；滑动切回已加载类型不重复请求、无过渡动画。
- * 行内取消追更：novel/manga 各自端点删除后重载当前类型列表（简单可靠）。
- *
- * 漫画瀑布流封面：watchlist 列表项不带封面，逐个经 [SeriesDetailLoader]（进程缓存 + in-flight 去重）
- * 拉 `v1/illust/series` 详情补齐，与漫画系列详情页共享缓存。
+ * 「类型 × 分页」缓存与排行榜同款：每类型独立 [PagedState]，首次选中才请求，切回不重复请求。
+ * 列表项不带封面，漫画封面 / 小说详情逐个经 [SeriesDetailLoader] 补齐，与系列详情页共享缓存。
  */
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
@@ -38,30 +32,28 @@ class WatchlistViewModel @Inject constructor(
 ) : MessageViewModel() {
 
     companion object {
-        /** 类型常量（路由参数 watchlist?type=）。 */
+        /** 路由参数 `watchlist?type=` 的取值。 */
         const val TYPE_NOVEL = "novel"
         const val TYPE_MANGA = "manga"
     }
 
-    /** 初始类型（路由参数解析；缺省小说）。 */
+    /** 缺省小说。 */
     private val initialSegment: WatchlistSegment =
         WatchlistSegment.parse(savedStateHandle.get<String>("type"))
 
-    /** 各类型独立分页状态（切分段不重复请求）。 */
     private val pages = mutableMapOf<String, PagedState<WatchlistSeries>>()
 
-    /** 已发起过首载的类型集合（防重复请求）。 */
     private val loadedTypes = mutableSetOf<String>()
 
-    /** 当前选中类型（内部沿用路由字符串值，与 pages/loadedTypes 键一致）。 */
+    /** 沿用路由字符串值，与 pages/loadedTypes 键一致。 */
     private val _type = MutableStateFlow(initialSegment.routeValue)
     val type: StateFlow<String> = _type.asStateFlow()
 
-    /** 漫画系列封面（seriesId → 封面 URL；列表项不带封面，异步补齐驱动瀑布流刷新）。 */
+    /** 异步补齐的封面驱动瀑布流刷新。 */
     private val _mangaCovers = MutableStateFlow<Map<Long, String>>(emptyMap())
     val mangaCovers: StateFlow<Map<Long, String>> = _mangaCovers.asStateFlow()
 
-    /** 小说系列详情（seriesId → 封面/简介/完结/字数/更新时间；SeriesDetailCache 与小说 Tab 追更页签/用户页共享）。 */
+    /** 与小说 Tab 追更页签 / 用户页系列列表共享同一缓存。 */
     private val _novelInfos = MutableStateFlow<Map<Long, SeriesDetailInfo>>(emptyMap())
     val novelInfos: StateFlow<Map<Long, SeriesDetailInfo>> = _novelInfos.asStateFlow()
 
@@ -69,42 +61,26 @@ class WatchlistViewModel @Inject constructor(
         ensureLoaded(initialSegment.routeValue)
     }
 
-    /**
-     * 取某类型的分页状态（无则创建；UI 按当前类型 collect）。
-     *
-     * @param type 类型常量（[TYPE_NOVEL] / [TYPE_MANGA]）
-     * @return 该类型的独立分页状态
-     */
     fun stateFor(type: String): PagedState<WatchlistSeries> =
         pages.getOrPut(type) { PagedState(keySelector = { it.id }) }
 
-    /**
-     * 切换类型分段（首次选中触发首载，已加载类型直接复用缓存）。
-     *
-     * @param type 目标类型常量
-     */
     fun selectType(type: String) {
         if (type == _type.value) return
         _type.value = type
         ensureLoaded(type)
     }
 
-    /** 首次加载 / 失败重试（重新拉第一页并清空旧数据）。 */
     fun retry(type: String) {
         loadedTypes -= type
         ensureLoaded(type)
     }
 
-    /** 触底加载更多（当前类型）。 */
     fun loadMore(type: String) {
         viewModelScope.launch { stateFor(type).loadMore() }
     }
 
     /**
-     * 行内取消追更（经 FavoriteActions 统一收口，断网自动入队；成功后重载当前类型列表，
-     * 失败经消息通道提示）。
-     *
-     * @param series 待取消追更的系列
+     * 行内取消追更（经 [FavoriteActions] 统一收口，断网自动入队），成功后重载当前类型列表。
      */
     fun removeWatchlist(series: WatchlistSeries) {
         val type = _type.value
@@ -113,7 +89,6 @@ class WatchlistViewModel @Inject constructor(
             else favoriteActions::toggleNovelWatchlist
             toggle(series.id, false)
                 .onSuccess {
-                    // 重载当前类型（简单可靠：服务端已删除，重拉即为最新列表）
                     retry(type)
                 }
                 .onFailure {
@@ -122,7 +97,6 @@ class WatchlistViewModel @Inject constructor(
         }
     }
 
-    /** 类型未首载时发起首载（幂等：已载类型跳过）。 */
     private fun ensureLoaded(type: String) {
         if (type in loadedTypes) return
         loadedTypes += type
@@ -138,13 +112,8 @@ class WatchlistViewModel @Inject constructor(
     }
 
     /**
-     * 为漫画追更列表批量补齐封面（[SeriesDetailLoader] 批量管线：缓存回填 → 缺失逐个取，
-     * `Semaphore(4)` 限并发；与漫画系列详情页共享缓存）。
-     * 已缓存条目也要**同步回填** [_mangaCovers]——VM 随页面销毁重建后其本地流为空，
-     * 缓存命中 ≠ 无需回填，否则二次进入封面全空白。
-     *
-     * @param series 当前漫画追更列表（封面缺失的逐个补）
-     * @return 无返回值；封面就绪经 [mangaCovers] 流驱动 UI 刷新
+     * 已缓存条目也必须同步回填 [_mangaCovers]：VM 重建后本地流为空，缓存命中 ≠ 无需回填，
+     * 否则二次进入封面全空白。并发度与详情页一致（Semaphore 4，与漫画系列详情页共享缓存）。
      */
     fun loadMangaCovers(series: List<WatchlistSeries>) {
         viewModelScope.launch {
@@ -167,14 +136,8 @@ class WatchlistViewModel @Inject constructor(
     }
 
     /**
-     * 为小说追更列表批量取系列详情（[SeriesDetailLoader] 批量管线；
-     * 与小说 Tab 追更页签 / 用户页系列列表同一缓存）。
-     * 已缓存条目先同步回填 [_novelInfos]——VM 随页面销毁重建后其本地流为空，缓存命中
-     * 路径也必须把数据送进 UI 流（否则返回后二次进入封面/简介全空白），仅真正缺失的走网络。
-     * 隐藏（masked）系列的 `getNovelSeries` 可能抛异常——失败项留兜底展示不中断整批。
-     *
-     * @param series 当前小说追更列表（缺详情的逐个补）
-     * @return 无返回值；详情就绪经 [novelInfos] 流驱动 UI 刷新
+     * 同上：已缓存条目先同步回填 [_novelInfos]（VM 重建后本地流为空），仅真正缺失的走网络。
+     * 隐藏（masked）系列 getNovelSeries 可能抛异常——失败项留兜底展示，不中断整批。
      */
     fun loadNovelInfos(series: List<WatchlistSeries>) {
         viewModelScope.launch {
@@ -185,7 +148,6 @@ class WatchlistViewModel @Inject constructor(
         }
     }
 
-    /** 取单个小说系列详情（首分册封面 + 简介 + 完结态 + 总字数 + 最近更新时间；失败抛给调用方捕获）。 */
     private suspend fun fetchNovelSeriesDetail(seriesId: Long): SeriesDetailInfo {
         val resp = pixivRepository.api.getNovelSeries(seriesId)
         return SeriesDetailInfo(
@@ -199,22 +161,11 @@ class WatchlistViewModel @Inject constructor(
     }
 }
 
-/**
- * 追更列表分段（路由参数 watchlist?type= 的类型化表达）。
- *
- * @property routeValue 路由 query 值（也是 VM 内部 pages/loadedTypes 的键）
- */
 enum class WatchlistSegment(val routeValue: String) {
     NOVEL("novel"),
     MANGA("manga");
 
     companion object {
-        /**
-         * 从路由/存储的原始字符串解析。
-         *
-         * @param raw 原始值（null 或未知值回退 [NOVEL]）
-         * @return 解析结果（永不失败）
-         */
         fun parse(raw: String?): WatchlistSegment =
             if (raw == MANGA.routeValue) MANGA else NOVEL
     }

@@ -4,7 +4,6 @@ import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-/** XML 转义（纯函数，可测）。 */
 internal fun escapeXml(s: String): String = buildString {
     for (c in s) {
         when (c) {

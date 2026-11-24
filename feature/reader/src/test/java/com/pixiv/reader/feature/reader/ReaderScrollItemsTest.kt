@@ -6,11 +6,6 @@ import com.pixiv.reader.feature.reader.ui.buildScrollItems
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/**
- * 滑动模式行级锚点契约：行是元素（legado 语义）——
- * 文本行锚点 = 自身字符区间，段距空隙/图片等无字符区间元素锚点 = 上一个文本行结束位置（排版游标）。
- * 进度恢复 / 目录 / 搜索跳转均按行级锚点定位，粒度细于段落。
- */
 class ReaderScrollItemsTest {
 
     private fun line(text: String, start: Int, end: Int) =
@@ -59,14 +54,12 @@ class ReaderScrollItemsTest {
         )
         assertEquals(4, items[1].anchorStart)
         assertEquals(4, items[1].anchorEnd)
-        // 图片不推进游标：后一个文本行锚点仍从自身字符区间开始
         assertEquals(4, items[2].anchorStart)
         assertEquals(8, items[2].anchorEnd)
     }
 
     @Test
     fun `分隔线行锚点为游标自身且不占用区间`() {
-        // 引擎产出：分隔线 TextLine 的 startChar == endChar == 排版游标（分隔线不在全文里）
         val items = buildScrollItems(
             listOf(
                 line("段一", 0, 5),

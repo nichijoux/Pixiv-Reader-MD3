@@ -47,13 +47,7 @@ import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.follow.R
 
 /**
- * 左列关注用户列表（手机窄版 / 平板宽版）。
- *
- * ## UI 设计
- * - 顶部「全部」项（网格图标）；下方为关注用户（头像 + 名称，触底加载更多）
- * - **选中高亮**：`primaryContainer` 底 + 左侧 `primary` 指示条 + 头像全彩外圈描边
- * - **未选中灰色低亮**：头像降透明度 + 名称用 `outline` 色（原型 v5 约定）
- * - 手机（窄版）：头像 + 名称竖排、名称单行 9.5sp 截断；平板（宽版）：头像 + 名称横排完整
+ * 左列关注用户列表。列宽（手机 60dp / 平板 168dp）与 [FollowRoute] 的 pane 可用性判定耦合，改动需同步。
  */
 @Composable
 internal fun FollowUserColumn(
@@ -75,14 +69,12 @@ internal fun FollowUserColumn(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                // 沉浸式：仅内容让开状态栏，Box 背景 surfaceContainerLow 延伸至状态栏后
                 .statusBarsPadding(),
             contentPadding = PaddingValues(
                 top = Spacing.xsPlus,
                 bottom = Spacing.xsPlus + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
             ),
         ) {
-            // 顶部「全部」
             item(key = "all") {
                 UserColumnItem(
                     name = stringResource(R.string.follow_all_users),
@@ -104,7 +96,6 @@ internal fun FollowUserColumn(
                     onClick = { onSelectUser(user.id) },
                 )
             }
-            // 触底加载更多关注用户
             if (users.isNotEmpty() && !isLoadingUsers) {
                 item(key = "load_more_users") {
                     LaunchedEffect(Unit) { onLoadMoreUsers() }
@@ -116,7 +107,7 @@ internal fun FollowUserColumn(
 }
 
 /**
- * 单条用户项（「全部」或某用户）。点击选中；未选中灰色低亮。
+ * 「全部」或某个关注用户；未选中时降亮度。
  */
 @Composable
 private fun UserColumnItem(
@@ -127,16 +118,13 @@ private fun UserColumnItem(
     windowClass: WindowSizeClass,
     onClick: () -> Unit,
 ) {
-    // 布局分化沿用紧凑判定（内部尺寸决策保持局部派生）
     val isCompact = windowClass == WindowSizeClass.Compact
     val contentColor = if (selected) {
         MaterialTheme.colorScheme.onPrimaryContainer
     } else {
         MaterialTheme.colorScheme.outline
     }
-    // 横向内容（平板）/ 竖向内容（手机）
     val content: @Composable () -> Unit = {
-        // 头像区：圆形（全部 = 网格图标兜底）
         Box(
             modifier = Modifier
                 .size(if (isCompact) 40.dp else 48.dp)
@@ -183,7 +171,6 @@ private fun UserColumnItem(
         .padding(vertical = 9.dp)
 
     if (isCompact) {
-        // 手机窄版：头像 + 名称竖排居中
         Column(
             modifier = baseModifier.padding(horizontal = 3.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -203,7 +190,6 @@ private fun UserColumnItem(
             )
         }
     } else {
-        // 平板宽版：头像 + 名称横排
         Row(
             modifier = baseModifier.padding(horizontal = Spacing.mdPlus),
             verticalAlignment = Alignment.CenterVertically,

@@ -28,25 +28,8 @@ import coil.request.ImageRequest
 import coil.size.Precision
 
 /**
- * Pixiv 图片加载（全项目统一图片入口）。
- *
- * ## 设计说明
- * 使用 Coil `AsyncImage`，默认走应用级 `SingletonImageLoader`
- * （`PixivApp` 注入 `PixivRepository.imageClient`，自动带 `Referer: app-api.pixiv.net`，
- * 否则 `i.pximg.net` 返回 403）。`url` 为 null 时渲染纯色占位块。
- * 占位/错误统一用 `ColorPainter`（`surfaceContainerHigh` 或自定义色）填充，避免闪烁/灰块。
- *
- * @param url 图片 URL（`null` 显示占位色块）
- * @param contentDescription 无障碍描述
- * @param modifier 外部传入的 Modifier
- * @param contentScale 图片缩放方式（默认 `ContentScale.Crop` 裁剪填充）
- * @param placeholderColor 占位/错误背景色（null 用主题 `surfaceContainerHigh`）
- * @param showProgress 加载反馈开关（默认 false 保持纯占位）：加载中在占位块底部显示
- *   不确定进度条、加载失败显示断图图标——阅读器等需要明确「正在加载/加载失败」反馈的场景开启。
- *   注意 Coil 2 不暴露字节级下载进度，进度条为不确定动画（能区分加载中 vs 卡死，无百分比）。
- *
- * 加载失败时统一打 `Log.w`（TAG "PixivImage"，带 URL 与异常，可区分 403/超时/协议串解析失败）；
- * 成功/加载中不打日志，避免列表页每张图刷屏。
+ * Pixiv 统一图片加载入口（走全局 `SingletonImageLoader`，自动注入 pximg.net Referer 避免 403）。
+ * [showProgress] 开启时展示不确定进度条（Coil 2 无字节级进度）与断图占位。
  */
 @Composable
 fun PixivImage(
@@ -62,8 +45,7 @@ fun PixivImage(
         Box(modifier = modifier.background(placeholder))
         return
     }
-    // INEXACT 精度：允许用内存缓存中更大的已解码位图满足较小目标尺寸（Crop 下视觉无差）——
-    // 容器宽度动画（Master-Detail 重排等）时尺寸逐帧变化，避免每帧重启解码导致卡顿/闪烁
+    // INEXACT 允许用内存缓存中更大的位图满足较小目标尺寸，避免容器宽度动画时逐帧重启解码导致闪烁
     val model = ImageRequest.Builder(LocalContext.current)
         .data(url)
         .precision(Precision.INEXACT)
@@ -83,7 +65,6 @@ fun PixivImage(
             when (painter.state) {
                 is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
                 is AsyncImagePainter.State.Error -> PixivImageErrorContent(placeholder)
-                // Empty（请求未开始）/ Loading：占位 + 底部不确定进度条
                 else -> PixivImageLoadingContent(placeholder)
             }
         }
@@ -104,7 +85,6 @@ fun PixivImage(
 
 private const val LOG_TAG = "PixivImage"
 
-/** 加载失败覆盖层：占位背景上居中显示断图图标（[PixivImage.showProgress] 路径）。 */
 @Composable
 private fun PixivImageErrorContent(
     placeholder: Color,
@@ -124,7 +104,6 @@ private fun PixivImageErrorContent(
     }
 }
 
-/** 加载中覆盖层：占位背景上底部显示不确定 Expressive 波浪进度条（[PixivImage.showProgress] 路径）。 */
 @Composable
 private fun PixivImageLoadingContent(
     placeholder: Color,

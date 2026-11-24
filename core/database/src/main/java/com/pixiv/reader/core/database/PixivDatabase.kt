@@ -16,20 +16,8 @@ import com.pixiv.reader.core.database.entity.ReadingProgressEntity
 import com.pixiv.reader.core.database.entity.SearchHistoryEntity
 
 /**
- * 数据库结构（version = 7）。
- *
- * 迁移链 [MIGRATION_1_2]～[MIGRATION_6_7] 全部保留并在 DatabaseModule 注册，
- * 旧版本安装经迁移升级到当前 schema；新装用户直接按 version=7 建库。
- * 后续新增实体/字段：升 version 并接续写新 Migration（列定义须与实体逐列一致，
- * Room 启动时校验 schema）。
- *
- * v2：download_entry 新增 payloadJson（完整卡片快照 JSON，下载管理页完整展示用）。
- * v3：download_entry 主键扩为 (targetType, targetId, format, scopeKey)，区分同一小说的
- *     单本/整系列/部分分册下载，修复系列下载顶替单本下载条目的问题。
- * v4：新增 read_later（稍后再看，本地暂存表；target 唯一索引，payloadJson 快照）。
- * v5：新增 pending_action（离线操作队列；已随 v7 移除）。
- * v6：新增 feed_snapshot（信息流首屏快照，首页秒开）。
- * v7：删除 pending_action（离线操作队列下线，断网操作改为直接报错）。
+ * 迁移链 [MIGRATION_1_2]～[MIGRATION_6_7] 全部保留并在 DatabaseModule 注册；
+ * 后续增改表/列须升 version 并接续写 Migration，列定义须与实体逐列一致供 Room 启动校验。
  */
 @Database(
     entities = [
@@ -52,18 +40,13 @@ abstract class PixivDatabase : RoomDatabase() {
     abstract fun feedSnapshotDao(): FeedSnapshotDao
 
     companion object {
-        /** v1 → v2：download_entry 增加 payloadJson 列（旧数据回退结构字段展示，零丢失）。 */
         val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE download_entry ADD COLUMN payloadJson TEXT")
             }
         }
 
-        /**
-         * v2 → v3：download_entry 主键扩列（+scopeKey）。SQLite 无法 ALTER 主键，
-         * 重建表并原样搬迁数据（旧行 scopeKey 统一回填 ''，即单本下载语义）。
-         * 列定义须与 [DownloadEntryEntity] 完全一致（Room 启动时校验 schema）。
-         */
+        /** SQLite 无法 ALTER 主键，重建表搬迁数据并将旧行 scopeKey 统一回填 `''`（单本语义）。 */
         val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL(
@@ -115,11 +98,6 @@ abstract class PixivDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * v3 → v4：新增 read_later（稍后再看，本地暂存）。
-         * 纯新增表零搬数据；列定义须与 [com.pixiv.reader.core.database.entity.ReadLaterEntity]
-         * 完全一致（含 autoGenerate 主键与 target 唯一索引，Room 启动时校验 schema）。
-         */
         val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL(
@@ -141,11 +119,7 @@ abstract class PixivDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * v4 → v5：新增 pending_action（离线操作队列；已随 v7 移除）。
-         * 纯新增表零搬数据；列定义与当时的 PendingActionEntity 一致
-         * （含 autoGenerate 主键与 family+targetId 唯一索引）。
-         */
+        /** pending_action 已于 v7 删除，此处保留以保证 v4 旧库迁移链不断裂。 */
         val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL(
@@ -169,11 +143,6 @@ abstract class PixivDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * v5 → v6：新增 feed_snapshot（信息流首屏快照，首页秒开）。
-         * 纯新增表零搬数据；列定义须与 [com.pixiv.reader.core.database.entity.FeedSnapshotEntity]
-         * 完全一致（feedKey 主键，Room 启动时校验 schema）。
-         */
         val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL(
@@ -189,7 +158,7 @@ abstract class PixivDatabase : RoomDatabase() {
             }
         }
 
-        /** v6 → v7：删除 pending_action（离线操作队列下线；断网操作改为直接报错，不再暂存）。 */
+        /** 离线操作队列下线，移除 v5 引入的 pending_action 表。 */
         val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("DROP TABLE IF EXISTS pending_action")

@@ -5,52 +5,25 @@ import androidx.compose.ui.graphics.Path
 import kotlin.math.atan2
 import kotlin.math.hypot
 
-// ── 折页几何引擎（书脊坐标系，纯函数可单测） ─────────────────────────────────
-//
-// 坐标系（真实书页模型）：书脊 x=0；右页 [0,W]×[0,H]；左页 [-W,0]×[0,H]。
-// 翻页 = 被翻页沿动态折痕做平面折叠：
-// - 折痕 = 拖动点 A 与角点 B（被翻页自由边角）的垂直平分线（规则六）
-// - 折痕 A 侧半平面 ∩ 页矩形 = 正面静止部分（flat）
-// - 折痕 B 侧半平面 ∩ 页矩形 沿折痕反射 = 背面翻起部分的当前位置（flapReflected）
-// - 全翻（折痕 = 书脊）时背面恰好平铺到对页槽位且可读；零翻（A=B）时无折叠
-//
-// 屏幕坐标换算由渲染层负责：screenX = bookX + spineScreenX
-// （双页 spineScreenX = W，单页 = 0，单页向后翻的虚拟左页在屏幕外）。
+// 折页几何（书脊坐标系）：书脊 x=0，右页 [0,W]×[0,H]，左页 [-W,0]×[0,H]。
+// 折痕为拖动点 A 与角点 B 的垂直平分线，A 侧为正面静止区，B 侧沿折痕反射为背面翻起区；
+// 屏幕坐标由渲染层叠加 spineScreenX（双页 = W，单页 = 0）。
 
-/** 折痕判定最小距离（px）：|A-B| 低于此值视为未折叠（静止态）。 */
+/** |A-B| 低于此值（px）视为静止未折叠。 */
 internal const val FOLD_NULL_DISTANCE = 0.5f
 
-/** 拖动点与角点的最小距离（px）：低于此值沿 AB 方向推开，保证垂直平分线可解。 */
+/** |A-B| 最小距离（px），低于此值沿 AB 推开以防垂直平分线退化。 */
 internal const val MIN_DRAG_DISTANCE = 1f
 
-/** 翻页方向：向前（右页往左翻）/ 向后（左页往右翻）。 */
 internal enum class TurnDirection { FORWARD, BACKWARD }
 
-/** Float 有限性（防御 NaN/Infinity 导致路径/画刷异常）。 */
 internal fun Float.isFinite(): Boolean = !isNaN() && !isInfinite()
 
-/** Offset 有限性。 */
 internal fun Offset.isFinite(): Boolean = x.isFinite() && y.isFinite()
 
-/**
- * 书页几何（书脊坐标系）。
- *
- * @param pageWidth 单页宽 W（px）
- * @param pageHeight 页高 H（px）
- */
 internal data class BookGeometry(val pageWidth: Float, val pageHeight: Float)
 
-/**
- * 折痕：拖动点 A 与角点 B 的垂直平分线（规则六）。
- *
- * 方程 N·(X - M) = 0：M = AB 中点，N = normalize(B - A)（指向 B 侧/被翻侧）。
- *
- * @property midPoint 线上一点（AB 中点）
- * @property normal 单位法向（A→B 方向）
- * @property angleDeg 折痕线方向角（度，画布反射变换用）
- * @property spineHitY 折痕与书脊（x=0）交点 y（**可为页外值**，复合旋转的旋转中心用）
- * @property parallelToSpine 折痕是否平行于书脊（纯横向折叠，无交点；复合变换退化为平移）
- */
+/** 折痕垂直平分线（[normal] 指向 B 侧；[spineHitY] 为与书脊 x=0 交点，允许落在页外作旋转中心）。 */
 internal data class FoldLine(
     val midPoint: Offset,
     val normal: Offset,
@@ -59,15 +32,7 @@ internal data class FoldLine(
     val parallelToSpine: Boolean,
 )
 
-/**
- * 折叠结果（多边形均为书脊坐标）。
- *
- * @property fold 折痕
- * @property flatPolygon 正面可见部分 = 页矩形 ∩ A 侧半平面（可为空：全翻末帧）
- * @property flapPolygon 已翻起部分 = 页矩形 ∩ B 侧半平面（反射前）
- * @property flapReflected 翻起部分沿折痕反射后的当前位置（背面可见区）
- * @property progress 归一化翻页进度 0..1（= |A-B| / 2W，对拖动距离单调）
- */
+/** 折叠结果（书脊坐标）；[progress] 为 |A-B|/2W 归一化进度。 */
 internal data class FoldResult(
     val fold: FoldLine,
     val flatPolygon: List<Offset>,
@@ -76,32 +41,12 @@ internal data class FoldResult(
     val progress: Float,
 )
 
-/**
- * 角点 B：被翻页自由边（外侧缘）的角点，由翻页方向与按下点半屏位置决定。
- * 向前翻 = 右页外缘 (W, cy)；向后翻 = 左页外缘 (-W, cy)（单页向后同为虚拟左页外缘）。
- *
- * @param geom 书页几何
- * @param direction 翻页方向
- * @param topCorner true = 上角（cy=0），false = 下角（cy=H）
- * @return 角点 B（书脊坐标）
- */
 internal fun turnCorner(geom: BookGeometry, direction: TurnDirection, topCorner: Boolean): Offset =
     Offset(
         x = if (direction == TurnDirection.FORWARD) geom.pageWidth else -geom.pageWidth,
         y = if (topCorner) 0f else geom.pageHeight,
     )
 
-/**
- * 拖动点合法化（规则五）：
- * 1. 矩形夹取：x ∈ [-W, W]（书页可达范围，含跨书脊），y ∈ [0, H]；
- * 2. 与角点 B 保持最小距离 [MIN_DRAG_DISTANCE]——垂直平分线在 A≈B 时退化，
- *    距离不足时沿 AB 方向（退化时沿指向书脊方向）推开。
- *
- * @param geom 书页几何
- * @param corner 角点 B
- * @param touch 原始拖动点（书脊坐标）
- * @return 合法化后的拖动点
- */
 internal fun clampDragPoint(geom: BookGeometry, corner: Offset, touch: Offset): Offset {
     var x = touch.x.coerceIn(-geom.pageWidth, geom.pageWidth)
     var y = touch.y.coerceIn(0f, geom.pageHeight)
@@ -109,7 +54,7 @@ internal fun clampDragPoint(geom: BookGeometry, corner: Offset, touch: Offset): 
     val dy = y - corner.y
     val d = hypot(dx, dy)
     if (d < MIN_DRAG_DISTANCE) {
-        // 距离不足：有方向沿原方向推开，无方向（重合）沿指向书脊的水平方向推开
+        // A≈B 时垂直平分线退化：重合时沿指向书脊方向推开
         val ux = if (d > 0f) dx / d else -signOf(corner.x)
         val uy = if (d > 0f) dy / d else 0f
         x = corner.x + ux * MIN_DRAG_DISTANCE
@@ -118,25 +63,15 @@ internal fun clampDragPoint(geom: BookGeometry, corner: Offset, touch: Offset): 
     return Offset(x, y)
 }
 
-/** 符号函数（0 归一为 +1）：书脊方向推开的回退方向用。 */
+/** 符号函数（0 归一为 +1），用于角点重合时回退至指向书脊方向。 */
 private fun signOf(v: Float): Float = if (v < 0f) -1f else 1f
 
-/**
- * 计算折叠（规则六~八）：折痕 = AB 垂直平分线，页矩形被折痕分为
- * 正面静止部分（A 侧）与翻起部分（B 侧，反射后为背面当前位置）。
- *
- * @param geom 书页几何
- * @param corner 角点 B（[turnCorner] 产出；据其符号选择被翻页矩形：右页/左页）
- * @param touch 拖动点 A（应先经 [clampDragPoint] 合法化）
- * @return 折叠结果；|A-B| 过小（静止态）或几何非有限时返回 null
- */
 internal fun computeFold(geom: BookGeometry, corner: Offset, touch: Offset): FoldResult? {
     val w = geom.pageWidth
     val h = geom.pageHeight
     val abX = corner.x - touch.x
     val abY = corner.y - touch.y
     val dist = hypot(abX, abY)
-    // 静止态 / 非法输入：无折叠
     if (!dist.isFinite() || dist < FOLD_NULL_DISTANCE) return null
     val nx = abX / dist
     val ny = abY / dist
@@ -146,8 +81,7 @@ internal fun computeFold(geom: BookGeometry, corner: Offset, touch: Offset): Fol
     // 折痕方向角（线方向垂直于法向 N）：d = (ny, -nx)
     val angleDeg = Math.toDegrees(atan2(-nx, ny).toDouble()).toFloat()
 
-    // 折痕与书脊（x=0）交点：X = M + t·d 且 X.x = 0。交点允许落在页外
-    // （斜向折叠的旋转中心常在页外），仅当折痕平行于书脊（d.x≈0）时无交点
+    // 折痕与书脊 x=0 交点允许落在页外（斜向折叠旋转中心）；平行书脊时无交点
     val dirX = ny
     val parallelToSpine = kotlin.math.abs(dirX) <= 1e-6f
     val spineHitY = if (!parallelToSpine) {
@@ -157,14 +91,13 @@ internal fun computeFold(geom: BookGeometry, corner: Offset, touch: Offset): Fol
         null
     }
 
-    // 被翻页矩形：B 在右 → 右页 [0,W]；B 在左 → 左页 [-W,0]
     val pageRect = if (corner.x >= 0f) {
         listOf(Offset(0f, 0f), Offset(w, 0f), Offset(w, h), Offset(0f, h))
     } else {
         listOf(Offset(-w, 0f), Offset(0f, 0f), Offset(0f, h), Offset(-w, h))
     }
 
-    // 半平面判定：s(X) = N·(X - M)，A 侧 s<0（正面静止），B 侧 s>0（翻起）
+    // 半平面判定：s(X) = N·(X - M)，A 侧 s<0（正面），B 侧 s>0（翻起）
     fun side(p: Offset): Float = nx * (p.x - mid.x) + ny * (p.y - mid.y)
 
     val flat = clipPolygonHalfPlane(pageRect, ::side, keepNonPositive = true)
@@ -188,23 +121,12 @@ internal fun computeFold(geom: BookGeometry, corner: Offset, touch: Offset): Fol
     )
 }
 
-/**
- * 点沿折痕反射（规则六镜像）：p' = p - 2·s·N，其中 s = N·(p - M)。
- */
 internal fun reflectAcrossFold(p: Offset, mid: Offset, nx: Float, ny: Float): Offset {
     val s = nx * (p.x - mid.x) + ny * (p.y - mid.y)
     return Offset(p.x - 2f * s * nx, p.y - 2f * s * ny)
 }
 
-/**
- * 凸多边形单边半平面裁剪（Sutherland–Hodgman）：按带符号侧值保留折线一侧，
- * 边界穿越处按侧值线性插值补交点。
- *
- * @param poly 凸多边形顶点（逆/顺时针一致即可）
- * @param side 点的带符号侧值（0 = 恰在折线上）
- * @param keepNonPositive true 保留侧值 ≤ 0 的一侧；false 保留 ≥ 0 的一侧
- * @return 裁剪后的多边形顶点（可能为空）
- */
+/** Sutherland–Hodgman 凸多边形单边半平面裁剪。 */
 internal fun clipPolygonHalfPlane(
     poly: List<Offset>,
     side: (Offset) -> Float,
@@ -221,7 +143,6 @@ internal fun clipPolygonHalfPlane(
         val nextIn = if (keepNonPositive) sn <= 0f else sn >= 0f
         if (curIn) out += cur
         if (curIn != nextIn) {
-            // 边穿越折痕（侧值变号）：按侧值线性插值求交点，t ∈ [0,1]
             val t = sc / (sc - sn)
             out += Offset(cur.x + (next.x - cur.x) * t, cur.y + (next.y - cur.y) * t)
         }
@@ -229,9 +150,6 @@ internal fun clipPolygonHalfPlane(
     return out
 }
 
-/**
- * 多边形 → 裁剪路径（空多边形返回空 Path，clipPath 空路径 = 不绘制任何内容）。
- */
 internal fun polygonToPath(poly: List<Offset>): Path = Path().apply {
     if (poly.isEmpty()) return@apply
     moveTo(poly.first().x, poly.first().y)
