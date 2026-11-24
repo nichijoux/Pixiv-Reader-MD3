@@ -3,15 +3,15 @@ package com.pixiv.reader.feature.user.ui
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AutoStories
@@ -128,171 +128,187 @@ fun MeRoute(
             // 消费已应用的 padding，内部 navigationBarsPadding 才能按剩余可见 inset 自适应
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
         ) {
-            val scrollState = rememberScrollState()
+            val listState = rememberLazyListState()
             var lastScrollKey by remember { mutableIntStateOf(reselectKey) }
             LaunchedEffect(reselectKey) {
                 if (reselectKey != lastScrollKey) {
                     lastScrollKey = reselectKey
-                    scrollState.animateScrollTo(0)
+                    listState.animateScrollToItem(0)
                 }
             }
-            Column(
+            val fanboxTitle = stringResource(R.string.me_fanbox_title)
+            val navBarBottomPadding = LocalNavBarBottomPadding.current
+            // 按分组拆成 LazyColumn 懒加载项，首帧只组合当前屏可见卡片，避免屏幕外 6 个 PillSegmentedRow 一次子组合卡顿
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .navigationBarsPadding()
-                    .padding(
-                        start = Spacing.lg,
-                        top = Spacing.lg,
-                        end = Spacing.lg,
-                        bottom = Spacing.lg + LocalNavBarBottomPadding.current,
-                    ),
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(
+                    start = Spacing.lg,
+                    top = Spacing.lg,
+                    end = Spacing.lg,
+                    bottom = Spacing.lg + navBarBottomPadding,
+                ),
             ) {
                 // ── 账号信息（个人资料 + 退出登录，与下方设置统一分组卡片风格） ──
-                SectionTitle(stringResource(R.string.me_section_account))
-                MeAccountSection(
-                    profile = ProfileHeaderData(user),
-                    onClickProfile = viewModel.ownUid?.let { uid -> { onOpenUser(uid) } },
-                    onLogout = { activeDialog = MeDialog.LOGOUT },
-                )
+                item(key = "account") {
+                    SectionTitle(stringResource(R.string.me_section_account))
+                    MeAccountSection(
+                        profile = ProfileHeaderData(user),
+                        onClickProfile = viewModel.ownUid?.let { uid -> { onOpenUser(uid) } },
+                        onLogout = { activeDialog = MeDialog.LOGOUT },
+                    )
+                }
 
                 // ── 用户内容管理 ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_content))
-                val contentItems = listOf(
-                    SettingsCardItem(Icons.Filled.Favorite, stringResource(R.string.me_bookmarks_title), stringResource(R.string.me_bookmarks_desc), accent = SettingAccentPink, onClick = onOpenBookmarks),
-                    SettingsCardItem(Icons.Filled.History, stringResource(R.string.me_history_title), stringResource(R.string.me_history_desc), accent = SettingAccentBlue, onClick = onOpenHistory),
-                    SettingsCardItem(Icons.Filled.Schedule, stringResource(R.string.me_read_later_title), stringResource(R.string.me_read_later_desc), accent = SettingAccentOrange, onClick = onOpenReadLater),
-                    SettingsCardItem(Icons.Filled.Notifications, stringResource(R.string.me_watchlist_title), stringResource(R.string.me_watchlist_desc), accent = SettingAccentGreen, onClick = onOpenWatchlist),
-                    SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), accent = SettingAccentViolet, onClick = onOpenDownloads),
-                    SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), accent = SettingAccentTeal, onClick = onOpenBlocked),
-                )
-                MeItemGroup(contentItems)
+                item(key = "content") {
+                    SectionSpacer()
+                    SectionTitle(stringResource(R.string.me_section_content))
+                    val contentItems = listOf(
+                        SettingsCardItem(Icons.Filled.Favorite, stringResource(R.string.me_bookmarks_title), stringResource(R.string.me_bookmarks_desc), accent = SettingAccentPink, onClick = onOpenBookmarks),
+                        SettingsCardItem(Icons.Filled.History, stringResource(R.string.me_history_title), stringResource(R.string.me_history_desc), accent = SettingAccentBlue, onClick = onOpenHistory),
+                        SettingsCardItem(Icons.Filled.Schedule, stringResource(R.string.me_read_later_title), stringResource(R.string.me_read_later_desc), accent = SettingAccentOrange, onClick = onOpenReadLater),
+                        SettingsCardItem(Icons.Filled.Notifications, stringResource(R.string.me_watchlist_title), stringResource(R.string.me_watchlist_desc), accent = SettingAccentGreen, onClick = onOpenWatchlist),
+                        SettingsCardItem(Icons.Filled.Download, stringResource(R.string.me_downloads_title), stringResource(R.string.me_downloads_desc), accent = SettingAccentViolet, onClick = onOpenDownloads),
+                        SettingsCardItem(Icons.Filled.Block, stringResource(R.string.me_blocked_title), stringResource(R.string.me_blocked_desc), accent = SettingAccentTeal, onClick = onOpenBlocked),
+                    )
+                    MeItemGroup(contentItems)
+                }
 
                 // ── pixiv 生态（FANBOX 原生 / COMIC / 私信 / pixivision） ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_ecosystem))
-                val fanboxTitle = stringResource(R.string.me_fanbox_title)
-                val ecoItems = listOf(
-                    SettingsCardItem(
-                        Icons.Filled.FavoriteBorder,
-                        fanboxTitle,
-                        stringResource(R.string.me_fanbox_desc),
-                        accent = SettingAccentAmber,
-                        // FANBOX 按登录态分流：已登录进原生首页，否则进 App 内可见 WebView 登录
-                        // （不走系统浏览器与网页 SSO 门控）
-                        onClick = {
-                            if (viewModel.hasFanboxSession()) {
-                                onOpenFanbox()
-                            } else {
-                                // 未登录直达 pixiv 账号登录页（returnTo 回 fanbox）：移动版首页的登录入口
-                                // 藏在汉堡侧边栏且 WebView 内常点不开
-                                onOpenFanboxWeb(FanboxHeaderInterceptor.FANBOX_LOGIN_URL, fanboxTitle)
-                            }
-                        },
-                    ),
-                    SettingsCardItem(
-                        Icons.Filled.AutoStories,
-                        stringResource(R.string.me_comic_title),
-                        stringResource(R.string.me_comic_desc),
-                        accent = SettingAccentOrange,
-                        // COMIC 免费内容无需登录，直达原生首页
-                        onClick = onOpenComic,
-                    ),
-                    SettingsCardItem(
-                        Icons.Filled.Email,
-                        stringResource(R.string.me_talk_title),
-                        stringResource(R.string.me_talk_desc),
-                        accent = SettingAccentBlue,
-                        onClick = { viewModel.openEcosystemPage("https://www.pixiv.net/message.php") },
-                    ),
-                    SettingsCardItem(
-                        Icons.Filled.TravelExplore,
-                        stringResource(R.string.me_pixivision_title),
-                        stringResource(R.string.me_pixivision_desc),
-                        accent = SettingAccentTeal,
-                        onClick = onOpenPixivision,
-                    ),
-                )
-                MeItemGroup(ecoItems)
+                item(key = "ecosystem") {
+                    SectionSpacer()
+                    SectionTitle(stringResource(R.string.me_section_ecosystem))
+                    val ecoItems = listOf(
+                        SettingsCardItem(
+                            Icons.Filled.FavoriteBorder,
+                            fanboxTitle,
+                            stringResource(R.string.me_fanbox_desc),
+                            accent = SettingAccentAmber,
+                            // FANBOX 按登录态分流：已登录进原生首页，否则进 App 内可见 WebView 登录
+                            // （不走系统浏览器与网页 SSO 门控）
+                            onClick = {
+                                if (viewModel.hasFanboxSession()) {
+                                    onOpenFanbox()
+                                } else {
+                                    // 未登录直达 pixiv 账号登录页（returnTo 回 fanbox）：移动版首页的登录入口
+                                    // 藏在汉堡侧边栏且 WebView 内常点不开
+                                    onOpenFanboxWeb(FanboxHeaderInterceptor.FANBOX_LOGIN_URL, fanboxTitle)
+                                }
+                            },
+                        ),
+                        SettingsCardItem(
+                            Icons.Filled.AutoStories,
+                            stringResource(R.string.me_comic_title),
+                            stringResource(R.string.me_comic_desc),
+                            accent = SettingAccentOrange,
+                            // COMIC 免费内容无需登录，直达原生首页
+                            onClick = onOpenComic,
+                        ),
+                        SettingsCardItem(
+                            Icons.Filled.Email,
+                            stringResource(R.string.me_talk_title),
+                            stringResource(R.string.me_talk_desc),
+                            accent = SettingAccentBlue,
+                            onClick = { viewModel.openEcosystemPage("https://www.pixiv.net/message.php") },
+                        ),
+                        SettingsCardItem(
+                            Icons.Filled.TravelExplore,
+                            stringResource(R.string.me_pixivision_title),
+                            stringResource(R.string.me_pixivision_desc),
+                            accent = SettingAccentTeal,
+                            onClick = onOpenPixivision,
+                        ),
+                    )
+                    MeItemGroup(ecoItems)
+                }
 
                 // ── 外观设置（每项独立卡片：主题模式 / 动态取色 / 语言） ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_appearance))
-                MeAppearanceSection(
-                    themeMode = themeMode,
-                    dynamicColor = dynamicColor,
-                    colorStyleEnabled = colorStyleEnabled,
-                    bottomNavBarStyle = bottomNavBarStyle,
-                    fontScale = fontScale,
-                    appLanguage = appLanguage,
-                    switchingLanguage = switchingLanguage,
-                    onSetThemeMode = viewModel::setThemeMode,
-                    onSetDynamicColor = viewModel::setDynamicColor,
-                    onSetColorStyleEnabled = viewModel::setColorStyleEnabled,
-                    onSetBottomNavBarStyle = viewModel::setBottomNavBarStyle,
-                    onSetFontScale = viewModel::setAppFontScale,
-                    onSetAppLanguage = { value, onDone ->
-                        switchingLanguage = true
-                        viewModel.setAppLanguage(value) { success ->
-                            switchingLanguage = false
-                            if (success) onDone()
-                        }
-                    },
-                    onLanguageApplied = { activity?.recreate() },
-                )
+                item(key = "appearance") {
+                    SectionSpacer()
+                    SectionTitle(stringResource(R.string.me_section_appearance))
+                    MeAppearanceSection(
+                        themeMode = themeMode,
+                        dynamicColor = dynamicColor,
+                        colorStyleEnabled = colorStyleEnabled,
+                        bottomNavBarStyle = bottomNavBarStyle,
+                        fontScale = fontScale,
+                        appLanguage = appLanguage,
+                        switchingLanguage = switchingLanguage,
+                        onSetThemeMode = viewModel::setThemeMode,
+                        onSetDynamicColor = viewModel::setDynamicColor,
+                        onSetColorStyleEnabled = viewModel::setColorStyleEnabled,
+                        onSetBottomNavBarStyle = viewModel::setBottomNavBarStyle,
+                        onSetFontScale = viewModel::setAppFontScale,
+                        onSetAppLanguage = { value, onDone ->
+                            switchingLanguage = true
+                            viewModel.setAppLanguage(value) { success ->
+                                switchingLanguage = false
+                                if (success) onDone()
+                            }
+                        },
+                        onLanguageApplied = { activity?.recreate() },
+                    )
+                }
 
                 // ── 浏览设置（内容/浏览类偏好） ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_browse))
-                MeBrowseSection(
-                    novelDefaultTab = novelDefaultTab,
-                    viewerOrientation = viewerOrientation,
-                    followSortMode = followSortMode,
-                    clipboardLinkPrompt = clipboardLinkPrompt,
-                    novelFileNameTemplate = novelFileNameTemplate,
-                    onSetNovelDefaultTab = viewModel::setNovelDefaultTab,
-                    onSetViewerOrientation = viewModel::setViewerOrientation,
-                    onSetFollowSortMode = viewModel::setFollowSortMode,
-                    onSetClipboardLinkPrompt = viewModel::setClipboardLinkPrompt,
-                    onOpenFileNameTemplate = { activeDialog = MeDialog.FILE_NAME_TEMPLATE },
-                )
+                item(key = "browse") {
+                    SectionSpacer()
+                    SectionTitle(stringResource(R.string.me_section_browse))
+                    MeBrowseSection(
+                        novelDefaultTab = novelDefaultTab,
+                        viewerOrientation = viewerOrientation,
+                        followSortMode = followSortMode,
+                        clipboardLinkPrompt = clipboardLinkPrompt,
+                        novelFileNameTemplate = novelFileNameTemplate,
+                        onSetNovelDefaultTab = viewModel::setNovelDefaultTab,
+                        onSetViewerOrientation = viewModel::setViewerOrientation,
+                        onSetFollowSortMode = viewModel::setFollowSortMode,
+                        onSetClipboardLinkPrompt = viewModel::setClipboardLinkPrompt,
+                        onOpenFileNameTemplate = { activeDialog = MeDialog.FILE_NAME_TEMPLATE },
+                    )
+                }
 
                 // ── 系统设置（每项独立卡片：自动更新 / 存储） ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_system))
-                MeSystemSection(
-                    autoUpdate = autoUpdate,
-                    novelExportDir = novelExportDir,
-                    cacheSize = cacheSize,
-                    onSetAutoUpdate = viewModel::setAutoUpdate,
-                    onPickExportDir = { uri ->
-                        // 只有持久化权限授予成功才覆盖下载位置，失败保留原配置
-                        val granted = runCatching {
-                            context.contentResolver.takePersistableUriPermission(
-                                uri,
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                            )
-                        }.isSuccess
-                        if (granted) {
-                            viewModel.setNovelExportDir(uri.toString())
-                        } else {
-                            scope.launch {
-                                notificationHostState.show(exportDirPermFailed, NotificationType.Error)
+                item(key = "system") {
+                    SectionSpacer()
+                    SectionTitle(stringResource(R.string.me_section_system))
+                    MeSystemSection(
+                        autoUpdate = autoUpdate,
+                        novelExportDir = novelExportDir,
+                        cacheSize = cacheSize,
+                        onSetAutoUpdate = viewModel::setAutoUpdate,
+                        onPickExportDir = { uri ->
+                            // 只有持久化权限授予成功才覆盖下载位置，失败保留原配置
+                            val granted = runCatching {
+                                context.contentResolver.takePersistableUriPermission(
+                                    uri,
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                                )
+                            }.isSuccess
+                            if (granted) {
+                                viewModel.setNovelExportDir(uri.toString())
+                            } else {
+                                scope.launch {
+                                    notificationHostState.show(exportDirPermFailed, NotificationType.Error)
+                                }
                             }
-                        }
-                    },
-                    onResetExportDir = viewModel::resetNovelExportDir,
-                    onClearCache = { activeDialog = MeDialog.CLEAR_CACHE },
-                )
+                        },
+                        onResetExportDir = viewModel::resetNovelExportDir,
+                        onClearCache = { activeDialog = MeDialog.CLEAR_CACHE },
+                    )
+                }
 
                 // ── 关于信息 ──
-                SectionSpacer()
-                SectionTitle(stringResource(R.string.me_section_about))
-                MeAboutSection(
-                    versionName = viewModel.versionName,
-                    onCheckUpdate = { viewModel.checkUpdate() },
-                )
+                item(key = "about") {
+                    SectionSpacer()
+                    SectionTitle(stringResource(R.string.me_section_about))
+                    MeAboutSection(
+                        versionName = viewModel.versionName,
+                        onCheckUpdate = { viewModel.checkUpdate() },
+                    )
+                }
             }
         }
     }

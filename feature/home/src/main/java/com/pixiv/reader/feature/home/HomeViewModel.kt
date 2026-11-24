@@ -82,17 +82,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadMore() {
+    fun loadMore(targetTab: HomeTab = _tab.value) {
         viewModelScope.launch {
-            when (_tab.value) {
+            when (targetTab) {
                 HomeTab.RECOMMEND -> recommendPaged.loadMore()
                 HomeTab.FOLLOW -> followingPaged.loadMore()
             }
         }
     }
 
-    fun retry() {
-        when (_tab.value) {
+    fun retry(targetTab: HomeTab = _tab.value) {
+        when (targetTab) {
             HomeTab.RECOMMEND -> loadRecommend()
             HomeTab.FOLLOW -> loadFollowing()
         }
@@ -135,12 +135,12 @@ class HomeViewModel @Inject constructor(
      * 重拉当前 Tab 第一页，等网络结束后才复位指示（防重入）。复用 load* 使其 fetch 顺带回写快照——
      * 刷新后的数据即下次冷启动的秒开内容。
      */
-    fun pullRefresh() {
+    fun pullRefresh(targetTab: HomeTab = _tab.value) {
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                when (_tab.value) {
+                when (targetTab) {
                     HomeTab.RECOMMEND -> {
                         recommendPaged.reset()
                         // join 等待首屏网络完成，否则指示会在请求返回前提前消失

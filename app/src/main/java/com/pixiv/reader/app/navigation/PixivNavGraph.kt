@@ -33,6 +33,10 @@ import com.pixiv.reader.core.common.model.TagType
 import com.pixiv.reader.core.novel.store.LocalReaderStore
 import com.pixiv.reader.core.ui.component.detail.LocalNavAnimatedVisibilityScope
 import com.pixiv.reader.core.ui.component.layout.FullscreenImageRoute
+import com.pixiv.reader.core.ui.theme.pixivHeroNavEnter
+import com.pixiv.reader.core.ui.theme.pixivHeroNavExit
+import com.pixiv.reader.core.ui.theme.pixivHeroNavPopEnter
+import com.pixiv.reader.core.ui.theme.pixivHeroNavPopExit
 import com.pixiv.reader.core.ui.theme.pixivNavEnter
 import com.pixiv.reader.core.ui.theme.pixivNavExit
 import com.pixiv.reader.core.ui.theme.pixivNavPopEnter
@@ -154,14 +158,40 @@ fun PixivNavGraph(
 
     // transition lambda 非组合上下文，须在组合期提前捕获 motionScheme
     val motionScheme = MaterialTheme.motionScheme
+    // 插画/小说详情自带封面 sharedBounds hero，走无位移容器淡入微缩，避免与全局侧滑打架
+    fun isHeroDetailRoute(route: String?): Boolean = route == ROUTE_ILLUST || route == ROUTE_NOVEL
 
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        enterTransition = { pixivNavEnter(motionScheme) },
-        exitTransition = { pixivNavExit(motionScheme) },
-        popEnterTransition = { pixivNavPopEnter(motionScheme) },
-        popExitTransition = { pixivNavPopExit(motionScheme) },
+        enterTransition = {
+            if (isHeroDetailRoute(targetState.destination.route)) {
+                pixivHeroNavEnter(motionScheme)
+            } else {
+                pixivNavEnter(motionScheme)
+            }
+        },
+        exitTransition = {
+            if (isHeroDetailRoute(targetState.destination.route)) {
+                pixivHeroNavExit(motionScheme)
+            } else {
+                pixivNavExit(motionScheme)
+            }
+        },
+        popEnterTransition = {
+            if (isHeroDetailRoute(initialState.destination.route)) {
+                pixivHeroNavPopEnter(motionScheme)
+            } else {
+                pixivNavPopEnter(motionScheme)
+            }
+        },
+        popExitTransition = {
+            if (isHeroDetailRoute(initialState.destination.route)) {
+                pixivHeroNavPopExit(motionScheme)
+            } else {
+                pixivNavPopExit(motionScheme)
+            }
+        },
     ) {
         composable(ROUTE_ONBOARDING) {
             OnboardingRoute(onFinished = onCompleteOnboarding)

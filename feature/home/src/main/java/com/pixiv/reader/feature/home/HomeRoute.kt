@@ -1,5 +1,12 @@
 package com.pixiv.reader.feature.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,10 +15,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,16 +40,20 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.pixiv.api.model.Illust
 import com.pixiv.api.model.TrendingTag
 import com.pixiv.reader.core.comment.state.CommentListViewModel
@@ -82,20 +96,64 @@ fun HomeRoute(
     val trendingTags by viewModel.trendingTags.collectAsStateWithLifecycle()
     // 平板详情 pane 的选中 id；手机端不启用恒为 null
     var selectedIllustId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val pagerState = rememberPagerState(initialPage = tab.ordinal, pageCount = { HomeTab.entries.size })
+    val scope = rememberCoroutineScope()
+    val haptic = rememberHapticCue()
 
+    // 左右滑页与 VM 当前页签双向同步，保证关注流按需首载与状态一致
+    LaunchedEffect(pagerState.currentPage) {
+        val current = HomeTab.entries[pagerState.currentPage]
+        if (current != tab) {
+            viewModel.selectTab(current)
+        }
+    }
+    LaunchedEffect(tab) {
+        if (pagerState.currentPage != tab.ordinal && !pagerState.isScrollInProgress) {
+            pagerState.animateScrollToPage(tab.ordinal)
+        }
+    }
+
+    // 再次点击底部首页 Tab 仅回顶当前可见子页，避免影响另一页滚动进度
+    var lastReselectKey by remember { mutableIntStateOf(reselectKey) }
+    var recommendReselectKey by remember { mutableIntStateOf(0) }
+    var followReselectKey by remember { mutableIntStateOf(0) }
+    LaunchedEffect(reselectKey) {
+        if (reselectKey != lastReselectKey) {
+            lastReselectKey = reselectKey
+            if (pagerState.currentPage == HomeTab.RECOMMEND.ordinal) {
+                recommendReselectKey++
+            } else {
+                followReselectKey++
+            }
+        }
+    }
+
+    val motionScheme = MaterialTheme.motionScheme
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (tab == HomeTab.RECOMMEND) {
-                                stringResource(R.string.home_recommend)
-                            } else {
-                                stringResource(R.string.home_follow)
+                        AnimatedContent(
+                            targetState = tab,
+                            transitionSpec = {
+                                val dir = if (targetState.ordinal >= initialState.ordinal) 1 else -1
+                                (slideInVertically(motionScheme.fastSpatialSpec<IntOffset>()) { it / 3 * dir } +
+                                    fadeIn(motionScheme.fastEffectsSpec())) togetherWith
+                                    (slideOutVertically(motionScheme.fastEffectsSpec<IntOffset>()) { -it / 3 * dir } +
+                                        fadeOut(motionScheme.fastEffectsSpec()))
                             },
-                            style = MaterialTheme.typography.titleLarge,
-                        )
+                            label = "homeTitleSwitch",
+                        ) { currentTab ->
+                            Text(
+                                text = if (currentTab == HomeTab.RECOMMEND) {
+                                    stringResource(R.string.home_recommend)
+                                } else {
+                                    stringResource(R.string.home_follow)
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                        }
                         Spacer(Modifier.width(12.dp))
                         HomeSearchBar(
                             onClick = onOpenSearch,
@@ -138,14 +196,30 @@ fun HomeRoute(
                             item {
                                 FilterChip(
                                     selected = tab == HomeTab.RECOMMEND,
-                                    onClick = { viewModel.selectTab(HomeTab.RECOMMEND) },
+                                    onClick = {
+                                        if (tab != HomeTab.RECOMMEND) {
+                                            haptic(PixivHaptics.HapticCue.SELECT)
+                                            viewModel.selectTab(HomeTab.RECOMMEND)
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(HomeTab.RECOMMEND.ordinal)
+                                            }
+                                        }
+                                    },
                                     label = { Text(stringResource(R.string.home_for_you)) },
                                 )
                             }
                             item {
                                 FilterChip(
                                     selected = tab == HomeTab.FOLLOW,
-                                    onClick = { viewModel.selectTab(HomeTab.FOLLOW) },
+                                    onClick = {
+                                        if (tab != HomeTab.FOLLOW) {
+                                            haptic(PixivHaptics.HapticCue.SELECT)
+                                            viewModel.selectTab(HomeTab.FOLLOW)
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(HomeTab.FOLLOW.ordinal)
+                                            }
+                                        }
+                                    },
                                     label = { Text(stringResource(R.string.home_follow)) },
                                 )
                             }
@@ -159,17 +233,31 @@ fun HomeRoute(
                             }
                         }
 
-                        when (tab) {
-                            HomeTab.RECOMMEND -> HomeFeedContent(
-                                viewModel.recommendPaged, viewModel, onOpenIllust, onOpenUser,
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        ) { page ->
+                            val pageTab = HomeTab.entries[page]
+                            val paged = if (pageTab == HomeTab.RECOMMEND) {
+                                viewModel.recommendPaged
+                            } else {
+                                viewModel.followingPaged
+                            }
+                            HomeFeedContent(
+                                pageTab = pageTab,
+                                activeTab = tab,
+                                paged = paged,
+                                viewModel = viewModel,
+                                onOpenIllust = onOpenIllust,
+                                onOpenUser = onOpenUser,
                                 onSelectIllust = { selectedIllustId = it },
-                                scrollToTopKey = reselectKey,
-                                onSearchTag = onSearchTag,
-                            )
-                            HomeTab.FOLLOW -> HomeFeedContent(
-                                viewModel.followingPaged, viewModel, onOpenIllust, onOpenUser,
-                                onSelectIllust = { selectedIllustId = it },
-                                scrollToTopKey = reselectKey,
+                                scrollToTopKey = if (pageTab == HomeTab.RECOMMEND) {
+                                    recommendReselectKey
+                                } else {
+                                    followReselectKey
+                                },
                                 onSearchTag = onSearchTag,
                             )
                         }
@@ -216,12 +304,16 @@ fun HomeRoute(
     }
 }
 
+private enum class HomeFeedPhase { LOADING, ERROR, EMPTY, CONTENT }
+
 /**
  * 推荐 / 关注两 Tab 共用（原双胞胎实现合并）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeFeedContent(
+    pageTab: HomeTab,
+    activeTab: HomeTab,
     paged: PagedState<Illust>,
     viewModel: HomeViewModel,
     onOpenIllust: (Long) -> Unit,
@@ -237,7 +329,8 @@ private fun HomeFeedContent(
     val isLoadingMore by paged.isLoadingMore.collectAsStateWithLifecycle()
     val hasMore by paged.hasMore.collectAsStateWithLifecycle()
     val error by paged.error.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val globalRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isRefreshing = globalRefreshing && activeTab == pageTab
 
     // 下拉刷新手势起始触觉：仅 false→true 时响（回落不响）
     val haptic = rememberHapticCue()
@@ -249,38 +342,51 @@ private fun HomeFeedContent(
         wasRefreshing = isRefreshing
     }
 
+    val phase = when {
+        // reset 后 items 清空也走骨架，替代全屏转圈
+        (isLoading || isRefreshing) && items.isEmpty() -> HomeFeedPhase.LOADING
+        error != null && items.isEmpty() -> HomeFeedPhase.ERROR
+        items.isEmpty() -> HomeFeedPhase.EMPTY
+        else -> HomeFeedPhase.CONTENT
+    }
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
-        onRefresh = viewModel::pullRefresh,
+        onRefresh = { viewModel.pullRefresh(pageTab) },
         modifier = Modifier.fillMaxSize(),
     ) {
-        when {
-            // reset 后 items 清空也走骨架，替代全屏转圈
-            (isLoading || isRefreshing) && items.isEmpty() -> IllustWaterfallSkeleton()
-            error != null && items.isEmpty() -> ErrorBox(
-                message = error.orEmpty(),
-                onRetry = viewModel::retry,
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            )
-            // 可滚动 → 空态也能触发下拉刷新
-            items.isEmpty() -> EmptyBox(
-                text = stringResource(R.string.home_empty),
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            )
+        Crossfade(
+            targetState = phase,
+            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+            label = "homeFeedPhase",
+        ) { currentPhase ->
+            when (currentPhase) {
+                HomeFeedPhase.LOADING -> IllustWaterfallSkeleton()
+                HomeFeedPhase.ERROR -> ErrorBox(
+                    message = error.orEmpty(),
+                    onRetry = { viewModel.retry(pageTab) },
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
+                // 可滚动 → 空态也能触发下拉刷新
+                HomeFeedPhase.EMPTY -> EmptyBox(
+                    text = stringResource(R.string.home_empty),
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
 
-            else -> IllustWaterfallGrid(
-                illusts = items,
-                // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
-                onItemClick = { id -> if (detailPaneEnabled) onSelectIllust(id) else onOpenIllust(id) },
-                onLoadMore = viewModel::loadMore,
-                hasMore = hasMore,
-                isLoadingMore = isLoadingMore,
-                error = error,
-                onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
-                onOpenUser = onOpenUser,
-                onTagClick = onSearchTag,
-                scrollToTopKey = scrollToTopKey,
-            )
+                HomeFeedPhase.CONTENT -> IllustWaterfallGrid(
+                    illusts = items,
+                    // 平板（pane 启用）→ 选中进右栏详情；手机 → 全屏路由跳转
+                    onItemClick = { id -> if (detailPaneEnabled) onSelectIllust(id) else onOpenIllust(id) },
+                    onLoadMore = { viewModel.loadMore(pageTab) },
+                    hasMore = hasMore,
+                    isLoadingMore = isLoadingMore,
+                    error = error,
+                    onToggleFavorite = { id, fav -> viewModel.toggleIllustFavorite(id, fav) },
+                    onOpenUser = onOpenUser,
+                    onTagClick = onSearchTag,
+                    scrollToTopKey = scrollToTopKey,
+                )
+            }
         }
     }
 }
