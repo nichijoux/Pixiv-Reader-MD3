@@ -74,12 +74,8 @@ internal fun sortCommentsForDisplay(
     }
 
 /**
- * 通用评论列表 ViewModel（novel / illust 共用，core:network 下沉，
- * 供 core:comment 评论页与排行右栏评论区共用）。
- *
- * `type`/`targetId` 从 SavedStateHandle 读取（评论路由参数）；排行右栏等内嵌场景
- * 无此参数（=0），不预载，由调用方 [switchTo] 驱动加载。
- * 支持 pixiv 贴纸（stamp）：`getStamps` 拉目录、发贴纸评论带 stamp_id。
+ * 通用评论列表 ViewModel（novel / illust 共用，供评论页与排行右栏评论区共用）。
+ * `type`/`targetId` 取自 SavedStateHandle；内嵌 pane 无路由参数（targetId=0）时不预载，由 [switchTo] 驱动。
  */
 @HiltViewModel
 class CommentListViewModel @Inject constructor(

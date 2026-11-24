@@ -116,18 +116,8 @@ fun illustCoverKey(id: Long): String = "illust_cover_$id"
 fun novelCoverKey(id: Long): String = "novel_cover_$id"
 
 /**
- * hero 共享边界修饰：两个 CompositionLocal 均可用时挂 `sharedBounds`，否则原样返回普通 Modifier。
- *
- * 卡片（[com.pixiv.reader.core.ui.component.card.IllustCard]/`NovelCard`）与详情容器内部
- * 直接调用，页面层无需透传 scope；bounds 动画采用主题 `MotionScheme` 的默认 spatial 弹簧
- * （与项目 `Motion.kt` 导航过渡同一 token 体系）。`boundsTransform` 非组合上下文，
- * 规格在组合期先取好再闭包捕获。
- *
- * @param key 共享元素 key（[illustCoverKey]/[novelCoverKey]/搜索框 key 等）
- * @param animatedVisibilityScope hero 元素所属的可见性作用域；null（默认）取
- *   [LocalNavAnimatedVisibilityScope]（详情路由由顶层 NavHost 提供），Tab 内搜索框等
- *   场景显式传入所在 `composable` 的 scope
- * @return 已挂 sharedBounds 的 Modifier；无共享过渡环境时返回无操作 Modifier
+ * 双 CompositionLocal 均可用时挂 `sharedBounds`（固定短 tween，与路由 spring 解耦），否则原样返回。
+ * Tab 内搜索框等非详情路由场景需显式传入 [animatedVisibilityScope]。
  */
 @Composable
 fun Modifier.heroBoundsModifier(

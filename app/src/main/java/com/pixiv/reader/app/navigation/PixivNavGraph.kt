@@ -101,7 +101,7 @@ const val ROUTE_NOVEL = "novel/{novelId}"
 /** 通用评论列表页（novel / illust 共用）：comments/{type}/{targetId}，type ∈ novel|illust。 */
 const val ROUTE_COMMENTS = "comments/{type}/{targetId}"
 
-/** 小说阅读器（在线 / 离线缓存共用同一路由）。toEnd=true 时定位到文档末尾（系列上一章尾页进入）。 */
+/** 小说阅读器。toEnd=true 时定位到文档末尾（系列上一章尾页进入）。 */
 const val ROUTE_READER = "reader/{novelId}?toEnd={toEnd}"
 
 /** 用户主页（插画 / 小说 / 收藏 Tab）。 */
