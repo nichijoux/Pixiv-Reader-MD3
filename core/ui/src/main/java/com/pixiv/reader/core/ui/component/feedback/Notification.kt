@@ -2,17 +2,23 @@ package com.pixiv.reader.core.ui.component.feedback
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,38 +36,47 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.R
-import com.pixiv.reader.core.ui.theme.Durations
-import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
+import com.pixiv.reader.core.ui.theme.Durations
 import com.pixiv.reader.core.ui.theme.Sizes
+import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.extendedColors
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.concurrent.atomic.AtomicLong
-import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /** 通知类型：决定图标与强调色。 */
 enum class NotificationType { Info, Success, Error }
 
-/** 一条待展示的通知数据（带单调递增 [id]，保证同文案连续通知也能触发重发射与计时重置）。 */
+/** 一条待展示的通知数据（带单调递增 [id]，保证同文案重推也能触发计时重置与入场）。 */
 data class NotificationData(
     val text: String,
     val type: NotificationType,
@@ -75,62 +90,99 @@ data class NotificationData(
 }
 
 /**
- * 自定义 Material3 风格通知宿主状态（替代 Material `Snackbar`）。
+ * 全局应用内通知宿主状态：由根 Activity 向下提供。
+ *
+ * 子页面调用 [rememberNotificationHostState] 时会直接复用该根状态，
+ * 其局部放置的 [NotificationHost] 自动退让为空实现，使全局通知与页面通知
+ * 统一在右上角堆叠展示并跨页面保持连续。
+ */
+val LocalNotificationHostState = staticCompositionLocalOf<NotificationHostState?> { null }
+
+/**
+ * 自定义 Material3 风格可堆叠通知宿主状态（替代 Material `Snackbar`）。
  *
  * ## 设计说明
- * 视觉遵循 Material 3 规范并做定制：`surfaceContainerHigh` 卡片底（跟随 app 主题明暗，非固定黑色）
- * + 阴影浮起 + `onSurface` 文字 + 类型图标徽标（Info=primary / Success=绿 / Error=error 语义色）
- * + 关闭按钮；宽度**自适应内容**，上限按设备区分——手机约屏宽 88%、平板封顶 420dp
- * （短文案显示为紧凑胶囊，不占满屏幕）。
- * 行为与 MD 一致：新消息**顶替当前**并重置计时、约 2.6s 自动消失、点击可关闭。
- * 动画为底部滑入 + 淡入（[NotificationHost] 内 `AnimatedVisibility`）。
- *
- * 用法：
- * ```
- * val notificationState = rememberNotificationHostState()
- * Scaffold(snackbarHost = { NotificationHost(notificationState) }) { ... }
- * // 触发：notificationState.show(context.getString(R.string.xxx))
- * ```
+ * - 支持最多 [MAX_VISIBLE] 条通知在右上角纵向堆叠，新通知插在顶部并顺推旧通知；
+ * - 文案、类型与操作标签均相同的活跃通知会被去重合并并重置到顶部；
+ * - 视觉遵循 M3 `inverseSurface` 反色胶囊容器 + 16dp 圆角 + 微边框 + 阴影；
+ * - 常规 2.6s 自动消失（带操作按钮延长至 4.2s），支持点击或向右滑动关闭。
  */
 class NotificationHostState internal constructor() {
-    private val _queue = MutableStateFlow<NotificationData?>(null)
+    private val _items = MutableStateFlow<List<NotificationData>>(emptyList())
 
-    /** 当前应展示的通知（null = 无，用于驱动显隐动画）。 */
-    val queue: StateFlow<NotificationData?> = _queue.asStateFlow()
+    /** 当前活跃通知列表（按最新在前排序，最多 [MAX_VISIBLE] 条）。 */
+    val items: StateFlow<List<NotificationData>> = _items.asStateFlow()
 
-    /** 展示一条通知；若已有展示中的通知则直接顶替并重置计时。
-     *  @param actionText 非空时展示操作按钮（点击执行 [onAction] 后自动关闭通知） */
+    /**
+     * 展示一条通知；新通知插在栈顶，相同内容的活跃通知会合并置顶并刷新计时。
+     *
+     * @param text 通知文案
+     * @param type 通知语义类型
+     * @param actionText 可选操作按钮文案（非空且配合 [onAction] 时展示）
+     * @param onAction 可选操作回调（点击后自动关闭该条通知）
+     * @return 无返回值
+     */
     fun show(
         text: String,
         type: NotificationType = NotificationType.Info,
         actionText: String? = null,
         onAction: (() -> Unit)? = null,
     ) {
-        _queue.value = NotificationData(text, type, actionText, onAction)
+        val next = NotificationData(text, type, actionText, onAction)
+        _items.update { current ->
+            // 同文案/类型/动作的活跃条目直接合并置顶，避免连点同一操作刷屏堆叠
+            val deduped = current.filterNot {
+                it.text == text && it.type == type && it.actionText == actionText
+            }
+            (listOf(next) + deduped).take(MAX_VISIBLE)
+        }
     }
 
-    /** 立即关闭当前通知（触发退出动画）。 */
+    /**
+     * 按 [id] 关闭指定通知。
+     *
+     * @param id 目标通知唯一编号
+     * @return 无返回值
+     */
+    fun dismiss(id: Long) {
+        _items.update { current -> current.filterNot { it.id == id } }
+    }
+
+    /**
+     * 立即清空全部活跃通知。
+     *
+     * @return 无返回值
+     */
     fun dismiss() {
-        _queue.value = null
+        _items.value = emptyList()
+    }
+
+    companion object {
+        /** 同时展示的最大通知堆叠条数，超出时移除最早条。 */
+        const val MAX_VISIBLE = 3
     }
 }
 
-/** 创建可组合内持有的 [NotificationHostState]。 */
+/**
+ * 获取通知宿主状态：优先复用根部通过 [LocalNotificationHostState] 下发的统一实例，
+ * 独立预览或脱离根壳的场景回退为局部实例。
+ *
+ * @return 可用的 [NotificationHostState]
+ */
 @Composable
-fun rememberNotificationHostState(): NotificationHostState = remember { NotificationHostState() }
+fun rememberNotificationHostState(): NotificationHostState =
+    LocalNotificationHostState.current ?: remember { NotificationHostState() }
 
 /**
- * 自定义通知宿主：底部居中展示当前通知，进入/退出带滑入 + 淡入淡出动画。
- * 可直接放入 `Scaffold(snackbarHost = ...)`，或放入任意 [Box] 用 `Modifier.align(BottomCenter)` 定位。
+ * 可堆叠右上角通知宿主：紧贴右上角显示紧凑胶囊通知栈，仅占用实际卡片区域，不拦截其余屏幕触摸。
  *
- * 卡片宽度自适应内容，上限按设备区分：手机（< 600dp）约屏宽 88%（留边距不贴满），
- * 平板（>= 600dp）封顶 420dp。
+ * 若当前 [state] 与上级 [LocalNotificationHostState] 相同，说明根宿主已在右上角接管渲染，
+ * 本次调用直接返回，使各子路由既有 `NotificationHost(...)` 零占位退让。
  *
  * @param state 通知状态（[rememberNotificationHostState]）
- * @param modifier 外部定位/边距 Modifier（内部已 `fillMaxWidth` + 底部居中）
- * @param contentModifier 仅作用于通知卡片内容的 Modifier（如 `navigationBarsPadding()` 避让系统导航栏）。
- *   注意：必须作用于卡片而不是宿主——若加在 [modifier] 上，即使没有通知（内容收起）宿主也会占位
- *   非零高度，在 Scaffold snackbar 槽中会残留底部空白。
+ * @param modifier 外部定位与避让修饰符（根宿主通过 `align(Alignment.TopEnd)` + insets 定位）
+ * @param contentModifier 仅在存在可见卡片时应用的修饰符（空闲时不占高度）
+ * @return 无返回值
  */
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -139,79 +191,163 @@ fun NotificationHost(
     modifier: Modifier = Modifier,
     contentModifier: Modifier = Modifier,
 ) {
-    val notification by state.queue.collectAsStateWithLifecycle()
+    // 根部已挂载统一宿主的子树直接让位，避免局部 Scaffold 与根部重复渲染或占用底部空白
+    if (LocalNotificationHostState.current === state) return
+
+    val activeItems by state.items.collectAsStateWithLifecycle()
+    val displayItems = remember { mutableStateListOf<NotificationData>() }
+    val transitionStates = remember { mutableStateMapOf<Long, MutableTransitionState<Boolean>>() }
+
+    LaunchedEffect(activeItems) {
+        val activeIds = activeItems.mapTo(HashSet(activeItems.size)) { it.id }
+        val merged = activeItems.toMutableList()
+        // 保留正在播放退场动画的旧卡片原相对位置，待动画完成后再从 displayItems 移除
+        displayItems.forEachIndexed { index, existing ->
+            if (existing.id !in activeIds) {
+                val prevId = if (index > 0) displayItems[index - 1].id else null
+                val prevIdx = if (prevId != null) merged.indexOfFirst { it.id == prevId } else -1
+                val insertAt = if (prevIdx >= 0) prevIdx + 1 else 0
+                merged.add(insertAt, existing)
+            }
+        }
+        activeItems.forEach { item ->
+            val ts = transitionStates.getOrPut(item.id) { MutableTransitionState(false) }
+            ts.targetState = true
+        }
+        transitionStates.forEach { (id, ts) ->
+            if (id !in activeIds) ts.targetState = false
+        }
+        if (displayItems.map { it.id } != merged.map { it.id }) {
+            displayItems.clear()
+            displayItems.addAll(merged)
+        }
+    }
+
+    val slideInSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val slideOutSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+    val expandSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+    val shrinkSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntSize>()
+    val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+
     BoxWithConstraints(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.BottomCenter,
+        modifier = modifier,
+        contentAlignment = Alignment.TopEnd,
     ) {
-        // 手机屏宽通常 < 420dp：固定 420dp 上限会撑满屏，改用比例留白；平板才封顶 420dp
-        val cardMaxWidth = if (maxWidth >= 600.dp) 420.dp else maxWidth * 0.88f
-        // 退出动画期间通知已为 null：记住最近一次非 null 值，让退出动画仍能渲染旧卡片
-        var last by remember { mutableStateOf(notification) }
-        notification?.let { last = it }
-        // 通知进出动效：位移走 Expressive spatial 弹簧（进入带弹性 / 退出快速离场），
-        // 透明度走 effects 快档；AnimatedVisibility 参数在组合期取规格，无组合上下文限制
-        val slideInSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
-        val slideOutSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
-        val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-        AnimatedVisibility(
-            visible = notification != null,
-            enter = slideInVertically(initialOffsetY = { it / 2 }, animationSpec = slideInSpec) +
-                fadeIn(animationSpec = fadeSpec),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }, animationSpec = slideOutSpec) +
-                fadeOut(animationSpec = fadeSpec),
+        // 紧凑浮层上限：手机取屏宽 78% 且封顶 320dp，平板封顶 360dp，避免遮挡左侧标题
+        val cardMaxWidth = if (maxWidth >= 600.dp) 360.dp else (maxWidth * 0.78f).coerceAtMost(320.dp)
+        Column(
+            modifier = if (displayItems.isNotEmpty()) contentModifier else Modifier,
+            horizontalAlignment = Alignment.End,
         ) {
-            // 卡片外包一层：contentModifier 只随卡片存在/消失而占位，空闲时宿主高度为 0，
-            // 避免在沉浸式外层 Scaffold（contentWindowInsets=0）的 snackbar 槽残留底部空白
-            Box(
-                modifier = contentModifier,
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                last?.let { n ->
-                    NotificationCard(
-                        notification = n,
-                        onDismiss = state::dismiss,
-                        modifier = Modifier.widthIn(max = cardMaxWidth),
-                    )
+            displayItems.forEach { item ->
+                key(item.id) {
+                    val ts = transitionStates.getOrPut(item.id) {
+                        MutableTransitionState(item in activeItems)
+                    }
+                    // 退场动画完成后回收列表与状态项，避免内存泄漏
+                    LaunchedEffect(ts.isIdle, ts.currentState) {
+                        if (ts.isIdle && !ts.currentState && activeItems.none { it.id == item.id }) {
+                            displayItems.removeAll { it.id == item.id }
+                            transitionStates.remove(item.id)
+                        }
+                    }
+                    AnimatedVisibility(
+                        visibleState = ts,
+                        enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = slideInSpec) +
+                            expandVertically(expandFrom = Alignment.Top, animationSpec = expandSpec) +
+                            fadeIn(animationSpec = fadeSpec),
+                        exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = slideOutSpec) +
+                            shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = shrinkSpec) +
+                            fadeOut(animationSpec = fadeSpec),
+                    ) {
+                        // 卡片间距放在 AnimatedVisibility 内部，退场收折时高度连同间距平滑归零
+                        Box(modifier = Modifier.padding(bottom = Spacing.sm)) {
+                            NotificationCard(
+                                notification = item,
+                                onDismiss = { state.dismiss(item.id) },
+                                modifier = Modifier.widthIn(max = cardMaxWidth),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-/** 单条通知卡片：类型图标徽标 + 文本 + 关闭按钮；自动消失 + 整卡点击关闭。 */
+/**
+ * 单条右上角紧凑通知卡片：类型图标徽标 + 文案 + 可选动作 + 关闭图标。
+ * 支持自动定时消失、点击关闭及向右滑动关闭。
+ */
 @Composable
 private fun NotificationCard(
     notification: NotificationData,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 自动消失：消息变化时重启计时（新消息顶替旧消息）
-    LaunchedEffect(notification) {
-        delay(Durations.NOTIFICATION_TIMEOUT.milliseconds)
+    val hasAction = notification.actionText != null && notification.onAction != null
+    // 带动作按钮的通知给予更充裕的操作时间窗口
+    LaunchedEffect(notification.id) {
+        val timeout = if (hasAction) {
+            Durations.NOTIFICATION_ACTION_TIMEOUT
+        } else {
+            Durations.NOTIFICATION_TIMEOUT
+        }
+        delay(timeout.milliseconds)
         onDismiss()
     }
+
+    val density = LocalDensity.current
+    val dismissThresholdPx = remember(density) { with(density) { 72.dp.toPx() } }
+    val dragOffsetX = remember(notification.id) { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val snapBackSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
     val scheme = MaterialTheme.colorScheme
-    // 反色容器遵循 MD3 Snackbar 规范（inverseSurface + Level 3 阴影 + inverseOnSurface 内容）
+
     Surface(
-        modifier = modifier.clickable(
-            onClickLabel = stringResource(R.string.notification_dismiss),
-            onClick = onDismiss,
-        ),
-        shape = AppShapes.cardLarge,
+        modifier = modifier
+            .graphicsLayer {
+                translationX = dragOffsetX.value
+                val progress = (dragOffsetX.value / (dismissThresholdPx * 1.5f)).coerceIn(0f, 1f)
+                alpha = 1f - progress * 0.65f
+            }
+            .pointerInput(notification.id) {
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        val next = (dragOffsetX.value + dragAmount).coerceAtLeast(0f)
+                        scope.launch { dragOffsetX.snapTo(next) }
+                    },
+                    onDragEnd = {
+                        if (dragOffsetX.value >= dismissThresholdPx) {
+                            onDismiss()
+                        } else {
+                            scope.launch { dragOffsetX.animateTo(0f, snapBackSpec) }
+                        }
+                    },
+                    onDragCancel = {
+                        scope.launch { dragOffsetX.animateTo(0f, snapBackSpec) }
+                    },
+                )
+            }
+            .clickable(
+                onClickLabel = stringResource(R.string.notification_dismiss),
+                onClick = onDismiss,
+            ),
+        shape = AppShapes.large,
         color = scheme.inverseSurface,
+        border = BorderStroke(0.5.dp, scheme.inverseOnSurface.copy(alpha = 0.12f)),
         shadowElevation = 6.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.smPlus),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 类型图标徽标：语义色低透明圆底 + 反色容器对比度达标图标
             val accent = notificationTypeColor(notification.type)
             val badgeBgAlpha = if (scheme.inverseSurface.luminance() < 0.5f) 0.16f else 0.14f
             Box(
                 modifier = Modifier
-                    .size(Sizes.s28)
+                    .size(Sizes.s24)
                     .clip(CircleShape)
                     .background(accent.copy(alpha = badgeBgAlpha)),
                 contentAlignment = Alignment.Center,
@@ -223,37 +359,37 @@ private fun NotificationCard(
                     modifier = Modifier.size(Sizes.s16),
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.smPlus))
+            // fill = false：短文案保持紧凑胶囊，长文案才在最大宽度内换行
             Text(
                 text = notification.text,
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.inverseOnSurface,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f, fill = false),
             )
-            // 操作按钮（可选）：点击执行动作并关闭通知；卡片其余区域点击仍为关闭
-            if (notification.actionText != null && notification.onAction != null) {
-                Spacer(Modifier.width(Spacing.sm))
+            if (hasAction) {
+                Spacer(Modifier.width(Spacing.xsPlus))
                 Text(
-                    text = notification.actionText,
-                    style = MaterialTheme.typography.labelLarge,
+                    text = notification.actionText!!,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = scheme.inversePrimary,
                     modifier = Modifier
                         .clip(AppShapes.tiny)
                         .clickable {
-                            notification.onAction.invoke()
+                            notification.onAction?.invoke()
                             onDismiss()
                         }
-                        .padding(horizontal = Spacing.sm, vertical = Spacing.xsPlus),
+                        .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                 )
             }
-            Spacer(Modifier.width(Spacing.sm))
+            Spacer(Modifier.width(Spacing.xsPlus))
             Icon(
                 imageVector = Icons.Filled.Close,
                 contentDescription = null,
-                tint = scheme.inverseOnSurface.copy(alpha = 0.85f),
+                tint = scheme.inverseOnSurface.copy(alpha = 0.7f),
                 modifier = Modifier.size(Sizes.s16),
             )
         }

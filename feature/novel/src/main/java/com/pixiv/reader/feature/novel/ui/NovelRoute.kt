@@ -46,6 +46,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentTitle
+import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.component.feedback.EmptyBox
 import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
@@ -460,7 +461,7 @@ private fun NovelWatchlistTab(
                     start = Spacing.lg,
                     end = Spacing.lg,
                     top = Spacing.lg,
-                    bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                    bottom = Spacing.lg + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
             ) {

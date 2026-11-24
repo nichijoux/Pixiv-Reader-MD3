@@ -31,13 +31,18 @@ class PixivApp : Application(), Configuration.Provider, ImageLoaderFactory {
     @Inject
     lateinit var appCardActions: AppCardActions
 
+    /** 进程级下载通知协调器（前台应用内提示 + 系统进度/Android 16 Live Updates + 后台结果通知）。 */
+    @Inject
+    lateinit var downloadCompletionNotifier: DownloadCompletionNotifier
+
     override fun onCreate() {
         super.onCreate()
         // 一次性清理旧版「离线下载」缓存目录（离线功能已移除，老数据不再使用）
         runCatching { File(filesDir, "offline").deleteRecursively() }
-        // 进程级作用域（Application 生命周期）：卡片动作数据流共用
+        // 进程级作用域（Application 生命周期）：卡片动作数据流与全局下载通知共用
         val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         appCardActions.start(appScope)
+        downloadCompletionNotifier.start(appScope)
     }
 
     override val workManagerConfiguration: Configuration

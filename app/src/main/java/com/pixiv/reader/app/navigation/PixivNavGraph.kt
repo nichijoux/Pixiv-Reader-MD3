@@ -812,8 +812,11 @@ fun PixivNavGraph(
                 onBack = { navController.safeBack() },
             )
         }
-        // 下载管理：插画/小说；本地文件走 local_reader 路由
-        composable(ROUTE_DOWNLOADS) {
+        // 下载管理：插画/小说；本地文件走 local_reader 路由；支持通知栏点击 `pixiv://downloads` 直达
+        composable(
+            route = ROUTE_DOWNLOADS,
+            deepLinks = listOf(navDeepLink { uriPattern = "pixiv://downloads" }),
+        ) {
             val context = LocalContext.current
             val retryScope = rememberCoroutineScope()
             DownloadsRoute(
@@ -1118,7 +1121,12 @@ fun PixivNavGraph(
 
         // 内容深链等会话就绪后再交给 Navigation；OAuth 回调已在 Activity 分流。
         if (rootRoute == ROUTE_MAIN && pendingDeepLink != null) {
-            navController.handleDeepLink(pendingDeepLink)
+            // 已在下载管理页时直接消费，避免点击通知重复叠压相同页面
+            val alreadyAtDownloads = pendingDeepLink.data?.host == "downloads" &&
+                navController.currentDestination?.route == ROUTE_DOWNLOADS
+            if (!alreadyAtDownloads) {
+                navController.handleDeepLink(pendingDeepLink)
+            }
             onDeepLinkHandled(pendingDeepLink)
         }
     }
@@ -1144,7 +1152,7 @@ private class LocalReaderEntry : ViewModel() {
 private fun NavHostController.safeBack() {
     if (previousBackStackEntry != null) {
         navigateUp()
-    } else if (currentDestination?.route in setOf(ROUTE_ILLUST, ROUTE_NOVEL, ROUTE_READER, ROUTE_USER)) {
+    } else if (currentDestination?.route in setOf(ROUTE_ILLUST, ROUTE_NOVEL, ROUTE_READER, ROUTE_USER, ROUTE_DOWNLOADS)) {
         // 单页深链栈没有可弹出的上一页，显式回到已登录主壳。
         navigate(ROUTE_MAIN) {
             popUpTo(graph.id) { inclusive = true }

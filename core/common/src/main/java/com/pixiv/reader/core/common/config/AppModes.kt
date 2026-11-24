@@ -93,3 +93,27 @@ enum class FollowSortMode(val value: Int) {
             entries.firstOrNull { it.value == value } ?: FOLLOW_TIME
     }
 }
+
+/**
+ * 手机端底部导航栏样式：贴边短栏 / 悬浮胶囊。
+ *
+ * @property value 持久化到 DataStore 的整数枚举值
+ */
+enum class BottomNavBarStyle(val value: Int) {
+    /** M3 Expressive 64dp 贴边短栏（默认） */
+    DOCKED(0),
+
+    /** 悬浮胶囊导航栏（水平内缩、全圆胶囊容器） */
+    FLOATING_CAPSULE(1);
+
+    companion object {
+        /**
+         * 将持久化的整数值反序列化为导航栏样式；非法值回退默认贴边短栏。
+         *
+         * @param value 存储整数值
+         * @return 对应的 [BottomNavBarStyle] 枚举项
+         */
+        fun from(value: Int): BottomNavBarStyle =
+            entries.firstOrNull { it.value == value } ?: DOCKED
+    }
+}

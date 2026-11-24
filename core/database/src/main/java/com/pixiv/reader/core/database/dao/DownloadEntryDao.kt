@@ -9,10 +9,11 @@ import com.pixiv.reader.core.database.entity.DownloadEntryEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * 下载状态轻量投影（供只关心状态/标题的订阅方使用，避开 `payloadJson` 等大列）。
+ * 下载状态轻量投影（供只关心状态/标题/进度的订阅方使用，避开 `payloadJson` 等大列）。
  *
- * 字段取舍：`format`+`scopeKey` 参与完成通知的去重键（同一作品多格式 / 同作品单本与整系列各算一条任务）；
- * `title` 供完成/失败通知文案使用，避免再查一次完整实体。
+ * 字段取舍：`format`+`scopeKey` 参与通知去重键（同一作品多格式 / 同作品单本与整系列各算一条任务）；
+ * `title` 供系统进度/完成/失败通知文案使用，`progress` 驱动系统进度条与 Live Updates 百分比展示，
+ * 避免再查一次完整实体。
  *
  * @property targetType 目标类型（illust / ugoira / novel）
  * @property targetId 目标 ID
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
  * @property title 标题（通知文案；可为 null，调用方以空串兜底）
  * @property scopeKey 下载作用域（小说 ""=单本 / "series"=整系列 / 其余=部分分册）；
  *   属于主键列，通知去重必须包含，否则同作品单本与系列会撞键漏通知
+ * @property progress 当前进度百分比（0-100；默认 0，供历史调用方与单测兼容）
  */
 data class DownloadStatusRow(
     val targetType: String,
@@ -29,6 +31,7 @@ data class DownloadStatusRow(
     val status: String,
     val title: String?,
     val scopeKey: String = "",
+    val progress: Int = 0,
 )
 
 @Dao
@@ -38,8 +41,8 @@ interface DownloadEntryDao {
     @Query("SELECT * FROM download_entry ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<DownloadEntryEntity>>
 
-    /** 观察全表状态投影（无大列；全局完成通知器做状态迁移快照对比用）。 */
-    @Query("SELECT targetType, targetId, format, status, title, scopeKey FROM download_entry")
+    /** 观察全表状态与进度投影（无大列；全局完成通知与系统进度通知做快照对比用）。 */
+    @Query("SELECT targetType, targetId, format, status, title, scopeKey, progress FROM download_entry")
     fun observeAllStatuses(): Flow<List<DownloadStatusRow>>
 
     /**

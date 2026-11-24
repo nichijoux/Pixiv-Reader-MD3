@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixiv.reader.core.ui.component.layout.AdaptiveContentBox
+import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.component.layout.SectionSpacer
 import com.pixiv.reader.core.ui.component.layout.SectionTitle
 import com.pixiv.reader.core.ui.component.input.ConfirmDialog
@@ -96,6 +97,7 @@ fun MeRoute(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
     val colorStyleEnabled by viewModel.colorStyleEnabled.collectAsStateWithLifecycle()
+    val bottomNavBarStyle by viewModel.bottomNavBarStyle.collectAsStateWithLifecycle()
     val fontScale by viewModel.appFontScale.collectAsStateWithLifecycle()
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val autoUpdate by viewModel.autoUpdate.collectAsStateWithLifecycle()
@@ -156,9 +158,14 @@ fun MeRoute(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    // 沉浸式底部：内容尾部避开系统导航栏（手机端 inset 已被壳层消费，补 0）
+                    // 沉浸式底部：内容尾部避开系统导航栏与底部导航栏
                     .navigationBarsPadding()
-                    .padding(Spacing.lg),
+                    .padding(
+                        start = Spacing.lg,
+                        top = Spacing.lg,
+                        end = Spacing.lg,
+                        bottom = Spacing.lg + LocalNavBarBottomPadding.current,
+                    ),
             ) {
                 // ── 账号信息（个人资料 + 退出登录，与下方设置统一分组卡片风格） ──
                 SectionTitle(stringResource(R.string.me_section_account))
@@ -235,12 +242,14 @@ fun MeRoute(
                     themeMode = themeMode,
                     dynamicColor = dynamicColor,
                     colorStyleEnabled = colorStyleEnabled,
+                    bottomNavBarStyle = bottomNavBarStyle,
                     fontScale = fontScale,
                     appLanguage = appLanguage,
                     switchingLanguage = switchingLanguage,
                     onSetThemeMode = viewModel::setThemeMode,
                     onSetDynamicColor = viewModel::setDynamicColor,
                     onSetColorStyleEnabled = viewModel::setColorStyleEnabled,
+                    onSetBottomNavBarStyle = viewModel::setBottomNavBarStyle,
                     onSetFontScale = viewModel::setAppFontScale,
                     onSetAppLanguage = { value, onDone ->
                         switchingLanguage = true

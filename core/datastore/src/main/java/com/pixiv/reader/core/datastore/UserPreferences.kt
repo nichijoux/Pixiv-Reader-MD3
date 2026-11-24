@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pixiv.reader.core.common.config.AppLanguage
+import com.pixiv.reader.core.common.config.BottomNavBarStyle
 import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.config.ReaderDualPageMode
@@ -101,6 +102,11 @@ class UserPreferences @Inject constructor(
     /** 彩色点缀风格（false = 纯 M3 单色，默认关闭） */
     val colorStyleEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_COLOR_STYLE] ?: false }
+    /** 手机端底部导航栏样式：贴边短栏 / 悬浮胶囊 */
+    val bottomNavBarStyle: Flow<BottomNavBarStyle> =
+        context.dataStore.data.map {
+            BottomNavBarStyle.from(it[KEY_BOTTOM_NAV_BAR_STYLE] ?: BottomNavBarStyle.DOCKED.value)
+        }
     /** 应用主题模式：跟随系统 / 浅色 / 深色 */
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.from(it[KEY_THEME_MODE] ?: ThemeMode.FOLLOW_SYSTEM.value) }
     /** 应用字号缩放（0.8~1.3，默认 1.0 = 系统「标准」档；MainActivity 覆盖 fontScale 即时生效） */
@@ -166,6 +172,10 @@ class UserPreferences @Inject constructor(
     val novelFileNameTemplateSeries: Flow<String> =
         context.dataStore.data.map { it[KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES] ?: NovelFileNameTemplate.DEFAULT_SERIES }
 
+    /** 是否已向用户请求过 Android 13+ 系统通知权限（仅在首次触发下载时提示一次，避免反复弹窗打扰）。 */
+    val notificationPermissionPrompted: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_NOTIFICATION_PERMISSION_PROMPTED] ?: false }
+
     suspend fun setReaderFontSize(value: Float) = context.dataStore.edit { it[KEY_FONT_SIZE] = value }
     suspend fun setReaderLineSpacing(value: Float) = context.dataStore.edit { it[KEY_LINE_HEIGHT] = value }
     suspend fun setReaderFontFamily(value: String) = context.dataStore.edit { it[KEY_FONT_FAMILY] = value }
@@ -186,6 +196,14 @@ class UserPreferences @Inject constructor(
     /** 设置彩色点缀风格：true 启用彩色，false 回到纯 M3 单色。 */
     suspend fun setColorStyleEnabled(value: Boolean) =
         context.dataStore.edit { it[KEY_COLOR_STYLE] = value }
+    /**
+     * 设置手机端底部导航栏样式（贴边短栏 / 悬浮胶囊）。
+     *
+     * @param value 目标导航栏样式
+     * @return 无返回值
+     */
+    suspend fun setBottomNavBarStyle(value: BottomNavBarStyle) =
+        context.dataStore.edit { it[KEY_BOTTOM_NAV_BAR_STYLE] = value.value }
     suspend fun setThemeMode(value: ThemeMode) = context.dataStore.edit { it[KEY_THEME_MODE] = value.value }
     suspend fun setAppFontScale(value: Float) = context.dataStore.edit { it[KEY_APP_FONT_SCALE] = value }
     suspend fun setAutoUpdate(value: Boolean) = context.dataStore.edit { it[KEY_AUTO_UPDATE] = value }
@@ -272,6 +290,15 @@ class UserPreferences @Inject constructor(
     suspend fun setNovelFileNameTemplateSeries(value: String) =
         context.dataStore.edit { it[KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES] = value }
 
+    /**
+     * 记录是否已弹过系统通知权限引导。
+     *
+     * @param value true 表示已引导过，后续不再自动弹窗
+     * @return 操作完成后结束的协程
+     */
+    suspend fun setNotificationPermissionPrompted(value: Boolean) =
+        context.dataStore.edit { it[KEY_NOTIFICATION_PERMISSION_PROMPTED] = value }
+
     private companion object {
         val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
         val KEY_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
@@ -290,6 +317,8 @@ class UserPreferences @Inject constructor(
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         /** 彩色风格开关（默认 false = 纯 M3 单色） */
         val KEY_COLOR_STYLE = booleanPreferencesKey("color_style_enabled")
+        /** 手机端底部导航栏样式（0 = 贴边短栏，1 = 悬浮胶囊） */
+        val KEY_BOTTOM_NAV_BAR_STYLE = intPreferencesKey("bottom_nav_bar_style")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_APP_FONT_SCALE = floatPreferencesKey("app_font_scale")
         val KEY_AUTO_UPDATE = booleanPreferencesKey("auto_update")
@@ -303,6 +332,7 @@ class UserPreferences @Inject constructor(
         val KEY_NOVEL_EXPORT_DIR = stringPreferencesKey("novel_export_dir")
         val KEY_NOVEL_FILE_NAME_TEMPLATE = stringPreferencesKey("novel_file_name_template")
         val KEY_NOVEL_FILE_NAME_TEMPLATE_SERIES = stringPreferencesKey("novel_file_name_template_series")
+        val KEY_NOTIFICATION_PERMISSION_PROMPTED = booleanPreferencesKey("notification_permission_prompted")
         val KEY_CLIPBOARD_LINK_PROMPT = booleanPreferencesKey("clipboard_link_prompt")
         val KEY_SEARCH_SORT = stringPreferencesKey("search_filter_sort")
         val KEY_SEARCH_TARGET = stringPreferencesKey("search_filter_target")

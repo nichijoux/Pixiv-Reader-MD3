@@ -5,8 +5,11 @@ import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -26,6 +29,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pixiv.api.model.Illust
 import com.pixiv.reader.core.network.ugoira.UgoiraLoader
+import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.theme.Spacing
 
 /** 瀑布流封面高度循环（模拟不同纵横比，仅用于无宽高数据时的回退）。 */
@@ -68,7 +72,7 @@ fun IllustWaterfallGrid(
         start = Spacing.md,
         end = Spacing.md,
         top = Spacing.sm,
-        bottom = 96.dp
+        bottom = Spacing.xl + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
     ),
     minColumnWidth: Dp = 160.dp,
     onToggleFavorite: ((Long, Boolean) -> Unit)? = null,

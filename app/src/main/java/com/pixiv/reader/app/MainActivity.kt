@@ -1,22 +1,31 @@
 package com.pixiv.reader.app
 
+import android.Manifest
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -40,12 +50,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.pixiv.api.network.PixivLang
 import com.pixiv.reader.app.navigation.PixivNavGraph
 import com.pixiv.reader.core.common.parse.PixivLinkType
 import com.pixiv.reader.core.common.parse.PixivUrlParser
+import com.pixiv.reader.core.common.config.BottomNavBarStyle
 import com.pixiv.reader.core.common.config.ThemeMode
 import com.pixiv.reader.core.common.config.localeFor
 import com.pixiv.reader.core.common.config.pixivLanguageCode
@@ -58,6 +70,7 @@ import com.pixiv.reader.core.network.favorite.FavoriteActions
 import com.pixiv.reader.core.network.update.AppRelease
 import com.pixiv.reader.core.network.update.AppUpdateChecker
 import com.pixiv.reader.core.network.update.AppUpdateVersion
+import com.pixiv.reader.core.ui.component.feedback.LocalNotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.NotificationHost
 import com.pixiv.reader.core.ui.component.feedback.NotificationHostState
 import com.pixiv.reader.core.ui.component.feedback.NotificationType
@@ -65,6 +78,7 @@ import com.pixiv.reader.core.ui.component.feedback.rememberNotificationHostState
 import com.pixiv.reader.core.ui.component.input.UpdateReleaseDialog
 import com.pixiv.reader.feature.user.R as UserR
 import com.pixiv.reader.core.ui.component.feedback.toNotificationType
+import com.pixiv.reader.core.ui.component.layout.LocalBottomNavBarStyle
 import com.pixiv.reader.core.ui.theme.LocalColorStyleEnabled
 import com.pixiv.reader.core.ui.theme.PixivReaderTheme
 import com.pixiv.reader.app.actions.AppCardActions
@@ -185,6 +199,10 @@ class MainActivity : ComponentActivity() {
             val colorStyleEnabled by userPreferences.colorStyleEnabled.collectAsStateWithLifecycle(
                 initialValue = false
             )
+            // 手机端底部导航栏样式：默认 M3 Expressive 贴边短栏，可在外观设置切至悬浮胶囊
+            val bottomNavBarStyle by userPreferences.bottomNavBarStyle.collectAsStateWithLifecycle(
+                initialValue = BottomNavBarStyle.DOCKED
+            )
             val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
             val isSystemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
@@ -202,17 +220,38 @@ class MainActivity : ComponentActivity() {
             // 启动自动检查到的新版本 Release：非空时弹更新对话框（与「检测更新」按钮一致）
             val updateRelease = remember { mutableStateOf<AppRelease?>(null) }
             val context = LocalContext.current
-            // 全局下载完成通知：观察下载索引状态迁移（downloading→done/failed），
-            // 离开详情页/查看器后仍能收到完成/失败提示（此前依赖 VM 存活监听，页面销毁即丢）
-            LaunchedEffect(Unit) {
-                downloadCompletionNotifier.observe().collect { }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            val hasActiveDownloads by downloadCompletionNotifier.hasActiveDownloads
+                .collectAsStateWithLifecycle()
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { granted ->
+                if (granted) {
+                    downloadCompletionNotifier.refreshNotification()
+                }
             }
-            LaunchedEffect(Unit) {
-                downloadCompletionNotifier.events.collect { msg ->
-                    notificationHostState.show(
-                        context.getString(msg.res, *msg.args.toTypedArray()),
-                        type = msg.type.toNotificationType(),
-                    )
+            // 首次出现活跃下载任务时请求 Android 13+ 系统通知权限（仅引导一次，避免拒后反复弹窗）
+            LaunchedEffect(hasActiveDownloads) {
+                if (hasActiveDownloads && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!granted && !userPreferences.notificationPermissionPrompted.first()) {
+                        userPreferences.setNotificationPermissionPrompted(true)
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            }
+            // 仅前台（STARTED）订阅应用内完成/失败提示流；退后台自动取消订阅，交由系统通知栏提醒
+            LaunchedEffect(lifecycleOwner) {
+                lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    downloadCompletionNotifier.events.collect { msg ->
+                        notificationHostState.show(
+                            context.getString(msg.res, *msg.args.toTypedArray()),
+                            type = msg.type.toNotificationType(),
+                        )
+                    }
                 }
             }
             LaunchedEffect(isOnline) {
@@ -250,7 +289,6 @@ class MainActivity : ComponentActivity() {
             )
             val navController = rememberNavController()
             val lastOpenedClip = remember { mutableStateOf<String?>(null) }
-            val lifecycleOwner = LocalLifecycleOwner.current
             val currentIsLoggedIn by rememberUpdatedState(isLoggedIn)
             val currentClipboardPrompt by rememberUpdatedState(clipboardLinkPrompt)
             DisposableEffect(lifecycleOwner) {
@@ -300,25 +338,15 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isDark,
                 dynamicColor = dynamicColor,
             ) {
-                // 彩色风格通篇下发：开启时各页使用彩色点缀，关闭时组件经 resolveAccent
-                // 统一回退到主题 primary（纯 M3 单色）；包在内容最外层保证全路由可见
-                CompositionLocalProvider(LocalColorStyleEnabled provides colorStyleEnabled) {
+                // 彩色风格与底部导航栏样式通篇下发，全局即时生效；包在内容最外层保证全路由可见
+                CompositionLocalProvider(
+                    LocalColorStyleEnabled provides colorStyleEnabled,
+                    LocalBottomNavBarStyle provides bottomNavBarStyle,
+                ) {
                     // 外层 Scaffold 不 padding（系统栏 insets 由内层 NavigationBar / 各页面自行处理），
                     // 保证 MainShell 底部导航延伸到系统导航栏（沉浸式），阅读器等沉浸页面不受影响。
                     Scaffold(
                         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                        // 外层 Scaffold 不处理系统栏 insets（沉浸式）：剪贴板链接提示等全局通知
-                        // 需自行避让系统导航栏，否则会贴底被手势条遮挡。
-                        // 避让 padding 放 contentModifier（仅卡片展示时占位）：若放宿主根节点，
-                        // 无通知时空宿主也会占非零高度，导致 bottom bar 上方残留空白
-                        snackbarHost = {
-                            NotificationHost(
-                                notificationHostState,
-                                contentModifier = Modifier
-                                    .navigationBarsPadding()
-                                    .padding(bottom = Spacing.sm),
-                            )
-                        },
                     ) { padding ->
                         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                             // hero 过渡 scope 提升到应用根部：内层 Tab 卡片（MainShell 内的 NavHost）
@@ -329,6 +357,7 @@ class MainActivity : ComponentActivity() {
                                 CompositionLocalProvider(
                                     LocalSharedTransitionScope provides this,
                                     LocalFavoriteActions provides favoriteActions,
+                                    LocalNotificationHostState provides notificationHostState,
                                 ) {
                                     // 卡片长按动作全局宿主（稍后再看 / 就地屏蔽）：所有列表卡片自动获得长按能力
                                     CardActionsHost(actions = appCardActions) {
@@ -351,6 +380,19 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                            // 统一应用内通知堆叠宿主：固定右上角并避让状态栏与右侧刘海/挖孔，
+                            // 放在 LocalNotificationHostState 提供域外层以便根宿主接管渲染
+                            NotificationHost(
+                                state = notificationHostState,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .windowInsetsPadding(
+                                        WindowInsets.safeDrawing.only(
+                                            WindowInsetsSides.Top + WindowInsetsSides.End,
+                                        ),
+                                    )
+                                    .padding(top = Spacing.sm, end = Spacing.md),
+                            )
                         }
                     }
                     // 启动自动检查到新版本：弹与「检测更新」按钮一致的更新对话框
@@ -422,7 +464,7 @@ private fun StandardFontSize(fontScale: Float, content: @Composable () -> Unit) 
         if (uri.host == "account" && uri.path == "/login") {
             // OAuth 库的回调判断可能只检查 scheme，先区分登录路径与作品路径。
             if (sessionRepository.isOAuthCallback(uri)) sessionRepository.onOAuthCallback(uri)
-        } else if (uri.host in setOf("illust", "novel", "reader", "user")) {
+        } else if (uri.host in setOf("illust", "novel", "reader", "user", "downloads")) {
             // 只传 URI，避免外部 Intent 的任务标志触发 Navigation 重启 Activity。
             pendingDeepLink = Intent(Intent.ACTION_VIEW, uri)
         }

@@ -33,6 +33,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.core.ktx)
     // SAF 目录访问（下载位置 DocumentFile）
     implementation(libs.androidx.documentfile)
     // WorkManager（删除未完成下载时取消在途后台任务）

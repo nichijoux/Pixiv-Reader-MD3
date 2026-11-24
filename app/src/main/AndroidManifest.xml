@@ -6,8 +6,10 @@
     <!-- 网络状态监听（NetworkMonitor 注册 DefaultNetworkCallback / 查 NetworkCapabilities） -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
-    <!-- Android 13+ 后台下载完成/失败的系统通知 -->
+    <!-- Android 13+ 后台下载进度/完成/失败的系统通知 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 16+ 实况通知（Live Updates）：将下载进度提升至状态栏胶囊与锁屏置顶展示 -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <!-- 会话 token（access/refresh）明文存 MMKV：禁止云备份/ADB 备份，防止 refresh_token 随备份外泄 -->
     <!-- Android 16 起 targetSdk 36+ 默认开启预测性返回：手势中先播「页面缩小」预览、
@@ -47,6 +49,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 下载进度通知动作接收器：处理系统通知栏“取消/全部取消”操作 -->
+        <receiver
+            android:name=".download.DownloadNotificationActionReceiver"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"

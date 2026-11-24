@@ -9,6 +9,23 @@
     <!-- Global download completion notification -->
     <string name="download_complete">Download complete: %1$s</string>
     <string name="download_failed">Download failed: %1$s</string>
+    <!-- System notifications & Android 16 Live Updates -->
+    <string name="download_channel_progress_name">Download progress (Live Updates)</string>
+    <string name="download_channel_progress_desc">Show download progress in the notification shade and status bar pill</string>
+    <string name="download_channel_result_name">Download results</string>
+    <string name="download_channel_result_desc">Notify when background downloads succeed or fail</string>
+    <string name="download_notif_downloading_single">Downloading: %1$s</string>
+    <string name="download_notif_pending_single">Queued: %1$s</string>
+    <string name="download_notif_downloading_multi">Downloading %1$d items</string>
+    <string name="download_notif_pending_multi">%1$d items queued</string>
+    <string name="download_notif_waiting_network">Waiting for network…</string>
+    <string name="download_notif_multi_detail">%1$s · %2$d%%</string>
+    <string name="download_notif_short_pending">Wait</string>
+    <string name="download_notif_action_cancel">Cancel</string>
+    <string name="download_notif_action_cancel_all">Cancel all</string>
+    <string name="download_notif_done_title">Download complete</string>
+    <string name="download_notif_failed_title">Download failed</string>
+    <string name="download_notif_fallback_title">Download task</string>
     <!-- Clipboard pixiv link navigation -->
     <string name="clipboard_link_novel">Detected a Pixiv novel link, tap to open</string>
     <string name="clipboard_link_series">Detected a Pixiv series link, tap to open</string>

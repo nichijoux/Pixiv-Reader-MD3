@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pixiv.api.model.UserPreview
 import com.pixiv.reader.core.ui.component.card.UserAvatar
+import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.Sizes
 import com.pixiv.reader.feature.follow.R
@@ -75,7 +77,10 @@ internal fun FollowUserColumn(
                 .fillMaxSize()
                 // 沉浸式：仅内容让开状态栏，Box 背景 surfaceContainerLow 延伸至状态栏后
                 .statusBarsPadding(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = Spacing.xsPlus),
+            contentPadding = PaddingValues(
+                top = Spacing.xsPlus,
+                bottom = Spacing.xsPlus + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            ),
         ) {
             // 顶部「全部」
             item(key = "all") {

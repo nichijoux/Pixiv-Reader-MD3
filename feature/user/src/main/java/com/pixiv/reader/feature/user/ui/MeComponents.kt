@@ -237,6 +237,7 @@ internal fun MeItemGroup(items: List<SettingsCardItem>) {
  * @param selected 当前选中值
  * @param options 选项列表（值 to 文案资源）
  * @param accent 标题行图标点缀色（[Color.Unspecified] 回退主题 primary）
+ * @param subtitle 标题行副标题（可选，默认空）
  * @param onSelect 选择回调
  * @return 无返回值
  */
@@ -247,9 +248,10 @@ internal fun <T> MeSegmentedRow(
     selected: T,
     options: List<Pair<T, Int>>,
     accent: Color = Color.Unspecified,
+    subtitle: String? = null,
     onSelect: (T) -> Unit,
 ) {
-    MeRow(icon = icon, title = title, accent = accent)
+    MeRow(icon = icon, title = title, subtitle = subtitle, accent = accent)
     PillSegmentedRow(
         options = options,
         selected = selected,

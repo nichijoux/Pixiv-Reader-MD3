@@ -110,6 +110,10 @@
     <string name="me_dynamic_color_desc">Use wallpaper colors on Android 12+</string>
     <string name="me_color_style">Colorful style</string>
     <string name="me_color_style_desc">Use multi-color accents for icons and empty states; turn off for plain Material Design</string>
+    <string name="me_nav_bar_style">Bottom bar style</string>
+    <string name="me_nav_bar_style_desc">Choose docked bar or floating pill (phones only)</string>
+    <string name="me_nav_bar_style_docked">Docked</string>
+    <string name="me_nav_bar_style_floating">Floating pill</string>
     <string name="me_font_scale">Font size</string>
     <string name="me_font_scale_desc">Adjust the text size across the app</string>
     <string name="me_language">Language</string>
@@ -119,6 +123,11 @@
     <string name="me_language_english">English</string>
     <string name="me_auto_update">Auto update</string>
     <string name="me_auto_update_desc">Automatically check for new versions on launch</string>
+    <string name="me_download_notifications">Download notifications</string>
+    <string name="me_download_notif_disabled">Notifications disabled, tap to enable</string>
+    <string name="me_download_notif_live_enabled">Enabled (Android 16 Live Updates ready)</string>
+    <string name="me_download_notif_live_disabled">Standard notifications only, tap to enable Live Updates</string>
+    <string name="me_download_notif_enabled">Enabled (tap to manage channels)</string>
     <string name="me_export_dir">Download location</string>
     <string name="me_export_dir_value">Current: %1$s</string>
     <string name="me_export_dir_default">Downloads/PixivReader</string>

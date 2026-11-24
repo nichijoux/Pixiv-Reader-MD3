@@ -110,6 +110,10 @@
     <string name="me_dynamic_color_desc">Android 12+ 使用桌布取色</string>
     <string name="me_color_style">彩色風格</string>
     <string name="me_color_style_desc">圖示與空狀態使用多彩點綴，關閉則回到 Material Design 單色</string>
+    <string name="me_nav_bar_style">底部導覽列樣式</string>
+    <string name="me_nav_bar_style_desc">切換貼邊短列或懸浮膠囊（僅手機端生效）</string>
+    <string name="me_nav_bar_style_docked">貼邊短列</string>
+    <string name="me_nav_bar_style_floating">懸浮膠囊</string>
     <string name="me_language">語言</string>
     <string name="me_language_follow_system">跟隨系統</string>
     <string name="me_language_chinese">簡體中文</string>
@@ -117,6 +121,11 @@
     <string name="me_language_english">English</string>
     <string name="me_auto_update">自動更新</string>
     <string name="me_auto_update_desc">啟動時自動檢查新版本</string>
+    <string name="me_download_notifications">下載通知</string>
+    <string name="me_download_notif_disabled">通知權限未開啟，點選前往開啟</string>
+    <string name="me_download_notif_live_enabled">已開啟（支援 Android 16 實況膠囊）</string>
+    <string name="me_download_notif_live_disabled">僅標準通知，點選開啟實況膠囊</string>
+    <string name="me_download_notif_enabled">已開啟（點選管理通知頻道）</string>
     <string name="me_export_dir">下載位置</string>
     <string name="me_export_dir_value">當前：%1$s</string>
     <string name="me_export_dir_default">下載/PixivReader</string>

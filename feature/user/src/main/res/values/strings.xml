@@ -110,6 +110,10 @@
     <string name="me_dynamic_color_desc">Android 12+ 使用壁纸取色</string>
     <string name="me_color_style">彩色风格</string>
     <string name="me_color_style_desc">图标与空态使用多彩点缀，关闭则回到 Material Design 单色</string>
+    <string name="me_nav_bar_style">底部导航栏样式</string>
+    <string name="me_nav_bar_style_desc">切换贴边短栏或悬浮胶囊（仅手机端生效）</string>
+    <string name="me_nav_bar_style_docked">贴边短栏</string>
+    <string name="me_nav_bar_style_floating">悬浮胶囊</string>
     <string name="me_font_scale">字号缩放</string>
     <string name="me_font_scale_desc">调整应用内文字显示大小</string>
     <string name="me_language">语言</string>
@@ -119,6 +123,11 @@
     <string name="me_language_english">English</string>
     <string name="me_auto_update">自动更新</string>
     <string name="me_auto_update_desc">启动时自动检查新版本</string>
+    <string name="me_download_notifications">下载通知</string>
+    <string name="me_download_notif_disabled">通知权限未开启，点击前往开启</string>
+    <string name="me_download_notif_live_enabled">已开启（支持 Android 16 实况胶囊）</string>
+    <string name="me_download_notif_live_disabled">仅标准通知，点击开启实况胶囊</string>
+    <string name="me_download_notif_enabled">已开启（点击管理通知渠道）</string>
     <string name="me_export_dir">下载位置</string>
     <string name="me_export_dir_value">当前：%1$s</string>
     <string name="me_export_dir_default">下载/PixivReader</string>

@@ -9,6 +9,23 @@
     <!-- 全局下載完成通知 -->
     <string name="download_complete">下載完成：%1$s</string>
     <string name="download_failed">下載失敗：%1$s</string>
+    <!-- 系統通知與 Android 16 實況通知 -->
+    <string name="download_channel_progress_name">下載進度（實況通知）</string>
+    <string name="download_channel_progress_desc">在通知欄與狀態列膠囊中即時顯示下載進度</string>
+    <string name="download_channel_result_name">下載結果</string>
+    <string name="download_channel_result_desc">在背景下載完成或失敗時傳送提醒</string>
+    <string name="download_notif_downloading_single">正在下載：%1$s</string>
+    <string name="download_notif_pending_single">等待下載：%1$s</string>
+    <string name="download_notif_downloading_multi">正在下載 %1$d 項</string>
+    <string name="download_notif_pending_multi">等待下載 %1$d 項</string>
+    <string name="download_notif_waiting_network">等待網路連線…</string>
+    <string name="download_notif_multi_detail">%1$s · 進度 %2$d%%</string>
+    <string name="download_notif_short_pending">等待中</string>
+    <string name="download_notif_action_cancel">取消</string>
+    <string name="download_notif_action_cancel_all">全部取消</string>
+    <string name="download_notif_done_title">下載完成</string>
+    <string name="download_notif_failed_title">下載失敗</string>
+    <string name="download_notif_fallback_title">下載任務</string>
     <!-- 剪贴板 pixiv 链接跳转 -->
     <string name="clipboard_link_novel">檢測到 Pixiv 小說連結，點選開啟</string>
     <string name="clipboard_link_series">檢測到 Pixiv 系列連結，點選開啟</string>

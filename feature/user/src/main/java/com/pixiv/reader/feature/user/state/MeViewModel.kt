@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import com.pixiv.api.model.User
 import com.pixiv.reader.core.common.UiMessage
+import com.pixiv.reader.core.common.config.BottomNavBarStyle
 import com.pixiv.reader.core.common.config.FollowSortMode
 import com.pixiv.reader.core.common.config.NovelDefaultTab
 import com.pixiv.reader.core.common.format.NovelFileNameTemplate
@@ -117,6 +118,14 @@ class MeViewModel @Inject constructor(
     val colorStyleEnabled: StateFlow<Boolean> =
         userPreferences.colorStyleEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** 手机端底部导航栏样式（贴边短栏 / 悬浮胶囊）。 */
+    val bottomNavBarStyle: StateFlow<BottomNavBarStyle> =
+        userPreferences.bottomNavBarStyle.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            BottomNavBarStyle.DOCKED,
+        )
+
     /** 应用字号缩放（0.8~1.3；MainActivity 覆盖 fontScale 即时生效）。 */
     val appFontScale: StateFlow<Float> =
         userPreferences.appFontScale.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
@@ -194,6 +203,16 @@ class MeViewModel @Inject constructor(
      */
     fun setColorStyleEnabled(value: Boolean) {
         viewModelScope.launch { userPreferences.setColorStyleEnabled(value) }
+    }
+
+    /**
+     * 设置手机端底部导航栏样式（MainActivity 经 CompositionLocal 下发，写入后即时生效）。
+     *
+     * @param value 目标导航栏样式（贴边短栏 / 悬浮胶囊）
+     * @return 无返回值；写入在 [viewModelScope] 协程内异步完成
+     */
+    fun setBottomNavBarStyle(value: BottomNavBarStyle) {
+        viewModelScope.launch { userPreferences.setBottomNavBarStyle(value) }
     }
 
     fun setAppFontScale(value: Float) {

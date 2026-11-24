@@ -47,6 +47,7 @@ import com.pixiv.reader.core.ui.component.feedback.ErrorBox
 import com.pixiv.reader.core.ui.component.feedback.SkeletonBlock
 import com.pixiv.reader.core.ui.component.feedback.skeletonPulseColor
 import com.pixiv.reader.core.ui.component.grid.IllustWaterfallSkeleton
+import com.pixiv.reader.core.ui.component.layout.LocalNavBarBottomPadding
 import com.pixiv.reader.core.ui.component.list.loadMoreFooter
 import com.pixiv.reader.core.ui.theme.Spacing
 import com.pixiv.reader.core.ui.theme.AppShapes
@@ -209,7 +210,7 @@ private fun FollowFeedList(
             start = Spacing.smPlus,
             end = Spacing.smPlus,
             top = Spacing.smPlus,
-            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = Spacing.lg + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {
@@ -296,7 +297,7 @@ private fun FollowFeedGrid(
             start = Spacing.md,
             end = Spacing.md,
             top = Spacing.md,
-            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = Spacing.lg + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalItemSpacing = Spacing.sm,
@@ -342,7 +343,7 @@ private fun FollowFeedListSkeleton() {
             start = Spacing.smPlus,
             end = Spacing.smPlus,
             top = Spacing.smPlus,
-            bottom = Spacing.lg + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = Spacing.lg + LocalNavBarBottomPadding.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.smPlus),
     ) {

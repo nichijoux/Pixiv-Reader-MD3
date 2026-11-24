@@ -12,6 +12,9 @@ object Durations {
     /** 通知自动消失时间（Notification.kt） */
     const val NOTIFICATION_TIMEOUT = 2600L
 
+    /** 带操作按钮的通知自动消失时间（预留点击操作窗口） */
+    const val NOTIFICATION_ACTION_TIMEOUT = 4200L
+
     /** 骨架呼吸脉冲单程时长（Skeleton.kt；Material 加载节奏，比页面切换更缓） */
     const val SKELETON_PULSE_MS = 1000
 }
